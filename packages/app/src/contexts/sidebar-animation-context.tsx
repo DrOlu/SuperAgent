@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useWindowDimensions } from "react-native";
 import {
   useSharedValue,
@@ -78,7 +78,7 @@ export function SidebarAnimationProvider({ children }: { children: ReactNode }) 
     }
   }, [isOpen, translateX, backdropOpacity, windowWidth, isGesturing]);
 
-  const animateToOpen = () => {
+  const animateToOpen = useCallback(() => {
     "worklet";
     translateX.value = withTiming(0, {
       duration: ANIMATION_DURATION,
@@ -88,9 +88,9 @@ export function SidebarAnimationProvider({ children }: { children: ReactNode }) 
       duration: ANIMATION_DURATION,
       easing: ANIMATION_EASING,
     });
-  };
+  }, [translateX, backdropOpacity]);
 
-  const animateToClose = () => {
+  const animateToClose = useCallback(() => {
     "worklet";
     translateX.value = withTiming(-windowWidth, {
       duration: ANIMATION_DURATION,
@@ -100,20 +100,23 @@ export function SidebarAnimationProvider({ children }: { children: ReactNode }) 
       duration: ANIMATION_DURATION,
       easing: ANIMATION_EASING,
     });
-  };
+  }, [translateX, backdropOpacity, windowWidth]);
+
+  const value = useMemo<SidebarAnimationContextValue>(
+    () => ({
+      translateX,
+      backdropOpacity,
+      windowWidth,
+      animateToOpen,
+      animateToClose,
+      isGesturing,
+      closeGestureRef,
+    }),
+    [translateX, backdropOpacity, windowWidth, animateToOpen, animateToClose, isGesturing, closeGestureRef]
+  );
 
   return (
-    <SidebarAnimationContext.Provider
-      value={{
-        translateX,
-        backdropOpacity,
-        windowWidth,
-        animateToOpen,
-        animateToClose,
-        isGesturing,
-        closeGestureRef,
-      }}
-    >
+    <SidebarAnimationContext.Provider value={value}>
       {children}
     </SidebarAnimationContext.Provider>
   );

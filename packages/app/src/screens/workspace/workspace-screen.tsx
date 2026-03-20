@@ -519,6 +519,12 @@ export function WorkspaceScreen({
   workspaceId,
   openIntent,
 }: WorkspaceScreenProps) {
+  const isFocused = useIsFocused();
+
+  if (!isFocused) {
+    return <View style={{ flex: 1 }} />;
+  }
+
   return (
     <ExplorerSidebarAnimationProvider>
       <WorkspaceScreenContent
@@ -539,7 +545,6 @@ function WorkspaceScreenContent({
   const isDarkMode = useColorScheme() === "dark";
   const mainBackgroundColor = isDarkMode ? theme.colors.surface1 : theme.colors.surface0;
   const toast = useToast();
-  const isScreenFocused = useIsFocused();
   const isMobile =
     UnistylesRuntime.breakpoint === "xs" || UnistylesRuntime.breakpoint === "sm";
 
@@ -1773,7 +1778,7 @@ function WorkspaceScreenContent({
     ] as const,
     enabled: Boolean(normalizedServerId && normalizedWorkspaceId),
     priority: 100,
-    isActive: () => isScreenFocused,
+    isActive: () => true,
     handle: handleWorkspaceTabAction,
   });
 
@@ -1794,7 +1799,7 @@ function WorkspaceScreenContent({
     ] as const,
     enabled: Boolean(normalizedServerId && normalizedWorkspaceId),
     priority: 100,
-    isActive: () => isScreenFocused,
+    isActive: () => true,
     handle: handleWorkspacePaneAction,
   });
 

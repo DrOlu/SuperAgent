@@ -252,6 +252,9 @@ function QueryProvider({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
+const rowStyle = { flex: 1, flexDirection: "row" } as const;
+const flexStyle = { flex: 1 } as const;
+
 interface AppContainerProps {
   children: ReactNode;
   selectedAgentId?: string;
@@ -377,11 +380,16 @@ function AppContainer({
     ]
   );
 
+  const containerStyle = useMemo(
+    () => ({ flex: 1 as const, backgroundColor: theme.colors.surface0 }),
+    [theme.colors.surface0]
+  );
+
   const content = (
-    <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }}>
-      <View style={{ flex: 1, flexDirection: "row" }}>
+    <View style={containerStyle}>
+      <View style={rowStyle}>
         {!isMobile && chromeEnabled && <LeftSidebar selectedAgentId={selectedAgentId} />}
-        <View style={{ flex: 1 }}>
+        <View style={flexStyle}>
           {children}
         </View>
       </View>

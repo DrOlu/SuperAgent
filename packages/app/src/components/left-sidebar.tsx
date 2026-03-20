@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef, useSyncExternalStore } from 'react'
+import { memo, useCallback, useMemo, useState, useEffect, useRef, useSyncExternalStore } from 'react'
 import { View, Pressable, Text, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
@@ -39,7 +39,7 @@ interface LeftSidebarProps {
   selectedAgentId?: string
 }
 
-export function LeftSidebar({ selectedAgentId: _selectedAgentId }: LeftSidebarProps) {
+export const LeftSidebar = memo(function LeftSidebar({ selectedAgentId: _selectedAgentId }: LeftSidebarProps) {
   const { theme } = useUnistyles()
   const insets = useSafeAreaInsets()
   const isMobile = UnistylesRuntime.breakpoint === 'xs' || UnistylesRuntime.breakpoint === 'sm'
@@ -207,76 +207,103 @@ export function LeftSidebar({ selectedAgentId: _selectedAgentId }: LeftSidebarPr
   )
 
   // Close gesture (swipe left to close when sidebar is open)
-  const closeGesture = Gesture.Pan()
-    .withRef(closeGestureRef)
-    .enabled(isOpen)
-    // Use manual activation so child views keep touch streams unless we detect
-    // an intentional left-swipe close (mirrors explorer-sidebar pattern).
-    .manualActivation(true)
-    .onTouchesDown((event) => {
-      const touch = event.changedTouches[0]
-      if (!touch) {
-        return
-      }
-      closeTouchStartX.value = touch.absoluteX
-      closeTouchStartY.value = touch.absoluteY
-    })
-    .onTouchesMove((event, stateManager) => {
-      const touch = event.changedTouches[0]
-      if (!touch || event.numberOfTouches !== 1) {
-        stateManager.fail()
-        return
-      }
+  const closeGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .withRef(closeGestureRef)
+        .enabled(isOpen)
+        // Use manual activation so child views keep touch streams unless we detect
+        // an intentional left-swipe close (mirrors explorer-sidebar pattern).
+        .manualActivation(true)
+        .onTouchesDown((event) => {
+          const touch = event.changedTouches[0]
+          if (!touch) {
+            return
+          }
+          closeTouchStartX.value = touch.absoluteX
+          closeTouchStartY.value = touch.absoluteY
+        })
+        .onTouchesMove((event, stateManager) => {
+          const touch = event.changedTouches[0]
+          if (!touch || event.numberOfTouches !== 1) {
+            stateManager.fail()
+            return
+          }
 
-      const deltaX = touch.absoluteX - closeTouchStartX.value
-      const deltaY = touch.absoluteY - closeTouchStartY.value
-      const absDeltaX = Math.abs(deltaX)
-      const absDeltaY = Math.abs(deltaY)
+          const deltaX = touch.absoluteX - closeTouchStartX.value
+          const deltaY = touch.absoluteY - closeTouchStartY.value
+          const absDeltaX = Math.abs(deltaX)
+          const absDeltaY = Math.abs(deltaY)
 
-      // Fail quickly on clear rightward or vertical intent so child views keep control.
-      if (deltaX >= 10) {
-        stateManager.fail()
-        return
-      }
-      if (absDeltaY > 10 && absDeltaY > absDeltaX) {
-        stateManager.fail()
-        return
-      }
+          // Fail quickly on clear rightward or vertical intent so child views keep control.
+          if (deltaX >= 10) {
+            stateManager.fail()
+            return
+          }
+          if (absDeltaY > 10 && absDeltaY > absDeltaX) {
+            stateManager.fail()
+            return
+          }
 
-      // Activate only on intentional leftward movement.
-      if (deltaX <= -15 && absDeltaX > absDeltaY) {
-        stateManager.activate()
-      }
-    })
-    .onStart(() => {
-      isGesturing.value = true
-    })
-    .onUpdate((event) => {
-      if (!isMobile) return
-      // Only allow swiping left (closing)
-      const newTranslateX = Math.min(0, Math.max(-windowWidth, event.translationX))
-      translateX.value = newTranslateX
-      backdropOpacity.value = interpolate(
-        newTranslateX,
-        [-windowWidth, 0],
-        [0, 1],
-        Extrapolation.CLAMP
-      )
-    })
-    .onEnd((event) => {
-      isGesturing.value = false
-      if (!isMobile) return
-      const shouldClose = event.translationX < -windowWidth / 3 || event.velocityX < -500
-      if (shouldClose) {
-        animateToClose()
-        runOnJS(handleClose)()
-      } else {
-        animateToOpen()
-      }
-    })
-    .onFinalize(() => {
-      isGesturing.value = false
-    })
+          // Activate only on intentional leftward movement.
+          if (deltaX <= -15 && absDeltaX > absDeltaY) {
+            stateManager.activate()
+          }
+        })
+        .onStart(() => {
+          isGesturing.value = true
+        })
+        .onUpdate((event) => {
+          if (!isMobile) return
+          // Only allow swiping left (closing)
+          const newTranslateX = Math.min(0, Math.max(-windowWidth, event.translationX))
+          translateX.value = newTranslateX
+          backdropOpacity.value = interpolate(
+            newTranslateX,
+            [-windowWidth, 0],
+            [0, 1],
+            Extrapolation.CLAMP
+          )
+        })
+        .onEnd((event) => {
+          isGesturing.value = false
+          if (!isMobile) return
+          const shouldClose = event.translationX < -windowWidth / 3 || event.velocityX < -500
+          if (shouldClose) {
+            animateToClose()
+            runOnJS(handleClose)()
+          } else {
+            animateToOpen()
+          }
+        })
+        .onFinalize(() => {
+          isGesturing.value = false
+        }),
+    [
+      isOpen,
+      closeGestureRef,
+      closeTouchStartX,
+      closeTouchStartY,
+      isGesturing,
+      isMobile,
+      windowWidth,
+      translateX,
+      backdropOpacity,
+      animateToClose,
+      animateToOpen,
+      handleClose,
+    ]
+  )
+
+  const mobileSidebarInsetStyle = useMemo(
+    () => ({ width: windowWidth, paddingTop: insets.top, paddingBottom: insets.bottom }),
+    [windowWidth, insets.top, insets.bottom]
+  )
+
+  const hostStatusDotStyle = useMemo(
+    () => [styles.hostStatusDot, { backgroundColor: activeHostStatusColor }],
+    [activeHostStatusColor]
+  )
 
   const sidebarAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
@@ -303,7 +330,7 @@ export function LeftSidebar({ selectedAgentId: _selectedAgentId }: LeftSidebarPr
           <Animated.View
             style={[
               styles.mobileSidebar,
-              { width: windowWidth, paddingTop: insets.top, paddingBottom: insets.bottom },
+              mobileSidebarInsetStyle,
               sidebarAnimatedStyle,
             ]}
             pointerEvents="auto"
@@ -502,7 +529,7 @@ export function LeftSidebar({ selectedAgentId: _selectedAgentId }: LeftSidebarPr
             onPress={() => setIsHostPickerOpen(true)}
             disabled={hostOptions.length === 0}
           >
-            <View style={[styles.hostStatusDot, { backgroundColor: activeHostStatusColor }]} />
+            <View style={hostStatusDotStyle} />
             <Text style={styles.hostTriggerText} numberOfLines={1}>
               {activeHostLabel}
             </Text>
@@ -568,7 +595,7 @@ export function LeftSidebar({ selectedAgentId: _selectedAgentId }: LeftSidebarPr
       </View>
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create((theme) => ({
   backdrop: {

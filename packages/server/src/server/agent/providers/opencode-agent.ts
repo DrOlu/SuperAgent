@@ -597,6 +597,42 @@ function stringifyStructuredAssistantMessage(value: unknown): string | null {
   }
 }
 
+function readOpenCodeRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function normalizeQuestionOptions(
+  value: unknown,
+): Array<{ label: string; description?: string }> | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const options: Array<{ label: string; description?: string }> = [];
+  for (const item of value) {
+    if (typeof item === "string" && item.trim().length > 0) {
+      options.push({ label: item.trim() });
+      continue;
+    }
+
+    const record = readOpenCodeRecord(item);
+    const label = readNonEmptyString(record?.label);
+    if (!label) {
+      continue;
+    }
+    const description = readNonEmptyString(record?.description);
+    options.push(description ? { label, description } : { label });
+  }
+
+  return options;
+}
+
 export function translateOpenCodeEvent(
   event: unknown,
   state: OpenCodeEventTranslationState,
@@ -781,6 +817,60 @@ export function translateOpenCodeEvent(
         type: "permission_requested",
         provider: "opencode",
         request: permRequest,
+      });
+      break;
+    }
+
+    case "question.asked": {
+      const sessionId = props.sessionID as string | undefined;
+      if (sessionId !== state.sessionId) {
+        break;
+      }
+
+      const requestId = props.id as string | undefined;
+      const rawQuestions = Array.isArray(props.questions) ? props.questions : [];
+      if (!requestId || rawQuestions.length === 0) {
+        break;
+      }
+
+      const questions = rawQuestions.flatMap((item) => {
+        const questionRecord = readOpenCodeRecord(item);
+        const question = readNonEmptyString(questionRecord?.question);
+        const header = readNonEmptyString(questionRecord?.header);
+        if (!question || !header) {
+          return [];
+        }
+
+        const options = normalizeQuestionOptions(questionRecord?.options) ?? [];
+        return [
+          {
+            question,
+            header,
+            options,
+            ...(questionRecord?.multiple === true ? { multiSelect: true } : {}),
+          },
+        ];
+      });
+
+      if (questions.length === 0) {
+        break;
+      }
+
+      events.push({
+        type: "permission_requested",
+        provider: "opencode",
+        request: {
+          id: requestId,
+          provider: "opencode",
+          name: "question",
+          kind: "question",
+          title: "Question",
+          input: { questions },
+          metadata: {
+            source: "opencode_question",
+            ...(readOpenCodeRecord(props.tool) ?? {}),
+          },
+        },
       });
       break;
     }
@@ -1194,6 +1284,38 @@ class OpenCodeAgentSession implements AgentSession {
     const pending = this.pendingPermissions.get(requestId);
     if (!pending) {
       throw new Error(`No pending permission request with id '${requestId}'`);
+    }
+
+    if (pending.kind === "question") {
+      if (response.behavior === "deny") {
+        await this.client.question.reject({
+          requestID: requestId,
+          directory: this.config.cwd,
+        });
+      } else {
+        const answersRecord = readOpenCodeRecord(response.updatedInput?.answers);
+        const questions = Array.isArray(pending.input?.questions) ? pending.input.questions : [];
+        const answers = questions.map((item) => {
+          const header = readNonEmptyString(readOpenCodeRecord(item)?.header);
+          const rawAnswer = header ? readNonEmptyString(answersRecord?.[header]) : null;
+          if (!rawAnswer) {
+            return [];
+          }
+          return rawAnswer
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter((entry) => entry.length > 0);
+        });
+
+        await this.client.question.reply({
+          requestID: requestId,
+          directory: this.config.cwd,
+          answers,
+        });
+      }
+
+      this.pendingPermissions.delete(requestId);
+      return;
     }
 
     const reply = response.behavior === "allow" ? "once" : "reject";

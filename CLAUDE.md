@@ -35,6 +35,8 @@ npm run dev                          # Start daemon + Expo in Tmux
 npm run cli -- ls -a -g              # List all agents
 npm run cli -- daemon status         # Check daemon status
 npm run typecheck                    # Always run after changes
+npm run db:query                     # Show DB table row counts
+npm run db:query -- "SELECT ..."     # Run arbitrary SQL against SQLite
 ```
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for full setup, build sync requirements, and debugging.

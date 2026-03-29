@@ -785,6 +785,7 @@ export class LoopService {
       model: loop.workerModel ?? loop.model ?? undefined,
       title: buildWorkerTitle(loop, iteration.index),
       internal: true,
+      terminal: false,
     };
   }
 
@@ -795,6 +796,7 @@ export class LoopService {
       model: loop.verifierModel ?? loop.model ?? undefined,
       title: buildVerifierTitle(loop, iteration.index),
       internal: true,
+      terminal: false,
     };
   }
 

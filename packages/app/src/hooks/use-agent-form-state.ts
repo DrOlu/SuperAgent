@@ -66,7 +66,7 @@ type UseAgentFormStateOptions = {
   onlineServerIds?: string[];
 };
 
-type UseAgentFormStateResult = {
+export type UseAgentFormStateResult = {
   selectedServerId: string | null;
   setSelectedServerId: (value: string | null) => void;
   setSelectedServerIdFromUser: (value: string | null) => void;

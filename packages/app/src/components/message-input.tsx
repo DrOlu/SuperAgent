@@ -53,6 +53,7 @@ export interface MessageInputProps {
   value: string;
   onChangeText: (text: string) => void;
   onSubmit: (payload: MessagePayload) => void;
+  allowEmptySubmit?: boolean;
   isSubmitDisabled?: boolean;
   isSubmitLoading?: boolean;
   images?: ImageAttachment[];
@@ -178,6 +179,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
     value,
     onChangeText,
     onSubmit,
+    allowEmptySubmit = false,
     isSubmitDisabled = false,
     isSubmitLoading = false,
     images = [],
@@ -851,7 +853,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
   }
 
   const hasImages = images.length > 0;
-  const hasSendableContent = value.trim().length > 0 || hasImages;
+  const hasSendableContent = value.trim().length > 0 || hasImages || allowEmptySubmit;
   const shouldShowSendButton = hasSendableContent || isSubmitLoading;
   const canPressLoadingButton = isSubmitLoading && typeof onSubmitLoadingPress === "function";
   const isSendButtonDisabled =

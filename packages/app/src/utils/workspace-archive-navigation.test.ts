@@ -25,7 +25,7 @@ function workspace(
 describe("resolveWorkspaceArchiveRedirectWorkspaceId", () => {
   it("redirects an archived worktree to the visible local checkout for the same project", () => {
     const workspaces = [
-      workspace({ id: "/repo", workspaceKind: "local_checkout", name: "main" }),
+      workspace({ id: "/repo", workspaceKind: "checkout", name: "main" }),
       workspace({ id: "/repo/.paseo/worktrees/feature", name: "feature" }),
     ];
 
@@ -60,8 +60,8 @@ describe("resolveWorkspaceArchiveRedirectWorkspaceId", () => {
         id: "/notes",
         projectId: "notes",
         projectRootPath: "/notes",
-        projectKind: "non_git",
-        workspaceKind: "directory",
+        projectKind: "directory",
+        workspaceKind: "checkout",
       }),
     ];
 

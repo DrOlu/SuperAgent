@@ -39,7 +39,7 @@ function useTerminalPanelDescriptor(
     terminalsQuery.data?.terminals.find((entry) => entry.id === target.terminalId) ?? null;
 
   return {
-    label: trimNonEmpty(terminal?.name ?? null) ?? "Terminal",
+    label: trimNonEmpty(terminal?.title ?? terminal?.name ?? null) ?? "Terminal",
     subtitle: "Terminal",
     titleState: "ready",
     icon: Terminal,

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { Logger } from "pino";
 import { AgentManager } from "../agent/agent-manager.js";
 import type { ManagedAgent } from "../agent/agent-manager.js";
-import { AgentStorage } from "../agent/agent-storage.js";
+import type { AgentSnapshotStore } from "../agent/agent-snapshot-store.js";
 import type {
   AgentPromptInput,
   AgentSessionConfig,
@@ -97,7 +97,7 @@ export interface ScheduleServiceOptions {
   paseoHome: string;
   logger: Logger;
   agentManager: AgentManager;
-  agentStorage: AgentStorage;
+  agentStorage: AgentSnapshotStore;
   now?: () => Date;
   runner?: (schedule: StoredSchedule) => Promise<ScheduleExecutionResult>;
 }
@@ -106,7 +106,7 @@ export class ScheduleService {
   private readonly store: ScheduleStore;
   private readonly logger: Logger;
   private readonly agentManager: AgentManager;
-  private readonly agentStorage: AgentStorage;
+  private readonly agentStorage: AgentSnapshotStore;
   private readonly now: () => Date;
   private readonly runner: (schedule: StoredSchedule) => Promise<ScheduleExecutionResult>;
   private readonly runningScheduleIds = new Set<string>();
@@ -368,6 +368,9 @@ export class ScheduleService {
   private async executeSchedule(schedule: StoredSchedule): Promise<ScheduleExecutionResult> {
     if (schedule.target.type === "agent") {
       const agent = await this.ensureAgentLoaded(schedule.target.agentId);
+      if (agent.terminal) {
+        throw new Error(`Agent ${agent.id} is a terminal agent and cannot be targeted by schedules`);
+      }
       if (this.agentManager.hasInFlightRun(agent.id)) {
         throw new Error(`Agent ${agent.id} already has an active run`);
       }
@@ -398,6 +401,7 @@ export class ScheduleService {
       extra: schedule.target.config.extra,
       systemPrompt: schedule.target.config.systemPrompt,
       mcpServers: schedule.target.config.mcpServers as AgentSessionConfig["mcpServers"],
+      terminal: false,
     };
     const labels = {
       "paseo.schedule-id": schedule.id,

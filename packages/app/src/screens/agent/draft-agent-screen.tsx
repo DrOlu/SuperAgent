@@ -11,15 +11,14 @@ import Animated from "react-native-reanimated";
 import { Folder, GitBranch, PanelRight } from "lucide-react-native";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
-import { AgentInputArea } from "@/components/agent-input-area";
+import { Composer } from "@/components/composer";
 import { AgentStreamView } from "@/components/agent-stream-view";
 import { FormSelectTrigger } from "@/components/agent-form/agent-form-dropdowns";
 import { ExplorerSidebar } from "@/components/explorer-sidebar";
 import { Combobox } from "@/components/ui/combobox";
 import { FileDropZone } from "@/components/file-drop-zone";
 import { useQuery } from "@tanstack/react-query";
-import { useAgentFormState, type CreateAgentInitialValues } from "@/hooks/use-agent-form-state";
-import type { DraftCommandConfig } from "@/hooks/use-agent-commands-query";
+import type { CreateAgentInitialValues } from "@/hooks/use-agent-form-state";
 import {
   CHECKOUT_STATUS_STALE_TIME,
   checkoutStatusQueryKey,
@@ -65,6 +64,7 @@ const DRAFT_CAPABILITIES: AgentCapabilityFlags = {
   supportsMcpServers: false,
   supportsReasoningStream: false,
   supportsToolInvocations: false,
+  supportsTerminalMode: false,
 };
 const PROVIDER_DEFINITION_MAP = new Map(
   AGENT_PROVIDER_DEFINITIONS.map((definition) => [definition.id, definition]),
@@ -202,37 +202,45 @@ function DraftAgentScreenContent({
     return values;
   }, [resolvedMode, resolvedModel, resolvedProvider, resolvedThinkingOptionId, resolvedWorkingDir]);
 
+  const draftIdRef = useRef(generateDraftId());
+  const draftAgentIdRef = useRef(generateDraftId());
+  const draftInput = useAgentInputDraft(
+    {
+      draftKey: ({ selectedServerId }) =>
+        buildDraftStoreKey({
+          serverId: selectedServerId ?? "",
+          agentId: draftAgentIdRef.current,
+          draftId: draftIdRef.current,
+        }),
+      composer: {
+        initialServerId: resolvedServerId ?? null,
+        initialValues,
+        isVisible,
+        onlineServerIds,
+      },
+    },
+  );
+  const composerState = draftInput.composerState;
+  if (!composerState) {
+    throw new Error("Draft agent composer state is required");
+  }
+
   const {
     selectedServerId,
     setSelectedServerIdFromUser,
-    selectedProvider,
-    setProviderFromUser,
-    selectedMode,
-    setModeFromUser,
-    selectedModel,
-    setModelFromUser,
-    selectedThinkingOptionId,
-    setThinkingOptionFromUser,
+    providerDefinitions,
     workingDir,
     setWorkingDirFromUser,
-    providerDefinitions,
     modeOptions,
-    availableModels,
-    allProviderModels,
-    isAllModelsLoading,
-    availableThinkingOptions,
     isModelLoading,
     modelError,
     refreshProviderModels,
-    setProviderAndModelFromUser,
     persistFormPreferences,
-  } = useAgentFormState({
-    initialServerId: resolvedServerId ?? null,
-    initialValues,
-    isVisible,
-    isCreateFlow: true,
-    onlineServerIds,
-  });
+    effectiveModelId,
+    effectiveThinkingOptionId,
+    commandDraftConfig,
+    statusControls,
+  } = composerState;
   const isMobile = UnistylesRuntime.breakpoint === "xs" || UnistylesRuntime.breakpoint === "sm";
   const mobileView = usePanelStore((state) => state.mobileView);
   const desktopFileExplorerOpen = usePanelStore((state) => state.desktop.fileExplorerOpen);
@@ -245,15 +253,6 @@ function DraftAgentScreenContent({
   );
   const dragHandlers = useDesktopDragHandlers();
   const isExplorerOpen = isMobile ? mobileView === "file-explorer" : desktopFileExplorerOpen;
-  const draftIdRef = useRef(generateDraftId());
-  const draftAgentIdRef = useRef(generateDraftId());
-  const draftInput = useAgentInputDraft(
-    buildDraftStoreKey({
-      serverId: selectedServerId ?? "",
-      agentId: draftAgentIdRef.current,
-      draftId: draftIdRef.current,
-    }),
-  );
 
   const [worktreeMode, setWorktreeMode] = useState<"none" | "create" | "attach">(
     initialWorktreeMode,
@@ -744,47 +743,6 @@ function DraftAgentScreenContent({
   }, [baseBranch, branchSearchQuery, branchSuggestionsQuery.data, checkout, worktreeOptions]);
 
   const createAgentClient = sessionClient;
-  const effectiveDraftModelId = useMemo(() => {
-    if (selectedModel.trim()) {
-      return selectedModel.trim();
-    }
-    return availableModels.find((model) => model.isDefault)?.id ?? availableModels[0]?.id ?? "";
-  }, [availableModels, selectedModel]);
-  const effectiveDraftThinkingOptionId = useMemo(() => {
-    if (selectedThinkingOptionId.trim()) {
-      return selectedThinkingOptionId.trim();
-    }
-    const selectedModelDefinition =
-      availableModels.find((model) => model.id === effectiveDraftModelId) ?? null;
-    return selectedModelDefinition?.defaultThinkingOptionId ?? "";
-  }, [availableModels, effectiveDraftModelId, selectedThinkingOptionId]);
-  const draftCommandConfig = useMemo<DraftCommandConfig | undefined>(() => {
-    const cwd = (
-      isAttachWorktree && selectedWorktreePath ? selectedWorktreePath : workingDir
-    ).trim();
-    if (!cwd) {
-      return undefined;
-    }
-
-    return {
-      provider: selectedProvider,
-      cwd,
-      ...(modeOptions.length > 0 && selectedMode !== "" ? { modeId: selectedMode } : {}),
-      ...(effectiveDraftModelId ? { model: effectiveDraftModelId } : {}),
-      ...(effectiveDraftThinkingOptionId
-        ? { thinkingOptionId: effectiveDraftThinkingOptionId }
-        : {}),
-    };
-  }, [
-    effectiveDraftModelId,
-    effectiveDraftThinkingOptionId,
-    isAttachWorktree,
-    modeOptions.length,
-    selectedMode,
-    selectedProvider,
-    selectedWorktreePath,
-    workingDir,
-  ]);
 
   const {
     formErrorMessage,
@@ -818,7 +776,7 @@ function DraftAgentScreenContent({
       if (isModelLoading) {
         return "Model defaults are still loading";
       }
-      if (!effectiveDraftModelId) {
+      if (!effectiveModelId) {
         return "No model is available for the selected provider";
       }
       if (isAttachWorktree && !selectedWorktreePath) {
@@ -851,15 +809,19 @@ function DraftAgentScreenContent({
       const cwd =
         (isAttachWorktree && selectedWorktreePath ? selectedWorktreePath : workingDir).trim() ||
         ".";
-      const provider = selectedProvider;
-      const model = effectiveDraftModelId || null;
-      const thinkingOptionId = effectiveDraftThinkingOptionId || null;
-      const modeId = modeOptions.length > 0 && selectedMode !== "" ? selectedMode : null;
+      const provider = composerState.selectedProvider;
+      const model = effectiveModelId || null;
+      const thinkingOptionId = effectiveThinkingOptionId || null;
+      const modeId =
+        composerState.modeOptions.length > 0 && composerState.selectedMode !== ""
+          ? composerState.selectedMode
+          : null;
 
       return {
         serverId,
         id: draftAgentIdRef.current,
         provider,
+        terminal: false,
         status: "running",
         createdAt: now,
         updatedAt: now,
@@ -888,14 +850,17 @@ function DraftAgentScreenContent({
       const resolvedWorkingDir =
         isAttachWorktree && selectedWorktreePath ? selectedWorktreePath : trimmedPath;
 
-      const modeId = modeOptions.length > 0 && selectedMode !== "" ? selectedMode : undefined;
+      const modeId =
+        composerState.modeOptions.length > 0 && composerState.selectedMode !== ""
+          ? composerState.selectedMode
+          : undefined;
       const config: AgentSessionConfig = {
-        provider: selectedProvider,
+        provider: composerState.selectedProvider,
         cwd: resolvedWorkingDir,
         ...(modeId ? { modeId } : {}),
-        ...(effectiveDraftModelId ? { model: effectiveDraftModelId } : {}),
-        ...(effectiveDraftThinkingOptionId
-          ? { thinkingOptionId: effectiveDraftThinkingOptionId }
+        ...(effectiveModelId ? { model: effectiveModelId } : {}),
+        ...(effectiveThinkingOptionId
+          ? { thinkingOptionId: effectiveThinkingOptionId }
           : {}),
       };
 
@@ -1216,7 +1181,7 @@ function DraftAgentScreenContent({
             )}
           </Animated.View>
           <View style={styles.inputAreaWrapper}>
-            <AgentInputArea
+            <Composer
               agentId={draftAgentIdRef.current}
               serverId={selectedServerId ?? ""}
               isInputActive={isFocused}
@@ -1230,24 +1195,9 @@ function DraftAgentScreenContent({
               clearDraft={draftInput.clear}
               autoFocus={!isSubmitting}
               onAddImages={handleAddImagesCallback}
-              commandDraftConfig={draftCommandConfig}
+              commandDraftConfig={commandDraftConfig}
               statusControls={{
-                providerDefinitions,
-                selectedProvider,
-                onSelectProvider: setProviderFromUser,
-                modeOptions,
-                selectedMode,
-                onSelectMode: setModeFromUser,
-                models: availableModels,
-                selectedModel,
-                onSelectModel: setModelFromUser,
-                isModelLoading,
-                allProviderModels,
-                isAllModelsLoading,
-                onSelectProviderAndModel: setProviderAndModelFromUser,
-                thinkingOptions: availableThinkingOptions,
-                selectedThinkingOptionId,
-                onSelectThinkingOption: setThinkingOptionFromUser,
+                ...statusControls,
                 disabled: isSubmitting,
               }}
             />

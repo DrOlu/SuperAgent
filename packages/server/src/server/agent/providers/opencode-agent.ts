@@ -28,11 +28,13 @@ import type {
   ListPersistedAgentsOptions,
   McpServerConfig,
   PersistedAgentDescriptor,
+  TerminalCommand,
 } from "../agent-sdk-types.js";
 import {
   applyProviderEnv,
   findExecutable,
   resolveProviderCommandPrefix,
+  sanitizeTerminalEnv,
   type ProviderRuntimeSettings,
 } from "../provider-launch-config.js";
 import { mapOpencodeToolCall } from "./opencode/tool-call-mapper.js";
@@ -44,6 +46,7 @@ const OPENCODE_CAPABILITIES: AgentCapabilityFlags = {
   supportsMcpServers: true,
   supportsReasoningStream: true,
   supportsToolInvocations: true,
+  supportsTerminalMode: true,
 };
 
 const DEFAULT_MODES: AgentMode[] = [
@@ -556,6 +559,53 @@ export class OpenCodeAgentClient implements AgentClient {
   ): Promise<PersistedAgentDescriptor[]> {
     // TODO: Implement by listing sessions from OpenCode
     return [];
+  }
+
+  buildTerminalCreateCommand(
+    config: AgentSessionConfig,
+    handle: AgentPersistenceHandle,
+    initialPrompt?: string,
+  ): TerminalCommand {
+    const launchPrefix = resolveProviderCommandPrefix(
+      this.runtimeSettings?.command,
+      resolveOpenCodeBinary,
+    );
+    const terminalEnv = sanitizeTerminalEnv(
+      applyProviderEnv(process.env as Record<string, string | undefined>, this.runtimeSettings),
+    );
+    const args = [...launchPrefix.args, "--session", handle.nativeHandle ?? handle.sessionId];
+    if (config.cwd) {
+      args.push(config.cwd);
+    }
+    if (config.model) {
+      args.push("--model", config.model);
+    }
+    if (config.modeId) {
+      args.push("--agent", config.modeId);
+    }
+    if (initialPrompt?.trim()) {
+      args.push(initialPrompt.trim());
+    }
+    return {
+      command: launchPrefix.command,
+      args,
+      env: terminalEnv,
+    };
+  }
+
+  buildTerminalResumeCommand(handle: AgentPersistenceHandle): TerminalCommand {
+    const launchPrefix = resolveProviderCommandPrefix(
+      this.runtimeSettings?.command,
+      resolveOpenCodeBinary,
+    );
+    const terminalEnv = sanitizeTerminalEnv(
+      applyProviderEnv(process.env as Record<string, string | undefined>, this.runtimeSettings),
+    );
+    return {
+      command: launchPrefix.command,
+      args: [...launchPrefix.args, "--session", handle.nativeHandle ?? handle.sessionId],
+      env: terminalEnv,
+    };
   }
 
   async isAvailable(): Promise<boolean> {

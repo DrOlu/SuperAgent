@@ -90,7 +90,6 @@ import {
 } from "@/screens/workspace/workspace-header-source";
 import {
   deriveWorkspaceAgentVisibility,
-  shouldPruneWorkspaceAgentTab,
   workspaceAgentVisibilityEqual,
 } from "@/screens/workspace/workspace-agent-visibility";
 import { deriveWorkspacePaneState } from "@/screens/workspace/workspace-pane-state";
@@ -107,11 +106,7 @@ import {
 import { findAdjacentPane } from "@/utils/split-navigation";
 
 const TERMINALS_QUERY_STALE_TIME = 5_000;
-const NEW_TAB_AGENT_OPTION_ID = "__new_tab_agent__";
-const NEW_TAB_TERMINAL_OPTION_ID = "__new_tab_terminal__";
-type NewTabOptionId = typeof NEW_TAB_AGENT_OPTION_ID | typeof NEW_TAB_TERMINAL_OPTION_ID;
 const EMPTY_UI_TABS: WorkspaceTab[] = [];
-const EMPTY_PINNED_AGENT_IDS = new Set<string>();
 const EMPTY_SET = new Set<string>();
 
 type WorkspaceScreenProps = {
@@ -136,6 +131,9 @@ function decodeSegment(value: string): string {
 }
 
 function getFallbackTabOptionLabel(tab: WorkspaceTabDescriptor): string {
+  if (tab.target.kind === "launcher") {
+    return "New Tab";
+  }
   if (tab.target.kind === "draft") {
     return "New Agent";
   }
@@ -149,6 +147,9 @@ function getFallbackTabOptionLabel(tab: WorkspaceTabDescriptor): string {
 }
 
 function getFallbackTabOptionDescription(tab: WorkspaceTabDescriptor): string {
+  if (tab.target.kind === "launcher") {
+    return "New Tab";
+  }
   if (tab.target.kind === "draft") {
     return "New Agent";
   }
@@ -798,10 +799,13 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
     [workspaceLayout],
   );
   const openWorkspaceTab = useWorkspaceLayoutStore((state) => state.openTab);
+  const openWorkspaceLauncherTab = useWorkspaceLayoutStore((state) => state.openLauncherTab);
   const focusWorkspaceTab = useWorkspaceLayoutStore((state) => state.focusTab);
   const closeWorkspaceTab = useWorkspaceLayoutStore((state) => state.closeTab);
-  const unpinWorkspaceAgent = useWorkspaceLayoutStore((state) => state.unpinAgent);
   const retargetWorkspaceTab = useWorkspaceLayoutStore((state) => state.retargetTab);
+  const convertWorkspaceDraftToAgent = useWorkspaceLayoutStore((state) => state.convertDraftToAgent);
+  const reconcileWorkspaceTabs = useWorkspaceLayoutStore((state) => state.reconcileTabs);
+  const unpinWorkspaceAgent = useWorkspaceLayoutStore((state) => state.unpinAgent);
   const splitWorkspacePane = useWorkspaceLayoutStore((state) => state.splitPane);
   const splitWorkspacePaneEmpty = useWorkspaceLayoutStore((state) => state.splitPaneEmpty);
   const moveWorkspaceTabToPane = useWorkspaceLayoutStore((state) => state.moveTabToPane);
@@ -809,11 +813,6 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
   const paneFocusSuppressedRef = useRef(false);
   const resizeWorkspaceSplit = useWorkspaceLayoutStore((state) => state.resizeSplit);
   const reorderWorkspaceTabsInPane = useWorkspaceLayoutStore((state) => state.reorderTabsInPane);
-  const pinnedAgentIds = useWorkspaceLayoutStore((state) =>
-    persistenceKey
-      ? (state.pinnedAgentIdsByWorkspace[persistenceKey] ?? EMPTY_PINNED_AGENT_IDS)
-      : EMPTY_PINNED_AGENT_IDS,
-  );
   const pendingByDraftId = useCreateFlowStore((state) => state.pendingByDraftId);
   const { closingTabIds, closeTab } = useCloseTabs();
   const closeWorkspaceTabWithCleanup = useCallback(
@@ -917,7 +916,6 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       return;
     }
 
-    const terminalIds = new Set(terminals.map((terminal) => terminal.id));
     const hasActivePendingDraftCreateInWorkspace = uiTabs.some((tab) => {
       if (tab.target.kind !== "draft") {
         return false;
@@ -926,57 +924,19 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       return pending?.serverId === normalizedServerId && pending.lifecycle === "active";
     });
 
-    for (const agentId of workspaceAgentVisibility.activeAgentIds) {
-      const representedByTarget = uiTabs.some(
-        (tab) => tab.target.kind === "agent" && tab.target.agentId === agentId,
-      );
-      const representedByDeterministicTabId = uiTabs.some(
-        (tab) => tab.tabId === `agent_${agentId}`,
-      );
-      if (
-        hasActivePendingDraftCreateInWorkspace &&
-        !representedByTarget &&
-        !representedByDeterministicTabId
-      ) {
-        continue;
-      }
-      ensureWorkspaceTab({ kind: "agent", agentId });
-    }
-    for (const terminal of terminals) {
-      ensureWorkspaceTab({ kind: "terminal", terminalId: terminal.id });
-    }
-
-    const canPruneAgentTabs = hasHydratedAgents;
-    const canPruneTerminalTabs = terminalsQuery.isSuccess;
-    for (const tab of uiTabs) {
-      if (
-        canPruneAgentTabs &&
-        tab.target.kind === "agent" &&
-        !pinnedAgentIds.has(tab.target.agentId) &&
-        shouldPruneWorkspaceAgentTab({
-          agentId: tab.target.agentId,
-          agentsHydrated: hasHydratedAgents,
-          knownAgentIds: workspaceAgentVisibility.knownAgentIds,
-          activeAgentIds: workspaceAgentVisibility.activeAgentIds,
-        })
-      ) {
-        closeWorkspaceTabWithCleanup({ tabId: tab.tabId, target: tab.target });
-      }
-      if (
-        canPruneTerminalTabs &&
-        tab.target.kind === "terminal" &&
-        !terminalIds.has(tab.target.terminalId)
-      ) {
-        closeWorkspaceTabWithCleanup({ tabId: tab.tabId, target: tab.target });
-      }
-    }
+    reconcileWorkspaceTabs(persistenceKey, {
+      agentsHydrated: hasHydratedAgents,
+      terminalsHydrated: terminalsQuery.isSuccess,
+      activeAgentIds: workspaceAgentVisibility.activeAgentIds,
+      knownAgentIds: workspaceAgentVisibility.knownAgentIds,
+      standaloneTerminalIds: terminals.map((terminal) => terminal.id),
+      hasActivePendingDraftCreate: hasActivePendingDraftCreateInWorkspace,
+    });
   }, [
-    closeWorkspaceTabWithCleanup,
-    ensureWorkspaceTab,
     hasHydratedAgents,
     pendingByDraftId,
-    pinnedAgentIds,
     persistenceKey,
+    reconcileWorkspaceTabs,
     terminals,
     terminalsQuery.isSuccess,
     uiTabs,
@@ -985,13 +945,6 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
 
   const activeTabId = focusedPaneTabState.activeTabId;
   const activeTab = focusedPaneTabState.activeTab;
-
-  useEffect(() => {
-    if (!activeTabId || !persistenceKey) {
-      return;
-    }
-    focusWorkspaceTab(persistenceKey, activeTabId);
-  }, [activeTabId, focusWorkspaceTab, persistenceKey]);
 
   const tabs = useMemo<WorkspaceTabDescriptor[]>(
     () => focusedPaneTabState.tabs.map((tab) => tab.descriptor),
@@ -1104,6 +1057,25 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
     openWorkspaceDraftTab();
   }, [openWorkspaceDraftTab]);
 
+  const handleCreateLauncherTab = useCallback(
+    (input?: { paneId?: string }) => {
+      if (!persistenceKey) {
+        return null;
+      }
+
+      if (input?.paneId) {
+        focusWorkspacePane(persistenceKey, input.paneId);
+      }
+
+      const tabId = openWorkspaceLauncherTab(persistenceKey);
+      if (tabId) {
+        focusWorkspaceTab(persistenceKey, tabId);
+      }
+      return tabId;
+    },
+    [focusWorkspacePane, focusWorkspaceTab, openWorkspaceLauncherTab, persistenceKey],
+  );
+
   const handleCreateTerminal = useCallback(
     (input?: { paneId?: string }) => {
       if (createTerminalMutation.isPending) {
@@ -1124,21 +1096,7 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
     [navigateToTabId],
   );
 
-  const handleSelectNewTabOption = useCallback(
-    (selection: { optionId: NewTabOptionId; paneId?: string }) => {
-      if (selection.paneId && persistenceKey) {
-        focusWorkspacePane(persistenceKey, selection.paneId);
-      }
-      if (selection.optionId === NEW_TAB_AGENT_OPTION_ID) {
-        handleCreateDraftTab();
-      } else if (selection.optionId === NEW_TAB_TERMINAL_OPTION_ID) {
-        handleCreateTerminal({ paneId: selection.paneId });
-      }
-    },
-    [focusWorkspacePane, handleCreateDraftTab, handleCreateTerminal, persistenceKey],
-  );
-
-  const handleCreateDraftSplit = useCallback(
+  const handleCreateLauncherSplit = useCallback(
     (input: { targetPaneId: string; position: "left" | "right" | "top" | "bottom" }) => {
       if (!persistenceKey) {
         return;
@@ -1149,10 +1107,9 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
         return;
       }
 
-      focusWorkspacePane(persistenceKey, paneId);
-      openWorkspaceDraftTab();
+      handleCreateLauncherTab({ paneId });
     },
-    [focusWorkspacePane, openWorkspaceDraftTab, persistenceKey, splitWorkspacePaneEmpty],
+    [handleCreateLauncherTab, persistenceKey, splitWorkspacePaneEmpty],
   );
 
   const killTerminalAsync = killTerminalMutation.mutateAsync;
@@ -1267,29 +1224,6 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
     [allTabDescriptorsById, handleCloseAgentTab, handleCloseDraftOrFileTab, handleCloseTerminalTab],
   );
 
-  const prevCloseTabDeps = useRef({
-    allTabDescriptorsById,
-    handleCloseAgentTab,
-    handleCloseDraftOrFileTab,
-    handleCloseTerminalTab,
-  });
-  useEffect(() => {
-    const prev = prevCloseTabDeps.current;
-    const changed: string[] = [];
-    if (prev.allTabDescriptorsById !== allTabDescriptorsById) changed.push("allTabDescriptorsById");
-    if (prev.handleCloseAgentTab !== handleCloseAgentTab) changed.push("handleCloseAgentTab");
-    if (prev.handleCloseDraftOrFileTab !== handleCloseDraftOrFileTab)
-      changed.push("handleCloseDraftOrFileTab");
-    if (prev.handleCloseTerminalTab !== handleCloseTerminalTab)
-      changed.push("handleCloseTerminalTab");
-    if (changed.length > 0) console.log("[handleCloseTabById] deps changed:", changed.join(", "));
-    prevCloseTabDeps.current = {
-      allTabDescriptorsById,
-      handleCloseAgentTab,
-      handleCloseDraftOrFileTab,
-      handleCloseTerminalTab,
-    };
-  });
   const handleCopyAgentId = useCallback(
     async (agentId: string) => {
       if (!agentId) return;
@@ -1523,7 +1457,7 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
     (action: KeyboardActionDefinition): boolean => {
       switch (action.id) {
         case "workspace.tab.new":
-          handleCreateDraftTab();
+          handleCreateLauncherTab();
           return true;
         case "workspace.terminal.new":
           handleCreateTerminal();
@@ -1556,7 +1490,14 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
           return false;
       }
     },
-    [activeTabId, handleCloseTabById, handleCreateDraftTab, handleCreateTerminal, navigateToTabId, tabs],
+    [
+      activeTabId,
+      handleCloseTabById,
+      handleCreateLauncherTab,
+      handleCreateTerminal,
+      navigateToTabId,
+      tabs,
+    ],
   );
 
   const handleWorkspacePaneAction = useCallback(
@@ -1571,7 +1512,7 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       }
 
       if (action.id === "workspace.pane.split.right") {
-        handleCreateDraftSplit({
+        handleCreateLauncherSplit({
           targetPaneId: focusedPane.id,
           position: "right",
         });
@@ -1579,7 +1520,7 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       }
 
       if (action.id === "workspace.pane.split.down") {
-        handleCreateDraftSplit({
+        handleCreateLauncherSplit({
           targetPaneId: focusedPane.id,
           position: "bottom",
         });
@@ -1649,7 +1590,7 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       allTabDescriptorsById,
       closeWorkspaceTabWithCleanup,
       focusWorkspacePane,
-      handleCreateDraftSplit,
+      handleCreateLauncherSplit,
       moveWorkspaceTabToPane,
       persistenceKey,
       focusedPaneTabState.activeTabId,
@@ -1732,6 +1673,10 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
           if (!persistenceKey) {
             return;
           }
+          if (input.tab.kind === "draft" && target.kind === "agent") {
+            convertWorkspaceDraftToAgent(persistenceKey, input.tab.tabId, target.agentId);
+            return;
+          }
           retargetWorkspaceTab(persistenceKey, input.tab.tabId, target);
         },
         onOpenWorkspaceFile: (filePath) => {
@@ -1750,47 +1695,10 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       normalizedWorkspaceId,
       openWorkspaceTab,
       persistenceKey,
+      convertWorkspaceDraftToAgent,
       retargetWorkspaceTab,
     ],
   );
-  const prevBuildDeps = useRef({
-    handleCloseTabById,
-    handleOpenFileFromChat,
-    focusWorkspacePane,
-    navigateToTabId,
-    normalizedServerId,
-    normalizedWorkspaceId,
-    openWorkspaceTab,
-    persistenceKey,
-    retargetWorkspaceTab,
-  });
-  useEffect(() => {
-    const prev = prevBuildDeps.current;
-    const changed: string[] = [];
-    if (prev.handleCloseTabById !== handleCloseTabById) changed.push("handleCloseTabById");
-    if (prev.handleOpenFileFromChat !== handleOpenFileFromChat)
-      changed.push("handleOpenFileFromChat");
-    if (prev.focusWorkspacePane !== focusWorkspacePane) changed.push("focusWorkspacePane");
-    if (prev.navigateToTabId !== navigateToTabId) changed.push("navigateToTabId");
-    if (prev.normalizedServerId !== normalizedServerId) changed.push("normalizedServerId");
-    if (prev.normalizedWorkspaceId !== normalizedWorkspaceId) changed.push("normalizedWorkspaceId");
-    if (prev.openWorkspaceTab !== openWorkspaceTab) changed.push("openWorkspaceTab");
-    if (prev.persistenceKey !== persistenceKey) changed.push("persistenceKey");
-    if (prev.retargetWorkspaceTab !== retargetWorkspaceTab) changed.push("retargetWorkspaceTab");
-    if (changed.length > 0)
-      console.log("[buildPaneContentModel] deps changed:", changed.join(", "));
-    prevBuildDeps.current = {
-      handleCloseTabById,
-      handleOpenFileFromChat,
-      focusWorkspacePane,
-      navigateToTabId,
-      normalizedServerId,
-      normalizedWorkspaceId,
-      openWorkspaceTab,
-      persistenceKey,
-      retargetWorkspaceTab,
-    };
-  });
   const focusedPaneId = focusedPaneTabState.pane?.id ?? null;
   const focusedPaneTabIds = useMemo(() => tabs.map((tab) => tab.tabId), [tabs]);
   const focusedPaneTabDescriptorMap = useStableTabDescriptorMap(tabs);
@@ -2205,13 +2113,11 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
                     onCloseTabsToLeft={handleCloseTabsToLeftInPane}
                     onCloseTabsToRight={handleCloseTabsToRightInPane}
                     onCloseOtherTabs={handleCloseOtherTabsInPane}
-                    onSelectNewTabOption={handleSelectNewTabOption}
-                    newTabAgentOptionId={NEW_TAB_AGENT_OPTION_ID}
+                    onCreateLauncherTab={handleCreateLauncherTab}
                     buildPaneContentModel={buildDesktopPaneContentModel}
                     onFocusPane={handleFocusPane}
-                    onNewTerminalTab={handleCreateTerminal}
                     onSplitPane={handleSplitPane}
-                    onSplitPaneEmpty={handleCreateDraftSplit}
+                    onSplitPaneEmpty={handleCreateLauncherSplit}
                     onMoveTabToPane={handleMoveTabToPane}
                     onResizeSplit={handleResizePaneSplit}
                     onReorderTabsInPane={handleReorderTabsInPane}

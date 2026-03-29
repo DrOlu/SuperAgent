@@ -281,6 +281,19 @@ export function buildHostWorkspaceRoute(serverId: string, workspaceId: string): 
   return `/h/${encodeSegment(normalizedServerId)}/workspace/${encodeSegment(encodedWorkspaceId)}`;
 }
 
+export function buildHostWorkspaceOpenRoute(
+  serverId: string,
+  workspaceId: string,
+  openIntent: string,
+): string {
+  const base = buildHostWorkspaceRoute(serverId, workspaceId);
+  const normalizedOpenIntent = trimNonEmpty(openIntent);
+  if (base === "/" || !normalizedOpenIntent) {
+    return base;
+  }
+  return `${base}?open=${encodeURIComponent(normalizedOpenIntent)}`;
+}
+
 export function buildHostAgentDetailRoute(
   serverId: string,
   agentId: string,
@@ -292,11 +305,7 @@ export function buildHostAgentDetailRoute(
     if (!normalizedAgentId) {
       return "/";
     }
-    const base = buildHostWorkspaceRoute(serverId, normalizedWorkspaceId);
-    if (base === "/") {
-      return "/";
-    }
-    return `${base}?open=${encodeURIComponent(`agent:${normalizedAgentId}`)}`;
+    return buildHostWorkspaceOpenRoute(serverId, normalizedWorkspaceId, `agent:${normalizedAgentId}`);
   }
   const normalizedServerId = trimNonEmpty(serverId);
   const normalizedAgentId = trimNonEmpty(agentId);

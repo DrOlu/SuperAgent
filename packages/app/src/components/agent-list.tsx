@@ -15,7 +15,8 @@ import { formatTimeAgo } from "@/utils/time";
 import { shortenPath } from "@/utils/shorten-path";
 import { type AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { useSessionStore } from "@/stores/session-store";
-import { Archive } from "lucide-react-native";
+import { Archive, SquareTerminal } from "lucide-react-native";
+import { getProviderIcon } from "@/components/provider-icons";
 import { prepareWorkspaceTab } from "@/utils/workspace-navigation";
 
 interface AgentListProps {
@@ -130,6 +131,7 @@ function SessionRow({
   const isSelected = selectedAgentId === agentKey;
   const statusLabel = formatStatusLabel(agent.status);
   const projectPath = shortenPath(agent.cwd);
+  const ProviderIcon = getProviderIcon(agent.provider);
 
   return (
     <Pressable
@@ -145,12 +147,21 @@ function SessionRow({
     >
       <View style={styles.rowContent}>
         <View style={styles.rowTitleRow}>
+          <View style={styles.providerIconWrap}>
+            <ProviderIcon size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+          </View>
           <Text
             style={[styles.sessionTitle, isSelected && styles.sessionTitleHighlighted]}
             numberOfLines={1}
           >
             {agent.title || "New session"}
           </Text>
+          {agent.terminal ? (
+            <SessionBadge
+              label="Terminal"
+              icon={<SquareTerminal size={theme.fontSize.xs} color={theme.colors.foregroundMuted} />}
+            />
+          ) : null}
           {agent.archivedAt ? (
             <SessionBadge
               label="Archived"
@@ -239,6 +250,7 @@ export function AgentList({
         workspaceId: agent.cwd,
         target: { kind: "agent", agentId },
         pin: Boolean(agent.archivedAt),
+        requestReopen: agent.terminal && agent.status === "closed",
       });
       router.navigate(route as any);
     },
@@ -432,6 +444,11 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     flexWrap: "wrap",
     gap: theme.spacing[2],
+  },
+  providerIconWrap: {
+    width: theme.iconSize.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowMetaRow: {
     flexDirection: "row",

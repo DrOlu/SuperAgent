@@ -7,10 +7,12 @@ import type { Logger } from "pino";
 import { AgentStatusSchema } from "../messages.js";
 import { toStoredAgentRecord } from "./agent-projections.js";
 import type { ManagedAgent } from "./agent-manager.js";
+import type { AgentSnapshotStore } from "./agent-snapshot-store.js";
 import type { AgentSessionConfig } from "./agent-sdk-types.js";
 
 const SERIALIZABLE_CONFIG_SCHEMA = z
   .object({
+    terminal: z.boolean().optional(),
     title: z.string().nullable().optional(),
     modeId: z.string().nullable().optional(),
     model: z.string().nullable().optional(),
@@ -56,6 +58,16 @@ const STORED_AGENT_SCHEMA = z.object({
     })
     .optional(),
   persistence: PERSISTENCE_HANDLE_SCHEMA,
+  lastError: z.string().nullable().optional(),
+  terminalExit: z
+    .object({
+      command: z.string(),
+      message: z.string(),
+      exitCode: z.number().nullable(),
+      signal: z.number().nullable(),
+      outputLines: z.array(z.string()),
+    })
+    .optional(),
   requiresAttention: z.boolean().optional(),
   attentionReason: z.enum(["finished", "error", "permission"]).nullable().optional(),
   attentionTimestamp: z.string().nullable().optional(),
@@ -65,12 +77,22 @@ const STORED_AGENT_SCHEMA = z.object({
 
 export type SerializableAgentConfig = Pick<
   AgentSessionConfig,
-  "title" | "modeId" | "model" | "thinkingOptionId" | "extra" | "systemPrompt" | "mcpServers"
+  | "terminal"
+  | "title"
+  | "modeId"
+  | "model"
+  | "thinkingOptionId"
+  | "extra"
+  | "systemPrompt"
+  | "mcpServers"
 >;
 
 export type StoredAgentRecord = z.infer<typeof STORED_AGENT_SCHEMA>;
+export function parseStoredAgentRecord(value: unknown): StoredAgentRecord {
+  return STORED_AGENT_SCHEMA.parse(value);
+}
 
-export class AgentStorage {
+export class AgentStorage implements AgentSnapshotStore {
   private cache: Map<string, StoredAgentRecord> = new Map();
   private pathById: Map<string, string> = new Map();
   private pathsById: Map<string, Set<string>> = new Map();
@@ -168,19 +190,22 @@ export class AgentStorage {
 
   async applySnapshot(
     agent: ManagedAgent,
+    workspaceIdOrOptions?: number | { title?: string | null; internal?: boolean },
     options?: { title?: string | null; internal?: boolean },
   ): Promise<void> {
+    const nextOptions =
+      typeof workspaceIdOrOptions === "number" ? options : workspaceIdOrOptions;
     await this.load();
     await this.waitForPendingWrite(agent.id);
     const existing = (await this.get(agent.id)) ?? null;
     const hasTitleOverride =
-      options !== undefined && Object.prototype.hasOwnProperty.call(options, "title");
+      nextOptions !== undefined && Object.prototype.hasOwnProperty.call(nextOptions, "title");
     const hasInternalOverride =
-      options !== undefined && Object.prototype.hasOwnProperty.call(options, "internal");
+      nextOptions !== undefined && Object.prototype.hasOwnProperty.call(nextOptions, "internal");
     const record = toStoredAgentRecord(agent, {
-      title: hasTitleOverride ? (options?.title ?? null) : (existing?.title ?? null),
+      title: hasTitleOverride ? (nextOptions?.title ?? null) : (existing?.title ?? null),
       createdAt: existing?.createdAt,
-      internal: hasInternalOverride ? options?.internal : (agent.internal ?? existing?.internal),
+      internal: hasInternalOverride ? nextOptions?.internal : (agent.internal ?? existing?.internal),
     });
 
     // Preserve soft-delete/archive status across snapshot flushes.
@@ -300,7 +325,7 @@ export class AgentStorage {
     try {
       const content = await fs.readFile(filePath, "utf8");
       const parsed = JSON.parse(content);
-      return STORED_AGENT_SCHEMA.parse(parsed);
+      return parseStoredAgentRecord(parsed);
     } catch (error) {
       this.logger.error({ err: error, filePath }, "Skipping invalid agent record");
       return null;

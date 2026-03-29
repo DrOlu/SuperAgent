@@ -60,7 +60,6 @@ describe("daemon E2E (real claude) - autonomous wake simple", () => {
         const timelineAtIdle = await client.fetchAgentTimeline(agent.id, {
           direction: "tail",
           limit: 0,
-          projection: "canonical",
         });
         const idleAssistantText = timelineAtIdle.entries
           .filter(
@@ -91,7 +90,6 @@ describe("daemon E2E (real claude) - autonomous wake simple", () => {
         const finalTimeline = await client.fetchAgentTimeline(agent.id, {
           direction: "tail",
           limit: 0,
-          projection: "canonical",
         });
         const finalAssistantText = finalTimeline.entries
           .filter(

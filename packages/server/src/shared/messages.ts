@@ -95,6 +95,7 @@ const AgentCapabilityFlagsSchema: z.ZodType<AgentCapabilityFlags> = z.object({
   supportsMcpServers: z.boolean(),
   supportsReasoningStream: z.boolean(),
   supportsToolInvocations: z.boolean(),
+  supportsTerminalMode: z.boolean(),
 });
 
 const AgentUsageSchema: z.ZodType<AgentUsage> = z.object({
@@ -132,6 +133,7 @@ const McpServerConfigSchema = z.discriminatedUnion("type", [
 const AgentSessionConfigSchema = z.object({
   provider: AgentProviderSchema,
   cwd: z.string(),
+  terminal: z.boolean().optional(),
   modeId: z.string().optional(),
   model: z.string().optional(),
   thinkingOptionId: z.string().optional(),
@@ -453,10 +455,19 @@ const AgentRuntimeInfoSchema: z.ZodType<AgentRuntimeInfo> = z.object({
   extra: z.record(z.unknown()).optional(),
 });
 
+const TerminalExitDetailsSchema = z.object({
+  command: z.string(),
+  message: z.string(),
+  exitCode: z.number().nullable(),
+  signal: z.number().nullable(),
+  outputLines: z.array(z.string()),
+});
+
 export const AgentSnapshotPayloadSchema = z.object({
   id: z.string(),
   provider: AgentProviderSchema,
   cwd: z.string(),
+  terminal: z.boolean().optional(),
   model: z.string().nullable(),
   thinkingOptionId: z.string().nullable().optional(),
   effectiveThinkingOptionId: z.string().nullable().optional(),
@@ -472,6 +483,7 @@ export const AgentSnapshotPayloadSchema = z.object({
   runtimeInfo: AgentRuntimeInfoSchema.optional(),
   lastUsage: AgentUsageSchema.optional(),
   lastError: z.string().optional(),
+  terminalExit: TerminalExitDetailsSchema.optional(),
   title: z.string().nullable(),
   labels: z.record(z.string()).default({}),
   requiresAttention: z.boolean().optional(),
@@ -598,7 +610,7 @@ export const FetchWorkspacesRequestMessageSchema = z.object({
   filter: z
     .object({
       query: z.string().optional(),
-      projectId: z.string().optional(),
+      projectId: z.number().int().optional(),
       idPrefix: z.string().optional(),
     })
     .optional(),
@@ -697,6 +709,7 @@ export type GitSetupOptions = z.infer<typeof GitSetupOptionsSchema>;
 export const CreateAgentRequestMessageSchema = z.object({
   type: z.literal("create_agent_request"),
   config: AgentSessionConfigSchema,
+  workspaceId: z.number().int().optional(),
   worktreeName: z.string().optional(),
   initialPrompt: z.string().optional(),
   clientMessageId: z.string().optional(),
@@ -766,22 +779,23 @@ export const ShutdownServerRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
-export const AgentTimelineCursorSchema = z.object({
-  epoch: z.string(),
-  seq: z.number().int().nonnegative(),
-});
+export const AgentTimelineCursorSchema = z
+  .object({
+    seq: z.number().int().nonnegative(),
+  })
+  .strict();
 
-export const FetchAgentTimelineRequestMessageSchema = z.object({
-  type: z.literal("fetch_agent_timeline_request"),
-  agentId: z.string(),
-  requestId: z.string(),
-  direction: z.enum(["tail", "before", "after"]).optional(),
-  cursor: AgentTimelineCursorSchema.optional(),
-  // 0 means "all matching rows for this query window".
-  limit: z.number().int().nonnegative().optional(),
-  // Default should be projected for app timeline loading.
-  projection: z.enum(["projected", "canonical"]).optional(),
-});
+export const FetchAgentTimelineRequestMessageSchema = z
+  .object({
+    type: z.literal("fetch_agent_timeline_request"),
+    agentId: z.string(),
+    requestId: z.string(),
+    direction: z.enum(["tail", "before", "after"]).optional(),
+    cursor: AgentTimelineCursorSchema.optional(),
+    // 0 means "all matching rows for this query window".
+    limit: z.number().int().nonnegative().optional(),
+  })
+  .strict();
 
 export const SetAgentModeRequestMessageSchema = z.object({
   type: z.literal("set_agent_mode_request"),
@@ -1002,7 +1016,7 @@ export const OpenProjectRequestSchema = z.object({
 
 export const ArchiveWorkspaceRequestSchema = z.object({
   type: z.literal("archive_workspace_request"),
-  workspaceId: z.string(),
+  workspaceId: z.number().int(),
   requestId: z.string(),
 });
 
@@ -1145,6 +1159,9 @@ export const CreateTerminalRequestSchema = z.object({
   type: z.literal("create_terminal_request"),
   cwd: z.string(),
   name: z.string().optional(),
+  agentId: z.string().optional(),
+  command: z.string().optional(),
+  args: z.array(z.string()).optional(),
   requestId: z.string(),
 });
 
@@ -1575,12 +1592,12 @@ export const ProjectPlacementPayloadSchema = z.object({
 });
 
 export const WorkspaceDescriptorPayloadSchema = z.object({
-  id: z.string(),
-  projectId: z.string(),
+  id: z.number().int(),
+  projectId: z.number().int(),
   projectDisplayName: z.string(),
   projectRootPath: z.string(),
-  projectKind: z.enum(["git", "non_git"]),
-  workspaceKind: z.enum(["local_checkout", "worktree", "directory"]),
+  projectKind: z.enum(["git", "directory"]),
+  workspaceKind: z.enum(["checkout", "worktree"]),
   name: z.string(),
   status: WorkspaceStateBucketSchema,
   activityAt: z.string().nullable(),
@@ -1608,17 +1625,20 @@ export const AgentUpdateMessageSchema = z.object({
   ]),
 });
 
-export const AgentStreamMessageSchema = z.object({
-  type: z.literal("agent_stream"),
-  payload: z.object({
-    agentId: z.string(),
-    event: AgentStreamEventPayloadSchema,
-    timestamp: z.string(),
-    // Present for timeline events. Maps 1:1 to canonical in-memory timeline rows.
-    seq: z.number().int().nonnegative().optional(),
-    epoch: z.string().optional(),
-  }),
-});
+export const AgentStreamMessageSchema = z
+  .object({
+    type: z.literal("agent_stream"),
+    payload: z
+      .object({
+        agentId: z.string(),
+        event: AgentStreamEventPayloadSchema,
+        timestamp: z.string(),
+        // Present only for committed timeline events.
+        seq: z.number().int().nonnegative().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
 export const AgentStatusMessageSchema = z.object({
   type: z.literal("agent_status"),
@@ -1678,7 +1698,7 @@ export const WorkspaceUpdateMessageSchema = z.object({
     }),
     z.object({
       kind: z.literal("remove"),
-      id: z.string(),
+      id: z.number().int(),
     }),
   ]),
 });
@@ -1696,7 +1716,7 @@ export const ArchiveWorkspaceResponseMessageSchema = z.object({
   type: z.literal("archive_workspace_response"),
   payload: z.object({
     requestId: z.string(),
-    workspaceId: z.string(),
+    workspaceId: z.number().int(),
     archivedAt: z.string().nullable(),
     error: z.string().nullable(),
   }),
@@ -1712,46 +1732,34 @@ export const FetchAgentResponseMessageSchema = z.object({
   }),
 });
 
-const AgentTimelineSeqRangeSchema = z.object({
-  startSeq: z.number().int().nonnegative(),
-  endSeq: z.number().int().nonnegative(),
-});
+export const AgentTimelineEntryPayloadSchema = z
+  .object({
+    provider: AgentProviderSchema,
+    item: AgentTimelineItemPayloadSchema,
+    timestamp: z.string(),
+    seq: z.number().int().nonnegative(),
+  })
+  .strict();
 
-export const AgentTimelineEntryPayloadSchema = z.object({
-  provider: AgentProviderSchema,
-  item: AgentTimelineItemPayloadSchema,
-  timestamp: z.string(),
-  seqStart: z.number().int().nonnegative(),
-  seqEnd: z.number().int().nonnegative(),
-  sourceSeqRanges: z.array(AgentTimelineSeqRangeSchema),
-  collapsed: z.array(z.enum(["assistant_merge", "tool_lifecycle"])),
-});
-
-export const FetchAgentTimelineResponseMessageSchema = z.object({
-  type: z.literal("fetch_agent_timeline_response"),
-  payload: z.object({
-    requestId: z.string(),
-    agentId: z.string(),
-    agent: AgentSnapshotPayloadSchema.nullable(),
-    direction: z.enum(["tail", "before", "after"]),
-    projection: z.enum(["projected", "canonical"]),
-    epoch: z.string(),
-    reset: z.boolean(),
-    staleCursor: z.boolean(),
-    gap: z.boolean(),
-    window: z.object({
-      minSeq: z.number().int().nonnegative(),
-      maxSeq: z.number().int().nonnegative(),
-      nextSeq: z.number().int().nonnegative(),
-    }),
-    startCursor: AgentTimelineCursorSchema.nullable(),
-    endCursor: AgentTimelineCursorSchema.nullable(),
-    hasOlder: z.boolean(),
-    hasNewer: z.boolean(),
-    entries: z.array(AgentTimelineEntryPayloadSchema),
-    error: z.string().nullable(),
-  }),
-});
+export const FetchAgentTimelineResponseMessageSchema = z
+  .object({
+    type: z.literal("fetch_agent_timeline_response"),
+    payload: z
+      .object({
+        requestId: z.string(),
+        agentId: z.string(),
+        agent: AgentSnapshotPayloadSchema.nullable(),
+        direction: z.enum(["tail", "before", "after"]),
+        startSeq: z.number().int().nonnegative().nullable(),
+        endSeq: z.number().int().nonnegative().nullable(),
+        hasOlder: z.boolean(),
+        hasNewer: z.boolean(),
+        entries: z.array(AgentTimelineEntryPayloadSchema),
+        error: z.string().nullable(),
+      })
+      .strict(),
+  })
+  .strict();
 
 export const SendAgentMessageResponseMessageSchema = z.object({
   type: z.literal("send_agent_message_response"),
@@ -2156,6 +2164,7 @@ const TerminalInfoSchema = z.object({
   id: z.string(),
   name: z.string(),
   cwd: z.string(),
+  title: z.string().optional(),
 });
 
 export const TerminalCellSchema = z
@@ -2193,6 +2202,7 @@ export const TerminalStateSchema = z
     grid: z.array(z.array(TerminalCellSchema)),
     scrollback: z.array(z.array(TerminalCellSchema)),
     cursor: TerminalCursorSchema,
+    title: z.string().optional(),
   })
   .strict();
 

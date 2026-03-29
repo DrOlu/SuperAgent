@@ -22,6 +22,7 @@ import type {
   GitSetupOptions,
   ProjectPlacementPayload,
   ServerCapabilities,
+  AgentSnapshotPayload,
   WorkspaceDescriptorPayload,
 } from "@server/shared/messages";
 import { normalizeWorkspaceIdentity } from "@/utils/workspace-identity";
@@ -79,10 +80,13 @@ export interface AgentRuntimeInfo {
   extra?: Record<string, unknown>;
 }
 
+type TerminalExitDetails = NonNullable<AgentSnapshotPayload["terminalExit"]>;
+
 export interface Agent {
   serverId: string;
   id: string;
   provider: AgentProvider;
+  terminal: boolean;
   status: AgentLifecycleStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -96,6 +100,7 @@ export interface Agent {
   runtimeInfo?: AgentRuntimeInfo;
   lastUsage?: AgentUsage;
   lastError?: string | null;
+  terminalExit?: TerminalExitDetails | null;
   title: string | null;
   cwd: string;
   model: string | null;
@@ -126,8 +131,8 @@ export function normalizeWorkspaceDescriptor(
 ): WorkspaceDescriptor {
   const activityAt = payload.activityAt ? new Date(payload.activityAt) : null;
   return {
-    id: normalizeWorkspaceIdentity(payload.id) ?? payload.id,
-    projectId: payload.projectId,
+    id: normalizeWorkspaceIdentity(String(payload.id)) ?? String(payload.id),
+    projectId: String(payload.projectId),
     projectDisplayName: payload.projectDisplayName,
     projectRootPath: payload.projectRootPath,
     projectKind: payload.projectKind,
@@ -191,7 +196,6 @@ export type DaemonServerInfo = {
 };
 
 export interface AgentTimelineCursorState {
-  epoch: string;
   startSeq: number;
   endSeq: number;
 }
@@ -1119,6 +1123,7 @@ export const useSessionStore = create<SessionStore>()(
             id: agent.id,
             serverId,
             title: agent.title ?? null,
+            terminal: agent.terminal,
             status: agent.status,
             lastActivityAt,
             cwd: agent.cwd,

@@ -61,6 +61,7 @@ import { getIsDesktop } from "@/constants/layout";
 import { CommandCenter } from "@/components/command-center";
 import { ProjectPickerModal } from "@/components/project-picker-modal";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
+import { WorkspaceSetupDialog } from "@/components/workspace-setup-dialog";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { queryClient } from "@/query/query-client";
 import {
@@ -371,6 +372,7 @@ function AppContainer({
       <UpdateBanner />
       <CommandCenter />
       <ProjectPickerModal />
+      <WorkspaceSetupDialog />
       <KeyboardShortcutsDialog />
     </View>
   );

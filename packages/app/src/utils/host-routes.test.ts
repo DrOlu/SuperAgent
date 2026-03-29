@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildHostAgentDetailRoute,
   buildHostRootRoute,
+  buildHostWorkspaceOpenRoute,
   buildHostWorkspaceRoute,
   decodeFilePathFromPathSegment,
   decodeWorkspaceIdFromPathSegment,
@@ -87,6 +88,12 @@ describe("workspace route parsing", () => {
   it("uses the plain workspace route when workspace context is provided", () => {
     expect(buildHostAgentDetailRoute("local", "agent-1", "/tmp/repo")).toBe(
       "/h/local/workspace/L3RtcC9yZXBv?open=agent%3Aagent-1",
+    );
+  });
+
+  it("builds workspace routes with a one-shot open intent", () => {
+    expect(buildHostWorkspaceOpenRoute("local", "/tmp/repo", "draft:new")).toBe(
+      "/h/local/workspace/L3RtcC9yZXBv?open=draft%3Anew",
     );
   });
 });

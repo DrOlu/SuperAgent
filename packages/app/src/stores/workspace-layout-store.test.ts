@@ -262,6 +262,58 @@ describe("workspace-layout-store actions", () => {
     ]);
   });
 
+  it("openLauncherTab creates duplicate launcher tabs for repeated Cmd+T/new-tab opens", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValueOnce("11111111-1111-1111-1111-111111111111")
+      .mockReturnValueOnce("22222222-2222-2222-2222-222222222222");
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    const firstTabId = store.openLauncherTab(workspaceKey);
+    const secondTabId = store.openLauncherTab(workspaceKey);
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+
+    expect(firstTabId).toBe("launcher_11111111-1111-1111-1111-111111111111");
+    expect(secondTabId).toBe("launcher_22222222-2222-2222-2222-222222222222");
+    expect(firstTabId).not.toBe(secondTabId);
+    expect(findPaneById(layout.root, "main")?.tabIds).toEqual([firstTabId, secondTabId]);
+    expect(collectAllTabs(layout.root)).toEqual([
+      {
+        tabId: firstTabId,
+        target: { kind: "launcher", launcherId: "11111111-1111-1111-1111-111111111111" },
+        createdAt: expect.any(Number),
+      },
+      {
+        tabId: secondTabId,
+        target: { kind: "launcher", launcherId: "22222222-2222-2222-2222-222222222222" },
+        createdAt: expect.any(Number),
+      },
+    ]);
+  });
+
+  it("splitPaneEmpty plus openLauncherTab opens a launcher tab in the new pane", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValueOnce(
+      "77777777-7777-7777-7777-777777777777",
+    );
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const newPaneId = store.splitPaneEmpty(workspaceKey, {
+      targetPaneId: "main",
+      position: "right",
+    });
+    const launcherTabId = store.openLauncherTab(workspaceKey);
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+
+    expect(newPaneId).toBe("pane_77777777-7777-7777-7777-777777777777");
+    expect(launcherTabId).toMatch(/^launcher_/);
+    expect(layout.focusedPaneId).toBe(newPaneId);
+    expect(findPaneById(layout.root, "main")?.tabIds).toEqual(["file_/repo/worktree/a.ts"]);
+    expect(findPaneById(layout.root, newPaneId!)?.tabIds).toEqual([launcherTabId!]);
+    expect(findPaneById(layout.root, newPaneId!)?.focusedTabId).toBe(launcherTabId);
+  });
+
   it("focusTab moves workspace focus to the pane containing the tab", () => {
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
       "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -288,7 +340,7 @@ describe("workspace-layout-store actions", () => {
     expect(findPaneById(layout.root, splitPaneId!)?.focusedTabId).toBe(terminalTabId);
   });
 
-  it("retargetTab updates the existing tab target without moving it to a different pane", () => {
+  it("convertDraftToAgent replaces the draft tab with a canonical agent tab in the same pane", () => {
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
       "12121212-1212-1212-1212-121212121212",
     );
@@ -296,30 +348,125 @@ describe("workspace-layout-store actions", () => {
     const store = useWorkspaceLayoutStore.getState();
 
     store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    const secondTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-2" });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
       position: "right",
     });
 
-    const nextTabId = store.retargetTab(workspaceKey, secondTabId!, {
+    const nextTabId = store.convertDraftToAgent(workspaceKey, secondTabId!, "agent-1");
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+    const splitPane = findPaneById(layout.root, splitPaneId!);
+    const convertedTab = collectAllTabs(layout.root).find((tab) => tab.tabId === nextTabId);
+
+    expect(splitPaneId).toBe("pane_12121212-1212-1212-1212-121212121212");
+    expect(nextTabId).toBe("agent_agent-1");
+    expect(splitPane?.tabIds).toEqual(["agent_agent-1"]);
+    expect(findPaneContainingTab(layout.root, "agent_agent-1")?.id).toBe(splitPaneId);
+    expect(convertedTab).toEqual({
+      tabId: "agent_agent-1",
+      target: { kind: "agent", agentId: "agent-1" },
+      createdAt: expect.any(Number),
+    });
+  });
+
+  it("retargetTab keeps a launcher tab in place while updating its target", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
+      "33333333-3333-3333-3333-333333333333",
+    );
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    const launcherTabId = store.openLauncherTab(workspaceKey);
+    const nextTabId = store.retargetTab(workspaceKey, launcherTabId!, {
+      kind: "file",
+      path: "/repo/worktree/launcher.ts",
+    });
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+
+    expect(launcherTabId).toBe("launcher_33333333-3333-3333-3333-333333333333");
+    expect(nextTabId).toBe(launcherTabId);
+    expect(findPaneById(layout.root, "main")?.tabIds).toEqual([launcherTabId!]);
+    expect(collectAllTabs(layout.root)).toEqual([
+      {
+        tabId: launcherTabId!,
+        target: { kind: "file", path: "/repo/worktree/launcher.ts" },
+        createdAt: expect.any(Number),
+      },
+    ]);
+  });
+
+  it("retargetTab closes a launcher tab and focuses the existing canonical target tab", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValueOnce("44444444-4444-4444-4444-444444444444")
+      .mockReturnValueOnce("55555555-5555-5555-5555-555555555555")
+      .mockReturnValueOnce("66666666-6666-6666-6666-666666666666");
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    const existingFileTabId = store.openTab(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/existing.ts",
+    });
+    const launcherTabId = store.openLauncherTab(workspaceKey);
+    const splitPaneId = store.splitPane(workspaceKey, {
+      tabId: launcherTabId!,
+      targetPaneId: "main",
+      position: "right",
+    });
+    const secondLauncherTabId = store.openLauncherTab(workspaceKey);
+
+    const nextTabId = store.retargetTab(workspaceKey, secondLauncherTabId!, {
+      kind: "file",
+      path: "/repo/worktree/existing.ts",
+    });
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+
+    expect(existingFileTabId).toBe("file_/repo/worktree/existing.ts");
+    expect(launcherTabId).toBe("launcher_44444444-4444-4444-4444-444444444444");
+    expect(splitPaneId).toBe("pane_55555555-5555-5555-5555-555555555555");
+    expect(secondLauncherTabId).toMatch(/^launcher_/);
+    expect(secondLauncherTabId).not.toBe(launcherTabId);
+    expect(nextTabId).toBe(existingFileTabId);
+    expect(collectAllTabs(layout.root).map((tab) => tab.tabId)).toEqual([
+      existingFileTabId!,
+      launcherTabId!,
+    ]);
+    expect(layout.focusedPaneId).toBe("main");
+    expect(findPaneById(layout.root, "main")?.focusedTabId).toBe(existingFileTabId);
+  });
+
+  it("retargetTab closes a launcher tab and focuses an existing matching target tab", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValueOnce("77777777-7777-7777-7777-777777777777")
+      .mockReturnValueOnce("88888888-8888-8888-8888-888888888888");
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    const firstLauncherTabId = store.openLauncherTab(workspaceKey);
+    const firstAgentTabId = store.retargetTab(workspaceKey, firstLauncherTabId!, {
+      kind: "agent",
+      agentId: "agent-1",
+    });
+    const secondLauncherTabId = store.openLauncherTab(workspaceKey);
+
+    const nextTabId = store.retargetTab(workspaceKey, secondLauncherTabId!, {
       kind: "agent",
       agentId: "agent-1",
     });
     const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
-    const splitPane = findPaneById(layout.root, splitPaneId!);
-    const retargetedTab = collectAllTabs(layout.root).find((tab) => tab.tabId === secondTabId);
 
-    expect(splitPaneId).toBe("pane_12121212-1212-1212-1212-121212121212");
-    expect(nextTabId).toBe(secondTabId);
-    expect(splitPane?.tabIds).toEqual([secondTabId!]);
-    expect(findPaneContainingTab(layout.root, secondTabId!)?.id).toBe(splitPaneId);
-    expect(retargetedTab).toEqual({
-      tabId: secondTabId,
-      target: { kind: "agent", agentId: "agent-1" },
-      createdAt: expect.any(Number),
-    });
+    expect(firstAgentTabId).toBe(firstLauncherTabId);
+    expect(nextTabId).toBe(firstLauncherTabId);
+    expect(collectAllTabs(layout.root)).toEqual([
+      {
+        tabId: firstLauncherTabId!,
+        target: { kind: "agent", agentId: "agent-1" },
+        createdAt: expect.any(Number),
+      },
+    ]);
+    expect(findPaneById(layout.root, "main")?.focusedTabId).toBe(firstLauncherTabId);
   });
 
   it("reorderTabs reorders tabs within the focused pane", () => {
@@ -701,5 +848,103 @@ describe("workspace-layout-store actions", () => {
       layoutByWorkspace: {},
       splitSizesByWorkspace: {},
     });
+  });
+
+  it("convertDraftToAgent removes the draft and focuses the existing canonical agent tab", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
+      "67676767-6767-6767-6767-676767676767",
+    );
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    const draftTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-existing" });
+    const agentTabId = store.openTab(workspaceKey, { kind: "agent", agentId: "agent-1" });
+    const splitPaneId = store.splitPane(workspaceKey, {
+      tabId: agentTabId!,
+      targetPaneId: "main",
+      position: "right",
+    });
+
+    const nextTabId = store.convertDraftToAgent(workspaceKey, draftTabId!, "agent-1");
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+
+    expect(splitPaneId).toBe("pane_67676767-6767-6767-6767-676767676767");
+    expect(nextTabId).toBe("agent_agent-1");
+    expect(collectAllTabs(layout.root).map((tab) => tab.tabId)).toEqual(["agent_agent-1"]);
+    expect(layout.focusedPaneId).toBe(splitPaneId);
+    expect(findPaneContainingTab(layout.root, "agent_agent-1")?.id).toBe(splitPaneId);
+  });
+
+  it("reconcileTabs canonicalizes duplicates and prunes stale entity tabs from hydrated snapshots", () => {
+    const workspaceKey = createWorkspaceKey();
+
+    useWorkspaceLayoutStore.setState((state) => ({
+      ...state,
+      layoutByWorkspace: {
+        ...state.layoutByWorkspace,
+        [workspaceKey]: {
+          root: {
+            kind: "pane",
+            pane: {
+              id: "main",
+              tabIds: ["draft_agent", "agent_agent-1", "terminal_orphan", "draft-1"],
+              focusedTabId: "draft_agent",
+              tabs: [
+                {
+                  tabId: "draft_agent",
+                  target: { kind: "agent", agentId: "agent-1" },
+                  createdAt: 1,
+                },
+                {
+                  tabId: "agent_agent-1",
+                  target: { kind: "agent", agentId: "agent-1" },
+                  createdAt: 2,
+                },
+                {
+                  tabId: "terminal_orphan",
+                  target: { kind: "terminal", terminalId: "term-stale" },
+                  createdAt: 3,
+                },
+                {
+                  tabId: "draft-1",
+                  target: { kind: "draft", draftId: "draft-1" },
+                  createdAt: 4,
+                },
+              ],
+            } as any,
+          },
+          focusedPaneId: "main",
+        },
+      },
+      pinnedAgentIdsByWorkspace: {
+        [workspaceKey]: new Set<string>(["agent-2"]),
+      },
+    }));
+
+    useWorkspaceLayoutStore.getState().reconcileTabs(workspaceKey, {
+      agentsHydrated: true,
+      terminalsHydrated: true,
+      activeAgentIds: ["agent-1"],
+      knownAgentIds: ["agent-1", "agent-2"],
+      standaloneTerminalIds: ["term-1"],
+      hasActivePendingDraftCreate: false,
+    });
+
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+    const tabs = collectAllTabs(layout.root);
+
+    expect(tabs.map((tab) => tab.tabId)).toEqual([
+      "agent_agent-1",
+      "draft-1",
+      "agent_agent-2",
+      "terminal_term-1",
+    ]);
+    expect(tabs.find((tab) => tab.tabId === "agent_agent-1")).toEqual({
+      tabId: "agent_agent-1",
+      target: { kind: "agent", agentId: "agent-1" },
+      createdAt: 2,
+    });
+    expect(layout.focusedPaneId).toBe("main");
+    expect(findPaneById(layout.root, "main")?.focusedTabId).toBe("agent_agent-1");
   });
 });

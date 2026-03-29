@@ -204,7 +204,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     help: {
       id: "workspace-tab-new",
       section: "tabs-panes",
-      label: "New agent tab",
+      label: "New tab",
       keys: ["mod", "T"],
     },
   },
@@ -216,7 +216,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     help: {
       id: "workspace-tab-new",
       section: "tabs-panes",
-      label: "New agent tab",
+      label: "New tab",
       keys: ["mod", "T"],
     },
   },

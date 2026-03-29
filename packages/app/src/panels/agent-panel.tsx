@@ -4,16 +4,14 @@ import ReanimatedAnimated from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
-import { Bot } from "lucide-react-native";
 import invariant from "tiny-invariant";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/components/agent-stream-view";
-import { AgentInputArea } from "@/components/agent-input-area";
+import { Composer } from "@/components/composer";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
 import { FileDropZone } from "@/components/file-drop-zone";
+import { getProviderIcon } from "@/components/provider-icons";
 import type { ImageAttachment } from "@/components/message-input";
 import { ToastViewport, useToastHost } from "@/components/toast-host";
-import { ClaudeIcon } from "@/components/icons/claude-icon";
-import { CodexIcon } from "@/components/icons/codex-icon";
 import { useAgentAttentionClear } from "@/hooks/use-agent-attention-clear";
 import { useAgentInitialization } from "@/hooks/use-agent-initialization";
 import {
@@ -28,6 +26,7 @@ import { useKeyboardShiftStyle } from "@/hooks/use-keyboard-shift-style";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { usePaneContext } from "@/panels/pane-context";
 import type { PanelDescriptor, PanelRegistration } from "@/panels/panel-registry";
+import { TerminalAgentPanel } from "@/panels/terminal-agent-panel";
 import {
   useHostRuntimeClient,
   useHostRuntimeConnectionStatus,
@@ -96,7 +95,7 @@ function useAgentPanelDescriptor(
   );
   const provider = descriptorState.provider;
   const label = resolveWorkspaceAgentTabLabel(descriptorState.title);
-  const icon = provider === "claude" ? ClaudeIcon : provider === "codex" ? CodexIcon : Bot;
+  const icon = getProviderIcon(provider);
 
   return {
     label: label ?? "",
@@ -154,6 +153,12 @@ function toErrorMessage(error: unknown): string {
 function isNotFoundErrorMessage(message: string): boolean {
   return /agent not found|not found/i.test(message);
 }
+
+type AgentLookupState =
+  | { tag: "idle" }
+  | { tag: "loading" }
+  | { tag: "not_found"; message: string }
+  | { tag: "error"; message: string };
 
 function AgentPanelContent({
   serverId,
@@ -229,6 +234,219 @@ function AgentPanelBody({
   onOpenWorkspaceFile?: (input: { filePath: string }) => void;
 }) {
   const { theme } = useUnistyles();
+  const { isArchivingAgent } = useArchiveAgent();
+  const hasSession = useSessionStore((state) => Boolean(state.sessions[serverId]));
+  const setAgents = useSessionStore((state) => state.setAgents);
+  const setPendingPermissions = useSessionStore((state) => state.setPendingPermissions);
+  const projectPlacement = useStoreWithEqualityFn(
+    useSessionStore,
+    (state) =>
+      agentId ? (state.sessions[serverId]?.agents?.get(agentId)?.projectPlacement ?? null) : null,
+    (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b),
+  );
+  const agentState = useSessionStore(
+    useShallow((state) => {
+      const agent = agentId ? state.sessions[serverId]?.agents?.get(agentId) ?? null : null;
+      return {
+        serverId: agent?.serverId ?? null,
+        id: agent?.id ?? null,
+        terminal: agent?.terminal ?? false,
+        status: agent?.status ?? null,
+        cwd: agent?.cwd ?? null,
+        lastError: agent?.lastError ?? null,
+        terminalExit: agent?.terminalExit ?? null,
+        archivedAt: agent?.archivedAt ?? null,
+      };
+    }),
+  );
+  const [lookupState, setLookupState] = useState<AgentLookupState>({ tag: "idle" });
+  const lookupAttemptTokenRef = useRef(0);
+
+  useEffect(() => {
+    lookupAttemptTokenRef.current += 1;
+    setLookupState({ tag: "idle" });
+  }, [agentId, serverId]);
+
+  useEffect(() => {
+    if (!agentId) {
+      return;
+    }
+    if (agentState.id) {
+      if (lookupState.tag !== "idle") {
+        setLookupState({ tag: "idle" });
+      }
+      return;
+    }
+    if (!isConnected || !hasSession) {
+      return;
+    }
+    if (lookupState.tag === "loading" || lookupState.tag === "not_found") {
+      return;
+    }
+
+    setLookupState({ tag: "loading" });
+    const attemptToken = ++lookupAttemptTokenRef.current;
+
+    client
+      .fetchAgent(agentId)
+      .then((result) => {
+        if (attemptToken !== lookupAttemptTokenRef.current) {
+          return;
+        }
+        if (!result) {
+          setLookupState({
+            tag: "not_found",
+            message: `Agent not found: ${agentId}`,
+          });
+          return;
+        }
+
+        const normalized = normalizeAgentSnapshot(result.agent, serverId);
+        const hydrated = {
+          ...normalized,
+          projectPlacement: result.project,
+        };
+        setAgents(serverId, (previous) => {
+          const next = new Map(previous);
+          next.set(hydrated.id, hydrated);
+          return next;
+        });
+        setPendingPermissions(serverId, (previous) => {
+          const next = new Map(previous);
+          for (const [key, pending] of next.entries()) {
+            if (pending.agentId === hydrated.id) {
+              next.delete(key);
+            }
+          }
+          for (const request of hydrated.pendingPermissions) {
+            const key = derivePendingPermissionKey(hydrated.id, request);
+            next.set(key, { key, agentId: hydrated.id, request });
+          }
+          return next;
+        });
+        setLookupState({ tag: "idle" });
+      })
+      .catch((error) => {
+        if (attemptToken !== lookupAttemptTokenRef.current) {
+          return;
+        }
+        const message = toErrorMessage(error);
+        if (isNotFoundErrorMessage(message)) {
+          setLookupState({ tag: "not_found", message });
+          return;
+        }
+        setLookupState({ tag: "error", message });
+      });
+  }, [
+    agentId,
+    agentState.id,
+    client,
+    hasSession,
+    isConnected,
+    lookupState.tag,
+    serverId,
+    setAgents,
+    setPendingPermissions,
+  ]);
+
+  if (lookupState.tag === "not_found") {
+    return (
+      <View style={styles.container} testID="agent-not-found">
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Agent not found</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (lookupState.tag === "error") {
+    return (
+      <View style={styles.container} testID="agent-load-error">
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load agent</Text>
+          <Text style={styles.statusText}>{lookupState.message}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const agent: AgentScreenAgent | null =
+    agentState.serverId && agentState.id && agentState.status && agentState.cwd
+      ? {
+          serverId: agentState.serverId,
+          id: agentState.id,
+          status: agentState.status,
+          cwd: agentState.cwd,
+          lastError: agentState.lastError ?? null,
+          terminalExit: agentState.terminalExit ?? null,
+          projectPlacement,
+        }
+      : null;
+
+  if (!agent) {
+    return (
+      <View style={styles.container} testID="agent-loading">
+        <View style={styles.errorContainer}>
+          <ActivityIndicator size="large" color={theme.colors.foregroundMuted} />
+        </View>
+      </View>
+    );
+  }
+
+  const isArchivingCurrentAgent = Boolean(agentId && isArchivingAgent({ serverId, agentId }));
+
+  if (agentState.terminal) {
+    return (
+      <View style={styles.root}>
+        <TerminalAgentPanel
+          serverId={serverId}
+          client={client}
+          agent={agent}
+          isPaneFocused={isPaneFocused}
+        />
+
+        {isArchivingCurrentAgent ? (
+          <View style={styles.archivingOverlay} testID="agent-archiving-overlay">
+            <ActivityIndicator size="large" color={theme.colors.foreground} />
+            <Text style={styles.archivingTitle}>Archiving agent...</Text>
+            <Text style={styles.archivingSubtitle}>Please wait while we archive this agent.</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  return (
+    <ChatAgentContent
+      serverId={serverId}
+      agentId={agentId}
+      isPaneFocused={isPaneFocused}
+      client={client}
+      isConnected={isConnected}
+      connectionStatus={connectionStatus}
+      onOpenWorkspaceFile={onOpenWorkspaceFile}
+    />
+  );
+}
+
+function ChatAgentContent({
+  serverId,
+  agentId,
+  isPaneFocused,
+  client,
+  isConnected,
+  connectionStatus,
+  onOpenWorkspaceFile,
+}: {
+  serverId: string;
+  agentId?: string;
+  isPaneFocused: boolean;
+  client: NonNullable<ReturnType<typeof useHostRuntimeClient>>;
+  isConnected: boolean;
+  connectionStatus: HostRuntimeConnectionStatus;
+  onOpenWorkspaceFile?: (input: { filePath: string }) => void;
+}) {
+  const { theme } = useUnistyles();
   const panelToast = useToastHost();
   const { isArchivingAgent } = useArchiveAgent();
   const streamViewRef = useRef<AgentStreamViewHandle>(null);
@@ -241,12 +459,12 @@ function AgentPanelBody({
     routeKey: string;
     reason: "initial-entry" | "resume";
   } | null>(null);
-  const agentInputDraft = useAgentInputDraft(
-    buildDraftStoreKey({
+  const agentInputDraft = useAgentInputDraft({
+    draftKey: buildDraftStoreKey({
       serverId,
       agentId: agentId ?? "__pending__",
     }),
-  );
+  });
 
   const handleFilesDropped = useCallback((files: ImageAttachment[]) => {
     addImagesRef.current?.(files);
@@ -262,8 +480,11 @@ function AgentPanelBody({
       return {
         serverId: agent?.serverId ?? null,
         id: agent?.id ?? null,
+        terminal: agent?.terminal ?? false,
         status: agent?.status ?? null,
         cwd: agent?.cwd ?? null,
+        lastError: agent?.lastError ?? null,
+        terminalExit: agent?.terminalExit ?? null,
         archivedAt: agent?.archivedAt ?? null,
         requiresAttention: agent?.requiresAttention ?? false,
         attentionReason: agent?.attentionReason ?? null,
@@ -494,6 +715,8 @@ function AgentPanelBody({
           id: agentState.id,
           status: agentState.status,
           cwd: agentState.cwd,
+          lastError: agentState.lastError ?? null,
+          terminalExit: agentState.terminalExit ?? null,
           projectPlacement,
         }
       : null;
@@ -615,98 +838,6 @@ function AgentPanelBody({
     setMissingAgentState({ kind: "idle" });
   }, [agentId, serverId]);
 
-  useEffect(() => {
-    if (!agentId) {
-      return;
-    }
-    if (agentState.id || shouldUseOptimisticStream) {
-      if (missingAgentState.kind !== "idle") {
-        setMissingAgentState({ kind: "idle" });
-      }
-      return;
-    }
-    if (!isConnected || !hasSession) {
-      return;
-    }
-    if (missingAgentState.kind === "resolving" || missingAgentState.kind === "not_found") {
-      return;
-    }
-
-    setMissingAgentState({ kind: "resolving" });
-    const attemptToken = ++initAttemptTokenRef.current;
-
-    ensureAgentIsInitialized(agentId)
-      .then(async () => {
-        if (attemptToken !== initAttemptTokenRef.current) {
-          return;
-        }
-        const currentAgent = useSessionStore.getState().sessions[serverId]?.agents.get(agentId);
-        if (!currentAgent) {
-          const result = await client.fetchAgent(agentId);
-          if (attemptToken !== initAttemptTokenRef.current) {
-            return;
-          }
-          if (!result) {
-            setMissingAgentState({
-              kind: "not_found",
-              message: `Agent not found: ${agentId}`,
-            });
-            return;
-          }
-          const normalized = normalizeAgentSnapshot(result.agent, serverId);
-          const hydrated = {
-            ...normalized,
-            projectPlacement: result.project,
-          };
-          setAgents(serverId, (previous) => {
-            const next = new Map(previous);
-            next.set(hydrated.id, hydrated);
-            return next;
-          });
-          setPendingPermissions(serverId, (previous) => {
-            const next = new Map(previous);
-            for (const [key, pending] of next.entries()) {
-              if (pending.agentId === hydrated.id) {
-                next.delete(key);
-              }
-            }
-            for (const request of hydrated.pendingPermissions) {
-              const key = derivePendingPermissionKey(hydrated.id, request);
-              next.set(key, { key, agentId: hydrated.id, request });
-            }
-            return next;
-          });
-        }
-        if (attemptToken !== initAttemptTokenRef.current) {
-          return;
-        }
-        setMissingAgentState({ kind: "idle" });
-      })
-      .catch((error) => {
-        if (attemptToken !== initAttemptTokenRef.current) {
-          return;
-        }
-        const message = toErrorMessage(error);
-        if (isNotFoundErrorMessage(message)) {
-          setMissingAgentState({ kind: "not_found", message });
-          return;
-        }
-        setMissingAgentState({ kind: "error", message });
-      });
-  }, [
-    agentState.id,
-    agentId,
-    client,
-    ensureAgentIsInitialized,
-    hasSession,
-    isConnected,
-    missingAgentState.kind,
-    serverId,
-    setAgents,
-    setPendingPermissions,
-    shouldUseOptimisticStream,
-  ]);
-
   const isHistoryRefreshCatchingUp =
     viewState.tag === "ready" &&
     viewState.sync.status === "catching_up" &&
@@ -781,7 +912,7 @@ function AgentPanelBody({
           </View>
 
           {agentId && !isArchivingCurrentAgent && !agentState.archivedAt ? (
-            <AgentInputArea
+            <Composer
               agentId={agentId}
               serverId={serverId}
               isInputActive={isPaneFocused}

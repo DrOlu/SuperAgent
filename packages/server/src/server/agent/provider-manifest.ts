@@ -123,6 +123,27 @@ export const AGENT_PROVIDER_DEFINITIONS: AgentProviderDefinition[] = [
     },
   },
   {
+    id: "gemini",
+    label: "Gemini CLI",
+    description: "Google's terminal-based coding agent",
+    defaultModeId: null,
+    modes: [],
+  },
+  {
+    id: "amp",
+    label: "AMP",
+    description: "Sourcegraph's terminal-based coding agent",
+    defaultModeId: null,
+    modes: [],
+  },
+  {
+    id: "aider",
+    label: "Aider",
+    description: "Paul Gauthier's terminal-based coding assistant",
+    defaultModeId: null,
+    modes: [],
+  },
+  {
     id: "opencode",
     label: "OpenCode",
     description: "Open-source coding assistant with multi-provider model support",

@@ -11,7 +11,8 @@ function workspace(serverId: string, cwd: string): SidebarWorkspaceEntry {
     workspaceKey: `${serverId}:${cwd}`,
     serverId,
     workspaceId: cwd,
-    workspaceKind: "local_checkout",
+    projectKind: "git",
+    workspaceKind: "checkout",
     name: cwd,
     activityAt: null,
     statusBucket: "done",
@@ -76,7 +77,7 @@ describe("buildSidebarShortcutModel", () => {
     expect(model.shortcutTargets[8]).toEqual({ serverId: "s", workspaceId: "/repo/w9" });
   });
 
-  it("ignores collapsed state for flattened single-workspace projects", () => {
+  it("respects collapsed state for single-workspace git projects", () => {
     const projects = [project("p1", [workspace("s1", "/repo/main")])];
 
     const model = buildSidebarShortcutModel({
@@ -84,7 +85,7 @@ describe("buildSidebarShortcutModel", () => {
       collapsedProjectKeys: new Set<string>(["p1"]),
     });
 
-    expect(model.visibleTargets).toEqual([{ serverId: "s1", workspaceId: "/repo/main" }]);
-    expect(model.shortcutTargets).toEqual([{ serverId: "s1", workspaceId: "/repo/main" }]);
+    expect(model.visibleTargets).toEqual([]);
+    expect(model.shortcutTargets).toEqual([]);
   });
 });

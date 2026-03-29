@@ -24,10 +24,28 @@ const PROVIDERS: ProviderListItem[] = [
     modes: "read-only, auto, full-access",
   },
   {
+    provider: "gemini",
+    status: "available",
+    defaultMode: "-",
+    modes: "-",
+  },
+  {
+    provider: "amp",
+    status: "available",
+    defaultMode: "-",
+    modes: "-",
+  },
+  {
+    provider: "aider",
+    status: "available",
+    defaultMode: "-",
+    modes: "-",
+  },
+  {
     provider: "opencode",
     status: "available",
-    defaultMode: "default",
-    modes: "plan, default, bypass",
+    defaultMode: "build",
+    modes: "build, plan",
   },
 ];
 

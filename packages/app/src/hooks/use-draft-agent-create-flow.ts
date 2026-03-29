@@ -72,6 +72,7 @@ type CreateRequestContext = {
 interface UseDraftAgentCreateFlowOptions<TDraftAgent, TCreateResult> {
   draftId: string;
   getPendingServerId: () => string | null;
+  allowEmptyText?: boolean;
   validateBeforeSubmit?: (ctx: SubmitContext) => string | null;
   onBeforeSubmit?: (ctx: CreateRequestContext) => void;
   onCreateStart?: () => void;
@@ -84,6 +85,7 @@ interface UseDraftAgentCreateFlowOptions<TDraftAgent, TCreateResult> {
 export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
   draftId,
   getPendingServerId,
+  allowEmptyText = false,
   validateBeforeSubmit,
   onBeforeSubmit,
   onCreateStart,
@@ -107,6 +109,10 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
 
   const optimisticStreamItems = useMemo<StreamItem[]>(() => {
     if (machine.tag !== "creating") {
+      return EMPTY_STREAM_ITEMS;
+    }
+
+    if (!machine.attempt.text && (!machine.attempt.images || machine.attempt.images.length === 0)) {
       return EMPTY_STREAM_ITEMS;
     }
 
@@ -139,7 +145,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
       dispatch({ type: "DRAFT_SET_ERROR", message: "" });
 
       const trimmedPrompt = text.trim();
-      if (!trimmedPrompt) {
+      if (!trimmedPrompt && !allowEmptyText) {
         const error = new Error("Initial prompt is required");
         dispatch({ type: "DRAFT_SET_ERROR", message: error.message });
         throw error;
@@ -215,6 +221,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
       setPendingCreateAttempt,
       updatePendingAgentId,
       validateBeforeSubmit,
+      allowEmptyText,
     ],
   );
 

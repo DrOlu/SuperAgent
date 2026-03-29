@@ -1,6 +1,6 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { createTerminalManager, type TerminalManager } from "./terminal-manager.js";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -301,11 +301,14 @@ describe("TerminalManager", () => {
   describe("subscribeTerminalsChanged", () => {
     it("emits cwd snapshots when terminals are created", async () => {
       manager = createTerminalManager();
-      const snapshots: Array<{ cwd: string; terminalNames: string[] }> = [];
+      const snapshots: Array<{ cwd: string; terminals: Array<{ name: string; title?: string }> }> = [];
       const unsubscribe = manager.subscribeTerminalsChanged((input) => {
         snapshots.push({
           cwd: input.cwd,
-          terminalNames: input.terminals.map((terminal) => terminal.name),
+          terminals: input.terminals.map((terminal) => ({
+            name: terminal.name,
+            ...(terminal.title ? { title: terminal.title } : {}),
+          })),
         });
       });
 
@@ -314,14 +317,109 @@ describe("TerminalManager", () => {
 
       expect(snapshots).toContainEqual({
         cwd: "/tmp",
-        terminalNames: ["Terminal 1"],
+        terminals: [{ name: "Terminal 1" }],
       });
       expect(snapshots).toContainEqual({
         cwd: "/tmp",
-        terminalNames: ["Terminal 1", "Dev Server"],
+        terminals: [{ name: "Terminal 1" }, { name: "Dev Server" }],
       });
 
       unsubscribe();
+    });
+
+    it(
+      "emits updated terminal titles after debounced title changes",
+      async () => {
+        await withShell("/bin/sh", async () => {
+          manager = createTerminalManager();
+          const snapshots: Array<Array<{ id: string; title?: string }>> = [];
+          const unsubscribe = manager.subscribeTerminalsChanged((input) => {
+            snapshots.push(
+              input.terminals.map((terminal) => ({
+                id: terminal.id,
+                ...(terminal.title ? { title: terminal.title } : {}),
+              })),
+            );
+          });
+
+          const session = await manager.createTerminal({ cwd: "/tmp" });
+          session.send({ type: "input", data: "printf '\\033]0;Logs\\007'\r" });
+
+          await waitForCondition(
+            () =>
+              snapshots.some((snapshot) =>
+                snapshot.some((terminal) => terminal.id === session.id && terminal.title === "Logs"),
+              ),
+            10000,
+          );
+
+          unsubscribe();
+        });
+      },
+      10000,
+    );
+
+    it("forwards bound terminal titles through the agent bridge without changing standalone lists", async () => {
+      await withShell("/bin/sh", async () => {
+        const onAgentBoundTerminalTitleChange = vi.fn();
+        manager = createTerminalManager({
+          resolveAgentIdForTerminal: () => "agent-1",
+          onAgentBoundTerminalTitleChange,
+        });
+
+        const snapshots: Array<Array<{ id: string; title?: string }>> = [];
+        const unsubscribe = manager.subscribeTerminalsChanged((input) => {
+          snapshots.push(
+            input.terminals.map((terminal) => ({
+              id: terminal.id,
+              ...(terminal.title ? { title: terminal.title } : {}),
+            })),
+          );
+        });
+
+        const session = await manager.createTerminal({ cwd: "/tmp" });
+        session.send({ type: "input", data: "printf '\\033]0;Agent Shell\\007'\r" });
+
+        await waitForCondition(() => onAgentBoundTerminalTitleChange.mock.calls.length > 0, 10000);
+
+        expect(onAgentBoundTerminalTitleChange).toHaveBeenCalledWith({
+          agentId: "agent-1",
+          title: "Agent Shell",
+        });
+        expect(
+          snapshots.some((snapshot) =>
+            snapshot.some((terminal) => terminal.id === session.id && terminal.title === "Agent Shell"),
+          ),
+        ).toBe(true);
+
+        unsubscribe();
+      });
+    });
+
+    it("forwards initial titles for agent-bound terminals created with command args", async () => {
+      const packageRoot = mkdtempSync(join(tmpdir(), "terminal-manager-title-script-"));
+      temporaryDirs.push(packageRoot);
+      const scriptPath = join(packageRoot, "npm-cli.js");
+      writeFileSync(scriptPath, "setTimeout(() => process.exit(0), 1000);\n");
+
+      const onAgentBoundTerminalTitleChange = vi.fn();
+      manager = createTerminalManager({
+        resolveAgentIdForTerminal: () => "agent-1",
+        onAgentBoundTerminalTitleChange,
+      });
+
+      await manager.createTerminal({
+        cwd: packageRoot,
+        command: process.execPath,
+        args: [scriptPath, "run", "dev"],
+      });
+
+      await waitForCondition(() => onAgentBoundTerminalTitleChange.mock.calls.length > 0, 10000);
+
+      expect(onAgentBoundTerminalTitleChange).toHaveBeenCalledWith({
+        agentId: "agent-1",
+        title: "npm run dev",
+      });
     });
 
     it("emits empty snapshot when last terminal is removed", async () => {

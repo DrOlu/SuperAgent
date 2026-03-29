@@ -32,7 +32,7 @@ export function resolveWorkspaceArchiveRedirectWorkspaceId(input: {
   const rootCheckoutWorkspace =
     sameProjectWorkspaces.find(
       (workspace) =>
-        workspace.workspaceKind === "local_checkout" && workspace.id !== archivedWorkspace.id,
+        workspace.workspaceKind === "checkout" && workspace.id !== archivedWorkspace.id,
     ) ?? null;
   if (rootCheckoutWorkspace) {
     return rootCheckoutWorkspace.id;

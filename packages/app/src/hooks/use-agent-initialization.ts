@@ -60,7 +60,7 @@ export function useAgentInitialization({
       const hasAuthoritativeHistory =
         session?.agentAuthoritativeHistoryApplied.get(agentId) === true;
       const timelineRequest = deriveInitialTimelineRequest({
-        cursor: cursor ? { epoch: cursor.epoch, seq: cursor.endSeq } : null,
+        cursor: cursor ? { seq: cursor.endSeq } : null,
         hasAuthoritativeHistory,
         initialTimelineLimit,
       });
@@ -107,7 +107,6 @@ export function useAgentInitialization({
         await client.fetchAgentTimeline(agentId, {
           direction: "tail",
           limit: initialTimelineLimit,
-          projection: "canonical",
         });
       } catch (error) {
         setAgentInitializing(agentId, false);

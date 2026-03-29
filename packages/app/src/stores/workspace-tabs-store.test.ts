@@ -140,6 +140,41 @@ describe("workspace-tabs-store retargetTab", () => {
     expect(order).toEqual([draftTabId]);
   });
 
+  it("openLauncherTab creates distinct launcher tabs without deduplicating", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValueOnce("11111111-1111-1111-1111-111111111111")
+      .mockReturnValueOnce("22222222-2222-2222-2222-222222222222");
+    const key = buildWorkspaceTabPersistenceKey({ serverId: SERVER_ID, workspaceId: WORKSPACE_ID });
+    expect(key).toBeTruthy();
+    const workspaceKey = key as string;
+
+    const firstTabId = useWorkspaceTabsStore.getState().openLauncherTab({
+      serverId: SERVER_ID,
+      workspaceId: WORKSPACE_ID,
+    });
+    const secondTabId = useWorkspaceTabsStore.getState().openLauncherTab({
+      serverId: SERVER_ID,
+      workspaceId: WORKSPACE_ID,
+    });
+
+    const state = useWorkspaceTabsStore.getState();
+    expect(firstTabId).toBe("launcher_11111111-1111-1111-1111-111111111111");
+    expect(secondTabId).toBe("launcher_22222222-2222-2222-2222-222222222222");
+    expect(state.tabOrderByWorkspace[workspaceKey]).toEqual([firstTabId, secondTabId]);
+    expect(state.uiTabsByWorkspace[workspaceKey]).toEqual([
+      {
+        tabId: "launcher_11111111-1111-1111-1111-111111111111",
+        target: { kind: "launcher", launcherId: "11111111-1111-1111-1111-111111111111" },
+        createdAt: expect.any(Number),
+      },
+      {
+        tabId: "launcher_22222222-2222-2222-2222-222222222222",
+        target: { kind: "launcher", launcherId: "22222222-2222-2222-2222-222222222222" },
+        createdAt: expect.any(Number),
+      },
+    ]);
+  });
+
   it("retargeting a background draft keeps the currently focused tab focused", () => {
     const draftTabId = "draft_background";
     const key = buildWorkspaceTabPersistenceKey({ serverId: SERVER_ID, workspaceId: WORKSPACE_ID });

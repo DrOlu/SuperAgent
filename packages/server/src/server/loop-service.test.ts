@@ -33,6 +33,7 @@ const TEST_CAPABILITIES: AgentCapabilityFlags = {
   supportsMcpServers: false,
   supportsReasoningStream: false,
   supportsToolInvocations: false,
+  supportsTerminalMode: false,
 };
 
 interface ScriptedAgentBehavior {

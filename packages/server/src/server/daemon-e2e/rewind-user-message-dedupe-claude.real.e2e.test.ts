@@ -48,7 +48,6 @@ describe("daemon E2E (real claude) - rewind user message dedupe", () => {
         const timeline = await client.fetchAgentTimeline(agent.id, {
           direction: "tail",
           limit: 0,
-          projection: "canonical",
         });
 
         const rewindUserMessages = timeline.entries.filter(

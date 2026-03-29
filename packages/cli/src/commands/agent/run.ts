@@ -193,7 +193,6 @@ export async function resolveStructuredResponseMessage(options: {
   try {
     const timeline = await options.client.fetchAgentTimeline(options.agentId, {
       direction: "tail",
-      projection: "projected",
       limit: 200,
     });
     for (let index = timeline.entries.length - 1; index >= 0; index -= 1) {

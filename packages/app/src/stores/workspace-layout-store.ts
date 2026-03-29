@@ -11,6 +11,7 @@ import {
   closeTabInLayout,
   collectAllPanes,
   collectAllTabs,
+  convertDraftToAgentInLayout,
   createDefaultLayout,
   findPaneById,
   findPaneContainingTab,
@@ -20,7 +21,9 @@ import {
   insertSplit,
   moveTabToPaneInLayout,
   normalizeLayout,
+  openLauncherTabInLayout,
   openTabInLayout,
+  reconcileWorkspaceTabs,
   removePaneFromTree,
   removeTabFromTree,
   reorderFocusedPaneTabsInLayout,
@@ -31,6 +34,8 @@ import {
   type SplitGroup,
   type SplitNode,
   type SplitPane,
+  type WorkspaceTabReconcileState,
+  type WorkspaceTabSnapshot,
   type WorkspaceLayout,
 } from "@/stores/workspace-layout-actions";
 import { normalizeWorkspaceTabTarget } from "@/utils/workspace-tab-identity";
@@ -48,16 +53,26 @@ export {
   removePaneFromTree,
   removeTabFromTree,
 };
-export type { SplitGroup, SplitNode, SplitPane, WorkspaceLayout };
+export type {
+  SplitGroup,
+  SplitNode,
+  SplitPane,
+  WorkspaceLayout,
+  WorkspaceTabReconcileState,
+  WorkspaceTabSnapshot,
+};
 
 interface WorkspaceLayoutStore {
   layoutByWorkspace: Record<string, WorkspaceLayout>;
   splitSizesByWorkspace: Record<string, Record<string, number[]>>;
   pinnedAgentIdsByWorkspace: Record<string, Set<string>>;
   openTab: (workspaceKey: string, target: WorkspaceTabTarget) => string | null;
+  openLauncherTab: (workspaceKey: string) => string | null;
   closeTab: (workspaceKey: string, tabId: string) => void;
   focusTab: (workspaceKey: string, tabId: string) => void;
   retargetTab: (workspaceKey: string, tabId: string, target: WorkspaceTabTarget) => string | null;
+  convertDraftToAgent: (workspaceKey: string, tabId: string, agentId: string) => string | null;
+  reconcileTabs: (workspaceKey: string, snapshot: WorkspaceTabSnapshot) => void;
   reorderTabs: (workspaceKey: string, tabIds: string[]) => void;
   getWorkspaceTabs: (workspaceKey: string) => WorkspaceTab[];
   splitPane: (
@@ -116,6 +131,26 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutStore>()(
         const result = openTabInLayout({
           layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
           target: normalizedTarget,
+          now: Date.now(),
+        });
+
+        set((state) => ({
+          layoutByWorkspace: {
+            ...state.layoutByWorkspace,
+            [normalizedWorkspaceKey]: result.layout,
+          },
+        }));
+
+        return result.tabId;
+      },
+      openLauncherTab: (workspaceKey) => {
+        const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);
+        if (!normalizedWorkspaceKey) {
+          return null;
+        }
+
+        const result = openLauncherTabInLayout({
+          layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
           now: Date.now(),
         });
 
@@ -201,6 +236,59 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutStore>()(
         }));
 
         return result.tabId;
+      },
+      convertDraftToAgent: (workspaceKey, tabId, agentId) => {
+        const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);
+        const normalizedTabId = trimNonEmpty(tabId);
+        const normalizedAgentId = trimNonEmpty(agentId);
+        if (!normalizedWorkspaceKey || !normalizedTabId || !normalizedAgentId) {
+          return null;
+        }
+
+        const result = convertDraftToAgentInLayout({
+          layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
+          tabId: normalizedTabId,
+          agentId: normalizedAgentId,
+        });
+        if (!result) {
+          return null;
+        }
+
+        set((state) => ({
+          layoutByWorkspace: {
+            ...state.layoutByWorkspace,
+            [normalizedWorkspaceKey]: result.layout,
+          },
+        }));
+
+        return result.tabId;
+      },
+      reconcileTabs: (workspaceKey, snapshot) => {
+        const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);
+        if (!normalizedWorkspaceKey) {
+          return;
+        }
+
+        set((state) => {
+          const currentLayout = getWorkspaceLayout(state.layoutByWorkspace, normalizedWorkspaceKey);
+          const nextState = reconcileWorkspaceTabs(
+            {
+              layout: currentLayout,
+              pinnedAgentIds: state.pinnedAgentIdsByWorkspace[normalizedWorkspaceKey] ?? null,
+            },
+            snapshot,
+          );
+          if (nextState.layout === currentLayout) {
+            return state;
+          }
+
+          return {
+            layoutByWorkspace: {
+              ...state.layoutByWorkspace,
+              [normalizedWorkspaceKey]: nextState.layout,
+            },
+          };
+        });
       },
       reorderTabs: (workspaceKey, tabIds) => {
         const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);

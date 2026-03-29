@@ -8,7 +8,7 @@ describe("workspace message schemas", () => {
       requestId: "req-1",
       filter: {
         query: "repo",
-        projectId: "remote:github.com/acme/repo",
+        projectId: 12,
         idPrefix: "/Users/me",
       },
       sort: [{ key: "activity_at", direction: "desc" }],
@@ -35,12 +35,12 @@ describe("workspace message schemas", () => {
       payload: {
         kind: "upsert",
         workspace: {
-          id: "/repo",
-          projectId: "/repo",
+          id: 1,
+          projectId: 1,
           projectDisplayName: "repo",
           projectRootPath: "/repo",
-          projectKind: "non_git",
-          workspaceKind: "directory",
+          projectKind: "directory",
+          workspaceKind: "checkout",
           name: "",
           status: "not-a-bucket",
           activityAt: null,

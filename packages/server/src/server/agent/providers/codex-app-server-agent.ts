@@ -19,9 +19,11 @@ import type {
   AgentTimelineItem,
   ToolCallTimelineItem,
   AgentUsage,
+  AgentPersistenceHandle,
   ListModelsOptions,
   ListPersistedAgentsOptions,
   PersistedAgentDescriptor,
+  TerminalCommand,
 } from "../agent-sdk-types.js";
 import type { Logger } from "pino";
 
@@ -43,6 +45,7 @@ import {
   applyProviderEnv,
   findExecutable,
   resolveProviderCommandPrefix,
+  sanitizeTerminalEnv,
   type ProviderRuntimeSettings,
 } from "../provider-launch-config.js";
 import { extractCodexTerminalSessionId, nonEmptyString } from "./tool-call-mapper-utils.js";
@@ -59,6 +62,7 @@ const CODEX_APP_SERVER_CAPABILITIES: AgentCapabilityFlags = {
   supportsMcpServers: true,
   supportsReasoningStream: true,
   supportsToolInvocations: true,
+  supportsTerminalMode: true,
 };
 
 const CODEX_MODES: AgentMode[] = [
@@ -3517,6 +3521,59 @@ export class CodexAppServerAgentClient implements AgentClient {
     } finally {
       await client.dispose();
     }
+  }
+
+  buildTerminalCreateCommand(
+    config: AgentSessionConfig,
+    handle: AgentPersistenceHandle,
+    initialPrompt?: string,
+  ): TerminalCommand {
+    const launchPrefix = resolveCodexLaunchPrefix(this.runtimeSettings);
+    const sessionConfig: AgentSessionConfig = { ...config, provider: CODEX_PROVIDER };
+    const modeId = sessionConfig.modeId ?? DEFAULT_CODEX_MODE_ID;
+    validateCodexMode(modeId);
+    const preset = MODE_PRESETS[modeId] ?? MODE_PRESETS[DEFAULT_CODEX_MODE_ID];
+    const approvalPolicy = sessionConfig.approvalPolicy ?? preset.approvalPolicy;
+    const sandbox = sessionConfig.sandboxMode ?? preset.sandbox;
+    const args = [...launchPrefix.args, "-c", `sessionId=\"${handle.sessionId}\"`];
+    if (sessionConfig.model) {
+      args.push("--model", sessionConfig.model);
+    }
+    args.push("--ask-for-approval", approvalPolicy, "--sandbox", sandbox);
+    if (
+      typeof sessionConfig.networkAccess === "boolean"
+        ? sessionConfig.networkAccess
+        : preset.networkAccess === true
+    ) {
+      args.push("--search");
+    }
+    if (initialPrompt?.trim()) {
+      args.push(initialPrompt.trim());
+    }
+    const terminalEnv = sanitizeTerminalEnv(
+      applyProviderEnv(process.env as Record<string, string | undefined>, this.runtimeSettings),
+    );
+    return {
+      command: launchPrefix.command,
+      args,
+      env: terminalEnv,
+    };
+  }
+
+  buildTerminalResumeCommand(handle: AgentPersistenceHandle): TerminalCommand {
+    const launchPrefix = resolveCodexLaunchPrefix(this.runtimeSettings);
+    const terminalEnv = sanitizeTerminalEnv(
+      applyProviderEnv(process.env as Record<string, string | undefined>, this.runtimeSettings),
+    );
+    return {
+      command: launchPrefix.command,
+      args: [
+        ...launchPrefix.args,
+        "resume",
+        handle.nativeHandle ?? handle.sessionId,
+      ],
+      env: terminalEnv,
+    };
   }
 
   async listModels(_options?: ListModelsOptions): Promise<AgentModelDefinition[]> {

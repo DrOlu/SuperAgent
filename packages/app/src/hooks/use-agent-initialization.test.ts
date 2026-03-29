@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import { __private__ } from "./use-agent-initialization";
 
 describe("useAgentInitialization timeline request policy", () => {
-  it("uses canonical tail bootstrap when history has not synced yet", () => {
+  it("uses committed tail bootstrap when history has not synced yet", () => {
     expect(
       __private__.deriveInitialTimelineRequest({
         cursor: {
-          epoch: "epoch-1",
           seq: 42,
         },
         hasAuthoritativeHistory: false,
@@ -15,11 +14,10 @@ describe("useAgentInitialization timeline request policy", () => {
     ).toEqual({
       direction: "tail",
       limit: 200,
-      projection: "canonical",
     });
   });
 
-  it("uses canonical tail bootstrap when cursor is missing", () => {
+  it("uses committed tail bootstrap when cursor is missing", () => {
     expect(
       __private__.deriveInitialTimelineRequest({
         cursor: null,
@@ -29,15 +27,13 @@ describe("useAgentInitialization timeline request policy", () => {
     ).toEqual({
       direction: "tail",
       limit: 200,
-      projection: "canonical",
     });
   });
 
-  it("uses canonical catch-up after the current cursor once history is synced", () => {
+  it("uses committed catch-up after the current cursor once history is synced", () => {
     expect(
       __private__.deriveInitialTimelineRequest({
         cursor: {
-          epoch: "epoch-1",
           seq: 42,
         },
         hasAuthoritativeHistory: true,
@@ -45,9 +41,8 @@ describe("useAgentInitialization timeline request policy", () => {
       }),
     ).toEqual({
       direction: "after",
-      cursor: { epoch: "epoch-1", seq: 42 },
+      cursor: { seq: 42 },
       limit: 0,
-      projection: "canonical",
     });
   });
 
@@ -61,7 +56,6 @@ describe("useAgentInitialization timeline request policy", () => {
     ).toEqual({
       direction: "tail",
       limit: 0,
-      projection: "canonical",
     });
   });
 

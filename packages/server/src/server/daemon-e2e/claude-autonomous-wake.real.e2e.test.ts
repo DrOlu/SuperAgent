@@ -390,7 +390,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
         const timelineAtIdle = await client.fetchAgentTimeline(agent.id, {
           direction: "tail",
           limit: 0,
-          projection: "canonical",
         });
 
         await client.waitForAgentUpsert(
@@ -405,7 +404,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
         const timelineAfterWake = await client.fetchAgentTimeline(agent.id, {
           direction: "tail",
           limit: 0,
-          projection: "canonical",
         });
         expect(timelineAfterWake.entries.length).toBeGreaterThanOrEqual(
           timelineAtIdle.entries.length,
@@ -417,7 +415,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
           const nextTimeline = await client.fetchAgentTimeline(agent.id, {
             direction: "tail",
             limit: 0,
-            projection: "canonical",
           });
           sawTimelineGrowth = nextTimeline.entries.length > timelineAtIdle.entries.length;
         }
@@ -605,7 +602,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
         const timelineBeforeWake = await client.fetchAgentTimeline(agent.id, {
           direction: "tail",
           limit: 0,
-          projection: "canonical",
         });
         const summarized = timelineBeforeWake.entries.map(summarizeTimelineEntry);
         // Required by reproduction request: log timeline at idle edge before autonomous wake.
@@ -735,7 +731,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
           const timelineAtWake = await client.fetchAgentTimeline(agent.id, {
             direction: "tail",
             limit: 0,
-            projection: "canonical",
           });
 
           // eslint-disable-next-line no-console
@@ -751,7 +746,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
           const timelineAfterWake = await client.fetchAgentTimeline(agent.id, {
             direction: "tail",
             limit: 0,
-            projection: "canonical",
           });
           expect(timelineAfterWake.entries.length).toBeGreaterThanOrEqual(
             timelineAtWake.entries.length,
@@ -916,7 +910,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
           const timelineAtWake = await client.fetchAgentTimeline(agent.id, {
             direction: "tail",
             limit: 0,
-            projection: "canonical",
           });
 
           // eslint-disable-next-line no-console
@@ -932,7 +925,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
           const timelineAfterWake = await client.fetchAgentTimeline(agent.id, {
             direction: "tail",
             limit: 0,
-            projection: "canonical",
           });
           expect(timelineAfterWake.entries.length).toBeGreaterThanOrEqual(
             timelineAtWake.entries.length,
@@ -1066,7 +1058,6 @@ describe("daemon E2E (real claude) - autonomous wake from background task", () =
           const timeline = await client.fetchAgentTimeline(agent.id, {
             direction: "tail",
             limit: 0,
-            projection: "canonical",
           });
           assistantTexts = timeline.entries
             .filter(

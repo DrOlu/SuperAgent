@@ -5,6 +5,7 @@ import { useFormPreferences } from "@/hooks/use-form-preferences";
 import {
   buildHostOpenProjectRoute,
   buildHostRootRoute,
+  buildHostWorkspaceOpenRoute,
   buildHostWorkspaceRoute,
 } from "@/utils/host-routes";
 import { prepareWorkspaceTab } from "@/utils/workspace-navigation";
@@ -68,7 +69,9 @@ export default function HostIndexRoute() {
 
       const primaryWorkspace = visibleWorkspaces[0];
       if (primaryWorkspace?.id?.trim()) {
-        router.replace(buildHostWorkspaceRoute(serverId, primaryWorkspace.id.trim()) as any);
+        router.replace(
+          buildHostWorkspaceOpenRoute(serverId, primaryWorkspace.id.trim(), "draft:new") as any,
+        );
         return;
       }
 

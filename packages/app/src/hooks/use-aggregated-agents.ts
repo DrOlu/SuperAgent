@@ -65,6 +65,7 @@ export function useAggregatedAgents(options?: {
           serverId,
           serverLabel,
           title: agent.title ?? null,
+          terminal: agent.terminal,
           status: agent.status,
           lastActivityAt: agent.lastActivityAt,
           cwd: agent.cwd,

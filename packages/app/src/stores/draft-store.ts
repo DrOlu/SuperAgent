@@ -10,7 +10,7 @@ import {
 import { useCreateFlowStore } from "@/stores/create-flow-store";
 import { useSessionStore } from "@/stores/session-store";
 
-const DRAFT_STORE_VERSION = 2;
+const DRAFT_STORE_VERSION = 4;
 const FINALIZED_DRAFT_TTL_MS = 5 * 60 * 1000;
 
 type LegacyDraftImage = {

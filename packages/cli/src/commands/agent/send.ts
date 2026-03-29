@@ -17,6 +17,11 @@ export interface AgentSendResult {
   message: string;
 }
 
+function isTerminalAgentSendError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /terminal agents do not support structured send operations/i.test(message);
+}
+
 /** Schema for agent send output */
 export const agentSendSchema: OutputSchema<AgentSendResult> = {
   idField: "agentId",
@@ -259,6 +264,15 @@ export async function runSendCommand(
     };
   } catch (err) {
     await client.close().catch(() => {});
+
+    if (isTerminalAgentSendError(err)) {
+      const error: CommandError = {
+        code: "TERMINAL_AGENT_UNSUPPORTED",
+        message: "Cannot send messages to terminal agents",
+        details: "Open the terminal agent from the Sessions UI and interact through its terminal.",
+      };
+      throw error;
+    }
 
     // Re-throw CommandError as-is
     if (err && typeof err === "object" && "code" in err) {

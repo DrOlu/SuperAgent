@@ -13,7 +13,8 @@ function workspace(overrides: Partial<SidebarWorkspaceEntry> = {}): SidebarWorks
     workspaceKey: "srv:/repo",
     serverId: "srv",
     workspaceId: "/repo",
-    workspaceKind: "directory",
+    projectKind: "git",
+    workspaceKind: "checkout",
     name: "paseo",
     activityAt: null,
     statusBucket: "done",
@@ -41,13 +42,13 @@ describe("buildSidebarProjectRowModel", () => {
   it("flattens non-git projects with one workspace into a direct workspace row model", () => {
     const flattenedWorkspace = workspace({
       workspaceId: "/repo/non-git",
-      workspaceKind: "directory",
+      workspaceKind: "checkout",
       statusBucket: "running",
     });
 
     const result = buildSidebarProjectRowModel({
       project: project({
-        projectKind: "non_git",
+        projectKind: "directory",
         workspaces: [flattenedWorkspace],
       }),
       collapsed: false,
@@ -70,7 +71,7 @@ describe("buildSidebarProjectRowModel", () => {
 
     const result = buildSidebarProjectRowModel({
       project: project({
-        projectKind: "non_git",
+        projectKind: "directory",
         workspaces: [flattenedWorkspace],
       }),
       collapsed: false,
@@ -87,25 +88,23 @@ describe("buildSidebarProjectRowModel", () => {
     });
   });
 
-  it("flattens git projects with a single workspace and keeps the new worktree action", () => {
-    const flattenedWorkspace = workspace({
+  it("keeps single-workspace git projects as sections with the new worktree action", () => {
+    const onlyWorkspace = workspace({
       workspaceId: "/repo/main",
-      workspaceKind: "local_checkout",
+      workspaceKind: "checkout",
     });
 
     const result = buildSidebarProjectRowModel({
       project: project({
         projectKind: "git",
-        workspaces: [flattenedWorkspace],
+        workspaces: [onlyWorkspace],
       }),
       collapsed: true,
     });
 
     expect(result).toEqual({
-      kind: "workspace_link",
-      workspace: flattenedWorkspace,
-      selected: false,
-      chevron: null,
+      kind: "project_section",
+      chevron: "expand",
       trailingAction: "new_worktree",
     });
   });
@@ -115,7 +114,7 @@ describe("buildSidebarProjectRowModel", () => {
       project: project({
         projectKind: "git",
         workspaces: [
-          workspace({ workspaceId: "/repo/main", workspaceKind: "local_checkout" }),
+          workspace({ workspaceId: "/repo/main", workspaceKind: "checkout" }),
           workspace({ workspaceId: "/repo/feature", workspaceKind: "worktree" }),
         ],
       }),
@@ -131,12 +130,12 @@ describe("buildSidebarProjectRowModel", () => {
 });
 
 describe("isSidebarProjectFlattened", () => {
-  it("returns true for single-workspace projects regardless of kind", () => {
+  it("returns true only for single-workspace directory projects", () => {
     expect(
       isSidebarProjectFlattened(project({ projectKind: "git", workspaces: [workspace()] })),
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      isSidebarProjectFlattened(project({ projectKind: "non_git", workspaces: [workspace()] })),
+      isSidebarProjectFlattened(project({ projectKind: "directory", workspaces: [workspace()] })),
     ).toBe(true);
   });
 

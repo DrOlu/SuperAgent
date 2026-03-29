@@ -58,6 +58,7 @@ function createManagedAgent(overrides: ManagedAgentOverrides = {}): ManagedAgent
       supportsMcpServers: true,
       supportsReasoningStream: true,
       supportsToolInvocations: true,
+      supportsTerminalMode: false,
     },
     config: { ...baseConfig, ...configOverrides },
     lifecycle,

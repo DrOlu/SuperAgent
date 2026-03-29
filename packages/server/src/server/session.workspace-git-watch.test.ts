@@ -2,6 +2,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { Session } from "./session.js";
+import {
+  createPersistedProjectRecord,
+  createPersistedWorkspaceRecord,
+} from "./workspace-registry.js";
 
 const { watchCalls, watchMock } = vi.hoisted(() => {
   const hoistedWatchCalls: Array<{
@@ -46,15 +51,15 @@ vi.mock("./checkout-git-utils.js", () => ({
   resolveCheckoutGitDir: resolveCheckoutGitDirMock,
 }));
 
-import { Session } from "./session.js";
-
 function createSessionForWorkspaceGitWatchTests(): {
   session: Session;
   emitted: Array<{ type: string; payload: unknown }>;
+  projects: Map<number, ReturnType<typeof createPersistedProjectRecord>>;
+  workspaces: Map<number, ReturnType<typeof createPersistedWorkspaceRecord>>;
 } {
   const emitted: Array<{ type: string; payload: unknown }> = [];
-  const projects = new Map<string, any>();
-  const workspaces = new Map<string, any>();
+  const projects = new Map<number, ReturnType<typeof createPersistedProjectRecord>>();
+  const workspaces = new Map<number, ReturnType<typeof createPersistedWorkspaceRecord>>();
   const logger = {
     child: () => logger,
     trace: vi.fn(),
@@ -84,46 +89,48 @@ function createSessionForWorkspaceGitWatchTests(): {
       initialize: async () => {},
       existsOnDisk: async () => true,
       list: async () => Array.from(projects.values()),
-      get: async (projectId: string) => projects.get(projectId) ?? null,
+      get: async (id: number) => projects.get(id) ?? null,
+      insert: async () => 0,
       upsert: async (record: any) => {
-        projects.set(record.projectId, record);
+        projects.set(record.id, record);
       },
-      archive: async (projectId: string, archivedAt: string) => {
-        const existing = projects.get(projectId);
+      archive: async (id: number, archivedAt: string) => {
+        const existing = projects.get(id);
         if (!existing) {
           return;
         }
-        projects.set(projectId, {
+        projects.set(id, {
           ...existing,
           archivedAt,
           updatedAt: archivedAt,
         });
       },
-      remove: async (projectId: string) => {
-        projects.delete(projectId);
+      remove: async (id: number) => {
+        projects.delete(id);
       },
     } as any,
     workspaceRegistry: {
       initialize: async () => {},
       existsOnDisk: async () => true,
       list: async () => Array.from(workspaces.values()),
-      get: async (workspaceId: string) => workspaces.get(workspaceId) ?? null,
+      get: async (id: number) => workspaces.get(id) ?? null,
+      insert: async () => 0,
       upsert: async (record: any) => {
-        workspaces.set(record.workspaceId, record);
+        workspaces.set(record.id, record);
       },
-      archive: async (workspaceId: string, archivedAt: string) => {
-        const existing = workspaces.get(workspaceId);
+      archive: async (id: number, archivedAt: string) => {
+        const existing = workspaces.get(id);
         if (!existing) {
           return;
         }
-        workspaces.set(workspaceId, {
+        workspaces.set(id, {
           ...existing,
           archivedAt,
           updatedAt: archivedAt,
         });
       },
-      remove: async (workspaceId: string) => {
-        workspaces.delete(workspaceId);
+      remove: async (id: number) => {
+        workspaces.delete(id);
       },
     } as any,
     checkoutDiffManager: {
@@ -148,12 +155,43 @@ function createSessionForWorkspaceGitWatchTests(): {
     terminalManager: null,
   }) as any;
 
-  session.listAgentPayloads = async () => [];
+  (session as any).listAgentPayloads = async () => [];
 
-  return {
-    session,
-    emitted,
-  };
+  return { session, emitted, projects, workspaces };
+}
+
+function seedGitWorkspace(input: {
+  projects: Map<number, ReturnType<typeof createPersistedProjectRecord>>;
+  workspaces: Map<number, ReturnType<typeof createPersistedWorkspaceRecord>>;
+  projectId: number;
+  workspaceId: number;
+  cwd: string;
+  name: string;
+}) {
+  input.projects.set(
+    input.projectId,
+    createPersistedProjectRecord({
+      id: input.projectId,
+      directory: "/tmp/repo",
+      displayName: "repo",
+      kind: "git",
+      gitRemote: "https://github.com/acme/repo.git",
+      createdAt: "2026-03-01T12:00:00.000Z",
+      updatedAt: "2026-03-01T12:00:00.000Z",
+    }),
+  );
+  input.workspaces.set(
+    input.workspaceId,
+    createPersistedWorkspaceRecord({
+      id: input.workspaceId,
+      projectId: input.projectId,
+      directory: input.cwd,
+      displayName: input.name,
+      kind: "checkout",
+      createdAt: "2026-03-01T12:00:00.000Z",
+      updatedAt: "2026-03-01T12:00:00.000Z",
+    }),
+  );
 }
 
 describe("workspace git watch targets", () => {
@@ -170,21 +208,17 @@ describe("workspace git watch targets", () => {
   });
 
   test("debounces watcher events and skips unchanged branch/diff snapshots", async () => {
-    const { session, emitted } = createSessionForWorkspaceGitWatchTests();
+    const { session, emitted, projects, workspaces } = createSessionForWorkspaceGitWatchTests();
     const sessionAny = session as any;
-
-    sessionAny.buildProjectPlacement = async (cwd: string) => ({
-      projectKey: cwd,
-      projectName: "repo",
-      checkout: {
-        cwd,
-        isGit: true,
-        currentBranch: "main",
-        remoteUrl: "https://github.com/acme/repo.git",
-        isPaseoOwnedWorktree: false,
-        mainRepoRoot: null,
-      },
+    seedGitWorkspace({
+      projects,
+      workspaces,
+      projectId: 1,
+      workspaceId: 10,
+      cwd: "/tmp/repo",
+      name: "main",
     });
+
     resolveCheckoutGitDirMock.mockResolvedValue("/tmp/repo/.git");
     sessionAny.workspaceUpdatesSubscription = {
       subscriptionId: "sub-1",
@@ -192,15 +226,14 @@ describe("workspace git watch targets", () => {
       isBootstrapping: false,
       pendingUpdatesByWorkspaceId: new Map(),
     };
-    sessionAny.reconcileActiveWorkspaceRecords = async () => new Set();
 
     let descriptor = {
-      id: "/tmp/repo",
-      projectId: "/tmp/repo",
+      id: 10,
+      projectId: 1,
       projectDisplayName: "repo",
       projectRootPath: "/tmp/repo",
       projectKind: "git",
-      workspaceKind: "local_checkout",
+      workspaceKind: "checkout",
       name: "main",
       status: "done",
       activityAt: null,
@@ -209,8 +242,7 @@ describe("workspace git watch targets", () => {
 
     sessionAny.listWorkspaceDescriptorsSnapshot = async () => [descriptor];
 
-    await sessionAny.ensureWorkspaceRegistered("/tmp/repo");
-    sessionAny.primeWorkspaceGitWatchFingerprints([descriptor]);
+    await sessionAny.primeWorkspaceGitWatchFingerprints([descriptor]);
 
     expect(watchCalls.map((entry) => entry.path).sort()).toEqual([
       "/tmp/repo/.git/HEAD",
@@ -237,7 +269,7 @@ describe("workspace git watch targets", () => {
     expect(workspaceUpdates[0]?.payload).toMatchObject({
       kind: "upsert",
       workspace: {
-        id: "/tmp/repo",
+        id: 10,
         name: "renamed-branch",
         diffStat: { additions: 1, deletions: 0 },
       },
@@ -256,29 +288,45 @@ describe("workspace git watch targets", () => {
   });
 
   test("closes watchers when a workspace is archived and when the session closes", async () => {
-    const { session } = createSessionForWorkspaceGitWatchTests();
+    const { session, projects, workspaces } = createSessionForWorkspaceGitWatchTests();
     const sessionAny = session as any;
 
-    sessionAny.buildProjectPlacement = async (cwd: string) => ({
-      projectKey: cwd,
-      projectName: path.basename(cwd),
-      checkout: {
-        cwd,
-        isGit: true,
-        currentBranch: "main",
-        remoteUrl: "https://github.com/acme/repo.git",
-        isPaseoOwnedWorktree: false,
-        mainRepoRoot: null,
-      },
+    seedGitWorkspace({
+      projects,
+      workspaces,
+      projectId: 2,
+      workspaceId: 20,
+      cwd: "/tmp/repo-one",
+      name: "main",
+    });
+    seedGitWorkspace({
+      projects,
+      workspaces,
+      projectId: 3,
+      workspaceId: 30,
+      cwd: "/tmp/repo-two",
+      name: "main",
     });
 
     resolveCheckoutGitDirMock.mockImplementation(async (cwd: string) => path.join(cwd, ".git"));
 
-    await sessionAny.ensureWorkspaceRegistered("/tmp/repo-one");
+    await sessionAny.primeWorkspaceGitWatchFingerprints([
+      {
+        id: 20,
+        projectId: 2,
+        projectDisplayName: "repo-one",
+        projectRootPath: "/tmp/repo-one",
+        projectKind: "git",
+        workspaceKind: "checkout",
+        name: "main",
+        status: "done",
+        activityAt: null,
+      },
+    ]);
     expect(sessionAny.workspaceGitWatchTargets.size).toBe(1);
     expect(watchCalls).toHaveLength(2);
 
-    await sessionAny.archiveWorkspaceRecord("/tmp/repo-one", "2026-03-21T00:00:00.000Z");
+    await sessionAny.archiveWorkspaceRecord(20, "2026-03-21T00:00:00.000Z");
 
     expect(sessionAny.workspaceGitWatchTargets.size).toBe(0);
     expect(watchCalls.every((entry) => entry.close.mock.calls.length === 1)).toBe(true);
@@ -286,7 +334,19 @@ describe("workspace git watch targets", () => {
     watchCalls.length = 0;
     watchMock.mockClear();
 
-    await sessionAny.ensureWorkspaceRegistered("/tmp/repo-two");
+    await sessionAny.primeWorkspaceGitWatchFingerprints([
+      {
+        id: 30,
+        projectId: 3,
+        projectDisplayName: "repo-two",
+        projectRootPath: "/tmp/repo-two",
+        projectKind: "git",
+        workspaceKind: "checkout",
+        name: "main",
+        status: "done",
+        activityAt: null,
+      },
+    ]);
     expect(sessionAny.workspaceGitWatchTargets.size).toBe(1);
     expect(watchCalls).toHaveLength(2);
 

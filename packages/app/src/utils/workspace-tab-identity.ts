@@ -22,6 +22,10 @@ export function normalizeWorkspaceTabTarget(
     const path = trimNonEmpty(value.path);
     return path ? { kind: "file", path: path.replace(/\\/g, "/") } : null;
   }
+  if (value.kind === "launcher") {
+    const launcherId = trimNonEmpty(value.launcherId);
+    return launcherId ? { kind: "launcher", launcherId } : null;
+  }
   return null;
 }
 
@@ -44,6 +48,10 @@ export function workspaceTabTargetsEqual(
   if (left.kind === "file" && right.kind === "file") {
     return left.path === right.path;
   }
+  if (left.kind === "launcher" && right.kind === "launcher") {
+    // Launcher tabs are intentionally always unique, even when reopened repeatedly.
+    return false;
+  }
   return false;
 }
 
@@ -57,7 +65,17 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   if (target.kind === "terminal") {
     return `terminal_${target.terminalId}`;
   }
+  if (target.kind === "launcher") {
+    return `launcher_${target.launcherId}`;
+  }
   return `file_${target.path}`;
+}
+
+export function createLauncherId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {

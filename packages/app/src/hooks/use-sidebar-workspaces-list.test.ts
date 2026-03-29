@@ -29,7 +29,7 @@ function workspace(
     projectDisplayName: input.projectDisplayName ?? input.projectId,
     projectRootPath: input.projectRootPath ?? input.id,
     projectKind: input.projectKind ?? "git",
-    workspaceKind: input.workspaceKind ?? "local_checkout",
+    workspaceKind: input.workspaceKind ?? "checkout",
     name: input.name,
     status: input.status,
     activityAt: input.activityAt,

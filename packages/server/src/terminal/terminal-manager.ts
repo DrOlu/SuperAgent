@@ -5,6 +5,7 @@ export interface TerminalListItem {
   id: string;
   name: string;
   cwd: string;
+  title?: string;
 }
 
 export interface TerminalsChangedEvent {
@@ -17,9 +18,12 @@ export type TerminalsChangedListener = (input: TerminalsChangedEvent) => void;
 export interface TerminalManager {
   getTerminals(cwd: string): Promise<TerminalSession[]>;
   createTerminal(options: {
+    id?: string;
     cwd: string;
     name?: string;
     env?: Record<string, string>;
+    command?: string;
+    args?: string[];
   }): Promise<TerminalSession>;
   registerCwdEnv(options: { cwd: string; env: Record<string, string> }): void;
   getTerminal(id: string): TerminalSession | undefined;
@@ -29,10 +33,16 @@ export interface TerminalManager {
   subscribeTerminalsChanged(listener: TerminalsChangedListener): () => void;
 }
 
-export function createTerminalManager(): TerminalManager {
+type AgentBoundTerminalTitleHandler = (input: { agentId: string; title: string }) => Promise<void> | void;
+
+export function createTerminalManager(options?: {
+  resolveAgentIdForTerminal?: (terminalId: string) => string | null;
+  onAgentBoundTerminalTitleChange?: AgentBoundTerminalTitleHandler;
+}): TerminalManager {
   const terminalsByCwd = new Map<string, TerminalSession[]>();
   const terminalsById = new Map<string, TerminalSession>();
   const terminalExitUnsubscribeById = new Map<string, () => void>();
+  const terminalTitleUnsubscribeById = new Map<string, () => void>();
   const terminalsChangedListeners = new Set<TerminalsChangedListener>();
   const defaultEnvByRootCwd = new Map<string, Record<string, string>>();
 
@@ -52,6 +62,11 @@ export function createTerminalManager(): TerminalManager {
     if (unsubscribeExit) {
       unsubscribeExit();
       terminalExitUnsubscribeById.delete(id);
+    }
+    const unsubscribeTitle = terminalTitleUnsubscribeById.get(id);
+    if (unsubscribeTitle) {
+      unsubscribeTitle();
+      terminalTitleUnsubscribeById.delete(id);
     }
 
     terminalsById.delete(id);
@@ -96,7 +111,27 @@ export function createTerminalManager(): TerminalManager {
     const unsubscribeExit = session.onExit(() => {
       removeSessionById(session.id, { kill: false });
     });
+    const unsubscribeTitle = session.onTitleChange((title) => {
+      emitTerminalsChanged({ cwd: session.cwd });
+      const normalizedTitle = title?.trim();
+      if (!normalizedTitle) {
+        return;
+      }
+      const agentId = options?.resolveAgentIdForTerminal?.(session.id) ?? null;
+      if (!agentId) {
+        return;
+      }
+      void Promise.resolve(
+        options?.onAgentBoundTerminalTitleChange?.({
+          agentId,
+          title: normalizedTitle,
+        }),
+      ).catch(() => {
+        // no-op
+      });
+    });
     terminalExitUnsubscribeById.set(session.id, unsubscribeExit);
+    terminalTitleUnsubscribeById.set(session.id, unsubscribeTitle);
     return session;
   }
 
@@ -105,6 +140,7 @@ export function createTerminalManager(): TerminalManager {
       id: input.session.id,
       name: input.session.name,
       cwd: input.session.cwd,
+      title: input.session.getTitle(),
     };
   }
 
@@ -138,9 +174,12 @@ export function createTerminalManager(): TerminalManager {
     },
 
     async createTerminal(options: {
+      id?: string;
       cwd: string;
       name?: string;
       env?: Record<string, string>;
+      command?: string;
+      args?: string[];
     }): Promise<TerminalSession> {
       assertAbsolutePath(options.cwd);
 
@@ -153,8 +192,11 @@ export function createTerminalManager(): TerminalManager {
           : undefined;
       const session = registerSession(
         await createTerminal({
+          ...(options.id ? { id: options.id } : {}),
           cwd: options.cwd,
           name: options.name ?? defaultName,
+          ...(options.command ? { command: options.command } : {}),
+          ...(options.args ? { args: options.args } : {}),
           ...(mergedEnv ? { env: mergedEnv } : {}),
         }),
       );

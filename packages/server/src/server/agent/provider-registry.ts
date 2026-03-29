@@ -9,6 +9,9 @@ import type { Logger } from "pino";
 
 import { ClaudeAgentClient } from "./providers/claude-agent.js";
 import { CodexAppServerAgentClient } from "./providers/codex-app-server-agent.js";
+import { GeminiAgentClient } from "./providers/gemini-agent.js";
+import { AmpAgentClient } from "./providers/amp-agent.js";
+import { AiderAgentClient } from "./providers/aider-agent.js";
 import { OpenCodeAgentClient, OpenCodeServerManager } from "./providers/opencode-agent.js";
 
 import {
@@ -40,6 +43,9 @@ export function buildProviderRegistry(
     runtimeSettings: runtimeSettings?.claude,
   });
   const codexClient = new CodexAppServerAgentClient(logger, runtimeSettings?.codex);
+  const geminiClient = new GeminiAgentClient(runtimeSettings?.gemini);
+  const ampClient = new AmpAgentClient(runtimeSettings?.amp);
+  const aiderClient = new AiderAgentClient(runtimeSettings?.aider);
   const opencodeClient = new OpenCodeAgentClient(logger, runtimeSettings?.opencode);
 
   return {
@@ -54,6 +60,21 @@ export function buildProviderRegistry(
       createClient: (logger: Logger) =>
         new CodexAppServerAgentClient(logger, runtimeSettings?.codex),
       fetchModels: (options) => codexClient.listModels(options),
+    },
+    gemini: {
+      ...AGENT_PROVIDER_DEFINITIONS.find((d) => d.id === "gemini")!,
+      createClient: () => new GeminiAgentClient(runtimeSettings?.gemini),
+      fetchModels: (options) => geminiClient.listModels(options),
+    },
+    amp: {
+      ...AGENT_PROVIDER_DEFINITIONS.find((d) => d.id === "amp")!,
+      createClient: () => new AmpAgentClient(runtimeSettings?.amp),
+      fetchModels: (options) => ampClient.listModels(options),
+    },
+    aider: {
+      ...AGENT_PROVIDER_DEFINITIONS.find((d) => d.id === "aider")!,
+      createClient: () => new AiderAgentClient(runtimeSettings?.aider),
+      fetchModels: (options) => aiderClient.listModels(options),
     },
     opencode: {
       ...AGENT_PROVIDER_DEFINITIONS.find((d) => d.id === "opencode")!,
@@ -74,6 +95,9 @@ export function createAllClients(
   return {
     claude: registry.claude.createClient(logger),
     codex: registry.codex.createClient(logger),
+    gemini: registry.gemini.createClient(logger),
+    amp: registry.amp.createClient(logger),
+    aider: registry.aider.createClient(logger),
     opencode: registry.opencode.createClient(logger),
   };
 }

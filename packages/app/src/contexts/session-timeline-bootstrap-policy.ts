@@ -6,7 +6,6 @@ type BootstrapTailCursor = {
 } | null;
 
 type InitialTimelineCursor = {
-  epoch: string;
   seq: number;
 } | null;
 
@@ -20,48 +19,37 @@ export function deriveInitialTimelineRequest({
   initialTimelineLimit: number;
 }): {
   direction: "tail" | "after";
-  cursor?: { epoch: string; seq: number };
+  cursor?: { seq: number };
   limit: number;
-  projection: "canonical";
 } {
   if (!hasAuthoritativeHistory || !cursor) {
     return {
       direction: "tail",
       limit: initialTimelineLimit,
-      projection: "canonical",
     };
   }
 
   return {
     direction: "after",
-    cursor: { epoch: cursor.epoch, seq: cursor.seq },
+    cursor: { seq: cursor.seq },
     limit: 0,
-    projection: "canonical",
   };
 }
 
 export function deriveBootstrapTailTimelinePolicy({
   direction,
-  reset,
-  epoch,
-  endCursor,
+  endSeq,
   isInitializing,
   hasActiveInitDeferred,
 }: {
   direction: TimelineDirection;
-  reset: boolean;
-  epoch: string;
-  endCursor: BootstrapTailCursor;
+  endSeq: number | null;
   isInitializing: boolean;
   hasActiveInitDeferred: boolean;
 }): {
   replace: boolean;
-  catchUpCursor: { epoch: string; endSeq: number } | null;
+  catchUpCursor: { endSeq: number } | null;
 } {
-  if (reset) {
-    return { replace: true, catchUpCursor: null };
-  }
-
   const isBootstrapTailInit = direction === "tail" && isInitializing && hasActiveInitDeferred;
   if (!isBootstrapTailInit) {
     return { replace: false, catchUpCursor: null };
@@ -69,7 +57,7 @@ export function deriveBootstrapTailTimelinePolicy({
 
   return {
     replace: true,
-    catchUpCursor: endCursor ? { epoch, endSeq: endCursor.seq } : null,
+    catchUpCursor: typeof endSeq === "number" ? { endSeq } : null,
   };
 }
 
@@ -78,19 +66,14 @@ export function shouldResolveTimelineInit({
   isInitializing,
   initRequestDirection,
   responseDirection,
-  reset,
 }: {
   hasActiveInitDeferred: boolean;
   isInitializing: boolean;
   initRequestDirection: InitRequestDirection;
   responseDirection: TimelineDirection;
-  reset: boolean;
 }): boolean {
   if (!hasActiveInitDeferred || !isInitializing) {
     return false;
-  }
-  if (reset) {
-    return true;
   }
   return responseDirection === initRequestDirection;
 }

@@ -1,12 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  buildDeterministicWorkspaceTabId,
+  createLauncherId,
+  normalizeWorkspaceTabTarget,
+  workspaceTabTargetsEqual,
+} from "@/utils/workspace-tab-identity";
 
 export type WorkspaceTabTarget =
   | { kind: "draft"; draftId: string }
   | { kind: "agent"; agentId: string }
   | { kind: "terminal"; terminalId: string }
-  | { kind: "file"; path: string };
+  | { kind: "file"; path: string }
+  | { kind: "launcher"; launcherId: string };
 
 export type WorkspaceTab = {
   tabId: string;
@@ -36,63 +43,6 @@ export function buildWorkspaceTabPersistenceKey(input: {
     return null;
   }
   return `${serverId}:${normalizeWorkspaceId(workspaceId)}`;
-}
-
-function normalizeTabTarget(
-  value: WorkspaceTabTarget | null | undefined,
-): WorkspaceTabTarget | null {
-  if (!value || typeof value !== "object" || typeof value.kind !== "string") {
-    return null;
-  }
-  if (value.kind === "draft") {
-    const draftId = trimNonEmpty(value.draftId);
-    return draftId ? { kind: "draft", draftId } : null;
-  }
-  if (value.kind === "agent") {
-    const agentId = trimNonEmpty(value.agentId);
-    return agentId ? { kind: "agent", agentId } : null;
-  }
-  if (value.kind === "terminal") {
-    const terminalId = trimNonEmpty(value.terminalId);
-    return terminalId ? { kind: "terminal", terminalId } : null;
-  }
-  if (value.kind === "file") {
-    const path = trimNonEmpty(value.path);
-    return path ? { kind: "file", path: path.replace(/\\/g, "/") } : null;
-  }
-  return null;
-}
-
-function tabTargetsEqual(left: WorkspaceTabTarget, right: WorkspaceTabTarget): boolean {
-  if (left.kind !== right.kind) {
-    return false;
-  }
-  if (left.kind === "draft" && right.kind === "draft") {
-    return left.draftId === right.draftId;
-  }
-  if (left.kind === "agent" && right.kind === "agent") {
-    return left.agentId === right.agentId;
-  }
-  if (left.kind === "terminal" && right.kind === "terminal") {
-    return left.terminalId === right.terminalId;
-  }
-  if (left.kind === "file" && right.kind === "file") {
-    return left.path === right.path;
-  }
-  return false;
-}
-
-function buildDeterministicTabId(target: WorkspaceTabTarget): string {
-  if (target.kind === "draft") {
-    return target.draftId;
-  }
-  if (target.kind === "agent") {
-    return `agent_${target.agentId}`;
-  }
-  if (target.kind === "terminal") {
-    return `terminal_${target.terminalId}`;
-  }
-  return `file_${target.path}`;
 }
 
 function normalizeTabOrder(list: unknown): string[] {
@@ -133,6 +83,7 @@ type WorkspaceTabsState = {
     workspaceId: string;
     target: WorkspaceTabTarget;
   }) => string | null;
+  openLauncherTab: (input: { serverId: string; workspaceId: string }) => string | null;
   openOrFocusTab: (input: {
     serverId: string;
     workspaceId: string;
@@ -169,19 +120,20 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
       },
       ensureTab: ({ serverId, workspaceId, target }) => {
         const key = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
-        const normalizedTarget = normalizeTabTarget(target);
+        const normalizedTarget = normalizeWorkspaceTabTarget(target);
         if (!key || !normalizedTarget) {
           return null;
         }
 
-        const deterministicTabId = buildDeterministicTabId(normalizedTarget);
+        const deterministicTabId = buildDeterministicWorkspaceTabId(normalizedTarget);
         let resolvedTabId = deterministicTabId;
         const now = Date.now();
 
         set((state) => {
           const currentTabs = state.uiTabsByWorkspace[key] ?? [];
           const tabWithSameTarget =
-            currentTabs.find((tab) => tabTargetsEqual(tab.target, normalizedTarget)) ?? null;
+            currentTabs.find((tab) => workspaceTabTargetsEqual(tab.target, normalizedTarget)) ??
+            null;
           const effectiveTabId = tabWithSameTarget?.tabId ?? deterministicTabId;
           resolvedTabId = effectiveTabId;
 
@@ -196,7 +148,7 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
               ];
             }
             const existing = currentTabs[existingIndex];
-            if (existing && tabTargetsEqual(existing.target, normalizedTarget)) {
+            if (existing && workspaceTabTargetsEqual(existing.target, normalizedTarget)) {
               return currentTabs;
             }
             return currentTabs.map((tab, index) =>
@@ -217,6 +169,13 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
         });
 
         return resolvedTabId;
+      },
+      openLauncherTab: ({ serverId, workspaceId }) => {
+        return get().openOrFocusTab({
+          serverId,
+          workspaceId,
+          target: { kind: "launcher", launcherId: createLauncherId() },
+        });
       },
       openOrFocusTab: ({ serverId, workspaceId, target }) => {
         const tabId = get().ensureTab({ serverId, workspaceId, target });
@@ -310,7 +269,7 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
       retargetTab: ({ serverId, workspaceId, tabId, target }) => {
         const key = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
         const normalizedTabId = trimNonEmpty(tabId);
-        const normalizedTarget = normalizeTabTarget(target);
+        const normalizedTarget = normalizeWorkspaceTabTarget(target);
         if (!key || !normalizedTabId || !normalizedTarget) {
           return null;
         }
@@ -325,7 +284,7 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
           }
 
           const currentTarget = currentTabs[index]?.target;
-          if (currentTarget && tabTargetsEqual(currentTarget, normalizedTarget)) {
+          if (currentTarget && workspaceTabTargetsEqual(currentTarget, normalizedTarget)) {
             return state;
           }
 
@@ -390,7 +349,7 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
         for (const key in state.uiTabsByWorkspace) {
           const tabs = (state.uiTabsByWorkspace[key] ?? [])
             .map((tab) => {
-              const normalizedTarget = normalizeTabTarget(tab.target);
+              const normalizedTarget = normalizeWorkspaceTabTarget(tab.target);
               const normalizedTabId = trimNonEmpty(tab.tabId);
               if (!normalizedTarget || !normalizedTabId) {
                 return null;
@@ -479,13 +438,13 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
               continue;
             }
 
-            const normalizedTarget = normalizeTabTarget((rawTab as WorkspaceTab).target);
+            const normalizedTarget = normalizeWorkspaceTabTarget((rawTab as WorkspaceTab).target);
             const rawTabId = trimNonEmpty((rawTab as WorkspaceTab).tabId);
             if (!normalizedTarget) {
               continue;
             }
 
-            const tabId = rawTabId ?? buildDeterministicTabId(normalizedTarget);
+            const tabId = rawTabId ?? buildDeterministicWorkspaceTabId(normalizedTarget);
             if (!usedOrder.has(tabId)) {
               usedOrder.add(tabId);
               orderFromTabs.push(tabId);

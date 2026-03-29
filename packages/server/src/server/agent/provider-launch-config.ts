@@ -179,6 +179,14 @@ export function applyProviderEnv(
   return merged;
 }
 
+export function sanitizeTerminalEnv(
+  env: Record<string, string | undefined>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
+}
+
 /**
  * Resolve an executable name to its absolute path the way the user's shell would.
  *

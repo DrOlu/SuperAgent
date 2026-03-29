@@ -15,6 +15,7 @@ export interface SidebarWorkspaceEntry {
   workspaceKey: string;
   serverId: string;
   workspaceId: string;
+  projectKind: WorkspaceDescriptor["projectKind"];
   workspaceKind: WorkspaceDescriptor["workspaceKind"];
   name: string;
   activityAt: Date | null;
@@ -130,6 +131,7 @@ export function buildSidebarProjectsFromWorkspaces(input: {
       workspaceKey: `${input.serverId}:${workspace.id}`,
       serverId: input.serverId,
       workspaceId: workspace.id,
+      projectKind: workspace.projectKind,
       workspaceKind: workspace.workspaceKind,
       name: workspace.name,
       activityAt: workspace.activityAt,
@@ -248,8 +250,8 @@ function getWorkspaceOrderScopeKey(serverId: string, projectKey: string): string
 }
 
 function toWorkspaceDescriptor(payload: {
-  id: string;
-  projectId: string;
+  id: number;
+  projectId: number;
   projectDisplayName: string;
   projectRootPath: string;
   projectKind: WorkspaceDescriptor["projectKind"];

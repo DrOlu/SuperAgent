@@ -41,7 +41,7 @@ import {
   persistAttachmentFromBlob,
   persistAttachmentFromFileUri,
 } from "@/attachments/service";
-import { resolveStatusControlMode } from "@/components/agent-input-area.status-controls";
+import { resolveStatusControlMode } from "@/components/composer.status-controls";
 import { markScrollInvestigationRender } from "@/utils/scroll-jank-investigation";
 import { useKeyboardShiftStyle } from "@/hooks/use-keyboard-shift-style";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
@@ -56,11 +56,12 @@ type QueuedMessage = {
 
 type ImageListUpdater = ImageAttachment[] | ((prev: ImageAttachment[]) => ImageAttachment[]);
 
-interface AgentInputAreaProps {
+interface ComposerProps {
   agentId: string;
   serverId: string;
   isInputActive: boolean;
   onSubmitMessage?: (payload: MessagePayload) => Promise<void>;
+  allowEmptySubmit?: boolean;
   /** Externally controlled loading state. When true, disables the submit button. */
   isSubmitLoading?: boolean;
   /** When true, blurs the input immediately when submitting. */
@@ -89,11 +90,12 @@ const EMPTY_ARRAY: readonly QueuedMessage[] = [];
 const DESKTOP_MESSAGE_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
 const MOBILE_MESSAGE_PLACEHOLDER = "Message, @files, /commands";
 
-export function AgentInputArea({
+export function Composer({
   agentId,
   serverId,
   isInputActive,
   onSubmitMessage,
+  allowEmptySubmit = false,
   isSubmitLoading = false,
   blurOnSubmit = false,
   value,
@@ -109,8 +111,8 @@ export function AgentInputArea({
   onAttentionInputFocus,
   onAttentionPromptSend,
   statusControls,
-}: AgentInputAreaProps) {
-  markScrollInvestigationRender(`AgentInputArea:${serverId}:${agentId}`);
+}: ComposerProps) {
+  markScrollInvestigationRender(`Composer:${serverId}:${agentId}`);
   const { theme } = useUnistyles();
   const buttonIconSize = Platform.OS === "web" ? theme.iconSize.md : theme.iconSize.lg;
   const insets = useSafeAreaInsets();
@@ -480,7 +482,7 @@ export function AgentInputArea({
       return;
     }
     void voice.startVoice(serverId, agentId).catch((error) => {
-      console.error("[AgentInputArea] Failed to start voice mode", error);
+      console.error("[Composer] Failed to start voice mode", error);
       const message =
         error instanceof Error ? error.message : typeof error === "string" ? error : null;
       if (message && message.trim().length > 0) {
@@ -677,6 +679,7 @@ export function AgentInputArea({
               value={userInput}
               onChangeText={setUserInput}
               onSubmit={handleSubmit}
+              allowEmptySubmit={allowEmptySubmit}
               isSubmitDisabled={isProcessing || isSubmitLoading}
               isSubmitLoading={isProcessing || isSubmitLoading}
               images={selectedImages}

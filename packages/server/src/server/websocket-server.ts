@@ -4,7 +4,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { join } from "path";
 import { hostname as getHostname } from "node:os";
 import type { AgentManager } from "./agent/agent-manager.js";
-import type { AgentStorage } from "./agent/agent-storage.js";
+import type { AgentSnapshotStore } from "./agent/agent-snapshot-store.js";
 import type { DownloadTokenStore } from "./file-download/token-store.js";
 import type { TerminalManager } from "../terminal/terminal-manager.js";
 import type pino from "pino";
@@ -46,7 +46,6 @@ import {
 } from "./agent-attention-policy.js";
 import {
   buildAgentAttentionNotificationPayload,
-  findLatestAssistantMessageFromTimeline,
   findLatestPermissionRequest,
 } from "../shared/agent-attention-notification.js";
 
@@ -74,6 +73,7 @@ function createNoopProjectRegistry(): ProjectRegistry {
     existsOnDisk: async () => true,
     list: async () => [],
     get: async () => null,
+    insert: async () => 0,
     upsert: async () => {},
     archive: async () => {},
     remove: async () => {},
@@ -86,6 +86,7 @@ function createNoopWorkspaceRegistry(): WorkspaceRegistry {
     existsOnDisk: async () => true,
     list: async () => [],
     get: async () => null,
+    insert: async () => 0,
     upsert: async () => {},
     archive: async () => {},
     remove: async () => {},
@@ -231,7 +232,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly serverId: string;
   private readonly daemonVersion: string;
   private readonly agentManager: AgentManager;
-  private readonly agentStorage: AgentStorage;
+  private readonly agentStorage: AgentSnapshotStore;
   private readonly projectRegistry: ProjectRegistry;
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly chatService: FileBackedChatService;
@@ -294,7 +295,7 @@ export class VoiceAssistantWebSocketServer {
     logger: pino.Logger,
     serverId: string,
     agentManager: AgentManager,
-    agentStorage: AgentStorage,
+    agentStorage: AgentSnapshotStore,
     downloadTokenStore: DownloadTokenStore,
     paseoHome: string,
     createAgentMcpTransport: AgentMcpTransportFactory,
@@ -375,7 +376,9 @@ export class VoiceAssistantWebSocketServer {
     this.pushService = new PushService(pushLogger, this.pushTokenStore);
 
     this.agentManager.setAgentAttentionCallback((params) => {
-      this.broadcastAgentAttention(params);
+      void this.broadcastAgentAttention(params).catch((err) => {
+        this.logger.warn({ err, agentId: params.agentId }, "Failed to broadcast agent attention");
+      });
     });
 
     const { allowedOrigins, allowedHosts } = wsConfig;
@@ -1330,11 +1333,11 @@ export class VoiceAssistantWebSocketServer {
     };
   }
 
-  private broadcastAgentAttention(params: {
+  private async broadcastAgentAttention(params: {
     agentId: string;
     provider: AgentProvider;
     reason: "finished" | "error" | "permission";
-  }): void {
+  }): Promise<void> {
     const clientEntries: Array<{
       ws: WebSocketLike;
       state: ClientAttentionState;
@@ -1349,11 +1352,12 @@ export class VoiceAssistantWebSocketServer {
 
     const allStates = clientEntries.map((e) => e.state);
     const agent = this.agentManager.getAgent(params.agentId);
+    const assistantMessage = await this.agentManager.getLastAssistantMessage(params.agentId);
     const notification = buildAgentAttentionNotificationPayload({
       reason: params.reason,
       serverId: this.serverId,
       agentId: params.agentId,
-      assistantMessage: agent ? findLatestAssistantMessageFromTimeline(agent.timeline) : null,
+      assistantMessage,
       permissionRequest: agent ? findLatestPermissionRequest(agent.pendingPermissions) : null,
     });
 

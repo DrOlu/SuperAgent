@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import type { ModelInfo } from "@anthropic-ai/claude-agent-sdk";
+import type { ModelInfo, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 
 import { createTestLogger } from "../../../test-utils/test-logger.js";
 import { ClaudeAgentClient, convertClaudeHistoryEntry } from "./claude-agent.js";
@@ -355,6 +355,54 @@ describe("ClaudeAgentClient.listModels", () => {
         description: "Recommended model",
       }),
     ]);
+    expect(queryMock.return).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps the Claude control-plane query open until supportedModels resolves", async () => {
+    const queryMock = createSupportedModelsQueryMock([
+      {
+        value: "default",
+        displayName: "Default (recommended)",
+        description: "Sonnet 4.6 · Best for everyday tasks",
+      },
+    ] satisfies ModelInfo[]);
+    let promptIterator: AsyncIterator<SDKUserMessage, void> | null = null;
+    let promptNextPromise: Promise<IteratorResult<SDKUserMessage, void>> | null = null;
+    let promptClosedBeforeModelsResolved = false;
+
+    queryMock.supportedModels = vi.fn(async () => {
+      promptNextPromise = promptIterator?.next() ?? null;
+      if (!promptNextPromise) {
+        throw new Error("Prompt iterator not captured");
+      }
+      promptNextPromise.then(() => {
+        promptClosedBeforeModelsResolved = true;
+      });
+      await Promise.resolve();
+      expect(promptClosedBeforeModelsResolved).toBe(false);
+      return [
+        {
+          value: "default",
+          displayName: "Default (recommended)",
+          description: "Sonnet 4.6 · Best for everyday tasks",
+        },
+      ] satisfies ModelInfo[];
+    });
+
+    const queryFactory = vi.fn(({ prompt }) => {
+      promptIterator = prompt[Symbol.asyncIterator]();
+      return queryMock;
+    });
+    const client = new ClaudeAgentClient({
+      logger,
+      queryFactory: queryFactory as never,
+    });
+
+    const models = await client.listModels({ cwd: process.cwd() });
+
+    expect(models).toHaveLength(1);
+    expect(promptNextPromise).not.toBeNull();
+    await expect(promptNextPromise).resolves.toEqual({ done: true, value: undefined });
     expect(queryMock.return).toHaveBeenCalledTimes(1);
   });
 });

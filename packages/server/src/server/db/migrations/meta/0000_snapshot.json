@@ -1,0 +1,14 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "7ccf4685-bd8f-41a6-bafb-44712c1fe0d7",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {},
+  "views": {},
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "checkConstraints": {}
+}

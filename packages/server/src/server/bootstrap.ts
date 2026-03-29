@@ -93,12 +93,16 @@ import type { LocalSpeechProviderConfig } from "./speech/providers/local/config.
 import type { RequestedSpeechProviders } from "./speech/speech-types.js";
 import { initializeSpeechRuntime } from "./speech/speech-runtime.js";
 import { AgentManager } from "./agent/agent-manager.js";
-import { AgentStorage } from "./agent/agent-storage.js";
-import { attachAgentStoragePersistence } from "./persistence-hooks.js";
+import type { AgentSnapshotStore } from "./agent/agent-snapshot-store.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { createAllClients, shutdownProviders } from "./agent/provider-registry.js";
-import { bootstrapWorkspaceRegistries } from "./workspace-registry-bootstrap.js";
-import { FileBackedProjectRegistry, FileBackedWorkspaceRegistry } from "./workspace-registry.js";
+import { DbAgentSnapshotStore } from "./db/db-agent-snapshot-store.js";
+import { DbAgentTimelineStore } from "./db/db-agent-timeline-store.js";
+import { DbProjectRegistry } from "./db/db-project-registry.js";
+import { DbWorkspaceRegistry } from "./db/db-workspace-registry.js";
+import { importLegacyAgentSnapshots } from "./db/legacy-agent-snapshot-import.js";
+import { importLegacyProjectWorkspaceJson } from "./db/legacy-project-workspace-import.js";
+import { openPaseoDatabase, type PaseoDatabaseHandle } from "./db/sqlite-database.js";
 import { FileBackedChatService } from "./chat/chat-service.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { LoopService } from "./loop-service.js";
@@ -192,7 +196,7 @@ export type PaseoDaemonConfig = {
 export interface PaseoDaemon {
   config: PaseoDaemonConfig;
   agentManager: AgentManager;
-  agentStorage: AgentStorage;
+  agentStorage: AgentSnapshotStore;
   terminalManager: TerminalManager;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -210,6 +214,7 @@ export async function createPaseoDaemon(
   const pidLockMode = config.pidLock?.mode ?? "self";
   const pidLockOwnerPid = config.pidLock?.ownerPid;
   const ownsPidLock = pidLockMode === "self";
+  let database: PaseoDatabaseHandle | null = null;
 
   // Acquire PID lock before expensive bootstrap work so duplicate starts fail immediately.
   if (ownsPidLock) {
@@ -368,20 +373,33 @@ export async function createPaseoDaemon(
 
     const httpServer = createHTTPServer(app);
 
-    const agentStorage = new AgentStorage(config.agentStoragePath, logger);
-    const projectRegistry = new FileBackedProjectRegistry(
-      path.join(config.paseoHome, "projects", "projects.json"),
-      logger,
-    );
-    const workspaceRegistry = new FileBackedWorkspaceRegistry(
-      path.join(config.paseoHome, "projects", "workspaces.json"),
-      logger,
-    );
+    database = await openPaseoDatabase(path.join(config.paseoHome, "db"));
+    logger.info({ elapsed: elapsed() }, "Paseo database opened");
+
+    const agentStorage = new DbAgentSnapshotStore(database.db);
     const chatService = new FileBackedChatService({
       paseoHome: config.paseoHome,
       logger,
     });
-    const agentManager = new AgentManager({
+    const durableTimelineStore = new DbAgentTimelineStore(database.db);
+    let agentManager: AgentManager | null = null;
+    const terminalManager = createTerminalManager({
+      resolveAgentIdForTerminal: (terminalId) => agentManager?.getAgentIdForTerminal(terminalId) ?? null,
+      onAgentBoundTerminalTitleChange: async ({ agentId, title }) => {
+        if (!agentManager) {
+          return;
+        }
+        try {
+          await agentManager.setTitle(agentId, title);
+        } catch (error) {
+          logger.warn(
+            { err: error, agentId },
+            "Failed to propagate bound terminal title to agent state",
+          );
+        }
+      },
+    });
+    agentManager = new AgentManager({
       clients: {
         ...createAllClients(logger, {
           runtimeSettings: config.agentProviderSettings,
@@ -389,26 +407,25 @@ export async function createPaseoDaemon(
         ...config.agentClients,
       },
       registry: agentStorage,
+      durableTimelineStore,
+      terminalManager,
       logger,
     });
 
-    const terminalManager = createTerminalManager();
-
-    const detachAgentStoragePersistence = attachAgentStoragePersistence(
-      logger,
-      agentManager,
-      agentStorage,
-    );
-    await agentStorage.initialize();
-    logger.info({ elapsed: elapsed() }, "Agent storage initialized");
-    await bootstrapWorkspaceRegistries({
+    const projectRegistry = new DbProjectRegistry(database.db);
+    const workspaceRegistry = new DbWorkspaceRegistry(database.db);
+    await importLegacyProjectWorkspaceJson({
+      db: database.db,
       paseoHome: config.paseoHome,
-      agentStorage,
-      projectRegistry,
-      workspaceRegistry,
       logger,
     });
-    logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
+    logger.info({ elapsed: elapsed() }, "Legacy project/workspace import checked");
+    await importLegacyAgentSnapshots({
+      db: database.db,
+      paseoHome: config.paseoHome,
+      logger,
+    });
+    logger.info({ elapsed: elapsed() }, "Legacy agent snapshot import checked");
     await chatService.initialize();
     logger.info({ elapsed: elapsed() }, "Chat service initialized");
     const checkoutDiffManager = new CheckoutDiffManager({
@@ -752,8 +769,6 @@ export async function createPaseoDaemon(
     const stop = async () => {
       await closeAllAgents(logger, agentManager);
       await agentManager.flush().catch(() => undefined);
-      detachAgentStoragePersistence();
-      await agentStorage.flush().catch(() => undefined);
       await shutdownProviders(logger, {
         runtimeSettings: config.agentProviderSettings,
       });
@@ -769,6 +784,7 @@ export async function createPaseoDaemon(
       if (voiceMcpBridgeManager) {
         await voiceMcpBridgeManager.stop().catch(() => undefined);
       }
+      await database?.close().catch(() => undefined);
       await new Promise<void>((resolve) => {
         httpServer.close(() => resolve());
       });
@@ -794,6 +810,7 @@ export async function createPaseoDaemon(
       getListenTarget: () => boundListenTarget,
     };
   } catch (err) {
+    await database?.close().catch(() => undefined);
     if (ownsPidLock) {
       await releasePidLock(config.paseoHome, {
         ownerPid: pidLockOwnerPid,

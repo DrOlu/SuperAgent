@@ -2,6 +2,13 @@
 
 All workspaces share one version and release together.
 
+## Two paths
+
+There are two supported ways to ship from `main`:
+
+1. **Direct stable release**: you are ready to ship the current `main` commit to everyone immediately.
+2. **Release candidate flow**: you want public test builds first, but you are not ready for the website, npm, or production mobile release flows to move yet.
+
 ## Standard release (patch)
 
 ```bash
@@ -11,6 +18,8 @@ npm run release:patch
 This bumps the version across all workspaces, runs checks, publishes to npm, and pushes the branch + tag (triggering desktop, APK, and EAS mobile workflows).
 
 If asked to "release paseo" without specifying major/minor, treat it as a patch release.
+
+Use the direct stable path when the current `main` changes are ready to become the public release immediately.
 
 ## Manual step-by-step
 
@@ -35,6 +44,18 @@ npm run release:promote        # Promote X.Y.Z-rc.N to stable X.Y.Z
 - `release:promote` creates a fresh stable tag like `v0.1.41`; the final release never reuses the RC tag
 - Desktop assets now come from the Electron package at `packages/desktop`
 - **Do NOT create a changelog entry for RCs.** The changelog remains stable-only. RC release notes are generated automatically so the website stays pinned to the latest published stable release.
+
+Use the RC path when you need to:
+
+- test a build manually in a Linux or Windows VM
+- send a build to a user who is hitting a specific problem
+- iterate on `rc.1`, `rc.2`, `rc.3`, and so on before deciding to ship broadly
+
+## Website behavior
+
+- The website download page points to GitHub's latest published **stable** release.
+- Published RC prereleases are public on GitHub Releases, but they do **not** become the website download target.
+- The website only moves when you publish the final stable release tag like `v0.1.41`.
 
 ## Fixing a failed release build
 
@@ -79,6 +100,18 @@ Stable release notes depend on the changelog heading format. The heading **must*
 ```
 
 No prefix (`v`), no extra text. The parser matches the first `## X.Y.Z` line to extract the version. A malformed heading will break download links on the homepage.
+
+## Changelog policy
+
+- `CHANGELOG.md` is for **final stable releases only**.
+- Do not add or edit changelog entries while iterating on RCs.
+- Write the proper changelog entry when you are cutting the final stable release that comes after the RC cycle.
+- Between stable releases, keep changelog work out of the repo until the final release is ready.
+
+## Changelog ownership
+
+- **Only Claude should write changelog entries.**
+- If you are Codex and a stable release needs a changelog entry, launch a Claude agent with Paseo to draft it, then review and commit the result.
 
 ## Completion checklist
 

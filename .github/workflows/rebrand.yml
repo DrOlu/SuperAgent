@@ -1,0 +1,249 @@
+name: Rebrand Paseo → SuperAgent
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force re-run even if already done'
+        required: false
+        default: 'false'
+
+jobs:
+  rebrand:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout SuperAgent repo (for branding assets)
+        uses: actions/checkout@v4
+        with:
+          path: superagent-meta
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone Paseo source (full history)
+        run: |
+          git clone https://github.com/getpaseo/paseo paseo-src
+          echo "Paseo cloned: $(git -C paseo-src log --oneline -3)"
+
+      - name: Replace desktop icons
+        run: |
+          cp superagent-meta/branding/icon.png  paseo-src/packages/desktop/assets/icon.png
+          cp superagent-meta/branding/icon.ico   paseo-src/packages/desktop/assets/icon.ico
+          cp superagent-meta/branding/icon.icns  paseo-src/packages/desktop/assets/icon.icns
+          cp superagent-meta/branding/icon_256.png paseo-src/packages/desktop/assets/128x128@2x.png
+          cp superagent-meta/branding/icon_128.png paseo-src/packages/desktop/assets/128x128.png
+          cp superagent-meta/branding/icon_64.png  paseo-src/packages/desktop/assets/64x64.png
+          cp superagent-meta/branding/icon_32.png  paseo-src/packages/desktop/assets/32x32.png
+          echo "Desktop icons replaced"
+
+      - name: Replace mobile/web app icons
+        run: |
+          cp superagent-meta/branding/icon.png     paseo-src/packages/app/assets/images/icon.png
+          cp superagent-meta/branding/icon_256.png paseo-src/packages/app/assets/images/favicon.png
+          cp superagent-meta/branding/icon.png     paseo-src/packages/app/assets/images/splash-icon.png
+          cp superagent-meta/branding/icon.png     paseo-src/packages/app/assets/images/notification-icon.png
+          cp superagent-meta/branding/icon.png     paseo-src/packages/app/assets/images/android-icon-foreground.png
+          for f in paseo-src/packages/app/assets/images/*.svg; do
+            cp superagent-meta/branding/icon.svg "$f" 2>/dev/null || true
+          done
+          for f in paseo-src/packages/app/assets/images/favicon*.png; do
+            cp superagent-meta/branding/icon_256.png "$f" 2>/dev/null || true
+          done
+          echo "Mobile/web icons replaced"
+
+      - name: Rebrand desktop electron-builder.yml
+        run: |
+          cd paseo-src/packages/desktop
+          sed -i \
+            -e 's|appId: sh\.paseo\.desktop|appId: ng.hyperspace.superagent|g' \
+            -e 's|productName: Paseo|productName: SuperAgent|g' \
+            -e 's|executableName: Paseo|executableName: SuperAgent|g' \
+            -e 's|owner: getpaseo|owner: DrOlu|g' \
+            -e 's|repo: paseo|repo: SuperAgent|g' \
+            -e 's|artifactName: "Paseo-|artifactName: "SuperAgent-|g' \
+            -e 's|maintainer: "Mohamed Boudra <hello@moboudra.com>"|maintainer: "Hyperspace Technologies <superagent@hyperspace.ng>"|g' \
+            -e 's|vendor: "Paseo"|vendor: "SuperAgent by Hyperspace Technologies"|g' \
+            -e 's|homepage: https://paseo.sh|homepage: https://hyperspace.ng|g' \
+            electron-builder.yml
+          echo "electron-builder.yml:"
+          grep -E "appId|productName|owner:|repo:|maintainer|vendor" electron-builder.yml
+
+      - name: Rebrand desktop package.json
+        run: |
+          cd paseo-src/packages/desktop
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            p.description = 'SuperAgent desktop app (Electron wrapper)';
+            p.homepage = 'https://hyperspace.ng';
+            p.author = { name: 'Hyperspace Technologies', email: 'superagent@hyperspace.ng' };
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+            console.log('desktop package.json updated');
+          "
+
+      - name: Rebrand root package.json
+        run: |
+          cd paseo-src
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            p.author = { name: 'Hyperspace Technologies', email: 'superagent@hyperspace.ng' };
+            p.homepage = 'https://hyperspace.ng';
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+            console.log('root package.json updated');
+          "
+
+      - name: Rebrand app.config.js (mobile app)
+        run: |
+          cd paseo-src/packages/app
+          sed -i \
+            -e "s|name: \"Paseo\"|name: \"SuperAgent\"|g" \
+            -e "s|name: \"Paseo Debug\"|name: \"SuperAgent Debug\"|g" \
+            -e "s|packageId: \"sh\.paseo\"|packageId: \"ng.hyperspace.superagent\"|g" \
+            -e "s|packageId: \"sh\.paseo\.debug\"|packageId: \"ng.hyperspace.superagent.debug\"|g" \
+            -e "s|slug: \"voice-mobile\"|slug: \"superagent\"|g" \
+            -e "s|scheme: \"paseo\"|scheme: \"superagent\"|g" \
+            -e "s|owner: \"getpaseo\"|owner: \"DrOlu\"|g" \
+            app.config.js
+          echo "app.config.js rebranded"
+          grep -E "name:|packageId:|slug:|scheme:|owner:" app.config.js | head -10
+
+      - name: Rebrand README.md
+        run: |
+          cd paseo-src
+          sed -i \
+            -e 's/# Paseo/# SuperAgent/g' \
+            -e 's/\bPaseo\b/SuperAgent/g' \
+            -e 's|paseo\.sh|hyperspace.ng|g' \
+            -e 's|getpaseo|DrOlu|g' \
+            README.md
+          echo "README.md rebranded"
+
+      - name: Add SuperAgent desktop release workflow
+        run: |
+          cat > paseo-src/.github/workflows/desktop-release-superagent.yml << 'WFEOF'
+          name: Desktop Release (SuperAgent)
+          on:
+            push:
+              tags: ['v*', 'desktop-v*']
+            workflow_dispatch:
+              inputs:
+                tag:
+                  description: 'Tag to build (e.g. v0.1.43)'
+                  required: true
+                  type: string
+                platform:
+                  description: 'Platform'
+                  required: false
+                  default: 'all'
+                  type: choice
+                  options: [all, macos, linux, windows]
+          env:
+            SOURCE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+            DESKTOP_WORKSPACE: 'packages/desktop'
+          jobs:
+            publish-macos:
+              if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos') || (github.event_name == 'push') }}
+              strategy:
+                fail-fast: false
+                matrix:
+                  include:
+                    - runner: macos-14
+                      electron_arch: arm64
+                    - runner: macos-latest
+                      electron_arch: x64
+              permissions:
+                contents: write
+              runs-on: ${{ matrix.runner }}
+              steps:
+                - uses: actions/checkout@v4
+                  with:
+                    ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+                - uses: actions/setup-node@v4
+                  with: { node-version: '22', cache: 'npm' }
+                - run: npm ci
+                - name: Build and release
+                  env:
+                    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+                    CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+                    APPLE_ID: ${{ secrets.APPLE_ID }}
+                    APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+                    APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+                  run: |
+                    npm run build:web --workspace=@getpaseo/app
+                    npm run build --workspace=packages/desktop -- --publish always --mac --${{ matrix.electron_arch }} -c.publish.releaseType=release
+            publish-linux:
+              if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux') || (github.event_name == 'push') }}
+              permissions:
+                contents: write
+              runs-on: ubuntu-22.04
+              steps:
+                - uses: actions/checkout@v4
+                  with:
+                    ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+                - uses: actions/setup-node@v4
+                  with: { node-version: '22', cache: 'npm' }
+                - run: npm ci
+                - name: Build and release
+                  env:
+                    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  run: |
+                    npm run build:web --workspace=@getpaseo/app
+                    npm run build --workspace=packages/desktop -- --publish always --linux --x64 -c.publish.releaseType=release
+            publish-windows:
+              if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows') || (github.event_name == 'push') }}
+              permissions:
+                contents: write
+              runs-on: windows-latest
+              steps:
+                - uses: actions/checkout@v4
+                  with:
+                    ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+                - uses: actions/setup-node@v4
+                  with: { node-version: '22', cache: 'npm' }
+                - run: npm ci
+                - name: Build web (Windows)
+                  shell: pwsh
+                  run: |
+                    $patchPath = (Get-Item "$env:GITHUB_WORKSPACE/scripts/metro-config-windows-loader-patch.cjs").FullName
+                    $env:NODE_OPTIONS = "--require=$patchPath"
+                    npx expo export --platform web
+                  working-directory: packages/app
+                - name: Build and release
+                  shell: bash
+                  env:
+                    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  run: |
+                    npm run build --workspace=packages/desktop -- --publish always --win --x64 -c.publish.releaseType=release
+          WFEOF
+          echo "Added SuperAgent release workflow"
+
+      - name: Push rebranded code to SuperAgent repo
+        run: |
+          cd paseo-src
+          git config user.name "Hyperspace Technologies"
+          git config user.email "superagent@hyperspace.ng"
+          git remote rename origin paseo-upstream
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/DrOlu/SuperAgent.git
+          git add -A
+          git commit -m "rebrand: Paseo → SuperAgent by Hyperspace Technologies
+
+          Visual rebranding only (no functional code changes):
+          - Product name: Paseo → SuperAgent
+          - Author: Hyperspace Technologies <superagent@hyperspace.ng>
+          - App ID: sh.paseo.desktop → ng.hyperspace.superagent
+          - Icons: SuperAgent brand icons (white mechanoid-R on red background)
+          - Homepage: paseo.sh → hyperspace.ng
+          - Mobile scheme: paseo → superagent"
+          git push origin HEAD:main --force
+          echo "✅ SuperAgent pushed to GitHub"
+
+      - name: Summary
+        run: |
+          echo "## ✅ Rebrand Complete" >> $GITHUB_STEP_SUMMARY
+          echo "**Source:** getpaseo/paseo → **Destination:** DrOlu/SuperAgent" >> $GITHUB_STEP_SUMMARY
+          echo "- Product: **SuperAgent**" >> $GITHUB_STEP_SUMMARY
+          echo "- Author: **Hyperspace Technologies** <superagent@hyperspace.ng>" >> $GITHUB_STEP_SUMMARY
+          echo "- Icons: White mechanoid-R on red background" >> $GITHUB_STEP_SUMMARY

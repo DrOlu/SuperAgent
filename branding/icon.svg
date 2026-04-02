@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Red background with slightly rounded corners - Mechanoid R brand -->
+  <rect width="512" height="512" rx="80" ry="80" fill="#CC1100"/>
+
+  <!-- Mechanoid-style R: white, bold, geometric/robotic aesthetic -->
+  <!-- Vertical stem (left upright) -->
+  <rect x="95" y="75" width="82" height="362" fill="#FFFFFF"/>
+
+  <!-- Top horizontal crossbar -->
+  <rect x="95" y="75" width="245" height="72" fill="#FFFFFF"/>
+
+  <!-- Middle crossbar -->
+  <rect x="95" y="222" width="210" height="66" fill="#FFFFFF"/>
+
+  <!-- Bowl - right vertical -->
+  <rect x="318" y="75" width="82" height="145" fill="#FFFFFF"/>
+
+  <!-- Bowl - right bottom cap -->
+  <rect x="280" y="222" width="120" height="66" fill="#FFFFFF"/>
+
+  <!-- Bowl interior cut-out (red negative space inside the bowl) -->
+  <rect x="177" y="147" width="141" height="75" fill="#CC1100"/>
+
+  <!-- Leg of R: diagonal slash, mechanical/angular style -->
+  <!-- Starts lower-right of bowl, kicks to bottom-right corner -->
+  <polygon points="275,288 358,288 417,437 325,437" fill="#FFFFFF"/>
+
+  <!-- Mechanoid detail: small accent squares at corners for robotic character -->
+  <rect x="95" y="75" width="18" height="18" fill="#FF2200" opacity="0.6"/>
+  <rect x="382" y="75" width="18" height="18" fill="#FF2200" opacity="0.6"/>
+</svg>

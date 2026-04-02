@@ -1,0 +1,211 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'desktop-v*'
+      - 'desktop-macos-v*'
+      - 'desktop-linux-v*'
+      - 'desktop-windows-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build (e.g. v0.1.43)'
+        required: true
+        type: string
+      platform:
+        description: 'Optional desktop platform to build.'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - macos
+          - linux
+          - windows
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+  DESKTOP_WORKSPACE: '@superagent/desktop'
+  DESKTOP_PACKAGE_PATH: 'packages/desktop'
+
+jobs:
+  publish-macos:
+    if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-macos-v'))) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            electron_arch: arm64
+          - runner: macos-latest
+            electron_arch: x64
+    permissions:
+      contents: write
+      packages: read
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Set desktop package version from tag
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const tag = process.env.SOURCE_TAG || 'v0.1.43';
+          const version = tag.replace(/^v/, '').replace(/^desktop-v/, '');
+          const packageJsonPath = path.join(process.env.DESKTOP_PACKAGE_PATH || 'packages/desktop', 'package.json');
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+          packageJson.version = version;
+          fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
+          console.log('Version set to:', version);
+          NODE
+
+      - name: Build web app for desktop
+        run: npm run build:web --workspace=@getpaseo/app || npx expo export --platform web
+        working-directory: packages/app
+        continue-on-error: false
+
+      - name: Build desktop release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_GH_IGNORE_TIME: true
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm run build --workspace=packages/desktop -- --publish always --mac --${{ matrix.electron_arch }} -c.publish.releaseType=release
+
+  publish-linux:
+    if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-linux-v'))) }}
+    permissions:
+      contents: write
+      packages: read
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Set desktop package version from tag
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const tag = process.env.SOURCE_TAG || 'v0.1.43';
+          const version = tag.replace(/^v/, '').replace(/^desktop-v/, '');
+          const packageJsonPath = path.join(process.env.DESKTOP_PACKAGE_PATH || 'packages/desktop', 'packages/desktop/package.json');
+          try {
+            const packageJson = JSON.parse(fs.readFileSync('packages/desktop/package.json', 'utf8'));
+            packageJson.version = version;
+            fs.writeFileSync('packages/desktop/package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+            console.log('Version set to:', version);
+          } catch(e) { console.log('version set skipped:', e.message); }
+          NODE
+
+      - name: Build web app for desktop
+        run: npm run build:web --workspace=@getpaseo/app
+        continue-on-error: true
+
+      - name: Build desktop release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_GH_IGNORE_TIME: true
+        run: |
+          npm run build --workspace=packages/desktop -- --publish always --linux --x64 -c.publish.releaseType=release
+
+  publish-windows:
+    if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows')) || (github.event_name == 'push' && (startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'desktop-v') || startsWith(github.ref_name, 'desktop-windows-v'))) }}
+    permissions:
+      contents: write
+      packages: read
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Set desktop package version from tag
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const tag = process.env.SOURCE_TAG || 'v0.1.43';
+          const version = tag.replace(/^v/, '').replace(/^desktop-v/, '');
+          try {
+            const packageJson = JSON.parse(fs.readFileSync('packages/desktop/package.json', 'utf8'));
+            packageJson.version = version;
+            fs.writeFileSync('packages/desktop/package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+            console.log('Version set to:', version);
+          } catch(e) { console.log('version set skipped:', e.message); }
+          NODE
+
+      - name: Build workspace dependencies
+        run: npm run build:workspace-deps --workspace=@getpaseo/app
+        continue-on-error: true
+
+      - name: Build web app for desktop
+        shell: pwsh
+        run: |
+          $patchPath = (Get-Item "$env:GITHUB_WORKSPACE/scripts/metro-config-windows-loader-patch.cjs").FullName
+          $env:NODE_OPTIONS = "--require=$patchPath"
+          npx expo export --platform web
+        working-directory: packages/app
+        continue-on-error: false
+
+      - name: Build desktop release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_GH_IGNORE_TIME: true
+        run: |
+          npm run build --workspace=packages/desktop -- --publish always --win --x64 -c.publish.releaseType=release

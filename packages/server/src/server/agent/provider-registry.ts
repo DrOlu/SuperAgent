@@ -8,7 +8,9 @@ import type { AgentProviderRuntimeSettingsMap } from "./provider-launch-config.j
 import type { Logger } from "pino";
 
 import { ClaudeAgentClient } from "./providers/claude-agent.js";
+import { ClaudeACPAgentClient } from "./providers/claude-acp-agent.js";
 import { CodexAppServerAgentClient } from "./providers/codex-app-server-agent.js";
+import { CopilotACPAgentClient } from "./providers/copilot-acp-agent.js";
 import { OpenCodeAgentClient, OpenCodeServerManager } from "./providers/opencode-agent.js";
 
 import {
@@ -30,37 +32,59 @@ type BuildProviderRegistryOptions = {
   runtimeSettings?: AgentProviderRuntimeSettingsMap;
 };
 
+type ProviderClientFactory = (
+  logger: Logger,
+  runtimeSettings?: AgentProviderRuntimeSettingsMap,
+) => AgentClient;
+
+const PROVIDER_CLIENT_FACTORIES: Record<string, ProviderClientFactory> = {
+  claude: (logger, runtimeSettings) =>
+    new ClaudeAgentClient({
+      logger,
+      runtimeSettings: runtimeSettings?.claude,
+    }),
+  "claude-acp": (logger, runtimeSettings) =>
+    new ClaudeACPAgentClient({
+      logger,
+      runtimeSettings: runtimeSettings?.["claude-acp"],
+    }),
+  codex: (logger, runtimeSettings) => new CodexAppServerAgentClient(logger, runtimeSettings?.codex),
+  copilot: (logger, runtimeSettings) =>
+    new CopilotACPAgentClient({
+      logger,
+      runtimeSettings: runtimeSettings?.copilot,
+    }),
+  opencode: (logger, runtimeSettings) =>
+    new OpenCodeAgentClient(logger, runtimeSettings?.opencode),
+};
+
+function getProviderClientFactory(provider: string): ProviderClientFactory {
+  const factory = PROVIDER_CLIENT_FACTORIES[provider];
+  if (!factory) {
+    throw new Error(`No provider client factory registered for '${provider}'`);
+  }
+  return factory;
+}
+
 export function buildProviderRegistry(
   logger: Logger,
   options?: BuildProviderRegistryOptions,
 ): Record<AgentProvider, ProviderDefinition> {
   const runtimeSettings = options?.runtimeSettings;
-  const claudeClient = new ClaudeAgentClient({
-    logger,
-    runtimeSettings: runtimeSettings?.claude,
-  });
-  const codexClient = new CodexAppServerAgentClient(logger, runtimeSettings?.codex);
-  const opencodeClient = new OpenCodeAgentClient(logger, runtimeSettings?.opencode);
-
-  return {
-    claude: {
-      ...AGENT_PROVIDER_DEFINITIONS.find((d) => d.id === "claude")!,
-      createClient: (logger: Logger) =>
-        new ClaudeAgentClient({ logger, runtimeSettings: runtimeSettings?.claude }),
-      fetchModels: (options) => claudeClient.listModels(options),
-    },
-    codex: {
-      ...AGENT_PROVIDER_DEFINITIONS.find((d) => d.id === "codex")!,
-      createClient: (logger: Logger) =>
-        new CodexAppServerAgentClient(logger, runtimeSettings?.codex),
-      fetchModels: (options) => codexClient.listModels(options),
-    },
-    opencode: {
-      ...AGENT_PROVIDER_DEFINITIONS.find((d) => d.id === "opencode")!,
-      createClient: (logger: Logger) => new OpenCodeAgentClient(logger, runtimeSettings?.opencode),
-      fetchModels: (options) => opencodeClient.listModels(options),
-    },
-  };
+  return Object.fromEntries(
+    AGENT_PROVIDER_DEFINITIONS.map((definition) => {
+      const createClient = getProviderClientFactory(definition.id);
+      const modelClient = createClient(logger, runtimeSettings);
+      return [
+        definition.id,
+        {
+          ...definition,
+          createClient: (providerLogger: Logger) => createClient(providerLogger, runtimeSettings),
+          fetchModels: (listOptions?: ListModelsOptions) => modelClient.listModels(listOptions),
+        } satisfies ProviderDefinition,
+      ];
+    }),
+  ) as Record<AgentProvider, ProviderDefinition>;
 }
 
 // Deprecated: Use buildProviderRegistry instead
@@ -71,11 +95,12 @@ export function createAllClients(
   options?: BuildProviderRegistryOptions,
 ): Record<AgentProvider, AgentClient> {
   const registry = buildProviderRegistry(logger, options);
-  return {
-    claude: registry.claude.createClient(logger),
-    codex: registry.codex.createClient(logger),
-    opencode: registry.opencode.createClient(logger),
-  };
+  return Object.fromEntries(
+    Object.entries(registry).map(([provider, definition]) => [
+      provider,
+      definition.createClient(logger),
+    ]),
+  ) as Record<AgentProvider, AgentClient>;
 }
 
 export async function shutdownProviders(

@@ -134,7 +134,7 @@ function Worktrees() {
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-white/80">
           <strong>Important:</strong> Setup commands come from{" "}
           <code className="font-mono">paseo.json</code> in the selected base branch. If you pick{" "}
-          <code className="font-mono">main</code>, Paseo reads the committed file on{" "}
+          <code className="font-mono">main</code>, SuperAgent reads the committed file on{" "}
           <code className="font-mono">main</code>. Local or uncommitted changes in another branch
           are not used for that worktree.
         </div>

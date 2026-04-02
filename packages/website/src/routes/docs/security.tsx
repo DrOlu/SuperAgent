@@ -5,7 +5,7 @@ export const Route = createFileRoute("/docs/security")({
   head: () => ({
     meta: pageMeta(
       "Security - SuperAgent Docs",
-      "Security model for Paseo: architecture overview, connection methods, relay encryption, and best practices.",
+      "Security model for SuperAgent: architecture overview, connection methods, relay encryption, and best practices.",
     ),
   }),
   component: Security,

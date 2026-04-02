@@ -5,7 +5,7 @@ export const Route = createFileRoute("/docs/cli")({
   head: () => ({
     meta: pageMeta(
       "CLI - SuperAgent Docs",
-      "Paseo CLI reference: manage agents, daemons, permissions, and worktrees from your terminal.",
+      "SuperAgent CLI reference: manage agents, daemons, permissions, and worktrees from your terminal.",
     ),
   }),
   component: CLI,

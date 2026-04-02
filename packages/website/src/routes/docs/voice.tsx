@@ -5,7 +5,7 @@ export const Route = createFileRoute("/docs/voice")({
   head: () => ({
     meta: pageMeta(
       "Voice - SuperAgent Docs",
-      "Paseo voice architecture, local-first model execution, and provider configuration.",
+      "SuperAgent voice architecture, local-first model execution, and provider configuration.",
     ),
   }),
   component: VoiceDocs,

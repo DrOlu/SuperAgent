@@ -9,7 +9,7 @@ export const Route = createFileRoute("/blog/$")({
     const post = getPost(slug);
     if (!post) return { meta: pageMeta("Not Found - SuperAgent", "Post not found.") };
     return {
-      meta: pageMeta(`${post.frontmatter.title} - Paseo`, post.frontmatter.description),
+      meta: pageMeta(`${post.frontmatter.title} - SuperAgent`, post.frontmatter.description),
     };
   },
   component: BlogPost,

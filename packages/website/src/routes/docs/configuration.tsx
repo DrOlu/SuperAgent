@@ -5,7 +5,7 @@ export const Route = createFileRoute("/docs/configuration")({
   head: () => ({
     meta: pageMeta(
       "Configuration - SuperAgent Docs",
-      "Configure Paseo via config.json, environment variables, and CLI overrides.",
+      "Configure SuperAgent via config.json, environment variables, and CLI overrides.",
     ),
   }),
   component: Configuration,

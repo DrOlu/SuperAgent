@@ -5,7 +5,7 @@ export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: pageMeta(
       "Privacy Policy - SuperAgent",
-      "Privacy policy for Paseo - a self-hosted agent manager with no tracking or analytics.",
+      "Privacy policy for SuperAgent - a self-hosted agent manager with no tracking or analytics.",
     ),
   }),
   component: Privacy,

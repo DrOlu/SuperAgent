@@ -5,7 +5,7 @@ export const Route = createFileRoute("/docs/")({
   head: () => ({
     meta: pageMeta(
       "Getting Started - SuperAgent Docs",
-      "Learn how to set up and use Paseo to manage your coding agents from anywhere.",
+      "Learn how to set up and use SuperAgent to manage your coding agents from anywhere.",
     ),
   }),
   component: GettingStarted,

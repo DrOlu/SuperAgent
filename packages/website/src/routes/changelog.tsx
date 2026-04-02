@@ -8,7 +8,7 @@ export const Route = createFileRoute("/changelog")({
   head: () => ({
     meta: pageMeta(
       "Changelog - SuperAgent",
-      "Product updates, fixes, and improvements shipped in each Paseo release.",
+      "Product updates, fixes, and improvements shipped in each SuperAgent release.",
     ),
   }),
   component: Changelog,

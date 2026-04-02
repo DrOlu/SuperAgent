@@ -1390,7 +1390,7 @@ describe("AgentManager", () => {
     expect(fetched.rows.map((row) => row.seq)).toEqual([1, 2]);
   });
 
-  test("buffers assistant chunks provisionally and streams one finalized assistant row", async () => {
+  test("streams assistant chunks incrementally and persists canonical chunk rows", async () => {
     const workdir = mkdtempSync(join(tmpdir(), "agent-manager-provisional-timeline-"));
     const storagePath = join(workdir, "agents");
     const storage = new AgentStorage(storagePath, logger);
@@ -1440,29 +1440,45 @@ describe("AgentManager", () => {
       }
     }
 
-    const assistantTimelineEvents = streamEvents.filter((event) => event.itemType === "assistant_message");
-    expect(assistantTimelineEvents).toHaveLength(1);
+    const assistantTimelineEvents = streamEvents.filter(
+      (event) => event.itemType === "assistant_message",
+    );
+    expect(assistantTimelineEvents).toHaveLength(2);
     expect(assistantTimelineEvents[0]).toMatchObject({
       eventType: "timeline",
       itemType: "assistant_message",
-      text: "final reply",
+      text: "final ",
       seq: 1,
+    });
+    expect(assistantTimelineEvents[1]).toMatchObject({
+      eventType: "timeline",
+      itemType: "assistant_message",
+      text: "reply",
+      seq: 2,
     });
 
     expect(manager.getTimeline(snapshot.id)).toEqual([
       {
         type: "assistant_message",
-        text: "final reply",
+        text: "final ",
+      },
+      {
+        type: "assistant_message",
+        text: "reply",
       },
     ]);
     const fetched = await manager.fetchTimeline(snapshot.id, {
       direction: "tail",
       limit: 0,
     });
-    expect(fetched.rows).toHaveLength(1);
+    expect(fetched.rows).toHaveLength(2);
     expect(fetched.rows[0]?.item).toEqual({
       type: "assistant_message",
-      text: "final reply",
+      text: "final ",
+    });
+    expect(fetched.rows[1]?.item).toEqual({
+      type: "assistant_message",
+      text: "reply",
     });
   });
 
@@ -1560,7 +1576,7 @@ describe("AgentManager", () => {
     expect(fetched.window.maxSeq).toBe(3);
   });
 
-  test("hydrateTimeline canonicalizes tool-interleaved assistant replay into the committed turn shape", async () => {
+  test("hydrateTimeline preserves assistant chunk, reasoning, and tool timeline history", async () => {
     const workdir = mkdtempSync(join(tmpdir(), "agent-manager-history-canonical-assistant-"));
     const storagePath = join(workdir, "agents");
     const storage = new AgentStorage(storagePath, logger);
@@ -1645,6 +1661,9 @@ describe("AgentManager", () => {
     await manager.hydrateTimelineFromProvider(snapshot.id);
 
     expect(manager.getTimeline(snapshot.id)).toEqual([
+      { type: "assistant_message", text: "chunk one " },
+      { type: "assistant_message", text: "chunk two" },
+      { type: "reasoning", text: "internal" },
       {
         type: "tool_call",
         callId: "call-history-1",
@@ -1658,11 +1677,11 @@ describe("AgentManager", () => {
         },
         error: null,
       },
-      { type: "assistant_message", text: "chunk one chunk twofinal answer" },
+      { type: "assistant_message", text: "final answer" },
     ]);
   });
 
-  test("hydrateTimeline canonicalizes reasoning-interleaved assistant replay into one committed assistant row", async () => {
+  test("hydrateTimeline preserves reasoning between assistant chunks", async () => {
     const workdir = mkdtempSync(join(tmpdir(), "agent-manager-history-reasoning-interleave-"));
     const storagePath = join(workdir, "agents");
     const storage = new AgentStorage(storagePath, logger);
@@ -1727,8 +1746,10 @@ describe("AgentManager", () => {
     expect(manager.getTimeline(snapshot.id)).toEqual([
       {
         type: "assistant_message",
-        text: "before reasoning after reasoning",
+        text: "before reasoning ",
       },
+      { type: "reasoning", text: "internal step" },
+      { type: "assistant_message", text: "after reasoning" },
     ]);
   });
 

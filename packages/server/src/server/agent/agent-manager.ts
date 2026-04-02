@@ -151,7 +151,6 @@ type ManagedAgentBase = {
   currentModeId: string | null;
   pendingPermissions: Map<string, AgentPermissionRequest>;
   pendingReplacement: boolean;
-  provisionalAssistantText: string | null;
   persistence: AgentPersistenceHandle | null;
   historyPrimed: boolean;
   lastUserMessageAt: Date | null;
@@ -657,7 +656,6 @@ export class AgentManager {
       await this.cancelAgentRun(agentId);
       existing = this.requireSessionAgent(agentId);
     }
-    const preservedProvisionalAssistantText = existing.provisionalAssistantText;
     const preservedHistoryPrimed = existing.historyPrimed;
     const preservedLastUsage = existing.lastUsage;
     const preservedLastError = existing.lastError;
@@ -700,7 +698,6 @@ export class AgentManager {
       createdAt: existing.createdAt,
       updatedAt: existing.updatedAt,
       lastUserMessageAt: existing.lastUserMessageAt,
-      provisionalAssistantText: preservedProvisionalAssistantText,
       historyPrimed: preservedHistoryPrimed,
       lastUsage: preservedLastUsage,
       lastError: preservedLastError,
@@ -1789,7 +1786,6 @@ export class AgentManager {
       timeline?: AgentTimelineItem[];
       timelineRows?: AgentTimelineRow[];
       timelineNextSeq?: number;
-      provisionalAssistantText?: string | null;
       historyPrimed?: boolean;
       lastUsage?: AgentUsage;
       lastError?: string;
@@ -1848,7 +1844,6 @@ export class AgentManager {
       activeForegroundTurnId: null,
       foregroundTurnWaiters: new Set<ForegroundTurnWaiter>(),
       unsubscribeSession: null,
-      provisionalAssistantText: options?.provisionalAssistantText ?? null,
       persistence: attachPersistenceCwd(session.describePersistence(), config.cwd),
       historyPrimed: options?.historyPrimed ?? durableTimelineHasRows,
       lastUserMessageAt: options?.lastUserMessageAt ?? null,
@@ -2137,36 +2132,13 @@ export class AgentManager {
     }
     agent.historyPrimed = true;
     const canonicalUserMessagesById = this.timelineStore.getCanonicalUserMessagesById(agent.id);
-    const pendingTurnItems: AgentTimelineItem[] = [];
-    let bufferedAssistantText = "";
-    const flushPendingTurn = () => {
-      for (const item of pendingTurnItems) {
-        this.recordTimeline(agent.id, item);
-      }
-      pendingTurnItems.length = 0;
-      if (bufferedAssistantText) {
-        this.recordTimeline(agent.id, {
-          type: "assistant_message",
-          text: bufferedAssistantText,
-        });
-        bufferedAssistantText = "";
-      }
-    };
     try {
       for await (const event of agent.session.streamHistory()) {
         if (event.type !== "timeline") {
-          if (
-            event.type === "turn_completed" ||
-            event.type === "turn_failed" ||
-            event.type === "turn_canceled"
-          ) {
-            flushPendingTurn();
-          }
           continue;
         }
 
         if (event.item.type === "user_message") {
-          flushPendingTurn();
           const eventMessageId = normalizeMessageId(event.item.messageId);
           if (eventMessageId) {
             const canonicalText = canonicalUserMessagesById.get(eventMessageId);
@@ -2174,26 +2146,10 @@ export class AgentManager {
               continue;
             }
           }
-          this.recordTimeline(agent.id, event.item);
-          continue;
         }
 
-        if (event.item.type === "assistant_message") {
-          bufferedAssistantText += event.item.text;
-          continue;
-        }
-
-        if (event.item.type === "reasoning") {
-          continue;
-        }
-
-        if (event.item.type === "tool_call" && event.item.status === "running") {
-          continue;
-        }
-
-        pendingTurnItems.push(event.item);
+        this.recordTimeline(agent.id, event.item);
       }
-      flushPendingTurn();
     } catch {
       // ignore history failures
     }
@@ -2211,7 +2167,6 @@ export class AgentManager {
     const isForegroundEvent = Boolean(
       eventTurnId && agent.activeForegroundTurnId === eventTurnId,
     );
-    let suppressLiveDispatch = false;
 
     // Only update timestamp for live events, not history replay
     if (!options?.fromHistory) {
@@ -2265,17 +2220,6 @@ export class AgentManager {
             }
           }
         }
-        if (event.item.type === "assistant_message") {
-          agent.provisionalAssistantText = `${agent.provisionalAssistantText ?? ""}${event.item.text}`;
-          suppressLiveDispatch = true;
-          break;
-        }
-        if (event.item.type === "reasoning") {
-          break;
-        }
-        if (event.item.type === "tool_call" && event.item.status === "running") {
-          break;
-        }
         timelineRow = this.recordTimeline(agent.id, event.item);
         if (!options?.fromHistory && event.item.type === "user_message") {
           agent.lastUserMessageAt = new Date();
@@ -2292,27 +2236,6 @@ export class AgentManager {
           },
           "handleStreamEvent: turn_completed",
         );
-        if (agent.provisionalAssistantText) {
-          const item: AgentTimelineItem = {
-            type: "assistant_message",
-            text: agent.provisionalAssistantText,
-          };
-          timelineRow = this.recordTimeline(agent.id, item);
-          if (!options?.fromHistory) {
-            this.dispatchStream(
-              agent.id,
-              {
-                type: "timeline",
-                item,
-                provider: event.provider,
-              },
-              {
-                seq: timelineRow.seq,
-              },
-            );
-          }
-          agent.provisionalAssistantText = null;
-        }
         agent.lastUsage = event.usage;
         agent.lastError = undefined;
         // For autonomous turns (not foreground), transition to idle
@@ -2336,7 +2259,6 @@ export class AgentManager {
           },
           "handleStreamEvent: turn_failed",
         );
-        agent.provisionalAssistantText = null;
         // For autonomous turns, set error state directly
         if (!isForegroundEvent) {
           agent.lifecycle = "error";
@@ -2373,7 +2295,6 @@ export class AgentManager {
           },
           "handleStreamEvent: turn_canceled",
         );
-        agent.provisionalAssistantText = null;
         // For autonomous turns, transition to idle
         // unless a replacement is pending (avoid idle flash during replace)
         if (!isForegroundEvent && !agent.pendingReplacement) {
@@ -2405,7 +2326,6 @@ export class AgentManager {
           },
           "handleStreamEvent: turn_started",
         );
-        agent.provisionalAssistantText = null;
         // For autonomous turn_started (no foreground match), set running
         if (!isForegroundEvent) {
           (agent as ActiveManagedAgent).lifecycle = "running";
@@ -2435,7 +2355,7 @@ export class AgentManager {
     }
 
     // Skip dispatching individual stream events during history replay.
-    if (!options?.fromHistory && !suppressLiveDispatch) {
+    if (!options?.fromHistory) {
       this.dispatchStream(
         agent.id,
         event,

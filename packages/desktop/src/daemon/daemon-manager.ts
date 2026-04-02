@@ -552,7 +552,8 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
       if (sessionId) closeLocalTransportSession(sessionId);
     },
     check_app_update: async () => {
-      const currentVersion = await resolveCurrentUpdateVersion();
+      // Use desktop app version (not daemon CLI version) for app update check
+      const currentVersion = resolveDesktopAppVersion();
       return checkForAppUpdate(currentVersion);
     },
     install_app_update: async () => {

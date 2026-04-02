@@ -1,6 +1,6 @@
 {
   "name": "@getpaseo/desktop",
-  "version": "0.1.43-rc.1",
+  "version": "0.1.44",
   "private": true,
   "description": "SuperAgent desktop app (Electron wrapper)",
   "main": "dist/main.js",

@@ -71,7 +71,9 @@ export async function checkForAppUpdate(currentVersion: string): Promise<AppUpda
 
     const info = result.updateInfo;
     const latestVersion = info.version;
-    const hasUpdate = latestVersion !== currentVersion;
+    // Normalize versions for comparison (strip leading v, rc suffixes don't count as same)
+    const normalizeVer = (v: string) => v.replace(/^v/i, '').trim();
+    const hasUpdate = normalizeVer(latestVersion) !== normalizeVer(currentVersion);
 
     if (hasUpdate) {
       cachedUpdateInfo = info;

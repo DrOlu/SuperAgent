@@ -17,10 +17,9 @@ mac:
   artifactName: "SuperAgent-${version}-${arch}.${ext}"
   category: public.app-category.developer-tools
   icon: assets/icon.icns
-  hardenedRuntime: true
-  notarize: true
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.inherit.plist
+  hardenedRuntime: false
+  notarize: false
+  identity: null
   extraResources:
     - from: bin/paseo
       to: bin/paseo

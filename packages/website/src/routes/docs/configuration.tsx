@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/configuration")({
   head: () => ({
     meta: pageMeta(
-      "Configuration - Paseo Docs",
+      "Configuration - SuperAgent Docs",
       "Configure Paseo via config.json, environment variables, and CLI overrides.",
     ),
   }),

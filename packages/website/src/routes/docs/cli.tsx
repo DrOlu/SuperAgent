@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/cli")({
   head: () => ({
     meta: pageMeta(
-      "CLI - Paseo Docs",
+      "CLI - SuperAgent Docs",
       "Paseo CLI reference: manage agents, daemons, permissions, and worktrees from your terminal.",
     ),
   }),

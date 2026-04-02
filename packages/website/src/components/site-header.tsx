@@ -4,7 +4,7 @@ export function SiteHeader() {
   return (
     <header className="flex items-center justify-between gap-4">
       <a href="/" className="flex items-center gap-3">
-        <img src="/logo.svg" alt="Paseo" className="w-6 h-6" />
+        <img src="/logo.svg" alt="SuperAgent" className="w-6 h-6" />
         <span className="text-lg font-medium">Paseo</span>
       </a>
       <div className="flex items-center gap-4">
@@ -51,7 +51,7 @@ export function SiteHeader() {
           </svg>
         </a>
         <a
-          href="https://github.com/getpaseo/paseo"
+          href="https://github.com/DrOlu/SuperAgent"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="GitHub"

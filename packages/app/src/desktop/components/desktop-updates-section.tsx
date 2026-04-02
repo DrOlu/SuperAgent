@@ -354,7 +354,7 @@ export function LocalDaemonSection({ appVersion, showLifecycleControls }: LocalD
                 <Text style={styles.hintText}>
                   {isDaemonManagementPaused
                     ? "Paused. The built-in daemon stays stopped until you start it again."
-                    : "Enabled. Paseo can manage the built-in daemon from the desktop app."}
+                    : "Enabled. SuperAgent can manage the built-in daemon from the desktop app."}
                 </Text>
               </View>
               <Button
@@ -472,12 +472,12 @@ export function LocalDaemonSection({ appVersion, showLifecycleControls }: LocalD
       <AdaptiveModalSheet
         visible={isCliSymlinkModalOpen}
         onClose={() => setIsCliSymlinkModalOpen(false)}
-        title="Add paseo to your shell"
+        title="Add SuperAgent to your shell"
         testID="managed-daemon-cli-symlink-dialog"
       >
         <View style={styles.modalBody}>
           <Text style={styles.hintText}>
-            Paseo does not add the command for you. Run the command below in your terminal.
+            SuperAgent does not add the command for you. Run the command below in your terminal.
           </Text>
           {cliSymlinkInstructions?.detail ? (
             <Text style={styles.hintText}>{cliSymlinkInstructions.detail}</Text>
@@ -528,7 +528,7 @@ export function LocalDaemonSection({ appVersion, showLifecycleControls }: LocalD
   );
 }
 
-const ADVANCED_DAEMON_SETTINGS_URL = "https://paseo.sh/docs/configuration";
+const ADVANCED_DAEMON_SETTINGS_URL = "https://hyperspace.ng/docs/configuration";
 
 function PairingOfferDialogContent(input: {
   isLoading: boolean;
@@ -605,7 +605,7 @@ function PairingOfferDialogContent(input: {
   return (
     <View style={styles.modalBody}>
       <Text style={styles.hintText}>
-        Scan this QR code in Paseo, or copy the pairing link below.
+        Scan this QR code in SuperAgent, or copy the pairing link below.
       </Text>
       <View style={styles.qrCard}>
         {qrDataUrl ? (

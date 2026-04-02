@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/worktrees")({
   head: () => ({
     meta: pageMeta(
-      "Git Worktrees - Paseo Docs",
+      "Git Worktrees - SuperAgent Docs",
       "Run agents in isolated git worktrees for parallel feature development.",
     ),
   }),

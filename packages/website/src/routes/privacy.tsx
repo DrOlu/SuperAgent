@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: pageMeta(
-      "Privacy Policy - Paseo",
+      "Privacy Policy - SuperAgent",
       "Privacy policy for Paseo - a self-hosted agent manager with no tracking or analytics.",
     ),
   }),
@@ -75,7 +75,7 @@ function Privacy() {
             <p>
               If you have questions about privacy, open an issue on{" "}
               <a
-                href="https://github.com/getpaseo/paseo"
+                href="https://github.com/DrOlu/SuperAgent"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:text-white/90"

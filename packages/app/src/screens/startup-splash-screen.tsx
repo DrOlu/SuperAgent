@@ -4,7 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { BookOpen, Check, Copy, RotateCw, TriangleAlert } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { SuperAgentLogo as PaseoLogo } from "@/components/icons/paseo-logo";
 import { Button } from "@/components/ui/button";
 import { Fonts } from "@/constants/theme";
 import {
@@ -21,8 +21,8 @@ type StartupSplashScreenProps = {
   };
 };
 
-const GITHUB_ISSUE_URL = "https://github.com/getpaseo/paseo/issues/new";
-const DOCS_URL = "https://paseo.sh/docs";
+const GITHUB_ISSUE_URL = "https://github.com/DrOlu/SuperAgent/issues/new";
+const DOCS_URL = "https://hyperspace.ng/docs";
 
 const styles = StyleSheet.create((theme) => ({
   container: {
@@ -236,7 +236,7 @@ export function StartupSplashScreen({ bootstrapState }: StartupSplashScreenProps
         <TitlebarDragRegion />
         <View style={styles.centeredContent}>
           <PaseoLogo size={96} />
-          <Text style={styles.title}>Welcome to Paseo</Text>
+          <Text style={styles.title}>Welcome to SuperAgent</Text>
           <View style={styles.progressSteps}>
             {progressSteps.map((step) => (
               <View key={step.key} style={styles.progressStepRow}>

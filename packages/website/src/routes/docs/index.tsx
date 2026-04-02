@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/")({
   head: () => ({
     meta: pageMeta(
-      "Getting Started - Paseo Docs",
+      "Getting Started - SuperAgent Docs",
       "Learn how to set up and use Paseo to manage your coding agents from anywhere.",
     ),
   }),
@@ -77,7 +77,7 @@ function GettingStarted() {
           </a>{" "}
           or the{" "}
           <a
-            href="https://github.com/getpaseo/paseo/releases"
+            href="https://github.com/DrOlu/SuperAgent/releases"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white/80"

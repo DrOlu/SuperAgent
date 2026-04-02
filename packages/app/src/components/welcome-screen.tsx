@@ -19,7 +19,7 @@ import { NameHostModal } from "./name-host-modal";
 import { resolveAppVersion } from "@/utils/app-version";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
 import { buildHostRootRoute } from "@/utils/host-routes";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { SuperAgentLogo as PaseoLogo } from "@/components/icons/paseo-logo";
 
 type WelcomeAction = {
   key: "scan-qr" | "direct-connection" | "paste-pairing-link";
@@ -321,7 +321,7 @@ export function WelcomeScreen({ onHostAdded }: WelcomeScreenProps) {
     >
       <View style={styles.content}>
         <PaseoLogo size={96} />
-        <Text style={styles.title}>Welcome to Paseo</Text>
+        <Text style={styles.title}>Welcome to SuperAgent</Text>
         <Text style={styles.subtitle}>
           {showHostList ? "Connecting to your hosts…" : "Connect to your host to start"}
         </Text>

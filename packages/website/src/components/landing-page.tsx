@@ -138,7 +138,7 @@ export function LandingPage({ title, subtitle }: LandingPageProps) {
                   Discord
                 </a>
                 <a
-                  href="https://github.com/getpaseo/paseo"
+                  href="https://github.com/DrOlu/SuperAgent"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-white/40 hover:text-white/60 transition-colors"
@@ -167,7 +167,7 @@ export function LandingPage({ title, subtitle }: LandingPageProps) {
                   Google Play
                 </a>
                 <a
-                  href="https://github.com/getpaseo/paseo/releases"
+                  href="https://github.com/DrOlu/SuperAgent/releases"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-white/40 hover:text-white/60 transition-colors"
@@ -301,7 +301,7 @@ function MultiProviderSection() {
   return (
     <FeatureSection
       title="Use the best agent for the job"
-      description="Run multiple providers from a single interface. Paseo runs the native agent harness as you'd normally run it, with your skills, config and MCP servers intact."
+      description="Run multiple providers from a single interface. SuperAgent runs the native agent harness as you'd normally run it, with your skills, config and MCP servers intact."
     >
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {providers.map((p) => (
@@ -798,7 +798,7 @@ function ServerInstallButton() {
         </span>
       }
       title="Run agents on a remote machine"
-      description="For headless machines you want to connect to from the Paseo apps. The desktop app already includes a built-in daemon."
+      description="For headless machines you want to connect to from the SuperAgent apps. The desktop app already includes a built-in daemon."
       command="npm install -g @getpaseo/cli && paseo"
       footnote={
         <>
@@ -1224,7 +1224,7 @@ function PhoneShowcase() {
         >
           <img
             src="/phone-1.png"
-            alt="Paseo sessions list"
+            alt="SuperAgent sessions list"
             className="w-full rounded-[40px] shadow-2xl border-[3px] border-black outline-[3px] outline-white/20"
           />
         </motion.div>
@@ -1238,7 +1238,7 @@ function PhoneShowcase() {
         >
           <img
             src="/phone-2.png"
-            alt="Paseo agent chat"
+            alt="SuperAgent agent chat"
             className="w-full rounded-[40px] shadow-2xl border-[3px] border-black outline-[3px] outline-white/20"
           />
         </motion.div>
@@ -1250,7 +1250,7 @@ function PhoneShowcase() {
         >
           <img
             src="/phone-3.png"
-            alt="Paseo diff view"
+            alt="SuperAgent diff view"
             className="w-full rounded-[40px] shadow-2xl border-[3px] border-black outline-[3px] outline-white/20"
           />
         </motion.div>
@@ -1367,7 +1367,7 @@ function FAQ() {
           No. Paseo works in any directory. Worktrees are optional and only relevant if you use git.
           You can run agents anywhere you'd normally work.
         </FAQItem>
-        <FAQItem question="Can I get banned for using Paseo?">
+        <FAQItem question="Can I get banned for using SuperAgent?">
           <p>We can't make promises on behalf of providers.</p>
           <p>
             That said, Paseo launches the official first-party CLIs (Claude Code, Codex, OpenCode)

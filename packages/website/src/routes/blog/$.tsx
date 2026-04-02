@@ -7,7 +7,7 @@ export const Route = createFileRoute("/blog/$")({
   head: ({ params }) => {
     const slug = params._splat ?? "";
     const post = getPost(slug);
-    if (!post) return { meta: pageMeta("Not Found - Paseo", "Post not found.") };
+    if (!post) return { meta: pageMeta("Not Found - SuperAgent", "Post not found.") };
     return {
       meta: pageMeta(`${post.frontmatter.title} - Paseo`, post.frontmatter.description),
     };

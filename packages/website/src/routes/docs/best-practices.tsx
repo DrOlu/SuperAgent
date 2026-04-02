@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/best-practices")({
   head: () => ({
     meta: pageMeta(
-      "Best Practices - Paseo Docs",
+      "Best Practices - SuperAgent Docs",
       "Tips for getting the most out of Paseo and mobile-first agent workflows.",
     ),
   }),

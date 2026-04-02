@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/updates")({
   head: () => ({
     meta: pageMeta(
-      "Updates - Paseo Docs",
+      "Updates - SuperAgent Docs",
       "How to update Paseo daemon and apps across web, desktop, and mobile.",
     ),
   }),
@@ -65,7 +65,7 @@ function UpdatesDocs() {
           current version.
         </p>
         <a
-          href="https://github.com/getpaseo/paseo/releases"
+          href="https://github.com/DrOlu/SuperAgent/releases"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-white/80"

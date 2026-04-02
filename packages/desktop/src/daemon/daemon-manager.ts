@@ -485,7 +485,7 @@ function getCliSymlinkInstructions(): CliSymlinkInstructions {
     const cliPath = path.join(appBundle, "Contents", "Resources", "bin", cliShimFilename);
     return {
       title: "Add paseo to your shell",
-      detail: "Create a symlink to the bundled Paseo CLI shim.",
+      detail: "Create a symlink to the bundled SuperAgent CLI shim.",
       commands: `sudo ln -sf "${cliPath}" /usr/local/bin/paseo`,
     };
   }
@@ -494,7 +494,7 @@ function getCliSymlinkInstructions(): CliSymlinkInstructions {
     const cliPath = path.join(path.dirname(electronExePath), "resources", "bin", cliShimFilename);
     return {
       title: "Add paseo to your PATH",
-      detail: "Add the Paseo installation directory to your system PATH so paseo.cmd is available.",
+      detail: "Add the SuperAgent installation directory to your system PATH so superagent.cmd is available.",
       commands: `setx PATH "%PATH%;${path.dirname(cliPath)}"`,
     };
   }
@@ -503,7 +503,7 @@ function getCliSymlinkInstructions(): CliSymlinkInstructions {
   const cliPath = path.join(path.dirname(electronExePath), "resources", "bin", cliShimFilename);
   return {
     title: "Add paseo to your shell",
-    detail: "Create a symlink to the bundled Paseo CLI shim.",
+    detail: "Create a symlink to the bundled SuperAgent CLI shim.",
     commands: `sudo ln -sf "${cliPath}" /usr/local/bin/paseo`,
   };
 }
@@ -543,7 +543,7 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
       if (sessionId) closeLocalTransportSession(sessionId);
     },
     check_app_update: async () => {
-      const currentVersion = await resolveCurrentUpdateVersion();
+      const currentVersion = resolveDesktopAppVersion();
       return checkForAppUpdate(currentVersion);
     },
     install_app_update: async () => {

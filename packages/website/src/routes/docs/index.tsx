@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/")({
   head: () => ({
     meta: pageMeta(
-      "Getting Started - Paseo Docs",
-      "Learn how to set up and use Paseo to manage your coding agents from anywhere.",
+      "Getting Started - SuperAgent Docs",
+      "Learn how to set up and use SuperAgent to manage your coding agents from anywhere.",
     ),
   }),
   component: GettingStarted,
@@ -17,7 +17,7 @@ function GettingStarted() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">Getting Started</h1>
         <p className="text-white/60 leading-relaxed">
-          Paseo has three main pieces: the daemon is the local server that manages your agents,
+          SuperAgent has three main pieces: the daemon is the local server that manages your agents,
           the app is the client you use from mobile, web, or desktop, and the CLI is the terminal
           interface that can also launch the daemon.
         </p>
@@ -26,8 +26,8 @@ function GettingStarted() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Prerequisites</h2>
         <p className="text-white/60">
-          Paseo manages existing agent CLIs. Install at least one agent and make sure it already
-          works with your credentials before you set up Paseo.
+          SuperAgent manages existing agent CLIs. Install at least one agent and make sure it already
+          works with your credentials before you set up SuperAgent.
         </p>
         <ul className="text-white/60 space-y-2 list-disc list-inside">
           <li>
@@ -68,16 +68,16 @@ function GettingStarted() {
         <p className="text-white/60">
           Download the desktop app from{" "}
           <a
-            href="https://paseo.sh/download"
+            href="https://hyperspace.ng/download"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white/80"
           >
-            paseo.sh/download
+            hyperspace.ng/download
           </a>{" "}
           or the{" "}
           <a
-            href="https://github.com/getpaseo/paseo/releases"
+            href="https://github.com/DrOlu/SuperAgent/releases"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white/80"
@@ -112,7 +112,7 @@ function GettingStarted() {
           <span>paseo</span>
         </div>
         <p className="text-white/60">
-          Paseo prints a QR code in the terminal. Scan it from the mobile app, or enter the daemon
+          SuperAgent prints a QR code in the terminal. Scan it from the mobile app, or enter the daemon
           address manually from another client.
         </p>
         <p className="text-white/60">
@@ -123,7 +123,7 @@ function GettingStarted() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Voice Setup</h2>
         <p className="text-white/60">
-          Paseo includes first-class voice support with a local-first architecture and configurable
+          SuperAgent includes first-class voice support with a local-first architecture and configurable
           speech providers.
         </p>
         <p className="text-white/60">

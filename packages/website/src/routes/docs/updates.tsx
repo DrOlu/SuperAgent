@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/updates")({
   head: () => ({
     meta: pageMeta(
-      "Updates - Paseo Docs",
-      "How to update Paseo daemon and apps across web, desktop, and mobile.",
+      "Updates - SuperAgent Docs",
+      "How to update SuperAgent daemon and apps across web, desktop, and mobile.",
     ),
   }),
   component: UpdatesDocs,
@@ -47,12 +47,12 @@ function UpdatesDocs() {
         <h2 className="text-xl font-medium">Web app</h2>
         <p className="text-white/60">
           <a
-            href="https://app.paseo.sh"
+            href="https://app.hyperspace.ng"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white/80"
           >
-            app.paseo.sh
+            app.hyperspace.ng
           </a>{" "}
           is always up to date. No manual update needed.
         </p>
@@ -65,12 +65,12 @@ function UpdatesDocs() {
           current version.
         </p>
         <a
-          href="https://github.com/getpaseo/paseo/releases"
+          href="https://github.com/DrOlu/SuperAgent/releases"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-white/80"
         >
-          Paseo releases
+          SuperAgent releases
         </a>
       </section>
 

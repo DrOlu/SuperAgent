@@ -138,7 +138,7 @@ export function LandingPage({ title, subtitle }: LandingPageProps) {
                   Discord
                 </a>
                 <a
-                  href="https://github.com/getpaseo/paseo"
+                  href="https://github.com/DrOlu/SuperAgent"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-white/40 hover:text-white/60 transition-colors"
@@ -167,7 +167,7 @@ export function LandingPage({ title, subtitle }: LandingPageProps) {
                   Google Play
                 </a>
                 <a
-                  href="https://github.com/getpaseo/paseo/releases"
+                  href="https://github.com/DrOlu/SuperAgent/releases"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-white/40 hover:text-white/60 transition-colors"
@@ -301,7 +301,7 @@ function MultiProviderSection() {
   return (
     <FeatureSection
       title="Use the best agent for the job"
-      description="Run multiple providers from a single interface. Paseo runs the native agent harness as you'd normally run it, with your skills, config and MCP servers intact."
+      description="Run multiple providers from a single interface. SuperAgent runs the native agent harness as you'd normally run it, with your skills, config and MCP servers intact."
     >
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {providers.map((p) => (
@@ -798,7 +798,7 @@ function ServerInstallButton() {
         </span>
       }
       title="Run agents on a remote machine"
-      description="For headless machines you want to connect to from the Paseo apps. The desktop app already includes a built-in daemon."
+      description="For headless machines you want to connect to from the SuperAgent apps. The desktop app already includes a built-in daemon."
       command="npm install -g @getpaseo/cli && paseo"
       footnote={
         <>
@@ -1224,7 +1224,7 @@ function PhoneShowcase() {
         >
           <img
             src="/phone-1.png"
-            alt="Paseo sessions list"
+            alt="SuperAgent sessions list"
             className="w-full rounded-[40px] shadow-2xl border-[3px] border-black outline-[3px] outline-white/20"
           />
         </motion.div>
@@ -1238,7 +1238,7 @@ function PhoneShowcase() {
         >
           <img
             src="/phone-2.png"
-            alt="Paseo agent chat"
+            alt="SuperAgent agent chat"
             className="w-full rounded-[40px] shadow-2xl border-[3px] border-black outline-[3px] outline-white/20"
           />
         </motion.div>
@@ -1250,7 +1250,7 @@ function PhoneShowcase() {
         >
           <img
             src="/phone-3.png"
-            alt="Paseo diff view"
+            alt="SuperAgent diff view"
             className="w-full rounded-[40px] shadow-2xl border-[3px] border-black outline-[3px] outline-white/20"
           />
         </motion.div>
@@ -1323,12 +1323,12 @@ function FAQ() {
       <h2 className="text-3xl font-medium">FAQ</h2>
       <div className="space-y-6">
         <FAQItem question="Is this free?">
-          Yes. Paseo is free and open source. You need Claude Code, Codex, or OpenCode installed
+          Yes. SuperAgent is free and open source. You need Claude Code, Codex, or OpenCode installed
           with your own credentials. Voice is local-first by default and can optionally use OpenAI
           speech providers if you configure them.
         </FAQItem>
         <FAQItem question="Does my code leave my machine?">
-          Paseo doesn't send your code anywhere. Agents run locally and talk to their own APIs as
+          SuperAgent doesn't send your code anywhere. Agents run locally and talk to their own APIs as
           they normally would. For remote access, you can use the optional{" "}
           <a href="/docs/security" className="underline hover:text-white/80">
             end-to-end encrypted relay
@@ -1337,7 +1337,7 @@ function FAQ() {
         </FAQItem>
         <FAQItem question="What agents does it support?">
           Claude Code, Codex, and OpenCode. Each agent runs as its own process using its own CLI.
-          Paseo doesn't modify or wrap their behavior.
+          SuperAgent doesn't modify or wrap their behavior.
         </FAQItem>
         <FAQItem question="Do I need the desktop app?">
           No. You can run the daemon headless with{" "}
@@ -1355,7 +1355,7 @@ function FAQ() {
           .
         </FAQItem>
         <FAQItem question="Can I connect from outside my network?">
-          Yes. You can use the hosted relay (end-to-end encrypted, Paseo can't read your traffic),
+          Yes. You can use the hosted relay (end-to-end encrypted, SuperAgent can't read your traffic),
           set up your own tunnel (Tailscale, Cloudflare Tunnel, etc.), or expose the daemon port
           directly. See{" "}
           <a href="/docs/configuration" className="underline hover:text-white/80">
@@ -1364,21 +1364,21 @@ function FAQ() {
           .
         </FAQItem>
         <FAQItem question="Do I need git or GitHub?">
-          No. Paseo works in any directory. Worktrees are optional and only relevant if you use git.
+          No. SuperAgent works in any directory. Worktrees are optional and only relevant if you use git.
           You can run agents anywhere you'd normally work.
         </FAQItem>
-        <FAQItem question="Can I get banned for using Paseo?">
+        <FAQItem question="Can I get banned for using SuperAgent?">
           <p>We can't make promises on behalf of providers.</p>
           <p>
-            That said, Paseo launches the official first-party CLIs (Claude Code, Codex, OpenCode)
+            That said, SuperAgent launches the official first-party CLIs (Claude Code, Codex, OpenCode)
             as subprocesses. It doesn't extract tokens or call inference APIs directly. From the
-            provider's perspective, usage through Paseo is indistinguishable from running the CLI
+            provider's perspective, usage through SuperAgent is indistinguishable from running the CLI
             yourself.
           </p>
-          <p>I've been using Paseo with all providers for months without issue.</p>
+          <p>I've been using SuperAgent with all providers for months without issue.</p>
         </FAQItem>
         <FAQItem question="How do worktrees work?">
-          When you launch an agent with the worktree option (from the app, desktop, or CLI), Paseo
+          When you launch an agent with the worktree option (from the app, desktop, or CLI), SuperAgent
           creates a git worktree and runs the agent inside it. The agent works on an isolated branch
           without touching your main working directory. See the{" "}
           <a href="/docs/worktrees" className="underline hover:text-white/80">
@@ -1402,7 +1402,7 @@ function SponsorCTA() {
     >
       <div className="text-sm text-muted-foreground leading-relaxed space-y-3">
         <p>
-          I built Paseo because I wanted better tools for coding agents on my own setup. It's an independent open source project, built around freedom of choice and real workflows. If you like what I'm building, consider becoming a supporter.
+          I built SuperAgent because I wanted better tools for coding agents on my own setup. It's an independent open source project, built around freedom of choice and real workflows. If you like what I'm building, consider becoming a supporter.
         </p>
         <p>- Mo</p>
       </div>

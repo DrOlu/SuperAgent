@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/configuration")({
   head: () => ({
     meta: pageMeta(
-      "Configuration - Paseo Docs",
-      "Configure Paseo via config.json, environment variables, and CLI overrides.",
+      "Configuration - SuperAgent Docs",
+      "Configure SuperAgent via config.json, environment variables, and CLI overrides.",
     ),
   }),
   component: Configuration,
@@ -17,7 +17,7 @@ function Configuration() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">Configuration</h1>
         <p className="text-white/60 leading-relaxed">
-          Paseo loads configuration from a single JSON file in your Paseo home directory, with
+          SuperAgent loads configuration from a single JSON file in your SuperAgent home directory, with
           optional environment variable and CLI overrides.
         </p>
       </div>
@@ -25,7 +25,7 @@ function Configuration() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Where config lives</h2>
         <p className="text-white/60 leading-relaxed">
-          By default, Paseo uses <code className="font-mono">~/.paseo</code> as its home directory.
+          By default, SuperAgent uses <code className="font-mono">~/.paseo</code> as its home directory.
           The configuration file is:
         </p>
         <div className="bg-card border border-border rounded-lg p-4 font-mono text-sm">
@@ -41,7 +41,7 @@ function Configuration() {
 
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Precedence</h2>
-        <p className="text-white/60 leading-relaxed">Paseo merges configuration in this order:</p>
+        <p className="text-white/60 leading-relaxed">SuperAgent merges configuration in this order:</p>
         <ol className="text-white/60 space-y-2 list-decimal list-inside">
           <li>Defaults</li>
           <li>
@@ -64,7 +64,7 @@ function Configuration() {
         </p>
         <pre className="bg-card border border-border rounded-lg p-4 font-mono text-sm overflow-x-auto text-white/80">
           {`{
-  "$schema": "https://paseo.sh/schemas/paseo.config.v1.json",
+  "$schema": "https://hyperspace.ng/schemas/paseo.config.v1.json",
   "version": 1,
   "providers": {
     "openai": { "apiKey": "..." }
@@ -81,7 +81,7 @@ function Configuration() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Agent provider runtime settings</h2>
         <p className="text-white/60 leading-relaxed">
-          Use <code className="font-mono">agents.providers</code> to customize how Paseo launches
+          Use <code className="font-mono">agents.providers</code> to customize how SuperAgent launches
           agent provider CLIs. This works for <code className="font-mono">claude</code>,{" "}
           <code className="font-mono">codex</code>, and
           <code className="font-mono"> opencode</code>.
@@ -130,7 +130,7 @@ function Configuration() {
 
         <h3 className="text-lg font-medium">Run Claude through Docker</h3>
         <p className="text-white/60 leading-relaxed">
-          Create a wrapper script that runs Claude in Docker, then tell Paseo to replace the Claude
+          Create a wrapper script that runs Claude in Docker, then tell SuperAgent to replace the Claude
           launch command with that script.
         </p>
         <pre className="bg-card border border-border rounded-lg p-4 font-mono text-sm overflow-x-auto text-white/80">
@@ -222,7 +222,7 @@ docker run --rm -i \\
         <h2 className="text-xl font-medium">Common env vars</h2>
         <ul className="text-white/60 space-y-2 list-disc list-inside">
           <li>
-            <code className="font-mono">PASEO_HOME</code> — set Paseo home directory
+            <code className="font-mono">PASEO_HOME</code> — set SuperAgent home directory
           </li>
           <li>
             <code className="font-mono">PASEO_LISTEN</code> — override{" "}
@@ -299,7 +299,7 @@ docker run --rm -i \\
           For editor autocomplete/validation, set <code className="font-mono">$schema</code> to:
         </p>
         <div className="bg-card border border-border rounded-lg p-4 font-mono text-sm">
-          <span>https://paseo.sh/schemas/paseo.config.v1.json</span>
+          <span>https://hyperspace.ng/schemas/paseo.config.v1.json</span>
         </div>
       </section>
     </div>

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const EXECUTABLE_NAME = "Paseo";
+const EXECUTABLE_NAME = "SuperAgent";
 const WRAPPER_MODE = 0o755;
 const WRAPPER_SCRIPT = `#!/bin/bash
 exec "$(dirname "$(readlink -f "$0")")/${EXECUTABLE_NAME}.bin" --no-sandbox "$@"

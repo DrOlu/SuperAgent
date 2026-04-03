@@ -5,16 +5,16 @@ declare const __DESKTOP_VERSION__: string | undefined;
 
 export const desktopVersion =
   typeof __DESKTOP_VERSION__ !== "undefined" ? __DESKTOP_VERSION__ : websitePackage.version;
-export const releaseBase = `https://github.com/getpaseo/paseo/releases/download/v${desktopVersion}`;
-export const macAppleSiliconDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-arm64.dmg`;
-export const macIntelDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-x64.dmg`;
-export const linuxAppImageDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-x86_64.AppImage`;
-export const linuxDebDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-amd64.deb`;
-export const linuxRpmDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-x86_64.rpm`;
+export const releaseBase = `https://github.com/DrOlu/SuperAgent/releases/download/v${desktopVersion}`;
+export const macAppleSiliconDownloadUrl = `${releaseBase}/SuperAgent-${desktopVersion}-arm64.dmg`;
+export const macIntelDownloadUrl = `${releaseBase}/SuperAgent-${desktopVersion}-x64.dmg`;
+export const linuxAppImageDownloadUrl = `${releaseBase}/SuperAgent-${desktopVersion}-x86_64.AppImage`;
+export const linuxDebDownloadUrl = `${releaseBase}/SuperAgent-${desktopVersion}-amd64.deb`;
+export const linuxRpmDownloadUrl = `${releaseBase}/SuperAgent-${desktopVersion}-x86_64.rpm`;
 
 export const appStoreUrl = "https://apps.apple.com/app/paseo-pocket-engineer/id6758887924";
 export const playStoreUrl = "https://play.google.com/store/apps/details?id=sh.paseo";
-export const webAppUrl = "https://app.paseo.sh";
+export const webAppUrl = "https://app.hyperspace.ng";
 
 type Platform = "mac-silicon" | "mac-intel" | "windows" | "linux";
 
@@ -41,7 +41,7 @@ export const downloadOptions: DownloadOption[] = [
   {
     platform: "windows",
     label: "Windows",
-    href: `${releaseBase}/Paseo-Setup-${desktopVersion}.exe`,
+    href: `${releaseBase}/SuperAgent-Setup-${desktopVersion}.exe`,
     icon: WindowsIcon,
   },
   {

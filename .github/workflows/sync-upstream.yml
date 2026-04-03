@@ -1,0 +1,151 @@
+name: Sync Upstream & Release
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force sync even if no new upstream commits'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout SuperAgent
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch upstream paseo
+        run: |
+          git remote add upstream https://github.com/getpaseo/paseo.git || true
+          git fetch upstream main
+          echo "UPSTREAM_SHA=$(git rev-parse upstream/main)" >> $GITHUB_ENV
+          echo "CURRENT_BASE=$(git log --format=%H --grep='upstream-sync:' -1 | head -1)" >> $GITHUB_ENV
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          # Find our last sync marker
+          LAST_SYNC=$(git log --format=%s --grep='upstream-sync:' -1 | grep -o '[a-f0-9]\{40\}' || echo "")
+          if [ -z "$LAST_SYNC" ]; then
+            echo "No previous sync found, will sync"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          elif [ "$LAST_SYNC" = "$UPSTREAM_SHA" ] && [ "${{ github.event.inputs.force }}" != "true" ]; then
+            echo "Already synced to $UPSTREAM_SHA"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "New upstream: $UPSTREAM_SHA (last sync: $LAST_SYNC)"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Reset to upstream
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          git config user.name "Hyperspace Technologies"
+          git config user.email "superagent@hyperspace.ng"
+          # Reset working tree to upstream
+          git checkout -B sync-work upstream/main
+          echo "Reset to upstream: $(git log --oneline -1)"
+
+      - name: Apply SuperAgent rebrand
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          # Checkout branding assets and rebrand script from main
+          git checkout main -- branding/ scripts/apply-superagent-rebrand.py .github/workflows/ 2>/dev/null || true
+
+          # Run the rebrand script
+          python3 scripts/apply-superagent-rebrand.py
+
+          echo "Rebrand applied"
+
+      - name: Determine version
+        if: steps.check.outputs.has_changes == 'true'
+        id: version
+        run: |
+          # Get upstream version
+          UPSTREAM_VER=$(node -e "console.log(require('./package.json').version)")
+          echo "upstream_version=$UPSTREAM_VER" >> $GITHUB_OUTPUT
+          echo "Upstream version: $UPSTREAM_VER"
+
+      - name: Set package versions
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.upstream_version }}"
+          # Update desktop and root package.json versions
+          node -e "
+            const fs = require('fs');
+            for (const p of ['package.json', 'packages/desktop/package.json']) {
+              const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+              pkg.version = '$VERSION';
+              fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');
+            }
+          "
+
+      - name: Commit and push
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          git add -A
+          git commit -m "sync: SuperAgent rebrand on upstream ${{ env.UPSTREAM_SHA }}
+
+          upstream-sync: ${{ env.UPSTREAM_SHA }}
+          Based on: getpaseo/paseo@$(echo ${{ env.UPSTREAM_SHA }} | head -c 8)
+          Version: ${{ steps.version.outputs.upstream_version }}"
+
+          git push origin sync-work:main --force
+          echo "Pushed to main"
+
+      - name: Create release and trigger builds
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.upstream_version }}"
+          TAG="v${VERSION}"
+
+          # Delete existing tag if present
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          git push origin ":refs/tags/$TAG" 2>/dev/null || true
+
+          # Create release
+          gh release create "$TAG" \
+            --title "SuperAgent $TAG" \
+            --notes "## SuperAgent $TAG
+
+          Synced with upstream paseo@$(echo ${{ env.UPSTREAM_SHA }} | head -c 8)
+
+          ### Downloads
+          - **Windows**: SuperAgent-Setup-${VERSION}.exe
+          - **macOS Apple Silicon**: SuperAgent-${VERSION}-arm64.dmg
+          - **macOS Intel**: SuperAgent-${VERSION}-x64.dmg
+          - **Linux**: SuperAgent-${VERSION}-x86_64.AppImage" \
+            --target main
+
+          echo "Release $TAG created"
+
+      - name: Trigger desktop builds
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.upstream_version }}"
+          gh workflow run desktop-release-superagent.yml \
+            -f tag="v${VERSION}" \
+            -f platform=all
+          echo "Desktop builds triggered for v${VERSION}"

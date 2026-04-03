@@ -30,7 +30,7 @@ import { setupApplicationMenu } from "./features/menu.js";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
-app.setName("Paseo");
+app.setName("SuperAgent");
 
 protocol.registerSchemesAsPrivileged([
   { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },

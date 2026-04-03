@@ -91,6 +91,19 @@ function isProcessRunning(pid: number): boolean {
 
 function signalProcessSafely(pid: number, signal: NodeJS.Signals): boolean {
   if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid) return false;
+  // On Windows, SIGTERM/SIGKILL via process.kill() don't actually terminate processes.
+  // Use taskkill /F /PID instead for reliable forced termination.
+  if (process.platform === "win32") {
+    try {
+      const { spawnSync: _spawnSyncKill } = require("node:child_process");
+      const result = _spawnSyncKill("taskkill", ["/F", "/PID", String(pid)], {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+      return result.status === 0;
+    } catch {
+      return false;
+    }
+  }
   try {
     process.kill(pid, signal);
     return true;

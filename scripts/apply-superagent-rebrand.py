@@ -227,4 +227,13 @@ for f in pathlib.Path(os.path.join(BASE, 'packages/website/src')).rglob('*.tsx')
             with open(f, 'w') as fh: fh.write(c)
     except: pass
 
+# -- Windows daemon kill fix: use taskkill instead of SIGTERM --
+p = os.path.join(BASE, 'packages/desktop/src/daemon/daemon-manager.ts')
+with open(p) as f: dm = f.read()
+old_sig = 'function signalProcessSafely(pid: number, signal: NodeJS.Signals): boolean {\n  if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid) return false;\n  try {\n    process.kill(pid, signal);'
+new_sig = 'function signalProcessSafely(pid: number, signal: NodeJS.Signals): boolean {\n  if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid) return false;\n  if (process.platform === "win32") {\n    try {\n      const { spawnSync: _spawnSyncKill } = require("node:child_process");\n      const result = _spawnSyncKill("taskkill", ["/F", "/PID", String(pid)], { stdio: ["ignore","ignore","ignore"] });\n      return result.status === 0;\n    } catch { return false; }\n  }\n  try {\n    process.kill(pid, signal);'
+if old_sig in dm and new_sig not in dm:
+    dm = dm.replace(old_sig, new_sig)
+    with open(p, 'w') as f: f.write(dm)
+
 print('✅ All SuperAgent rebrand changes applied')

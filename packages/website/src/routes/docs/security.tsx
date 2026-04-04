@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/security")({
   head: () => ({
     meta: pageMeta(
-      "Security - Paseo Docs",
-      "Security model for Paseo: architecture overview, connection methods, relay encryption, and best practices.",
+      "Security - SuperAgent Docs",
+      "Security model for SuperAgent: architecture overview, connection methods, relay encryption, and best practices.",
     ),
   }),
   component: Security,
@@ -25,12 +25,12 @@ function Security() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">Security</h1>
         <p className="text-white/60 leading-relaxed">
-          Paseo follows a client-server architecture, similar to Docker. The daemon runs on your
+          SuperAgent follows a client-server architecture, similar to Docker. The daemon runs on your
           machine and manages your coding agents. Clients (the mobile app, CLI, or web interface)
           connect to the daemon to monitor and control those agents.
         </p>
         <p className="text-white/60 leading-relaxed mt-3">
-          Your code never leaves your machine. Paseo is a local-first tool that connects directly to
+          Your code never leaves your machine. SuperAgent is a local-first tool that connects directly to
           your development environment.
         </p>
       </div>
@@ -39,7 +39,7 @@ function Security() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Architecture</h2>
         <p className="text-white/60 leading-relaxed">
-          The Paseo daemon can run anywhere you want to execute agents: your laptop, a Mac Mini, a
+          The SuperAgent daemon can run anywhere you want to execute agents: your laptop, a Mac Mini, a
           VPS, or a Docker container. The daemon listens for connections and manages agent
           lifecycles.
         </p>
@@ -189,7 +189,7 @@ function Security() {
             <code className="font-mono">cors.allowedOrigins</code>
           </li>
           <li>
-            Add the daemon as a direct connection in the Paseo app using the Tailscale address
+            Add the daemon as a direct connection in the SuperAgent app using the Tailscale address
           </li>
         </ol>
 
@@ -212,7 +212,7 @@ function Security() {
           from resolving its domain to your local machine (DNS rebinding).
         </p>
         <p className="text-white/60 leading-relaxed">
-          Paseo uses a host allowlist to validate the <code className="font-mono">Host</code> header
+          SuperAgent uses a host allowlist to validate the <code className="font-mono">Host</code> header
           on incoming requests. Requests with unrecognized hosts are rejected.
         </p>
         <p className="text-white/60 leading-relaxed">
@@ -239,7 +239,7 @@ function Security() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Agent authentication</h2>
         <p className="text-white/60 leading-relaxed">
-          Paseo wraps agent CLIs (Claude Code, Codex, OpenCode) but does not manage their
+          SuperAgent wraps agent CLIs (Claude Code, Codex, OpenCode) but does not manage their
           authentication. Each agent provider handles its own credentials:
         </p>
         <ul className="text-white/60 space-y-2 list-disc list-inside">
@@ -257,7 +257,7 @@ function Security() {
           </li>
         </ul>
         <p className="text-white/60 leading-relaxed">
-          Paseo never stores or transmits provider API keys. Agents run in your user context with
+          SuperAgent never stores or transmits provider API keys. Agents run in your user context with
           your existing credentials.
         </p>
       </section>

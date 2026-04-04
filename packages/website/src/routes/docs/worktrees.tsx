@@ -4,7 +4,7 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/worktrees")({
   head: () => ({
     meta: pageMeta(
-      "Git Worktrees - Paseo Docs",
+      "Git Worktrees - SuperAgent Docs",
       "Run agents in isolated git worktrees for parallel feature development.",
     ),
   }),
@@ -25,7 +25,7 @@ function Worktrees() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">Git Worktrees</h1>
         <p className="text-white/60 leading-relaxed">
-          Git worktrees let you have multiple working directories from the same repository. Paseo
+          Git worktrees let you have multiple working directories from the same repository. SuperAgent
           uses them to run agents in isolated branches without switching contexts.
         </p>
       </div>
@@ -49,7 +49,7 @@ function Worktrees() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Directory structure</h2>
         <p className="text-white/60 leading-relaxed">
-          Paseo creates worktrees under <code className="font-mono">$PASEO_HOME/worktrees/</code>,
+          SuperAgent creates worktrees under <code className="font-mono">$PASEO_HOME/worktrees/</code>,
           organized by a short hash of the source checkout path:
         </p>
         <Code>
@@ -71,8 +71,8 @@ function Worktrees() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Branches</h2>
         <p className="text-white/60 leading-relaxed">
-          When you create a worktree, Paseo generates a random directory name. The branch name is
-          set when you first launch an agent — Paseo generates one automatically.
+          When you create a worktree, SuperAgent generates a random directory name. The branch name is
+          set when you first launch an agent — SuperAgent generates one automatically.
         </p>
         <p className="text-white/60 leading-relaxed">
           This means the worktree directory and branch are independent. You can rename the branch
@@ -98,7 +98,7 @@ function Worktrees() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Lifecycle hooks with paseo.json</h2>
         <p className="text-white/60 leading-relaxed">
-          When Paseo creates a worktree, it's a fresh checkout. Dependencies aren't installed,
+          When SuperAgent creates a worktree, it's a fresh checkout. Dependencies aren't installed,
           config files aren't copied. You can automate setup by creating a{" "}
           <code className="font-mono">paseo.json</code> file in your repository root:
         </p>
@@ -119,7 +119,7 @@ function Worktrees() {
         </p>
         <p className="text-white/60 leading-relaxed">
           You can also add a <code className="font-mono">teardown</code> array for cleanup commands
-          that run before Paseo removes the worktree directory during archive:
+          that run before SuperAgent removes the worktree directory during archive:
         </p>
         <Code>
           <pre className="text-white/80">{`{
@@ -134,7 +134,7 @@ function Worktrees() {
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-white/80">
           <strong>Important:</strong> Setup commands come from{" "}
           <code className="font-mono">paseo.json</code> in the selected base branch. If you pick{" "}
-          <code className="font-mono">main</code>, Paseo reads the committed file on{" "}
+          <code className="font-mono">main</code>, SuperAgent reads the committed file on{" "}
           <code className="font-mono">main</code>. Local or uncommitted changes in another branch
           are not used for that worktree.
         </div>
@@ -182,7 +182,7 @@ function Worktrees() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Teardown</h2>
         <p className="text-white/60 leading-relaxed">
-          Teardown runs during archive, before Paseo removes the worktree directory. Use it for
+          Teardown runs during archive, before SuperAgent removes the worktree directory. Use it for
           cleanup that needs access to the worktree path or its assigned port.
         </p>
         <p className="text-white/60 leading-relaxed">
@@ -260,8 +260,8 @@ function Worktrees() {
         <h2 className="text-xl font-medium">Workflow</h2>
         <p className="text-white/60 leading-relaxed">The typical workflow is:</p>
         <ol className="text-white/60 space-y-2 list-decimal list-inside">
-          <li>Create a worktree — Paseo creates the directory and runs setup</li>
-          <li>Launch an agent — Paseo creates or assigns a branch</li>
+          <li>Create a worktree — SuperAgent creates the directory and runs setup</li>
+          <li>Launch an agent — SuperAgent creates or assigns a branch</li>
           <li>Agent works in isolation — changes stay in its worktree</li>
           <li>Review the diff — compare against the base branch</li>
           <li>Merge or discard — if approved, merge the branch; otherwise archive</li>
@@ -296,11 +296,11 @@ function Worktrees() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Metadata</h2>
         <p className="text-white/60 leading-relaxed">
-          Paseo stores metadata in each worktree's git directory to track the base branch. This is
+          SuperAgent stores metadata in each worktree's git directory to track the base branch. This is
           used for diff operations and to know what branch to merge into.
         </p>
         <p className="text-white/60 leading-relaxed">
-          You don't need to manage this manually — Paseo handles it when creating and archiving
+          You don't need to manage this manually — SuperAgent handles it when creating and archiving
           worktrees.
         </p>
       </section>

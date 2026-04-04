@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/best-practices")({
   head: () => ({
     meta: pageMeta(
-      "Best Practices - Paseo Docs",
-      "Tips for getting the most out of Paseo and mobile-first agent workflows.",
+      "Best Practices - SuperAgent Docs",
+      "Tips for getting the most out of SuperAgent and mobile-first agent workflows.",
     ),
   }),
   component: BestPractices,
@@ -17,7 +17,7 @@ function BestPractices() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">Best Practices</h1>
         <p className="text-white/60 leading-relaxed">
-          What I've learned from using Paseo daily. Not rules, just patterns that have worked for
+          What I've learned from using SuperAgent daily. Not rules, just patterns that have worked for
           me.
         </p>
       </div>
@@ -62,7 +62,7 @@ function BestPractices() {
       <section className="space-y-4">
         <h2 className="text-xl font-medium">Agents are cheap</h2>
         <p className="text-white/60 leading-relaxed">
-          Don't be shy about running multiple agents. Paseo lets you launch agents in isolated
+          Don't be shy about running multiple agents. SuperAgent lets you launch agents in isolated
           worktrees. Kick one off with voice while walking, then kick off another. They work
           independently. You get a notification when they're done.
         </p>

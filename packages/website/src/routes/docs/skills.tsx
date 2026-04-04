@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/skills")({
   head: () => ({
     meta: pageMeta(
-      "Orchestration Skills - Paseo Docs",
-      "Paseo orchestration skills: teach coding agents to spawn, coordinate, and manage other agents using slash commands.",
+      "Orchestration Skills - SuperAgent Docs",
+      "SuperAgent orchestration skills: teach coding agents to spawn, coordinate, and manage other agents using slash commands.",
     ),
   }),
   component: Skills,
@@ -25,8 +25,8 @@ function Skills() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">Orchestration Skills</h1>
         <p className="text-white/60 leading-relaxed">
-          Paseo ships orchestration skills that teach coding agents (Claude Code, Codex) how to use
-          the Paseo CLI to spawn, coordinate, and manage other agents. Skills are slash commands your
+          SuperAgent ships orchestration skills that teach coding agents (Claude Code, Codex) how to use
+          the SuperAgent CLI to spawn, coordinate, and manage other agents. Skills are slash commands your
           agent can invoke — they provide the prompts, context, and workflows so agents know how to
           orchestrate without you writing boilerplate. Install them from the desktop app's
           Integrations settings or via the CLI.
@@ -42,7 +42,7 @@ function Skills() {
             <strong>Desktop app:</strong> Settings → Integrations → Install
           </li>
           <li>
-            <strong>Manual:</strong> <code className="font-mono">npx skills add getpaseo/paseo</code>{" "}
+            <strong>Manual:</strong> <code className="font-mono">npx skills add DrOlu/SuperAgent</code>{" "}
             — this installs to <code className="font-mono">~/.agents/skills/</code> and sets up
             symlinks for each agent.
           </li>
@@ -55,7 +55,7 @@ function Skills() {
           <code className="font-mono">/paseo</code> — CLI Reference
         </h2>
         <p className="text-white/60 leading-relaxed">
-          The foundational skill. Loaded automatically by other skills. Contains the full Paseo CLI
+          The foundational skill. Loaded automatically by other skills. Contains the full SuperAgent CLI
           command reference so agents know how to run commands.
         </p>
         <p className="text-white/60 leading-relaxed">

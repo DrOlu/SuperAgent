@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/cli")({
   head: () => ({
     meta: pageMeta(
-      "CLI - Paseo Docs",
-      "Paseo CLI reference: manage agents, daemons, permissions, and worktrees from your terminal.",
+      "CLI - SuperAgent Docs",
+      "SuperAgent CLI reference: manage agents, daemons, permissions, and worktrees from your terminal.",
     ),
   }),
   component: CLI,
@@ -25,7 +25,7 @@ function CLI() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">CLI</h1>
         <p className="text-white/60 leading-relaxed">
-          The Paseo CLI lets you manage agents from your terminal. It's the same interface exposed
+          The SuperAgent CLI lets you manage agents from your terminal. It's the same interface exposed
           by the daemon's API, so anything you can do in the app you can do from the command line.
         </p>
       </div>
@@ -33,7 +33,7 @@ function CLI() {
       {/* Agent orchestration callout */}
       <section className="space-y-4">
         <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 text-white/80">
-          <strong>Agent orchestration:</strong> You can tell coding agents to use the Paseo CLI to
+          <strong>Agent orchestration:</strong> You can tell coding agents to use the SuperAgent CLI to
           spawn and manage other agents. This enables multi-agent workflows where one agent
           delegates subtasks to others and waits for results.
         </div>

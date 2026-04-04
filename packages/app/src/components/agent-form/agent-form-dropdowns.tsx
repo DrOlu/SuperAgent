@@ -1046,7 +1046,7 @@ export function GitOptionsSection({
         <View style={styles.worktreeToggleContent}>
           <Text style={styles.worktreeToggleLabel}>Attach to existing worktree</Text>
           <Text style={styles.worktreeToggleDescription}>
-            {isLoading ? "Inspecting repository…" : "Pick a Paseo worktree by branch"}
+            {isLoading ? "Inspecting repository…" : "Pick a SuperAgent worktree by branch"}
           </Text>
         </View>
       </Pressable>

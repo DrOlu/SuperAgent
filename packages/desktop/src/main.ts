@@ -35,7 +35,7 @@ import { parseOpenProjectPathFromArgv } from "./open-project-routing.js";
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
 const OPEN_PROJECT_EVENT = "paseo:event:open-project";
-app.setName("Paseo");
+app.setName("SuperAgent");
 
 let pendingOpenProjectPath = parseOpenProjectPathFromArgv({
   argv: process.argv,

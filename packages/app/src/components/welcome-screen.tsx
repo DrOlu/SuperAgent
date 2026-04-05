@@ -341,7 +341,7 @@ export function WelcomeScreen({ onHostAdded }: WelcomeScreenProps) {
     >
       <View style={styles.content}>
         <PaseoLogo size={96} />
-        <Text style={styles.title}>Welcome to Paseo</Text>
+        <Text style={styles.title}>Welcome to SuperAgent</Text>
         <Text style={styles.subtitle}>
           {showHostList ? "Connecting to your hosts…" : "Connect to your host to start"}
         </Text>

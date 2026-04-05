@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: pageMeta(
-      "Privacy Policy - Paseo",
-      "Privacy policy for Paseo - a self-hosted agent manager with no tracking or analytics.",
+      "Privacy Policy - SuperAgent",
+      "Privacy policy for SuperAgent - a self-hosted agent manager with no tracking or analytics.",
     ),
   }),
   component: Privacy,
@@ -19,13 +19,13 @@ function Privacy() {
 
         <div className="space-y-6 text-white/70 leading-relaxed">
           <p>
-            Paseo is a self-hosted tool for managing coding agents. Your code and data stay on your
+            SuperAgent is a self-hosted tool for managing coding agents. Your code and data stay on your
             machine.
           </p>
 
           <section className="space-y-3">
             <h2 className="text-xl font-medium text-white">What we collect</h2>
-            <p>Nothing. Paseo runs on your machine and doesn't send us any data.</p>
+            <p>Nothing. SuperAgent runs on your machine and doesn't send us any data.</p>
           </section>
 
           <section className="space-y-3">
@@ -55,9 +55,9 @@ function Privacy() {
           <section className="space-y-3">
             <h2 className="text-xl font-medium text-white">Third-party services</h2>
             <p>
-              Paseo wraps agent providers like Claude Code, Codex, and OpenCode. Those tools
+              SuperAgent wraps agent providers like Claude Code, Codex, and OpenCode. Those tools
               communicate with their own APIs (Anthropic, OpenAI, etc.) using your credentials.
-              Paseo doesn't manage or intercept those API calls.
+              SuperAgent doesn't manage or intercept those API calls.
             </p>
             <p>
               If you use voice features with cloud providers (OpenAI speech), your voice data is
@@ -67,7 +67,7 @@ function Privacy() {
 
           <section className="space-y-3">
             <h2 className="text-xl font-medium text-white">We don't sell your data</h2>
-            <p>We don't have your data to sell. Paseo is self-hosted and local-first.</p>
+            <p>We don't have your data to sell. SuperAgent is self-hosted and local-first.</p>
           </section>
 
           <section className="space-y-3">
@@ -75,7 +75,7 @@ function Privacy() {
             <p>
               If you have questions about privacy, open an issue on{" "}
               <a
-                href="https://github.com/getpaseo/paseo"
+                href="https://github.com/DrOlu/SuperAgent"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:text-white/90"

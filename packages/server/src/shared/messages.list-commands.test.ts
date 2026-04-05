@@ -27,6 +27,9 @@ describe("list_commands_request schema", () => {
         modeId: "bypassPermissions",
         model: "gpt-5",
         thinkingOptionId: "off",
+        featureValues: {
+          plan_mode: true,
+        },
       },
       requestId: "req-456",
     });
@@ -41,6 +44,9 @@ describe("list_commands_request schema", () => {
       modeId: "bypassPermissions",
       model: "gpt-5",
       thinkingOptionId: "off",
+      featureValues: {
+        plan_mode: true,
+      },
     });
   });
 });

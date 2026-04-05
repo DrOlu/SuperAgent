@@ -94,13 +94,23 @@ export class SherpaOnnxTTS implements TextToSpeechProvider {
       throw new Error("Cannot synthesize empty text");
     }
 
-    const audio = this.tts.generate({ text: trimmed, sid: this.speakerId, speed: this.speed });
-    const samples: Float32Array | null =
+    const audio = this.tts.generate({
+      text: trimmed,
+      sid: this.speakerId,
+      speed: this.speed,
+      // Electron rejects native external-backed typed arrays. Request a copied buffer
+      // from sherpa itself instead of trying to clone after generate() returns.
+      enableExternalBuffer: false,
+    });
+    const rawSamples: Float32Array | null =
       audio && audio.samples instanceof Float32Array
         ? audio.samples
         : audio && Array.isArray(audio.samples)
           ? Float32Array.from(audio.samples as number[])
           : null;
+    // Copy to avoid "External buffers are not allowed" when sherpa-onnx
+    // returns a Float32Array backed by native memory.
+    const samples = rawSamples ? Float32Array.from(rawSamples) : null;
     const sampleRate: number =
       audio &&
       typeof audio.sampleRate === "number" &&

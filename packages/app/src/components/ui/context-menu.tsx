@@ -30,6 +30,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime, useUnistyles } from "react-native-unistyles";
 import { Check, CheckCircle } from "lucide-react-native";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Keep parity with dropdown-menu action statuses.
 export type ActionStatus = "idle" | "pending" | "success";
@@ -595,6 +596,7 @@ export function ContextMenuItem({
   successLabel,
   closeOnSelect = true,
   testID,
+  tooltip,
 }: PropsWithChildren<{
   description?: string;
   onSelect?: () => void;
@@ -612,6 +614,7 @@ export function ContextMenuItem({
   successLabel?: string;
   closeOnSelect?: boolean;
   testID?: string;
+  tooltip?: string;
 }>): ReactElement {
   const { theme } = useUnistyles();
   const { setOpen } = useContextMenuContext("ContextMenuItem");
@@ -642,7 +645,7 @@ export function ContextMenuItem({
       <Check size={16} color={theme.colors.foregroundMuted} />
     ) : null);
 
-  return (
+  const content = (
     <Pressable
       testID={testID}
       accessibilityRole="button"
@@ -704,6 +707,19 @@ export function ContextMenuItem({
       {trailingContent ? <View style={styles.trailingSlot}>{trailingContent}</View> : null}
     </Pressable>
   );
+
+  if (!tooltip) {
+    return content;
+  }
+
+  return (
+    <Tooltip delayDuration={250} enabledOnDesktop enabledOnMobile={false}>
+      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipContent side="right" align="center" offset={10}>
+        <Text style={styles.tooltipText}>{tooltip}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -761,6 +777,10 @@ const styles = StyleSheet.create((theme) => ({
   hintText: {
     fontSize: theme.fontSize.xs,
     color: theme.colors.foregroundMuted,
+  },
+  tooltipText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foreground,
   },
   item: {
     flexDirection: "row",

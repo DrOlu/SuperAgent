@@ -528,7 +528,6 @@ export async function registerPendingWorktreeWorkspace(
   if (!Number.isInteger(projectId)) {
     throw new Error(`Invalid project id for repo root ${options.repoRoot}`);
   }
-
   const now = new Date().toISOString();
   const existingWorkspace = await dependencies.findWorkspaceByDirectory(workspaceDirectory);
   if (!existingWorkspace) {

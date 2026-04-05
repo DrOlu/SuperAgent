@@ -2,6 +2,7 @@ import { DaemonClient } from "@server/client/daemon-client";
 import type { DaemonClientConfig } from "@server/client/daemon-client";
 import type { HostConnection } from "@/types/host-connection";
 import { getOrCreateClientId } from "./client-id";
+import { resolveAppVersion } from "./app-version";
 import { buildDaemonWebSocketUrl, buildRelayWebSocketUrl } from "./daemon-endpoints";
 import {
   buildLocalDaemonTransportUrl,
@@ -53,6 +54,7 @@ export async function buildClientConfig(
   const base = {
     clientId,
     clientType: "mobile" as const,
+    appVersion: resolveAppVersion() ?? undefined,
     suppressSendErrors: true,
     reconnect: { enabled: false },
     ...(connection.type === "directSocket" || connection.type === "directPipe"

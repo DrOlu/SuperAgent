@@ -51,6 +51,11 @@ vi.mock("./checkout-git-utils.js", () => ({
   resolveCheckoutGitDir: resolveCheckoutGitDirMock,
 }));
 
+vi.mock("@getpaseo/highlight", () => ({
+  highlightCode: vi.fn(async () => ""),
+  isLanguageSupported: vi.fn(() => false),
+}));
+
 function createSessionForWorkspaceGitWatchTests(): {
   session: Session;
   emitted: Array<{ type: string; payload: unknown }>;

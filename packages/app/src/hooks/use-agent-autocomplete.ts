@@ -62,12 +62,14 @@ function normalizeDraftCommandConfig(
   const modeId = draftConfig.modeId?.trim() ?? "";
   const model = draftConfig.model?.trim() ?? "";
   const thinkingOptionId = draftConfig.thinkingOptionId?.trim() ?? "";
+  const featureValues = draftConfig.featureValues;
   return {
     provider: draftConfig.provider,
     cwd,
     ...(modeId ? { modeId } : {}),
     ...(model ? { model } : {}),
     ...(thinkingOptionId ? { thinkingOptionId } : {}),
+    ...(featureValues && Object.keys(featureValues).length > 0 ? { featureValues } : {}),
   };
 }
 

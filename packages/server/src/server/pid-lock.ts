@@ -9,6 +9,7 @@ export interface PidLockInfo {
   hostname: string;
   uid: number;
   listen: string | null;
+  desktopManaged?: boolean;
 }
 
 export class PidLockError extends Error {
@@ -86,6 +87,7 @@ export async function acquirePidLock(
     hostname: hostname(),
     uid: process.getuid?.() ?? 0,
     listen,
+    ...(process.env.PASEO_DESKTOP_MANAGED === "1" ? { desktopManaged: true } : {}),
   };
 
   let fd;

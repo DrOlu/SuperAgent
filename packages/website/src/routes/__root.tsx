@@ -1,7 +1,22 @@
 import type { ReactNode } from "react";
+import { createContext, useContext } from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { getLatestRelease } from "~/release";
+
+interface ReleaseContext {
+  version: string;
+}
+
+const ReleaseCtx = createContext<ReleaseContext>({ version: "" });
+
+export function useRelease(): ReleaseContext {
+  return useContext(ReleaseCtx);
+}
 
 export const Route = createRootRoute({
+  loader: async () => {
+    return getLatestRelease();
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -23,10 +38,13 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  const release = Route.useLoaderData();
   return (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
+    <ReleaseCtx value={release}>
+      <RootDocument>
+        <Outlet />
+      </RootDocument>
+    </ReleaseCtx>
   );
 }
 

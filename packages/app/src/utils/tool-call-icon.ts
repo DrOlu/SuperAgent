@@ -24,6 +24,7 @@ const TOOL_DETAIL_ICONS: Record<ToolCallDetail["type"], ToolCallIconComponent> =
   worktree_setup: SquareTerminal,
   sub_agent: Bot,
   plain_text: Wrench,
+  plan: Brain,
   unknown: Wrench,
 };
 

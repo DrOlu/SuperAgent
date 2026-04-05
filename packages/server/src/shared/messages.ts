@@ -77,6 +77,32 @@ const AgentSelectOptionSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+export const AgentFeatureToggleSchema = z.object({
+  type: z.literal("toggle"),
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  tooltip: z.string().optional(),
+  icon: z.string().optional(),
+  value: z.boolean(),
+});
+
+export const AgentFeatureSelectSchema = z.object({
+  type: z.literal("select"),
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  tooltip: z.string().optional(),
+  icon: z.string().optional(),
+  value: z.string().nullable(),
+  options: z.array(AgentSelectOptionSchema),
+});
+
+export const AgentFeatureSchema = z.discriminatedUnion("type", [
+  AgentFeatureToggleSchema,
+  AgentFeatureSelectSchema,
+]);
+
 const AgentModelDefinitionSchema: z.ZodType<AgentModelDefinition> = z.object({
   provider: AgentProviderSchema,
   id: z.string(),
@@ -135,6 +161,7 @@ const AgentSessionConfigSchema = z.object({
   modeId: z.string().optional(),
   model: z.string().optional(),
   thinkingOptionId: z.string().optional(),
+  featureValues: z.record(z.unknown()).optional(),
   title: z.string().trim().min(1).max(MAX_EXPLICIT_AGENT_TITLE_CHARS).optional().nullable(),
   approvalPolicy: z.string().optional(),
   sandboxMode: z.string().optional(),
@@ -292,6 +319,10 @@ const ToolCallDetailPayloadSchema: z.ZodType<ToolCallDetail> = z.discriminatedUn
     label: z.string().optional(),
     text: z.string().optional(),
     icon: z.enum(TOOL_CALL_ICON_NAMES).optional(),
+  }),
+  z.object({
+    type: z.literal("plan"),
+    text: z.string(),
   }),
   z.object({
     type: z.literal("unknown"),
@@ -461,6 +492,7 @@ export const AgentSnapshotPayloadSchema = z.object({
   provider: AgentProviderSchema,
   cwd: z.string(),
   model: z.string().nullable(),
+  features: z.array(AgentFeatureSchema).optional(),
   thinkingOptionId: z.string().nullable().optional(),
   effectiveThinkingOptionId: z.string().nullable().optional(),
   createdAt: z.string(),
@@ -732,6 +764,13 @@ export const ListProviderModelsRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const ListProviderModesRequestMessageSchema = z.object({
+  type: z.literal("list_provider_modes_request"),
+  provider: AgentProviderSchema,
+  cwd: z.string().optional(),
+  requestId: z.string(),
+});
+
 export const ListAvailableProvidersRequestMessageSchema = z.object({
   type: z.literal("list_available_providers_request"),
   requestId: z.string(),
@@ -827,6 +866,24 @@ export const SetAgentThinkingRequestMessageSchema = z.object({
 
 export const SetAgentThinkingResponseMessageSchema = z.object({
   type: z.literal("set_agent_thinking_response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    accepted: z.boolean(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const SetAgentFeatureRequestMessageSchema = z.object({
+  type: z.literal("set_agent_feature_request"),
+  agentId: z.string(),
+  featureId: z.string(),
+  value: z.unknown(),
+  requestId: z.string(),
+});
+
+export const SetAgentFeatureResponseMessageSchema = z.object({
+  type: z.literal("set_agent_feature_response"),
   payload: z.object({
     requestId: z.string(),
     agentId: z.string(),
@@ -1114,6 +1171,13 @@ const ListCommandsDraftConfigSchema = z.object({
   modeId: z.string().optional(),
   model: z.string().optional(),
   thinkingOptionId: z.string().optional(),
+  featureValues: z.record(z.unknown()).optional(),
+});
+
+export const ListProviderFeaturesRequestMessageSchema = z.object({
+  type: z.literal("list_provider_features_request"),
+  draftConfig: ListCommandsDraftConfigSchema,
+  requestId: z.string(),
 });
 
 export const ListCommandsRequestSchema = z.object({
@@ -1222,6 +1286,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   DictationStreamCancelMessageSchema,
   CreateAgentRequestMessageSchema,
   ListProviderModelsRequestMessageSchema,
+  ListProviderModesRequestMessageSchema,
+  ListProviderFeaturesRequestMessageSchema,
   ListAvailableProvidersRequestMessageSchema,
   ResumeAgentRequestMessageSchema,
   RefreshAgentRequestMessageSchema,
@@ -1232,6 +1298,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentModeRequestMessageSchema,
   SetAgentModelRequestMessageSchema,
   SetAgentThinkingRequestMessageSchema,
+  SetAgentFeatureRequestMessageSchema,
   AgentPermissionResponseMessageSchema,
   CheckoutStatusRequestSchema,
   SubscribeCheckoutDiffRequestSchema,
@@ -1555,32 +1622,50 @@ export const ArtifactMessageSchema = z.object({
   }),
 });
 
-export const ProjectCheckoutLiteNotGitPayloadSchema = z.object({
-  cwd: z.string(),
-  isGit: z.literal(false),
-  currentBranch: z.null(),
-  remoteUrl: z.null(),
-  isPaseoOwnedWorktree: z.literal(false),
-  mainRepoRoot: z.null(),
-});
+export const ProjectCheckoutLiteNotGitPayloadSchema = z
+  .object({
+    cwd: z.string(),
+    isGit: z.literal(false),
+    currentBranch: z.null(),
+    remoteUrl: z.null(),
+    worktreeRoot: z.null().optional(),
+    isPaseoOwnedWorktree: z.literal(false),
+    mainRepoRoot: z.null(),
+  })
+  .transform((value) => ({
+    ...value,
+    worktreeRoot: null,
+  }));
 
-export const ProjectCheckoutLiteGitNonPaseoPayloadSchema = z.object({
-  cwd: z.string(),
-  isGit: z.literal(true),
-  currentBranch: z.string().nullable(),
-  remoteUrl: z.string().nullable(),
-  isPaseoOwnedWorktree: z.literal(false),
-  mainRepoRoot: z.null(),
-});
+export const ProjectCheckoutLiteGitNonPaseoPayloadSchema = z
+  .object({
+    cwd: z.string(),
+    isGit: z.literal(true),
+    currentBranch: z.string().nullable(),
+    remoteUrl: z.string().nullable(),
+    worktreeRoot: z.string().optional(),
+    isPaseoOwnedWorktree: z.literal(false),
+    mainRepoRoot: z.null(),
+  })
+  .transform((value) => ({
+    ...value,
+    worktreeRoot: value.worktreeRoot ?? value.cwd,
+  }));
 
-export const ProjectCheckoutLiteGitPaseoPayloadSchema = z.object({
-  cwd: z.string(),
-  isGit: z.literal(true),
-  currentBranch: z.string().nullable(),
-  remoteUrl: z.string().nullable(),
-  isPaseoOwnedWorktree: z.literal(true),
-  mainRepoRoot: z.string(),
-});
+export const ProjectCheckoutLiteGitPaseoPayloadSchema = z
+  .object({
+    cwd: z.string(),
+    isGit: z.literal(true),
+    currentBranch: z.string().nullable(),
+    remoteUrl: z.string().nullable(),
+    worktreeRoot: z.string().optional(),
+    isPaseoOwnedWorktree: z.literal(true),
+    mainRepoRoot: z.string(),
+  })
+  .transform((value) => ({
+    ...value,
+    worktreeRoot: value.worktreeRoot ?? value.cwd,
+  }));
 
 export const ProjectCheckoutLitePayloadSchema = z.union([
   ProjectCheckoutLiteNotGitPayloadSchema,
@@ -2161,6 +2246,28 @@ export const ListProviderModelsResponseMessageSchema = z.object({
   }),
 });
 
+export const ListProviderModesResponseMessageSchema = z.object({
+  type: z.literal("list_provider_modes_response"),
+  payload: z.object({
+    provider: AgentProviderSchema,
+    modes: z.array(AgentModeSchema).optional(),
+    error: z.string().nullable().optional(),
+    fetchedAt: z.string(),
+    requestId: z.string(),
+  }),
+});
+
+export const ListProviderFeaturesResponseMessageSchema = z.object({
+  type: z.literal("list_provider_features_response"),
+  payload: z.object({
+    provider: AgentProviderSchema,
+    features: z.array(AgentFeatureSchema).optional(),
+    error: z.string().nullable().optional(),
+    fetchedAt: z.string(),
+    requestId: z.string(),
+  }),
+});
+
 const ProviderAvailabilitySchema = z.object({
   provider: AgentProviderSchema,
   available: z.boolean(),
@@ -2345,6 +2452,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentModeResponseMessageSchema,
   SetAgentModelResponseMessageSchema,
   SetAgentThinkingResponseMessageSchema,
+  SetAgentFeatureResponseMessageSchema,
   UpdateAgentResponseMessageSchema,
   WaitForFinishResponseMessageSchema,
   AgentPermissionRequestMessageSchema,
@@ -2371,6 +2479,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ProjectIconResponseSchema,
   FileDownloadTokenResponseSchema,
   ListProviderModelsResponseMessageSchema,
+  ListProviderModesResponseMessageSchema,
+  ListProviderFeaturesResponseMessageSchema,
   ListAvailableProvidersResponseSchema,
   ListCommandsResponseSchema,
   ListTerminalsResponseSchema,
@@ -2439,6 +2549,10 @@ export type FetchAgentTimelineResponseMessage = z.infer<
 >;
 export type SendAgentMessageResponseMessage = z.infer<typeof SendAgentMessageResponseMessageSchema>;
 export type SetVoiceModeResponseMessage = z.infer<typeof SetVoiceModeResponseMessageSchema>;
+export type SetAgentModeResponseMessage = z.infer<typeof SetAgentModeResponseMessageSchema>;
+export type SetAgentModelResponseMessage = z.infer<typeof SetAgentModelResponseMessageSchema>;
+export type SetAgentThinkingResponseMessage = z.infer<typeof SetAgentThinkingResponseMessageSchema>;
+export type SetAgentFeatureResponseMessage = z.infer<typeof SetAgentFeatureResponseMessageSchema>;
 export type UpdateAgentResponseMessage = z.infer<typeof UpdateAgentResponseMessageSchema>;
 export type WaitForFinishResponseMessage = z.infer<typeof WaitForFinishResponseMessageSchema>;
 export type AgentPermissionRequestMessage = z.infer<typeof AgentPermissionRequestMessageSchema>;
@@ -2446,6 +2560,12 @@ export type AgentPermissionResolvedMessage = z.infer<typeof AgentPermissionResol
 export type AgentDeletedMessage = z.infer<typeof AgentDeletedMessageSchema>;
 export type ListProviderModelsResponseMessage = z.infer<
   typeof ListProviderModelsResponseMessageSchema
+>;
+export type ListProviderModesResponseMessage = z.infer<
+  typeof ListProviderModesResponseMessageSchema
+>;
+export type ListProviderFeaturesResponseMessage = z.infer<
+  typeof ListProviderFeaturesResponseMessageSchema
 >;
 export type ListAvailableProvidersResponse = z.infer<typeof ListAvailableProvidersResponseSchema>;
 export type ChatCreateResponse = z.infer<typeof ChatCreateResponseSchema>;
@@ -2486,6 +2606,12 @@ export type CreateAgentRequestMessage = z.infer<typeof CreateAgentRequestMessage
 export type ListProviderModelsRequestMessage = z.infer<
   typeof ListProviderModelsRequestMessageSchema
 >;
+export type ListProviderModesRequestMessage = z.infer<
+  typeof ListProviderModesRequestMessageSchema
+>;
+export type ListProviderFeaturesRequestMessage = z.infer<
+  typeof ListProviderFeaturesRequestMessageSchema
+>;
 export type ListAvailableProvidersRequestMessage = z.infer<
   typeof ListAvailableProvidersRequestMessageSchema
 >;
@@ -2514,6 +2640,7 @@ export type UpdateAgentRequestMessage = z.infer<typeof UpdateAgentRequestMessage
 export type SetAgentModeRequestMessage = z.infer<typeof SetAgentModeRequestMessageSchema>;
 export type SetAgentModelRequestMessage = z.infer<typeof SetAgentModelRequestMessageSchema>;
 export type SetAgentThinkingRequestMessage = z.infer<typeof SetAgentThinkingRequestMessageSchema>;
+export type SetAgentFeatureRequestMessage = z.infer<typeof SetAgentFeatureRequestMessageSchema>;
 export type AgentPermissionResponseMessage = z.infer<typeof AgentPermissionResponseMessageSchema>;
 export type CheckoutStatusRequest = z.infer<typeof CheckoutStatusRequestSchema>;
 export type CheckoutStatusResponse = z.infer<typeof CheckoutStatusResponseSchema>;
@@ -2603,6 +2730,7 @@ export const WSHelloMessageSchema = z.object({
   clientId: z.string().min(1),
   clientType: z.enum(["mobile", "browser", "cli", "mcp"]),
   protocolVersion: z.number().int(),
+  appVersion: z.string().optional(),
   capabilities: z
     .object({
       voice: z.boolean().optional(),

@@ -14,6 +14,7 @@ import {
   type HostProfile,
 } from "@/types/host-connection";
 import { decodeOfferFragmentPayload, normalizeHostPort } from "@/utils/daemon-endpoints";
+import { resolveAppVersion } from "@/utils/app-version";
 import { ConnectionOfferSchema, type ConnectionOffer } from "@server/shared/connection-offer";
 import {
   shouldUseDesktopDaemon,
@@ -422,6 +423,7 @@ function createDefaultDeps(): HostRuntimeControllerDeps {
         suppressSendErrors: true,
         clientId,
         clientType: "mobile" as const,
+        appVersion: resolveAppVersion() ?? undefined,
         runtimeGeneration,
       };
       if (connection.type === "directSocket" || connection.type === "directPipe") {
@@ -1678,6 +1680,41 @@ export class HostRuntimeStore {
     this.globalListeners.add(listener);
     return () => {
       this.globalListeners.delete(listener);
+    };
+  }
+
+  waitForAnyConnectionOnline(): { promise: Promise<void>; cancel: () => void } {
+    let unsubscribe: (() => void) | null = null;
+
+    const isAnyOnline = (): boolean => {
+      for (const host of this.hosts) {
+        const snapshot = this.getSnapshot(host.serverId);
+        if (snapshot?.connectionStatus === "online") return true;
+      }
+      return false;
+    };
+
+    const promise = new Promise<void>((resolve) => {
+      if (isAnyOnline()) {
+        resolve();
+        return;
+      }
+
+      unsubscribe = this.subscribeAll(() => {
+        if (isAnyOnline()) {
+          unsubscribe?.();
+          unsubscribe = null;
+          resolve();
+        }
+      });
+    });
+
+    return {
+      promise,
+      cancel: () => {
+        unsubscribe?.();
+        unsubscribe = null;
+      },
     };
   }
 

@@ -20,6 +20,7 @@ import {
   Stethoscope,
   Info,
   Shield,
+  Puzzle,
 } from "lucide-react-native";
 import { useAppSettings, type AppSettings } from "@/hooks/use-settings";
 import type { HostProfile, HostConnection } from "@/types/host-connection";
@@ -50,6 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AdaptiveModalSheet, AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
 import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissions-section";
+import { IntegrationsSection } from "@/desktop/components/integrations-section";
 import { LocalDaemonSection } from "@/desktop/components/desktop-updates-section";
 import { isElectronRuntime } from "@/desktop/host";
 import { useDesktopAppUpdater } from "@/desktop/updates/use-desktop-app-updater";
@@ -69,6 +71,7 @@ type SettingsSectionId =
   | "hosts"
   | "appearance"
   | "shortcuts"
+  | "integrations"
   | "diagnostics"
   | "about"
   | "permissions"
@@ -85,16 +88,20 @@ function getSettingsSections(context: { isDesktopApp: boolean }): SettingsSectio
     { id: "hosts", label: "Hosts", icon: Server },
     { id: "appearance", label: "Appearance", icon: Palette },
     { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
-    { id: "diagnostics", label: "Diagnostics", icon: Stethoscope },
-    { id: "about", label: "About", icon: Info },
+    { id: "permissions", label: "Permissions", icon: Shield },
   ];
 
   if (context.isDesktopApp) {
     sections.push(
-      { id: "permissions", label: "Permissions", icon: Shield },
+      { id: "integrations", label: "Integrations", icon: Puzzle },
       { id: "daemon", label: "Daemon", icon: Settings },
     );
   }
+
+  sections.push(
+    { id: "diagnostics", label: "Diagnostics", icon: Stethoscope },
+    { id: "about", label: "About", icon: Info },
+  );
 
   return sections;
 }
@@ -177,13 +184,10 @@ interface HostsSectionProps {
   routeServerId: string;
   theme: ReturnType<typeof useUnistyles>["theme"];
   handleEditDaemon: (profile: HostProfile) => void;
-  setAddConnectionTargetServerId: (id: string | null) => void;
-  setPendingEditReopenServerId: (id: string | null) => void;
   setIsAddHostMethodVisible: (visible: boolean) => void;
   isAddHostMethodVisible: boolean;
   isDirectHostVisible: boolean;
   isPasteLinkVisible: boolean;
-  addConnectionTargetServerId: string | null;
   closeAddConnectionFlow: () => void;
   goBackToAddConnectionMethods: () => void;
   setIsDirectHostVisible: (visible: boolean) => void;
@@ -203,7 +207,6 @@ interface HostsSectionProps {
   handleSaveEditDaemon: (label: string) => Promise<void>;
   handleRemoveConnection: (serverId: string, connectionId: string) => Promise<void>;
   handleRemoveDaemon: (profile: HostProfile) => void;
-  handleAddConnectionFromModal: () => void;
   restartConfirmationMessage: string;
   waitForCondition: (
     predicate: () => boolean,
@@ -243,8 +246,6 @@ function HostsSection(props: HostsSectionProps) {
           style={styles.addButton}
           textStyle={styles.addButtonText}
           onPress={() => {
-            props.setAddConnectionTargetServerId(null);
-            props.setPendingEditReopenServerId(null);
             props.setIsAddHostMethodVisible(true);
           }}
         >
@@ -264,22 +265,17 @@ function HostsSection(props: HostsSectionProps) {
           props.setIsPasteLinkVisible(true);
         }}
         onScanQr={() => {
-          const targetServerId = props.addConnectionTargetServerId;
-          const source = targetServerId ? "editHost" : "settings";
-          const sourceServerId = props.routeServerId || targetServerId || undefined;
+          const sourceServerId = props.routeServerId || undefined;
           props.closeAddConnectionFlow();
           router.push({
             pathname: "/pair-scan",
-            params: targetServerId
-              ? { source, targetServerId, sourceServerId }
-              : { source, sourceServerId },
+            params: { source: "settings", sourceServerId },
           });
         }}
       />
 
       <AddHostModal
         visible={props.isDirectHostVisible}
-        targetServerId={props.addConnectionTargetServerId ?? undefined}
         onClose={props.closeAddConnectionFlow}
         onCancel={props.goBackToAddConnectionMethods}
         onSaved={({ serverId, hostname, isNewHost }) => {
@@ -291,7 +287,6 @@ function HostsSection(props: HostsSectionProps) {
 
       <PairLinkModal
         visible={props.isPasteLinkVisible}
-        targetServerId={props.addConnectionTargetServerId ?? undefined}
         onClose={props.closeAddConnectionFlow}
         onCancel={props.goBackToAddConnectionMethods}
         onSaved={({ serverId, hostname, isNewHost }) => {
@@ -371,7 +366,6 @@ function HostsSection(props: HostsSectionProps) {
         onSave={(label) => void props.handleSaveEditDaemon(label)}
         onRemoveConnection={props.handleRemoveConnection}
         onRemoveHost={props.handleRemoveDaemon}
-        onAddConnection={props.handleAddConnectionFromModal}
         restartConfirmationMessage={props.restartConfirmationMessage}
         waitForCondition={props.waitForCondition}
         isScreenMountedRef={props.isMountedRef}
@@ -520,6 +514,8 @@ function SettingsSectionContent({
       return <DiagnosticsSection {...diagnosticsProps} />;
     case "about":
       return <AboutSection {...aboutProps} />;
+    case "integrations":
+      return isDesktopApp ? <IntegrationsSection /> : null;
     case "permissions":
       return isDesktopApp ? <DesktopPermissionsSection /> : null;
     case "daemon":
@@ -570,31 +566,35 @@ function SettingsDesktopLayout({ sections, sectionContentProps }: SettingsLayout
         {sections.map((section) => {
           const isSelected = section.id === selectedSectionId;
           const IconComponent = section.icon;
+          const showSeparator =
+            section.id === "integrations" || section.id === "diagnostics";
           return (
-            <Pressable
-              key={section.id}
-              style={[
-                desktopStyles.sidebarItem,
-                isSelected && { backgroundColor: theme.colors.surface2 },
-              ]}
-              onPress={() => setSelectedSectionId(section.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected }}
-            >
-              <IconComponent
-                size={theme.iconSize.md}
-                color={isSelected ? theme.colors.foreground : theme.colors.foregroundMuted}
-              />
-              <Text
+            <View key={section.id}>
+              {showSeparator ? <View style={desktopStyles.sidebarSeparator} /> : null}
+              <Pressable
                 style={[
-                  desktopStyles.sidebarLabel,
-                  isSelected && { color: theme.colors.foreground },
+                  desktopStyles.sidebarItem,
+                  isSelected && { backgroundColor: theme.colors.surface2 },
                 ]}
-                numberOfLines={1}
+                onPress={() => setSelectedSectionId(section.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
               >
-                {section.label}
-              </Text>
-            </Pressable>
+                <IconComponent
+                  size={theme.iconSize.md}
+                  color={isSelected ? theme.colors.foreground : theme.colors.foregroundMuted}
+                />
+                <Text
+                  style={[
+                    desktopStyles.sidebarLabel,
+                    isSelected && { color: theme.colors.foreground },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {section.label}
+                </Text>
+              </Pressable>
+            </View>
           );
         })}
       </View>
@@ -728,10 +728,6 @@ export default function SettingsScreen() {
   const [isAddHostMethodVisible, setIsAddHostMethodVisible] = useState(false);
   const [isDirectHostVisible, setIsDirectHostVisible] = useState(false);
   const [isPasteLinkVisible, setIsPasteLinkVisible] = useState(false);
-  const [addConnectionTargetServerId, setAddConnectionTargetServerId] = useState<string | null>(
-    null,
-  );
-  const [pendingEditReopenServerId, setPendingEditReopenServerId] = useState<string | null>(null);
   const [pendingNameHost, setPendingNameHost] = useState<{
     serverId: string;
     hostname: string | null;
@@ -810,7 +806,6 @@ export default function SettingsScreen() {
     setIsAddHostMethodVisible(false);
     setIsDirectHostVisible(false);
     setIsPasteLinkVisible(false);
-    setAddConnectionTargetServerId(null);
   }, []);
 
   const goBackToAddConnectionMethods = useCallback(() => {
@@ -828,24 +823,6 @@ export default function SettingsScreen() {
     lastHandledEditHostRef.current = editHost;
     handleEditDaemon(profile);
   }, [daemons, handleEditDaemon, params.editHost]);
-
-  useEffect(() => {
-    if (!pendingEditReopenServerId) return;
-    if (isAddHostMethodVisible || isDirectHostVisible || isPasteLinkVisible) return;
-    const profile = daemons.find((daemon) => daemon.serverId === pendingEditReopenServerId) ?? null;
-    setPendingEditReopenServerId(null);
-    setAddConnectionTargetServerId(null);
-    if (profile) {
-      handleEditDaemon(profile);
-    }
-  }, [
-    daemons,
-    handleEditDaemon,
-    isAddHostMethodVisible,
-    isDirectHostVisible,
-    isPasteLinkVisible,
-    pendingEditReopenServerId,
-  ]);
 
   const handleSaveEditDaemon = useCallback(
     async (nextLabelRaw: string) => {
@@ -883,15 +860,6 @@ export default function SettingsScreen() {
     setEditingDaemon(null);
     setPendingRemoveHost(profile);
   }, []);
-
-  const handleAddConnectionFromModal = useCallback(() => {
-    if (!editingServerId) return;
-    const serverId = editingServerId;
-    setEditingDaemon(null);
-    setAddConnectionTargetServerId(serverId);
-    setPendingEditReopenServerId(serverId);
-    setIsAddHostMethodVisible(true);
-  }, [editingServerId]);
 
   const handleThemeChange = useCallback(
     (newTheme: AppSettings["theme"]) => {
@@ -938,13 +906,10 @@ export default function SettingsScreen() {
     routeServerId,
     theme,
     handleEditDaemon,
-    setAddConnectionTargetServerId,
-    setPendingEditReopenServerId,
     setIsAddHostMethodVisible,
     isAddHostMethodVisible,
     isDirectHostVisible,
     isPasteLinkVisible,
-    addConnectionTargetServerId,
     closeAddConnectionFlow,
     goBackToAddConnectionMethods,
     setIsDirectHostVisible,
@@ -964,7 +929,6 @@ export default function SettingsScreen() {
     handleSaveEditDaemon,
     handleRemoveConnection,
     handleRemoveDaemon,
-    handleAddConnectionFromModal,
     restartConfirmationMessage: "This will restart the daemon. The app will reconnect automatically.",
     waitForCondition,
     isMountedRef,
@@ -1029,7 +993,6 @@ interface HostDetailModalProps {
   onSave: (label: string) => void;
   onRemoveConnection: (serverId: string, connectionId: string) => Promise<void>;
   onRemoveHost: (host: HostProfile) => void;
-  onAddConnection: () => void;
   restartConfirmationMessage: string;
   waitForCondition: (
     predicate: () => boolean,
@@ -1047,7 +1010,6 @@ function HostDetailModal({
   onSave,
   onRemoveConnection,
   onRemoveHost,
-  onAddConnection,
   restartConfirmationMessage,
   waitForCondition,
   isScreenMountedRef,
@@ -1278,15 +1240,6 @@ function HostDetailModal({
                   />
                 );
               })}
-              <Button
-                variant="outline"
-                size="md"
-                style={styles.addButton}
-                textStyle={styles.addButtonText}
-                onPress={onAddConnection}
-              >
-                + Add connection
-              </Button>
             </View>
           </View>
         ) : null}
@@ -1892,6 +1845,12 @@ const desktopStyles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
     fontWeight: theme.fontWeight.normal,
+  },
+  sidebarSeparator: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    marginVertical: theme.spacing[2],
+    marginHorizontal: theme.spacing[3],
   },
   contentPane: {
     flex: 1,

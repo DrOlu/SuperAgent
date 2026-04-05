@@ -66,11 +66,18 @@ export class SherpaOnnxParakeetSTT implements SpeechToTextProvider {
 
         const committedId = segmentId;
         const prev = previousSegmentId;
+        const committedPcm16 = pcm16;
+        previousSegmentId = committedId;
+        segmentId = uuidv4();
+        pcm16 = Buffer.alloc(0);
         (emitter as any).emit("committed", { segmentId: committedId, previousSegmentId: prev });
 
         void (async () => {
           try {
-            const rt = await this.transcribeAudio(pcm16, `audio/pcm;rate=${requiredSampleRate}`);
+            const rt = await this.transcribeAudio(
+              committedPcm16,
+              `audio/pcm;rate=${requiredSampleRate}`,
+            );
             (emitter as any).emit("transcript", {
               segmentId: committedId,
               transcript: rt.text,
@@ -83,10 +90,7 @@ export class SherpaOnnxParakeetSTT implements SpeechToTextProvider {
           } catch (err) {
             (emitter as any).emit("error", err);
           } finally {
-            previousSegmentId = committedId;
-            segmentId = uuidv4();
-            pcm16 = Buffer.alloc(0);
-            logger.debug({ bytes: pcm16.length }, "Parakeet session reset");
+            logger.debug({ bytes: committedPcm16.length }, "Parakeet session reset");
           }
         })();
       },

@@ -10,6 +10,11 @@ import {
   createPersistedWorkspaceRecord,
 } from "./workspace-registry.js";
 
+vi.mock("@getpaseo/highlight", () => ({
+  highlightCode: vi.fn(async () => ""),
+  isLanguageSupported: vi.fn(() => false),
+}));
+
 function makeAgent(input: {
   id: string;
   cwd: string;
@@ -243,34 +248,46 @@ function createTempGitRepo(options?: {
 }
 
 describe("workspace aggregation", () => {
-  test("archive request emits agent_archived using the snapshot archive flow", async () => {
+  test("archive request emits agent_archived and an authoritative agent_update", async () => {
     const emitted: Array<{ type: string; payload: any }> = [];
-    const archiveSnapshot = vi.fn(async (_agentId: string, archivedAt: string) => {
-      return {
-        id: "agent-1",
+    const archivedRecord = {
+      id: "agent-1",
+      provider: "codex",
+      cwd: "/tmp/repo",
+      createdAt: "2026-03-30T15:00:00.000Z",
+      updatedAt: "2026-03-30T15:00:00.000Z",
+      lastActivityAt: "2026-03-30T15:00:00.000Z",
+      lastUserMessageAt: null,
+      lastStatus: "idle" as const,
+      lastModeId: null,
+      runtimeInfo: null,
+      config: {
         provider: "codex",
         cwd: "/tmp/repo",
-        createdAt: "2026-03-30T15:00:00.000Z",
-        updatedAt: archivedAt,
-        lastActivityAt: "2026-03-30T15:00:00.000Z",
-        lastUserMessageAt: null,
-        lastStatus: "idle" as const,
-        lastModeId: null,
-        runtimeInfo: null,
-        config: {
-          provider: "codex",
-          cwd: "/tmp/repo",
-        },
-        persistence: null,
-        title: "Archive me",
-        labels: {},
-        requiresAttention: false,
-        attentionReason: null,
-        attentionTimestamp: null,
-        archivedAt,
-      };
+      },
+      persistence: null,
+      title: "Archive me",
+      labels: {},
+      requiresAttention: false,
+      attentionReason: null,
+      attentionTimestamp: null,
+      archivedAt: null as string | null,
+    };
+    const projects = new Map<number, ReturnType<typeof createPersistedProjectRecord>>();
+    const workspaces = new Map<number, ReturnType<typeof createPersistedWorkspaceRecord>>();
+    seedProject({
+      projects,
+      id: 1,
+      directory: "/tmp/repo",
+      displayName: "repo",
     });
-
+    seedWorkspace({
+      workspaces,
+      id: 10,
+      projectId: 1,
+      directory: "/tmp/repo",
+      displayName: "repo",
+    });
     const logger = {
       child: () => logger,
       trace: vi.fn(),
@@ -292,19 +309,23 @@ describe("workspace aggregation", () => {
         subscribe: () => () => {},
         listAgents: () => [],
         getAgent: (agentId: string) => (agentId === "agent-1" ? { id: agentId } : null),
-        archiveSnapshot,
-        closeAgent,
+        archiveAgent: async () => {
+          const archivedAt = new Date().toISOString();
+          archivedRecord.archivedAt = archivedAt;
+          archivedRecord.updatedAt = archivedAt;
+          return { archivedAt };
+        },
         clearAgentAttention: async () => {},
       } as any,
       agentStorage: {
         list: async () => [],
-        get: async () => null,
+        get: async (agentId: string) => (agentId === archivedRecord.id ? archivedRecord : null),
       } as any,
       projectRegistry: {
         initialize: async () => {},
         existsOnDisk: async () => true,
-        list: async () => [],
-        get: async () => null,
+        list: async () => Array.from(projects.values()),
+        get: async (id: number) => projects.get(id) ?? null,
         upsert: async () => {},
         archive: async () => {},
         remove: async () => {},
@@ -312,8 +333,8 @@ describe("workspace aggregation", () => {
       workspaceRegistry: {
         initialize: async () => {},
         existsOnDisk: async () => true,
-        list: async () => [],
-        get: async () => null,
+        list: async () => Array.from(workspaces.values()),
+        get: async (id: number) => workspaces.get(id) ?? null,
         upsert: async () => {},
         archive: async () => {},
         remove: async () => {},
@@ -340,29 +361,43 @@ describe("workspace aggregation", () => {
       terminalManager: null,
     }) as any;
 
+    session.agentUpdatesSubscription = {
+      subscriptionId: "sub-agents",
+      filter: { includeArchived: true },
+      isBootstrapping: false,
+      pendingUpdatesByAgentId: new Map(),
+    };
     session.interruptAgentIfRunning = vi.fn();
 
     await session.handleArchiveAgentRequest("agent-1", "req-archive");
 
     expect(session.interruptAgentIfRunning).toHaveBeenCalledWith("agent-1");
-    expect(closeAgent).toHaveBeenCalledWith("agent-1");
+    const update = emitted.find((message) => message.type === "agent_update");
+    expect(update?.payload).toMatchObject({
+      kind: "upsert",
+      agent: {
+        id: "agent-1",
+        archivedAt: expect.any(String),
+      },
+    });
     const archivedPayload = emitted.find((message) => message.type === "agent_archived")?.payload;
     expect(archivedPayload).toMatchObject({
       agentId: "agent-1",
       archivedAt: expect.any(String),
       requestId: "req-archive",
     });
-    expect(archiveSnapshot).toHaveBeenCalledWith("agent-1", archivedPayload.archivedAt);
+    expect(archivedRecord.archivedAt).toBe(archivedPayload.archivedAt);
   });
 
   test("close_items_request archives agents and kills terminals in one batch", async () => {
     const emitted: Array<{ type: string; payload: any }> = [];
-    const archiveSnapshot = vi.fn(async (_agentId: string, archivedAt: string) => ({
+    const archivedAt = "2026-04-01T00:00:00.000Z";
+    const archivedRecord = {
       id: "agent-1",
       provider: "codex",
       cwd: "/tmp/repo",
       createdAt: "2026-03-01T12:00:00.000Z",
-      updatedAt: archivedAt,
+      updatedAt: "2026-03-01T12:00:00.000Z",
       lastActivityAt: "2026-03-01T12:00:00.000Z",
       lastUserMessageAt: null,
       lastStatus: "idle" as const,
@@ -375,8 +410,23 @@ describe("workspace aggregation", () => {
       requiresAttention: false,
       attentionReason: null,
       attentionTimestamp: null,
-      archivedAt,
-    }));
+      archivedAt: null as string | null,
+    };
+    const projects = new Map<number, ReturnType<typeof createPersistedProjectRecord>>();
+    const workspaces = new Map<number, ReturnType<typeof createPersistedWorkspaceRecord>>();
+    seedProject({
+      projects,
+      id: 2,
+      directory: "/tmp/repo",
+      displayName: "repo",
+    });
+    seedWorkspace({
+      workspaces,
+      id: 20,
+      projectId: 2,
+      directory: "/tmp/repo",
+      displayName: "repo",
+    });
     const sessionLogger = {
       child: () => sessionLogger,
       trace: vi.fn(),
@@ -397,19 +447,22 @@ describe("workspace aggregation", () => {
         subscribe: () => () => {},
         listAgents: () => [],
         getAgent: (agentId: string) => (agentId === "agent-1" ? { id: agentId } : null),
-        archiveSnapshot,
-        closeAgent: async () => undefined,
+        archiveAgent: async () => {
+          archivedRecord.archivedAt = archivedAt;
+          archivedRecord.updatedAt = archivedAt;
+          return { archivedAt };
+        },
         clearAgentAttention: async () => {},
       } as any,
       agentStorage: {
         list: async () => [],
-        get: async () => null,
+        get: async (agentId: string) => (agentId === archivedRecord.id ? archivedRecord : null),
       } as any,
       projectRegistry: {
         initialize: async () => {},
         existsOnDisk: async () => true,
-        list: async () => [],
-        get: async () => null,
+        list: async () => Array.from(projects.values()),
+        get: async (id: number) => projects.get(id) ?? null,
         upsert: async () => {},
         archive: async () => {},
         remove: async () => {},
@@ -417,8 +470,8 @@ describe("workspace aggregation", () => {
       workspaceRegistry: {
         initialize: async () => {},
         existsOnDisk: async () => true,
-        list: async () => [],
-        get: async () => null,
+        list: async () => Array.from(workspaces.values()),
+        get: async (id: number) => workspaces.get(id) ?? null,
         upsert: async () => {},
         archive: async () => {},
         remove: async () => {},
@@ -448,6 +501,12 @@ describe("workspace aggregation", () => {
       } as any,
     }) as any;
 
+    session.agentUpdatesSubscription = {
+      subscriptionId: "sub-agents",
+      filter: { includeArchived: true },
+      isBootstrapping: false,
+      pendingUpdatesByAgentId: new Map(),
+    };
     session.interruptAgentIfRunning = vi.fn();
 
     await session.handleMessage({
@@ -465,10 +524,16 @@ describe("workspace aggregation", () => {
       terminals: [{ terminalId: "term-1", success: true }],
       requestId: "req-close-items",
     });
-    expect(archiveSnapshot).toHaveBeenCalledWith("agent-1", closePayload.agents[0].archivedAt);
+    expect(emitted.find((message) => message.type === "agent_update")?.payload).toMatchObject({
+      kind: "upsert",
+      agent: {
+        id: "agent-1",
+        archivedAt,
+      },
+    });
   });
 
-  test("close_items_request continues after an archive failure", async () => {
+  test("close_items_request archives stored agents that are not currently loaded", async () => {
     const emitted: Array<{ type: string; payload: any }> = [];
     const sessionLogger = {
       child: () => sessionLogger,
@@ -478,30 +543,73 @@ describe("workspace aggregation", () => {
       warn: vi.fn(),
       error: vi.fn(),
     };
-    const archiveSnapshot = vi.fn(async (agentId: string, archivedAt: string) => {
-      if (agentId === "agent-bad") {
-        throw new Error("archive failed");
+    const liveArchivedAt = "2026-04-01T00:00:00.000Z";
+    const storedAgentId = "agent-stored";
+    const liveRecord = {
+      id: "agent-live",
+      provider: "codex",
+      cwd: "/tmp/repo",
+      createdAt: "2026-03-01T12:00:00.000Z",
+      updatedAt: "2026-03-01T12:00:00.000Z",
+      lastActivityAt: "2026-03-01T12:00:00.000Z",
+      lastUserMessageAt: null,
+      lastStatus: "idle" as const,
+      lastModeId: null,
+      runtimeInfo: null,
+      config: null,
+      persistence: null,
+      title: null,
+      labels: {},
+      requiresAttention: false,
+      attentionReason: null,
+      attentionTimestamp: null,
+      archivedAt: null as string | null,
+    };
+    const storedRecord = {
+      id: storedAgentId,
+      provider: "codex",
+      cwd: "/tmp/repo",
+      createdAt: "2026-03-01T12:05:00.000Z",
+      updatedAt: "2026-03-01T12:05:00.000Z",
+      lastActivityAt: "2026-03-01T12:05:00.000Z",
+      lastUserMessageAt: null,
+      lastStatus: "idle" as const,
+      lastModeId: null,
+      runtimeInfo: null,
+      config: null,
+      persistence: null,
+      title: null,
+      labels: {},
+      requiresAttention: false,
+      attentionReason: null,
+      attentionTimestamp: null,
+      archivedAt: null as string | null,
+    };
+    const upsertStoredRecord = vi.fn(async (record: typeof storedRecord) => {
+      if (record.id !== storedAgentId) {
+        return;
       }
-      return {
-        id: "agent-good",
-        provider: "codex",
-        cwd: "/tmp/repo",
-        createdAt: "2026-03-01T12:00:00.000Z",
-        updatedAt: archivedAt,
-        lastActivityAt: "2026-03-01T12:00:00.000Z",
-        lastUserMessageAt: null,
-        lastStatus: "idle" as const,
-        lastModeId: null,
-        runtimeInfo: null,
-        config: null,
-        persistence: null,
-        title: null,
-        labels: {},
-        requiresAttention: false,
-        attentionReason: null,
-        attentionTimestamp: null,
-        archivedAt,
-      };
+      storedRecord.archivedAt = record.archivedAt;
+      storedRecord.updatedAt = record.updatedAt;
+      storedRecord.lastStatus = record.lastStatus;
+      storedRecord.requiresAttention = record.requiresAttention;
+      storedRecord.attentionReason = record.attentionReason;
+      storedRecord.attentionTimestamp = record.attentionTimestamp;
+    });
+    const projects = new Map<number, ReturnType<typeof createPersistedProjectRecord>>();
+    const workspaces = new Map<number, ReturnType<typeof createPersistedWorkspaceRecord>>();
+    seedProject({
+      projects,
+      id: 3,
+      directory: "/tmp/repo",
+      displayName: "repo",
+    });
+    seedWorkspace({
+      workspaces,
+      id: 30,
+      projectId: 3,
+      directory: "/tmp/repo",
+      displayName: "repo",
     });
 
     const session = new Session({
@@ -514,21 +622,35 @@ describe("workspace aggregation", () => {
       agentManager: {
         subscribe: () => () => {},
         listAgents: () => [],
-        getAgent: (agentId: string) =>
-          agentId === "agent-bad" || agentId === "agent-good" ? { id: agentId } : null,
-        archiveSnapshot,
-        closeAgent: async () => undefined,
+        getAgent: (agentId: string) => (agentId === "agent-live" ? { id: agentId } : null),
+        archiveAgent: async (agentId: string) => {
+          if (agentId !== "agent-live") {
+            throw new Error(`Unexpected live archive: ${agentId}`);
+          }
+          liveRecord.archivedAt = liveArchivedAt;
+          liveRecord.updatedAt = liveArchivedAt;
+          return { archivedAt: liveArchivedAt };
+        },
         clearAgentAttention: async () => {},
       } as any,
       agentStorage: {
         list: async () => [],
-        get: async () => null,
+        get: async (agentId: string) => {
+          if (agentId === "agent-live") {
+            return liveRecord;
+          }
+          if (agentId === storedAgentId) {
+            return storedRecord;
+          }
+          return null;
+        },
+        upsert: upsertStoredRecord,
       } as any,
       projectRegistry: {
         initialize: async () => {},
         existsOnDisk: async () => true,
-        list: async () => [],
-        get: async () => null,
+        list: async () => Array.from(projects.values()),
+        get: async (id: number) => projects.get(id) ?? null,
         upsert: async () => {},
         archive: async () => {},
         remove: async () => {},
@@ -536,8 +658,8 @@ describe("workspace aggregation", () => {
       workspaceRegistry: {
         initialize: async () => {},
         existsOnDisk: async () => true,
-        list: async () => [],
-        get: async () => null,
+        list: async () => Array.from(workspaces.values()),
+        get: async (id: number) => workspaces.get(id) ?? null,
         upsert: async () => {},
         archive: async () => {},
         remove: async () => {},
@@ -567,6 +689,156 @@ describe("workspace aggregation", () => {
       } as any,
     }) as any;
 
+    session.agentUpdatesSubscription = {
+      subscriptionId: "sub-agents",
+      filter: { includeArchived: true },
+      isBootstrapping: false,
+      pendingUpdatesByAgentId: new Map(),
+    };
+    session.interruptAgentIfRunning = vi.fn();
+
+    await session.handleMessage({
+      type: "close_items_request",
+      agentIds: ["agent-live", storedAgentId],
+      terminalIds: [],
+      requestId: "req-close-stored",
+    });
+
+    expect(upsertStoredRecord).toHaveBeenCalledTimes(1);
+    expect(storedRecord.archivedAt).toEqual(expect.any(String));
+    expect(emitted.find((message) => message.type === "close_items_response")?.payload).toEqual({
+      agents: [
+        { agentId: "agent-live", archivedAt: liveArchivedAt },
+        { agentId: storedAgentId, archivedAt: storedRecord.archivedAt },
+      ],
+      terminals: [],
+      requestId: "req-close-stored",
+    });
+    expect(sessionLogger.warn).not.toHaveBeenCalled();
+  });
+
+  test("close_items_request continues after an archive failure", async () => {
+    const emitted: Array<{ type: string; payload: any }> = [];
+    const sessionLogger = {
+      child: () => sessionLogger,
+      trace: vi.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const archivedAt = "2026-04-01T00:00:00.000Z";
+    const goodRecord = {
+      id: "agent-good",
+      provider: "codex",
+      cwd: "/tmp/repo",
+      createdAt: "2026-03-01T12:00:00.000Z",
+      updatedAt: "2026-03-01T12:00:00.000Z",
+      lastActivityAt: "2026-03-01T12:00:00.000Z",
+      lastUserMessageAt: null,
+      lastStatus: "idle" as const,
+      lastModeId: null,
+      runtimeInfo: null,
+      config: null,
+      persistence: null,
+      title: null,
+      labels: {},
+      requiresAttention: false,
+      attentionReason: null,
+      attentionTimestamp: null,
+      archivedAt: null as string | null,
+    };
+    const projects = new Map<number, ReturnType<typeof createPersistedProjectRecord>>();
+    const workspaces = new Map<number, ReturnType<typeof createPersistedWorkspaceRecord>>();
+    seedProject({
+      projects,
+      id: 4,
+      directory: "/tmp/repo",
+      displayName: "repo",
+    });
+    seedWorkspace({
+      workspaces,
+      id: 40,
+      projectId: 4,
+      directory: "/tmp/repo",
+      displayName: "repo",
+    });
+
+    const session = new Session({
+      clientId: "test-client",
+      onMessage: (message) => emitted.push(message as any),
+      logger: sessionLogger as any,
+      downloadTokenStore: {} as any,
+      pushTokenStore: {} as any,
+      paseoHome: "/tmp/paseo-test",
+      agentManager: {
+        subscribe: () => () => {},
+        listAgents: () => [],
+        getAgent: (agentId: string) =>
+          agentId === "agent-bad" || agentId === "agent-good" ? { id: agentId } : null,
+        archiveAgent: async (agentId: string) => {
+          if (agentId === "agent-bad") {
+            throw new Error("archive failed");
+          }
+          goodRecord.archivedAt = archivedAt;
+          goodRecord.updatedAt = archivedAt;
+          return { archivedAt };
+        },
+        clearAgentAttention: async () => {},
+      } as any,
+      agentStorage: {
+        list: async () => [],
+        get: async (agentId: string) => (agentId === "agent-good" ? goodRecord : null),
+      } as any,
+      projectRegistry: {
+        initialize: async () => {},
+        existsOnDisk: async () => true,
+        list: async () => Array.from(projects.values()),
+        get: async (id: number) => projects.get(id) ?? null,
+        upsert: async () => {},
+        archive: async () => {},
+        remove: async () => {},
+      } as any,
+      workspaceRegistry: {
+        initialize: async () => {},
+        existsOnDisk: async () => true,
+        list: async () => Array.from(workspaces.values()),
+        get: async (id: number) => workspaces.get(id) ?? null,
+        upsert: async () => {},
+        archive: async () => {},
+        remove: async () => {},
+      } as any,
+      checkoutDiffManager: {
+        subscribe: async () => ({
+          initial: { cwd: "/tmp", files: [], error: null },
+          unsubscribe: () => {},
+        }),
+        scheduleRefreshForCwd: () => {},
+        getMetrics: () => ({
+          checkoutDiffTargetCount: 0,
+          checkoutDiffSubscriptionCount: 0,
+          checkoutDiffWatcherCount: 0,
+          checkoutDiffFallbackRefreshTargetCount: 0,
+        }),
+        dispose: () => {},
+      } as any,
+      createAgentMcpTransport: async () => {
+        throw new Error("not used");
+      },
+      stt: null,
+      tts: null,
+      terminalManager: {
+        killTerminal: vi.fn(),
+        subscribeTerminalsChanged: () => () => {},
+      } as any,
+    }) as any;
+
+    session.agentUpdatesSubscription = {
+      subscriptionId: "sub-agents",
+      filter: { includeArchived: true },
+      isBootstrapping: false,
+      pendingUpdatesByAgentId: new Map(),
+    };
     session.interruptAgentIfRunning = vi.fn();
 
     await session.handleMessage({
@@ -585,7 +857,13 @@ describe("workspace aggregation", () => {
       terminals: [{ terminalId: "term-1", success: true }],
       requestId: "req-close-best-effort",
     });
-    expect(archiveSnapshot).toHaveBeenCalledWith("agent-good", closePayload.agents[0].archivedAt);
+    expect(emitted.find((message) => message.type === "agent_update")?.payload).toMatchObject({
+      kind: "upsert",
+      agent: {
+        id: "agent-good",
+        archivedAt,
+      },
+    });
     expect(sessionLogger.warn).toHaveBeenCalled();
   });
 

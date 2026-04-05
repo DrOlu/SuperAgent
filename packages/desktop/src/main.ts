@@ -4,7 +4,7 @@ log.initialize({ spyRendererConsole: true });
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
-import { app, BrowserWindow, nativeImage, net, protocol } from "electron";
+import { app, BrowserWindow, ipcMain, nativeImage, net, protocol } from "electron";
 import { registerDaemonManager } from "./daemon/daemon-manager.js";
 import {
   parseCliPassthroughArgsFromArgv,
@@ -27,10 +27,30 @@ import {
 } from "./features/notifications.js";
 import { registerOpenerHandlers } from "./features/opener.js";
 import { setupApplicationMenu } from "./features/menu.js";
+import { parseOpenProjectPathFromArgv } from "./open-project-routing.js";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
+const OPEN_PROJECT_EVENT = "paseo:event:open-project";
 app.setName("Paseo");
+
+let pendingOpenProjectPath = parseOpenProjectPathFromArgv({
+  argv: process.argv,
+  isDefaultApp: process.defaultApp,
+});
+
+log.info("[open-project] argv:", process.argv);
+log.info("[open-project] isDefaultApp:", process.defaultApp);
+log.info("[open-project] pendingOpenProjectPath:", pendingOpenProjectPath);
+
+// The renderer pulls the pending path on mount via IPC — this avoids
+// a race where the push event arrives before React registers its listener.
+ipcMain.handle("paseo:get-pending-open-project", () => {
+  log.info("[open-project] renderer requested pending path:", pendingOpenProjectPath);
+  const result = pendingOpenProjectPath;
+  pendingOpenProjectPath = null;
+  return result;
+});
 
 protocol.registerSchemesAsPrivileged([
   { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
@@ -126,6 +146,21 @@ async function createMainWindow(): Promise<void> {
   await mainWindow.loadURL(`${APP_SCHEME}://app/`);
 }
 
+function sendOpenProjectEvent(win: BrowserWindow, projectPath: string): void {
+  const send = () => {
+    log.info("[open-project] sending event to renderer:", projectPath);
+    win.webContents.send(OPEN_PROJECT_EVENT, { path: projectPath });
+  };
+
+  if (win.webContents.isLoadingMainFrame()) {
+    log.info("[open-project] waiting for did-finish-load before sending event");
+    win.webContents.once("did-finish-load", send);
+    return;
+  }
+
+  send();
+}
+
 // ---------------------------------------------------------------------------
 // App lifecycle
 // ---------------------------------------------------------------------------
@@ -137,12 +172,21 @@ function setupSingleInstanceLock(): boolean {
     return false;
   }
 
-  app.on("second-instance", () => {
+  app.on("second-instance", (_event, commandLine) => {
+    log.info("[open-project] second-instance commandLine:", commandLine);
+    const openProjectPath = parseOpenProjectPathFromArgv({
+      argv: commandLine,
+      isDefaultApp: false,
+    });
+    log.info("[open-project] second-instance openProjectPath:", openProjectPath);
     const win = BrowserWindow.getAllWindows()[0];
     if (win) {
       win.show();
       if (win.isMinimized()) win.restore();
       win.focus();
+      if (openProjectPath) {
+        sendOpenProjectEvent(win, openProjectPath);
+      }
     }
   });
 
@@ -168,7 +212,7 @@ async function runCliPassthroughIfRequested(): Promise<boolean> {
 }
 
 async function bootstrap(): Promise<void> {
-  if (await runCliPassthroughIfRequested()) {
+  if (!pendingOpenProjectPath && (await runCliPassthroughIfRequested())) {
     return;
   }
 

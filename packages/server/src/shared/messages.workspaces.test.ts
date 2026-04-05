@@ -179,4 +179,71 @@ describe("workspace message schemas", () => {
 
     expect(parsed.type).toBe("workspace_setup_status_response");
   });
+
+  test("parses legacy fetch_agents_response checkout payloads without worktreeRoot", () => {
+    const result = SessionOutboundMessageSchema.safeParse({
+      type: "fetch_agents_response",
+      payload: {
+        requestId: "req-1",
+        entries: [
+          {
+            agent: {
+              id: "agent-1",
+              provider: "codex",
+              cwd: "C:\\repo",
+              model: null,
+              features: [],
+              thinkingOptionId: null,
+              effectiveThinkingOptionId: null,
+              createdAt: "2026-04-04T00:00:00.000Z",
+              updatedAt: "2026-04-04T00:00:00.000Z",
+              lastUserMessageAt: null,
+              status: "running",
+              capabilities: {
+                supportsStreaming: true,
+                supportsSessionPersistence: true,
+                supportsDynamicModes: true,
+                supportsMcpServers: true,
+                supportsReasoningStream: true,
+                supportsToolInvocations: true,
+              },
+              currentModeId: null,
+              availableModes: [],
+              pendingPermissions: [],
+              persistence: null,
+              title: "Agent 1",
+              labels: {},
+              requiresAttention: false,
+              attentionReason: null,
+            },
+            project: {
+              projectKey: "remote:github.com/acme/repo",
+              projectName: "acme/repo",
+              checkout: {
+                cwd: "C:\\repo",
+                isGit: true,
+                currentBranch: "main",
+                remoteUrl: "https://github.com/acme/repo.git",
+                isPaseoOwnedWorktree: false,
+                mainRepoRoot: null,
+              },
+            },
+          },
+        ],
+        pageInfo: {
+          nextCursor: null,
+          prevCursor: null,
+          hasMore: false,
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    const checkout = result.data.payload.entries[0]?.project.checkout;
+    expect(checkout?.worktreeRoot).toBe("C:\\repo");
+  });
 });

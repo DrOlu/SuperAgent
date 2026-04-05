@@ -12,6 +12,7 @@ import type { TerminalManager } from "../../terminal/terminal-manager.js";
 import type {
   AgentCapabilityFlags,
   AgentClient,
+  AgentFeature,
   AgentLaunchContext,
   AgentSlashCommand,
   AgentMode,
@@ -146,6 +147,7 @@ type ManagedAgentBase = {
   createdAt: Date;
   updatedAt: Date;
   availableModes: AgentMode[];
+  features?: AgentFeature[];
   currentModeId: string | null;
   pendingPermissions: Map<string, AgentPermissionRequest>;
   pendingReplacement: boolean;
@@ -525,6 +527,31 @@ export class AgentManager {
     }
   }
 
+  async listDraftFeatures(config: AgentSessionConfig): Promise<AgentFeature[]> {
+    const normalizedConfig = await this.normalizeConfig(config);
+    const client = this.requireClient(normalizedConfig.provider);
+    const available = await client.isAvailable();
+    if (!available) {
+      throw new Error(
+        `Provider '${normalizedConfig.provider}' is not available. Please ensure the CLI is installed.`,
+      );
+    }
+
+    const session = await client.createSession(normalizedConfig);
+    try {
+      return session.features ?? [];
+    } finally {
+      try {
+        await session.close();
+      } catch (error) {
+        this.logger.warn(
+          { err: error, provider: normalizedConfig.provider },
+          "Failed to close draft feature listing session",
+        );
+      }
+    }
+  }
+
   getAgent(id: string): ManagedAgent | null {
     const agent = this.agents.get(id);
     return agent ? { ...agent } : null;
@@ -777,6 +804,19 @@ export class AgentManager {
         thinkingOptionId: normalizedThinkingOptionId,
       };
     }
+    this.touchUpdatedAt(agent);
+    this.emitState(agent);
+  }
+
+  async setAgentFeature(agentId: string, featureId: string, value: unknown): Promise<void> {
+    const agent = this.requireAgent(agentId);
+
+    if (!agent.session.setFeature) {
+      throw new Error("Agent session does not support setting features");
+    }
+
+    await agent.session.setFeature(featureId, value);
+    agent.config.featureValues = { ...agent.config.featureValues, [featureId]: value };
     this.touchUpdatedAt(agent);
     this.emitState(agent);
   }
@@ -2472,6 +2512,10 @@ export class AgentManager {
     this.checkAndSetAttention(agent);
     if (options?.persist !== false) {
       this.enqueueBackgroundPersist(agent);
+    }
+
+    if (agent.session?.features) {
+      agent.features = agent.session.features;
     }
 
     this.dispatch({

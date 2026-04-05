@@ -26,18 +26,22 @@ import type {
   AgentTimelineItem,
   AgentUsage,
   ListModelsOptions,
+  ListModesOptions,
   ListPersistedAgentsOptions,
   McpServerConfig,
   PersistedAgentDescriptor,
+  ToolCallTimelineItem,
 } from "../agent-sdk-types.js";
 import {
   applyProviderEnv,
-  findExecutable,
-  quoteWindowsArgument,
-  quoteWindowsCommand,
   resolveProviderCommandPrefix,
   type ProviderRuntimeSettings,
 } from "../provider-launch-config.js";
+import {
+  findExecutable,
+  quoteWindowsArgument,
+  quoteWindowsCommand,
+} from "../../../utils/executable.js";
 import { mapOpencodeToolCall } from "./opencode/tool-call-mapper.js";
 
 const OPENCODE_CAPABILITIES: AgentCapabilityFlags = {
@@ -61,8 +65,6 @@ const DEFAULT_MODES: AgentMode[] = [
     description: "Read-only planning mode that avoids file edits",
   },
 ];
-
-const OPENCODE_MODE_IDS = new Set(DEFAULT_MODES.map((mode) => mode.id));
 
 type OpenCodeAgentConfig = AgentSessionConfig & { provider: "opencode" };
 type OpenCodeMessageRole = "user" | "assistant";
@@ -199,6 +201,11 @@ function stringifyUnknownError(error: unknown): string {
   } catch {
     return String(error);
   }
+}
+
+function normalizeTurnFailureError(error: unknown): string {
+  const normalized = stringifyUnknownError(error).trim();
+  return normalized.length > 0 ? normalized : "Unknown error";
 }
 
 function isAlreadyPresentMcpError(error: unknown): boolean {
@@ -527,18 +534,19 @@ export class OpenCodeAgentClient implements AgentClient {
 
       for (const [modelId, model] of Object.entries(provider.models)) {
         const rawVariants = model.variants ? Object.keys(model.variants) : [];
-        const thinkingOptions = [
-          { id: "default", label: "Model default", isDefault: true },
-          ...rawVariants.map((id) => ({ id, label: id })),
-        ];
+        const thinkingOptions = rawVariants.map((id, index) => ({
+          id,
+          label: id,
+          isDefault: index === 0,
+        }));
 
         models.push({
           provider: "opencode",
           id: `${provider.id}/${modelId}`,
           label: model.name,
           description: `${provider.name} - ${model.family ?? ""}`.trim(),
-          thinkingOptions: thinkingOptions.length > 1 ? thinkingOptions : undefined,
-          defaultThinkingOptionId: "default",
+          thinkingOptions: thinkingOptions.length > 0 ? thinkingOptions : undefined,
+          defaultThinkingOptionId: thinkingOptions[0]?.id,
           metadata: {
             providerId: provider.id,
             providerName: provider.name,
@@ -555,6 +563,41 @@ export class OpenCodeAgentClient implements AgentClient {
     }
 
     return models;
+  }
+
+  async listModes(options?: ListModesOptions): Promise<AgentMode[]> {
+    const { url } = await this.serverManager.ensureRunning();
+    const directory = options?.cwd ?? process.cwd();
+    const client = createOpencodeClient({ baseUrl: url, directory });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error("OpenCode app.agents timed out after 10s")),
+        10_000,
+      );
+    });
+
+    const response = await Promise.race([
+      client.app.agents({ directory }),
+      timeoutPromise,
+    ]);
+
+    if (response.error || !response.data) {
+      return DEFAULT_MODES;
+    }
+
+    const discovered = response.data
+      .filter((agent) => agent.mode === "primary" && agent.hidden !== true)
+      .map((agent) => ({
+        id: agent.name,
+        label: agent.name.charAt(0).toUpperCase() + agent.name.slice(1),
+        description:
+          typeof agent.description === "string" && agent.description.trim().length > 0
+            ? agent.description.trim()
+            : DEFAULT_MODES.find((mode) => mode.id === agent.name)?.description,
+      }));
+
+    return discovered.length > 0 ? sortOpenCodeModes(discovered) : DEFAULT_MODES;
   }
 
   async listPersistedAgents(
@@ -955,11 +998,10 @@ export function translateOpenCodeEvent(
       if (sessionId === state.sessionId) {
         state.streamedPartKeys.clear();
         state.partTypes.clear();
-        const error = props.error as string | undefined;
         events.push({
           type: "turn_failed",
           provider: "opencode",
-          error: error ?? "Unknown error",
+          error: normalizeTurnFailureError(props.error),
         });
       }
       break;
@@ -995,6 +1037,7 @@ class OpenCodeAgentSession implements AgentSession {
   private readonly subscribers = new Set<(event: AgentStreamEvent) => void>();
   private nextTurnOrdinal = 0;
   private activeForegroundTurnId: string | null = null;
+  private readonly runningToolCalls = new Map<string, ToolCallTimelineItem>();
 
   constructor(
     config: OpenCodeAgentConfig,
@@ -1112,11 +1155,19 @@ class OpenCodeAgentSession implements AgentSession {
   }
 
   async interrupt(): Promise<void> {
-    this.abortController?.abort();
+    const turnId = this.activeForegroundTurnId;
+    const turnAbortController = this.abortController;
+    turnAbortController?.abort();
     await this.client.session.abort({
       sessionID: this.sessionId,
       directory: this.config.cwd,
     });
+    if (turnId) {
+      this.finishForegroundTurn(
+        { type: "turn_canceled", provider: "opencode", reason: "interrupted" },
+        turnId,
+      );
+    }
   }
 
   async startTurn(
@@ -1127,30 +1178,44 @@ class OpenCodeAgentSession implements AgentSession {
       throw new Error("A foreground turn is already active");
     }
 
-    this.abortController = new AbortController();
+    this.runningToolCalls.clear();
+    const turnAbortController = new AbortController();
+    this.abortController = turnAbortController;
     await this.ensureMcpServersConfigured();
 
     const parts = this.buildPromptParts(prompt);
     const model = this.parseModel(this.config.model);
     const thinkingOptionId = this.config.thinkingOptionId;
-    const effectiveVariant =
-      thinkingOptionId && thinkingOptionId !== "default" ? thinkingOptionId : undefined;
+    const effectiveVariant = thinkingOptionId ?? undefined;
     const effectiveMode = normalizeOpenCodeModeId(this.currentMode);
 
-    let promptResponse;
+    const turnId = this.createTurnId();
+    this.activeForegroundTurnId = turnId;
+    void this.consumeEventStream(turnId, turnAbortController);
+
     const slashCommand = await this.resolveSlashCommandInvocation(prompt);
     if (slashCommand) {
-      promptResponse = await this.client.session.command({
+      // command() blocks until completion, but events stream via SSE in the
+      // background — fire without awaiting so the event stream isn't starved.
+      void this.client.session.command({
         sessionID: this.sessionId,
         directory: this.config.cwd,
         command: slashCommand.commandName,
-        arguments: slashCommand.args,
+        arguments: slashCommand.args ?? "",
         ...(this.config.model ? { model: this.config.model } : {}),
         ...(effectiveMode ? { agent: effectiveMode } : {}),
         ...(effectiveVariant ? { variant: effectiveVariant } : {}),
+      }).then((response) => {
+        if (response.error) {
+          const errorMsg = normalizeTurnFailureError(response.error);
+          this.finishForegroundTurn(
+            { type: "turn_failed", provider: "opencode", error: errorMsg },
+            turnId,
+          );
+        }
       });
     } else {
-      promptResponse = await this.client.session.promptAsync({
+      const promptResponse = await this.client.session.promptAsync({
         sessionID: this.sessionId,
         directory: this.config.cwd,
         parts,
@@ -1167,21 +1232,17 @@ class OpenCodeAgentSession implements AgentSession {
         ...(effectiveMode ? { agent: effectiveMode } : {}),
         ...(effectiveVariant ? { variant: effectiveVariant } : {}),
       });
-    }
 
-    if (promptResponse.error) {
-      const errorMsg = JSON.stringify(promptResponse.error);
-      this.notifySubscribers({
-        type: "turn_failed",
-        provider: "opencode",
-        error: errorMsg,
-      });
-      throw new Error(errorMsg);
+      if (promptResponse.error) {
+        const errorMsg = normalizeTurnFailureError(promptResponse.error);
+        this.notifySubscribers({
+          type: "turn_failed",
+          provider: "opencode",
+          error: errorMsg,
+        });
+        throw new Error(errorMsg);
+      }
     }
-
-    const turnId = this.createTurnId();
-    this.activeForegroundTurnId = turnId;
-    void this.consumeEventStream();
 
     return { turnId };
   }
@@ -1193,40 +1254,118 @@ class OpenCodeAgentSession implements AgentSession {
     };
   }
 
-  private async consumeEventStream(): Promise<void> {
+  private async consumeEventStream(
+    turnId: string,
+    turnAbortController: AbortController,
+  ): Promise<void> {
     const eventsResult = await this.client.event.subscribe({
       directory: this.config.cwd,
     });
 
     try {
       for await (const event of eventsResult.stream) {
-        if (this.abortController?.signal.aborted) {
+        if (turnAbortController.signal.aborted || this.activeForegroundTurnId !== turnId) {
           break;
         }
 
         const translated = this.translateEvent(event);
         for (const e of translated) {
-          this.notifySubscribers(e);
-          if (e.type === "turn_completed" || e.type === "turn_failed") {
-            this.activeForegroundTurnId = null;
+          if (this.activeForegroundTurnId !== turnId) {
             return;
           }
+          if (e.type === "timeline" && e.item.type === "tool_call") {
+            this.trackToolCall(e.item);
+          }
+          if (e.type === "turn_completed" || e.type === "turn_failed" || e.type === "turn_canceled") {
+            if (e.type === "turn_failed") {
+              this.finishForegroundTurn(
+                {
+                  type: "turn_failed",
+                  provider: "opencode",
+                  error: normalizeTurnFailureError(e.error),
+                },
+                turnId,
+              );
+            } else {
+              this.finishForegroundTurn(e, turnId);
+            }
+            return;
+          }
+          this.notifySubscribers(e, turnId);
         }
       }
     } catch (error) {
-      if (!this.abortController?.signal.aborted) {
-        this.notifySubscribers({
-          type: "turn_failed",
-          provider: "opencode",
-          error: error instanceof Error ? error.message : "Stream error",
-        });
-        this.activeForegroundTurnId = null;
+      if (!turnAbortController.signal.aborted && this.activeForegroundTurnId === turnId) {
+        this.finishForegroundTurn(
+          {
+            type: "turn_failed",
+            provider: "opencode",
+            error: normalizeTurnFailureError(error),
+          },
+          turnId,
+        );
+      }
+    } finally {
+      if (turnAbortController.signal.aborted) {
+        this.finishForegroundTurn(
+          {
+            type: "turn_canceled",
+            provider: "opencode",
+            reason: "interrupted",
+          },
+          turnId,
+        );
+      }
+      if (this.abortController === turnAbortController && this.activeForegroundTurnId !== turnId) {
+        this.abortController = null;
       }
     }
   }
 
-  private notifySubscribers(event: AgentStreamEvent): void {
-    const turnId = this.activeForegroundTurnId;
+  private finishForegroundTurn(
+    event: Extract<AgentStreamEvent, { type: "turn_completed" | "turn_failed" | "turn_canceled" }>,
+    turnId: string,
+  ): void {
+    if (this.activeForegroundTurnId !== turnId) {
+      return;
+    }
+    if (event.type === "turn_canceled" || event.type === "turn_failed") {
+      this.synthesizeInterruptedToolCalls(turnId);
+    } else {
+      this.runningToolCalls.clear();
+    }
+    this.activeForegroundTurnId = null;
+    this.notifySubscribers(event, turnId);
+  }
+
+  private trackToolCall(item: ToolCallTimelineItem): void {
+    if (item.status === "running") {
+      this.runningToolCalls.set(item.callId, item);
+      return;
+    }
+    this.runningToolCalls.delete(item.callId);
+  }
+
+  private synthesizeInterruptedToolCalls(turnId: string): void {
+    for (const item of this.runningToolCalls.values()) {
+      this.notifySubscribers(
+        {
+          type: "timeline",
+          provider: "opencode",
+          item: {
+            ...item,
+            status: "failed",
+            error: { message: "Tool execution aborted" },
+          },
+        },
+        turnId,
+      );
+    }
+    this.runningToolCalls.clear();
+  }
+
+  private notifySubscribers(event: AgentStreamEvent, turnIdOverride?: string): void {
+    const turnId = turnIdOverride ?? this.activeForegroundTurnId;
     const tagged = turnId ? { ...event, turnId } : event;
     for (const callback of this.subscribers) {
       try {
@@ -1338,7 +1477,6 @@ class OpenCodeAgentSession implements AgentSession {
         ? []
         : response.data
             .filter((agent) => agent.mode === "primary" && agent.hidden !== true)
-            .filter((agent) => OPENCODE_MODE_IDS.has(agent.name))
             .map((agent) => ({
               id: agent.name,
               label: agent.name.charAt(0).toUpperCase() + agent.name.slice(1),

@@ -10,6 +10,8 @@ export type DesktopDaemonStatus = {
   hostname: string | null;
   pid: number | null;
   home: string;
+  version: string | null;
+  desktopManaged: boolean;
   error: string | null;
 };
 
@@ -22,12 +24,6 @@ export type DesktopPairingOffer = {
   relayEnabled: boolean;
   url: string | null;
   qr: string | null;
-};
-
-export type CliSymlinkInstructions = {
-  title: string;
-  detail: string;
-  commands: string;
 };
 
 export type LocalTransportTarget = {
@@ -86,6 +82,8 @@ function parseDesktopDaemonStatus(raw: unknown): DesktopDaemonStatus {
     hostname: toStringOrNull(raw.hostname),
     pid: toNumberOrNull(raw.pid),
     home: toStringOrNull(raw.home) ?? "",
+    version: toStringOrNull(raw.version),
+    desktopManaged: raw.desktopManaged === true,
     error: toStringOrNull(raw.error),
   };
 }
@@ -108,17 +106,6 @@ function parseDesktopPairingOffer(raw: unknown): DesktopPairingOffer {
     relayEnabled: raw.relayEnabled === true,
     url: toStringOrNull(raw.url),
     qr: toStringOrNull(raw.qr),
-  };
-}
-
-function parseCliSymlinkInstructionsInternal(raw: unknown): CliSymlinkInstructions | null {
-  if (!isRecord(raw)) {
-    return null;
-  }
-  return {
-    title: toStringOrNull(raw.title) ?? "",
-    detail: toStringOrNull(raw.detail) ?? "",
-    commands: toStringOrNull(raw.commands) ?? "",
   };
 }
 
@@ -150,16 +137,12 @@ export async function getDesktopDaemonPairing(): Promise<DesktopPairingOffer> {
   return parseDesktopPairingOffer(await invokeDesktopCommand("desktop_daemon_pairing"));
 }
 
-export function parseCliSymlinkInstructions(raw: unknown): CliSymlinkInstructions {
-  const instructions = parseCliSymlinkInstructionsInternal(raw);
-  if (!instructions) {
-    throw new Error("Unexpected CLI symlink instructions response.");
+export async function getCliDaemonStatus(): Promise<string> {
+  const raw = await invokeDesktopCommand<unknown>("cli_daemon_status");
+  if (typeof raw !== "string") {
+    throw new Error("Unexpected CLI daemon status response.");
   }
-  return instructions;
-}
-
-export async function getCliSymlinkInstructions(): Promise<CliSymlinkInstructions> {
-  return parseCliSymlinkInstructions(await invokeDesktopCommand("cli_symlink_instructions"));
+  return raw;
 }
 
 export type LocalTransportEventUnlisten = () => void;
@@ -211,4 +194,35 @@ export async function sendLocalTransportMessage(input: {
 
 export async function closeLocalTransportSession(sessionId: string): Promise<void> {
   await invokeDesktopCommand("close_local_daemon_transport", { sessionId });
+}
+
+// ---------------------------------------------------------------------------
+// Integrations
+// ---------------------------------------------------------------------------
+
+export interface InstallStatus {
+  installed: boolean;
+}
+
+function parseInstallStatus(raw: unknown): InstallStatus {
+  if (!isRecord(raw)) {
+    throw new Error("Unexpected install status response.");
+  }
+  return { installed: raw.installed === true };
+}
+
+export async function getCliInstallStatus(): Promise<InstallStatus> {
+  return parseInstallStatus(await invokeDesktopCommand("get_cli_install_status"));
+}
+
+export async function installCli(): Promise<InstallStatus> {
+  return parseInstallStatus(await invokeDesktopCommand("install_cli"));
+}
+
+export async function getSkillsInstallStatus(): Promise<InstallStatus> {
+  return parseInstallStatus(await invokeDesktopCommand("get_skills_install_status"));
+}
+
+export async function installSkills(): Promise<InstallStatus> {
+  return parseInstallStatus(await invokeDesktopCommand("install_skills"));
 }

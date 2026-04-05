@@ -650,6 +650,7 @@ export async function createPaseoDaemon(
           command: voiceMcpBridgeCommand.command,
           baseArgs: [...voiceMcpBridgeCommand.baseArgs],
           env: {
+            ELECTRON_RUN_AS_NODE: "1",
             PASEO_HOME: config.paseoHome,
           },
         },

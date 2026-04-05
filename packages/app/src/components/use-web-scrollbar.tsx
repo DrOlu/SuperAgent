@@ -77,7 +77,6 @@ export function useWebElementScrollbar(
     }
 
     element.addEventListener("scroll", update, { passive: true });
-    element.addEventListener("input", update, { passive: true });
 
     const resizeObserver = new ResizeObserver(update);
     resizeObserver.observe(element);
@@ -90,7 +89,6 @@ export function useWebElementScrollbar(
 
     return () => {
       element.removeEventListener("scroll", update);
-      element.removeEventListener("input", update);
       resizeObserver.disconnect();
       element.removeAttribute("data-hide-scrollbar");
       (element.style as any).scrollbarWidth = "";

@@ -30,13 +30,13 @@ Parse `$ARGUMENTS` to determine:
 
 ### Provider Resolution
 
-| User says | Provider | Model | Mode |
-|---|---|---|---|
-| *(nothing)* | `codex` | `gpt-5.4` | `full-access` |
-| `codex` | `codex` | `gpt-5.4` | `full-access` |
-| `claude` | `claude` | `opus` | `bypass` |
-| `opus` | `claude` | `opus` | `bypass` |
-| `sonnet` | `claude` | `sonnet` | `bypass` |
+| User says | --provider | Mode |
+|---|---|---|
+| *(nothing)* | `codex/gpt-5.4` | `full-access` |
+| `codex` | `codex/gpt-5.4` | `full-access` |
+| `claude` | `claude/opus` | `bypass` |
+| `opus` | `claude/opus` | `bypass` |
+| `sonnet` | `claude/sonnet` | `bypass` |
 
 Default is **Codex** with `gpt-5.4`.
 
@@ -109,27 +109,27 @@ This is the critical step. The receiving agent has **zero context** about your c
 ### Default (Codex, no worktree)
 
 ```bash
-paseo run -d --mode full-access --provider codex --name "[Handoff] Task description" "$prompt"
+paseo run -d --mode full-access --provider codex/gpt-5.4 --name "[Handoff] Task description" "$prompt"
 ```
 
 ### Claude (Opus, no worktree)
 
 ```bash
-paseo run -d --mode bypassPermissions --model opus --name "[Handoff] Task description" "$prompt"
+paseo run -d --mode bypassPermissions --provider claude/opus --name "[Handoff] Task description" "$prompt"
 ```
 
 ### Codex in a worktree
 
 ```bash
 base=$(git branch --show-current)
-paseo run -d --mode full-access --provider codex --worktree task-branch-name --base "$base" --name "[Handoff] Task description" "$prompt"
+paseo run -d --mode full-access --provider codex/gpt-5.4 --worktree task-branch-name --base "$base" --name "[Handoff] Task description" "$prompt"
 ```
 
 ### Claude in a worktree
 
 ```bash
 base=$(git branch --show-current)
-paseo run -d --mode bypass --model opus --worktree task-branch-name --base "$base" --name "[Handoff] Task description" "$prompt"
+paseo run -d --mode bypass --provider claude/opus --worktree task-branch-name --base "$base" --name "[Handoff] Task description" "$prompt"
 ```
 
 ## After Launch

@@ -286,6 +286,25 @@ export class TerminalEmulatorRuntime {
       }
 
       if (!isMac && event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+        const key = event.key.toLowerCase();
+
+        // Ctrl+C: copy selection to clipboard if text is selected, otherwise let xterm send SIGINT
+        if (key === "c" && terminal.hasSelection()) {
+          void navigator.clipboard.writeText(terminal.getSelection());
+          return false;
+        }
+
+        // Ctrl+V: paste from clipboard into terminal
+        if (key === "v") {
+          event.preventDefault();
+          void navigator.clipboard.readText().then((text) => {
+            if (text) {
+              terminal.paste(text);
+            }
+          });
+          return false;
+        }
+
         return true;
       }
 

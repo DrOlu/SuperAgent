@@ -1,3 +1,4 @@
+npmRebuild: false
 appId: sh.paseo.desktop
 productName: Paseo
 executableName: Paseo
@@ -6,9 +7,13 @@ directories:
   output: release
 files:
   - dist/**/*
+asarUnpack:
+  - dist/daemon/node-entrypoint-runner.js
 extraResources:
   - from: ../app/dist
     to: app-dist
+  - from: ../../skills
+    to: skills
 publish:
   provider: github
   owner: getpaseo

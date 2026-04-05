@@ -141,4 +141,20 @@ describe("shared tool-call display mapping", () => {
       summary: "npm run test",
     });
   });
+
+  it("labels plan detail rows as Plan", () => {
+    const display = buildToolCallDisplayModel({
+      name: "plan",
+      status: "completed",
+      error: null,
+      detail: {
+        type: "plan",
+        text: "### Login Screen\n- Build layout",
+      },
+    });
+
+    expect(display).toEqual({
+      displayName: "Plan",
+    });
+  });
 });

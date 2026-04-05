@@ -34,6 +34,8 @@ interface DaemonStatus {
   daemonNode: string;
   cliNode: string;
   cliVersion: string;
+  daemonVersion: string | null;
+  desktopManaged: boolean;
   providers: ProviderBinaryStatus[];
   note?: string;
 }
@@ -129,6 +131,7 @@ function toStatusRows(status: DaemonStatus): StatusRow[] {
     { key: "Daemon Node", value: status.daemonNode },
     { key: "CLI Node", value: status.cliNode },
     { key: "CLI", value: status.cliVersion },
+    { key: "Daemon Version", value: status.daemonVersion ?? "-" },
   ];
 
   if (status.runningAgents !== null && status.idleAgents !== null) {
@@ -229,6 +232,7 @@ export async function runStatusCommand(
   let connectedDaemon: DaemonStatus["connectedDaemon"] = "not_probed";
   let runningAgents: number | null = null;
   let idleAgents: number | null = null;
+  let daemonVersion: string | null = null;
   let note: string | undefined;
 
   if (!state.running && state.stalePidFile && state.pidInfo) {
@@ -240,6 +244,7 @@ export async function runStatusCommand(
     const client = await tryConnectToDaemon({ host, timeout: 1500 });
     if (client) {
       connectedDaemon = "reachable";
+      daemonVersion = client.getLastServerInfoMessage()?.version ?? null;
       try {
         const agentsPayload = await client.fetchAgents({ filter: { includeArchived: true } });
         const agents = agentsPayload.entries.map((entry) => entry.agent);
@@ -308,6 +313,8 @@ export async function runStatusCommand(
     daemonNode,
     cliNode,
     cliVersion,
+    daemonVersion,
+    desktopManaged: state.pidInfo?.desktopManaged === true,
     providers,
     note,
   };

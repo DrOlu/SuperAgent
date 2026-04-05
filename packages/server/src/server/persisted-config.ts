@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { AGENT_PROVIDER_IDS } from "./agent/provider-manifest.js";
+
 import { AgentProviderRuntimeSettingsMapSchema } from "./agent/provider-launch-config.js";
 
 const LogLevelSchema = z.enum(["trace", "debug", "info", "warn", "error", "fatal"]);
@@ -82,7 +82,7 @@ const FeatureVoiceModeSchema = z
     enabled: z.boolean().optional(),
     llm: z
       .object({
-        provider: z.enum(AGENT_PROVIDER_IDS as [string, ...string[]]).optional(),
+        provider: z.string().optional(),
         model: z.string().min(1).optional(),
       })
       .strict()

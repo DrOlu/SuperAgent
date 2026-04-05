@@ -39,8 +39,8 @@ Every loop needs at least one form of verification:
 
 Choose the right provider/model for worker and verifier independently:
 
-- `--provider`/`--model` — sets the worker's provider and model
-- `--verify-provider`/`--verify-model` — sets the verifier's provider and model
+- `--provider <provider/model>` — sets the worker (e.g. `codex/gpt-5.4`)
+- `--verify-provider <provider/model>` — sets the verifier (e.g. `claude/opus`)
 
 Default: both use Claude/sonnet. For implementation loops, use Codex for the worker and Claude for the verifier — each catches the other's blind spots.
 
@@ -64,7 +64,7 @@ paseo loop run "Check PR #42. Review CI, comments, and branch status. Fix issues
 
 ```bash
 paseo loop run "Run the test suite, investigate failures, and fix the code." \
-  --provider codex \
+  --provider codex/gpt-5.4 \
   --verify "Run the test suite. Return done=true only if all tests pass. Cite the exact command and outcome." \
   --verify-check "npm test" \
   --max-iterations 10 \
@@ -75,9 +75,9 @@ paseo loop run "Run the test suite, investigate failures, and fix the code." \
 
 ```bash
 paseo loop run "Implement issue #456. Make incremental progress each iteration." \
-  --provider codex \
+  --provider codex/gpt-5.4 \
   --verify "Verify issue #456 is complete. Check changed files, run typecheck and tests." \
-  --verify-provider claude --verify-model sonnet \
+  --verify-provider claude/sonnet \
   --max-iterations 8 \
   --max-time 2h \
   --archive \

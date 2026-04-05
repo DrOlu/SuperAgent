@@ -77,8 +77,8 @@ $NO_EDITS"
 Same prompt to both, `[Committee]` prefix for identification:
 
 ```bash
-opus_id=$(paseo run -d --mode bypassPermissions --model opus --thinking on --name "[Committee] Task description" "$prompt" -q)
-gpt_id=$(paseo run -d --mode full-access --provider codex --model gpt-5.4 --thinking medium --name "[Committee] Task description" "$prompt" -q)
+opus_id=$(paseo run -d --mode bypassPermissions --provider claude/opus --thinking on --name "[Committee] Task description" "$prompt" -q)
+gpt_id=$(paseo run -d --mode full-access --provider codex/gpt-5.4 --thinking medium --name "[Committee] Task description" "$prompt" -q)
 ```
 
 ### Wait for both
@@ -129,7 +129,7 @@ paseo send "$gpt_id" "Merged plan: [plan]. Concerns? $NO_EDITS"
 Implement the plan yourself — unless the user said **"delegate"**, in which case launch an implementer:
 
 ```bash
-impl_id=$(paseo run -d --mode full-access --provider codex --name "[Impl] Task description" "Implement the following plan end-to-end. [plan]" -q)
+impl_id=$(paseo run -d --mode full-access --provider codex/gpt-5.4 --name "[Impl] Task description" "Implement the following plan end-to-end. [plan]" -q)
 paseo wait "$impl_id"
 ```
 

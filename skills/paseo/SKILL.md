@@ -14,8 +14,8 @@ paseo ls --json          # JSON output for parsing
 # Create and run an agent (blocks until completion by default, no timeout)
 paseo run --mode bypassPermissions "<prompt>"
 paseo run --mode bypassPermissions --name "task-name" "<prompt>"
-paseo run --mode bypassPermissions --model opus "<prompt>"
-paseo run --mode full-access --provider codex "<prompt>"
+paseo run --mode bypassPermissions --provider claude/opus "<prompt>"
+paseo run --mode full-access --provider codex/gpt-5.4 "<prompt>"
 
 # Wait timeout - limit how long run blocks (default: no limit)
 paseo run --wait-timeout 30m "<prompt>"   # Wait up to 30 minutes
@@ -86,10 +86,8 @@ paseo loop run "<worker prompt>" [options]
   --sleep <duration>                # Delay between iterations (30s, 5m)
   --max-iterations <n>              # Maximum number of iterations
   --max-time <duration>             # Maximum total runtime (1h, 30m)
-  --provider <provider>             # Worker agent provider (claude, codex)
-  --model <model>                   # Worker agent model
-  --verify-provider <provider>      # Verifier agent provider
-  --verify-model <model>            # Verifier agent model
+  --provider <provider/model>        # Worker agent provider/model (e.g. codex/gpt-5.4)
+  --verify-provider <provider/model> # Verifier agent provider/model (e.g. claude/opus)
   --archive                         # Archive agents after each iteration
 
 # Manage loops
@@ -209,18 +207,18 @@ paseo terminal kill "$id"
 
 ## Available Models
 
-**Claude (default provider)** — use aliases, CLI resolves to latest version:
-- `--model haiku` — Fast/cheap, ONLY for tests (not for real work)
-- `--model sonnet` — Default, good for most tasks
-- `--model opus` — For harder reasoning, complex debugging
+**Claude (default provider):**
+- `--provider claude/haiku` — Fast/cheap, ONLY for tests (not for real work)
+- `--provider claude/sonnet` — Good for most tasks
+- `--provider claude/opus` — For harder reasoning, complex debugging
 
-**Codex** (`--provider codex`):
-- `--model gpt-5.4` — Latest frontier agentic coding model (default, preferred for all engineering tasks)
-- `--model gpt-5.1-codex-mini` — Cheaper, faster, but less capable
+**Codex:**
+- `--provider codex/gpt-5.4` — Latest frontier agentic coding model (preferred for all engineering tasks)
+- `--provider codex/gpt-5.1-codex-mini` — Cheaper, faster, but less capable
 
 ## Permissions
 
-Always launch agents fully permissioned. Use `--mode bypassPermissions` for Claude and `--mode full-access` for Codex. Control behavior through **strict prompting**, not permission modes.
+Always launch agents fully permissioned. Use `--mode bypassPermissions` for Claude and `--mode full-access` for Codex. Always specify the model: `--provider claude/opus`, `--provider codex/gpt-5.4`, etc. Control behavior through **strict prompting**, not permission modes.
 
 ## Waiting for Agents
 

@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { View, Text, Pressable, Platform, ActivityIndicator } from "react-native";
-import Markdown from "react-native-markdown-display";
 import { StyleSheet, UnistylesRuntime, useUnistyles } from "react-native-unistyles";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -36,6 +35,7 @@ import {
   MessageOuterSpacingProvider,
   type InlinePathTarget,
 } from "./message";
+import { PlanCard } from "./plan-card";
 import type { StreamItem } from "@/types/stream";
 import type { PendingPermission } from "@/types/shared";
 import type { AgentPermissionResponse } from "@server/server/agent/agent-sdk-types";
@@ -59,9 +59,7 @@ import {
   type BottomAnchorLocalRequest,
   type BottomAnchorRouteRequest,
 } from "./use-bottom-anchor-controller";
-import { createMarkdownStyles } from "@/styles/markdown-styles";
 import { MAX_CONTENT_WIDTH } from "@/constants/layout";
-import { getMarkdownListMarker } from "@/utils/markdown-list";
 import { normalizeInlinePathTarget } from "@/utils/inline-path";
 import { resolveWorkspaceIdByExecutionDirectory } from "@/utils/workspace-execution";
 import { prepareWorkspaceTab } from "@/utils/workspace-navigation";
@@ -258,10 +256,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         if (item.kind === "user_message" && isToolSequenceItem(belowItem)) {
           return looseGap;
         }
-        if (
-          (item.kind === "user_message" || item.kind === "assistant_message") &&
-          isToolSequenceItem(belowItem)
-        ) {
+        if ((item.kind === "user_message" || item.kind === "assistant_message") && isToolSequenceItem(belowItem)) {
           return tightGap;
         }
         if (item.kind === "todo_list" && isToolSequenceItem(belowItem)) {
@@ -274,44 +269,6 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
       [looseGap, tightGap],
     );
-
-    // ---------------------------------------------------------------------------
-    // DEBUG: track when render callback deps change
-    // ---------------------------------------------------------------------------
-    const debugStreamPrevRef = useRef<Record<string, unknown>>({});
-    useEffect(() => {
-      const prev = debugStreamPrevRef.current;
-      const curr: Record<string, unknown> = {
-        // handleInlinePathPress deps (line 196-205)
-        "hip.agent.cwd": agent.cwd,
-        "hip.openFileExplorer": openFileExplorer,
-        "hip.requestDirectoryListing": requestDirectoryListing,
-        "hip.resolvedServerId": resolvedServerId,
-        "hip.router": router,
-        "hip.setExplorerTabForCheckout": setExplorerTabForCheckout,
-        "hip.onOpenWorkspaceFile": onOpenWorkspaceFile,
-        "hip.workspaceId": workspaceId,
-        // top-level deps
-        handleInlinePathPress,
-        "agent.status": agent.status,
-        streamRenderStrategy,
-        getGapBetween,
-        streamItems,
-        "streamItems.length": streamItems.length,
-        streamHead,
-        baseRenderModel,
-      };
-      const changed: string[] = [];
-      for (const key of Object.keys(curr)) {
-        if (!Object.is(prev[key], curr[key])) {
-          changed.push(key);
-        }
-      }
-      if (changed.length > 0 && Object.keys(prev).length > 0) {
-        console.log("[AgentStreamView] deps changed:", changed.join(", "));
-      }
-      debugStreamPrevRef.current = curr;
-    });
 
     const renderStreamItemContent = useCallback(
       (
@@ -374,7 +331,6 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                 workspaceRoot={workspaceRoot}
               />
             );
-
           case "thought": {
             const nextItem = getStreamNeighborItem({
               strategy: streamRenderStrategy,
@@ -761,90 +717,6 @@ function PermissionRequestCard({
     return undefined;
   }, [request]);
 
-  const markdownStyles = useMemo(() => createMarkdownStyles(theme), [theme]);
-
-  const markdownRules = useMemo(() => {
-    return {
-      text: (
-        node: any,
-        _children: React.ReactNode[],
-        _parent: any,
-        styles: any,
-        inheritedStyles: any = {},
-      ) => (
-        <Text key={node.key} style={[inheritedStyles, styles.text]}>
-          {node.content}
-        </Text>
-      ),
-      textgroup: (
-        node: any,
-        children: React.ReactNode[],
-        _parent: any,
-        styles: any,
-        inheritedStyles: any = {},
-      ) => (
-        <Text key={node.key} style={[inheritedStyles, styles.textgroup]}>
-          {children}
-        </Text>
-      ),
-      code_block: (
-        node: any,
-        _children: React.ReactNode[],
-        _parent: any,
-        styles: any,
-        inheritedStyles: any = {},
-      ) => (
-        <Text key={node.key} style={[inheritedStyles, styles.code_block]}>
-          {node.content}
-        </Text>
-      ),
-      fence: (
-        node: any,
-        _children: React.ReactNode[],
-        _parent: any,
-        styles: any,
-        inheritedStyles: any = {},
-      ) => (
-        <Text key={node.key} style={[inheritedStyles, styles.fence]}>
-          {node.content}
-        </Text>
-      ),
-      code_inline: (
-        node: any,
-        _children: React.ReactNode[],
-        _parent: any,
-        styles: any,
-        inheritedStyles: any = {},
-      ) => (
-        <Text key={node.key} style={[inheritedStyles, styles.code_inline]}>
-          {node.content}
-        </Text>
-      ),
-      bullet_list: (node: any, children: React.ReactNode[], _parent: any, styles: any) => (
-        <View key={node.key} style={styles.bullet_list}>
-          {children}
-        </View>
-      ),
-      ordered_list: (node: any, children: React.ReactNode[], _parent: any, styles: any) => (
-        <View key={node.key} style={styles.ordered_list}>
-          {children}
-        </View>
-      ),
-      list_item: (node: any, children: React.ReactNode[], parent: any, styles: any) => {
-        const { isOrdered, marker } = getMarkdownListMarker(node, parent);
-        const iconStyle = isOrdered ? styles.ordered_list_icon : styles.bullet_list_icon;
-        const contentStyle = isOrdered ? styles.ordered_list_content : styles.bullet_list_content;
-
-        return (
-          <View key={node.key} style={[styles.list_item, { flexShrink: 0 }]}>
-            <Text style={iconStyle}>{marker}</Text>
-            <Text style={[contentStyle, { flex: 1, flexShrink: 1, minWidth: 0 }]}>{children}</Text>
-          </View>
-        );
-      },
-    };
-  }, []);
-
   const permissionMutation = useMutation({
     mutationFn: async (input: {
       agentId: string;
@@ -897,50 +769,8 @@ function PermissionRequestCard({
     );
   }
 
-  return (
-    <View
-      style={[
-        permissionStyles.container,
-        {
-          backgroundColor: theme.colors.surface1,
-          borderColor: theme.colors.border,
-        },
-      ]}
-    >
-      <Text style={[permissionStyles.title, { color: theme.colors.foreground }]}>{title}</Text>
-
-      {description ? (
-        <Text style={[permissionStyles.description, { color: theme.colors.foregroundMuted }]}>
-          {description}
-        </Text>
-      ) : null}
-
-      {planMarkdown ? (
-        <View style={permissionStyles.section}>
-          {!isPlanRequest ? (
-            <Text style={[permissionStyles.sectionTitle, { color: theme.colors.foregroundMuted }]}>
-              Proposed plan
-            </Text>
-          ) : null}
-          <Markdown style={markdownStyles} rules={markdownRules}>
-            {planMarkdown}
-          </Markdown>
-        </View>
-      ) : null}
-
-      {!isPlanRequest ? (
-        <ToolCallDetailsContent
-          detail={
-            request.detail ?? {
-              type: "unknown",
-              input: request.input ?? null,
-              output: null,
-            }
-          }
-          maxHeight={200}
-        />
-      ) : null}
-
+  const footer = (
+    <>
       <Text
         testID="permission-request-question"
         style={[permissionStyles.question, { color: theme.colors.foregroundMuted }]}
@@ -1013,6 +843,55 @@ function PermissionRequestCard({
           )}
         </Pressable>
       </View>
+    </>
+  );
+
+  if (isPlanRequest && planMarkdown) {
+    return (
+      <PlanCard
+        title={title}
+        description={description}
+        text={planMarkdown}
+        footer={footer}
+        disableOuterSpacing
+      />
+    );
+  }
+
+  return (
+    <View
+      style={[
+        permissionStyles.container,
+        {
+          backgroundColor: theme.colors.surface1,
+          borderColor: theme.colors.border,
+        },
+      ]}
+    >
+      <Text style={[permissionStyles.title, { color: theme.colors.foreground }]}>{title}</Text>
+
+      {description ? (
+        <Text style={[permissionStyles.description, { color: theme.colors.foregroundMuted }]}>
+          {description}
+        </Text>
+      ) : null}
+
+      {planMarkdown ? <PlanCard title="Proposed plan" text={planMarkdown} disableOuterSpacing /> : null}
+
+      {!isPlanRequest ? (
+        <ToolCallDetailsContent
+          detail={
+            request.detail ?? {
+              type: "unknown",
+              input: request.input ?? null,
+              output: null,
+            }
+          }
+          maxHeight={200}
+        />
+      ) : null}
+
+      {footer}
     </View>
   );
 }

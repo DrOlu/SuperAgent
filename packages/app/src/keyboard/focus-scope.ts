@@ -1,37 +1,77 @@
 import type { KeyboardFocusScope } from "@/keyboard/actions";
 
+function isElement(value: unknown): value is Element {
+  return typeof Element !== "undefined" && value instanceof Element;
+}
+
+function getFocusCandidateElements(target: EventTarget | null): Element[] {
+  const candidates: Element[] = [];
+  const pushUnique = (element: Element | null) => {
+    if (!element || candidates.includes(element)) {
+      return;
+    }
+    candidates.push(element);
+  };
+
+  if (isElement(target)) {
+    pushUnique(target);
+  }
+
+  if (typeof Node !== "undefined" && target instanceof Node) {
+    pushUnique(isElement(target.parentElement) ? target.parentElement : null);
+  }
+
+  if (typeof document !== "undefined" && isElement(document.activeElement)) {
+    pushUnique(document.activeElement);
+  }
+
+  return candidates;
+}
+
 export function resolveKeyboardFocusScope(input: {
   target: EventTarget | null;
   commandCenterOpen: boolean;
 }): KeyboardFocusScope {
   const { target, commandCenterOpen } = input;
-  if (!(target instanceof Element)) {
+  const candidates = getFocusCandidateElements(target);
+  if (candidates.length === 0) {
     return commandCenterOpen ? "command-center" : "other";
   }
 
-  if (target.closest("[data-testid='terminal-surface']") || target.closest(".xterm")) {
+  if (
+    candidates.some((element) =>
+      Boolean(element.closest("[data-testid='terminal-surface']") || element.closest(".xterm")),
+    )
+  ) {
     return "terminal";
   }
 
   if (
     commandCenterOpen &&
-    (target.closest("[data-testid='command-center-panel']") ||
-      target.closest("[data-testid='command-center-input']"))
+    candidates.some((element) =>
+      Boolean(
+        element.closest("[data-testid='command-center-panel']") ||
+          element.closest("[data-testid='command-center-input']"),
+      ),
+    )
   ) {
     return "command-center";
   }
 
-  if (target.closest("[data-testid='message-input-root']")) {
+  if (candidates.some((element) => Boolean(element.closest("[data-testid='message-input-root']")))) {
     return "message-input";
   }
 
-  const editable = target as HTMLElement;
-  if (editable.isContentEditable) {
-    return commandCenterOpen ? "command-center" : "editable";
-  }
-
-  const tag = target.tagName.toLowerCase();
-  if (tag === "input" || tag === "textarea" || tag === "select") {
+  if (
+    candidates.some((element) => {
+      const editable = element as HTMLElement;
+      if (editable.isContentEditable) {
+        return true;
+      }
+      const tag = element.tagName.toLowerCase();
+      return tag === "input" || tag === "textarea" || tag === "select";
+    })
+  ) {
     return commandCenterOpen ? "command-center" : "editable";
   }
 

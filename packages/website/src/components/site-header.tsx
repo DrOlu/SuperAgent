@@ -2,12 +2,12 @@ import "~/styles.css";
 
 export function SiteHeader() {
   return (
-    <header className="flex items-center justify-between gap-4">
+    <header className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
       <a href="/" className="flex items-center gap-3">
         <img src="/logo.svg" alt="Paseo" className="w-6 h-6" />
         <span className="text-lg font-medium">Paseo</span>
       </a>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-center gap-4">
         <a
           href="/blog"
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"

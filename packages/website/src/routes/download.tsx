@@ -2,13 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { CommandDialog } from "~/components/command-dialog";
 import { pageMeta } from "~/meta";
 import {
-  desktopVersion,
-  linuxAppImageDownloadUrl,
-  linuxDebDownloadUrl,
-  linuxRpmDownloadUrl,
-  releaseBase,
-  macAppleSiliconDownloadUrl,
-  macIntelDownloadUrl,
+  downloadUrls,
   appStoreUrl,
   playStoreUrl,
   webAppUrl,
@@ -19,6 +13,7 @@ import {
   TerminalIcon,
   GlobeIcon,
 } from "~/downloads";
+import { useRelease } from "~/routes/__root";
 import "~/styles.css";
 
 export const Route = createFileRoute("/download")({
@@ -32,6 +27,9 @@ export const Route = createFileRoute("/download")({
 });
 
 function Download() {
+  const { version } = useRelease();
+  const urls = downloadUrls(version);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto p-6 md:p-12">
@@ -93,7 +91,7 @@ function Download() {
 
         <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2">Download</h1>
         <p className="text-muted-foreground mb-10">
-          v{desktopVersion}
+          v{version}
         </p>
 
         {/* Desktop */}
@@ -111,8 +109,8 @@ function Download() {
                 <span className="font-medium">macOS</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <DownloadPill href={macAppleSiliconDownloadUrl} label="Apple Silicon" />
-                <DownloadPill href={macIntelDownloadUrl} label="Intel" />
+                <DownloadPill href={urls.macAppleSilicon} label="Apple Silicon" />
+                <DownloadPill href={urls.macIntel} label="Intel" />
                 <CommandDialog
                   trigger={
                     <span className="inline-flex items-center justify-center rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background hover:bg-foreground/85 transition-colors">
@@ -133,7 +131,7 @@ function Download() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <DownloadPill
-                  href={`${releaseBase}/Paseo-Setup-${desktopVersion}.exe`}
+                  href={urls.windowsExe}
                   label="Download"
                 />
               </div>
@@ -147,11 +145,11 @@ function Download() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <DownloadPill
-                  href={linuxAppImageDownloadUrl}
+                  href={urls.linuxAppImage}
                   label="AppImage"
                 />
-                <DownloadPill href={linuxDebDownloadUrl} label="DEB" />
-                <DownloadPill href={linuxRpmDownloadUrl} label="RPM" />
+                <DownloadPill href={urls.linuxDeb} label="DEB" />
+                <DownloadPill href={urls.linuxRpm} label="RPM" />
               </div>
             </div>
           </div>
@@ -178,7 +176,7 @@ function Download() {
                   external
                 />
                 <DownloadPill
-                  href={`${releaseBase}/paseo-v${desktopVersion}-android.apk`}
+                  href={urls.androidApk}
                   label="APK"
                 />
               </div>

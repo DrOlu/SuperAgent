@@ -15,6 +15,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
   it("uses desktop tab ordering labels for desktop menus", () => {
     const onCopyResumeCommand = vi.fn();
     const onCopyAgentId = vi.fn();
+    const onReloadAgent = vi.fn();
     const onCloseTab = vi.fn();
     const onCloseTabsBefore = vi.fn();
     const onCloseTabsAfter = vi.fn();
@@ -28,6 +29,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       menuTestIDBase: "workspace-tab-context-agent_123",
       onCopyResumeCommand,
       onCopyAgentId,
+      onReloadAgent,
       onCloseTab,
       onCloseTabsBefore,
       onCloseTabsAfter,
@@ -37,6 +39,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
     expect(entries.filter((entry) => entry.kind === "item").map((entry) => entry.label)).toEqual([
       "Copy resume command",
       "Copy agent id",
+      "Reload agent",
       "Close to the left",
       "Close to the right",
       "Close other tabs",
@@ -53,6 +56,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       menuTestIDBase: "workspace-tab-menu-agent_123",
       onCopyResumeCommand: vi.fn(),
       onCopyAgentId: vi.fn(),
+      onReloadAgent: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
       onCloseTabsAfter: vi.fn(),
@@ -62,6 +66,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
     expect(entries.filter((entry) => entry.kind === "item").map((entry) => entry.label)).toEqual([
       "Copy resume command",
       "Copy agent id",
+      "Reload agent",
       "Close tabs above",
       "Close tabs below",
       "Close other tabs",
@@ -83,6 +88,7 @@ describe("buildWorkspaceTabMenuEntries", () => {
       menuTestIDBase: "workspace-tab-menu-draft_123",
       onCopyResumeCommand: vi.fn(),
       onCopyAgentId: vi.fn(),
+      onReloadAgent: vi.fn(),
       onCloseTab: vi.fn(),
       onCloseTabsBefore: vi.fn(),
       onCloseTabsAfter: vi.fn(),
@@ -92,6 +98,34 @@ describe("buildWorkspaceTabMenuEntries", () => {
     expect(entries.some((entry) => entry.kind === "item" && entry.label === "Copy agent id")).toBe(
       false,
     );
+    expect(entries.some((entry) => entry.kind === "item" && entry.label === "Reload agent")).toBe(
+      false,
+    );
     expect(entries.some((entry) => entry.kind === "separator")).toBe(false);
+  });
+
+  it("adds reload tooltip copy for agent tabs", () => {
+    const entries = buildWorkspaceTabMenuEntries({
+      surface: "desktop",
+      tab: createAgentTab(),
+      index: 0,
+      tabCount: 1,
+      menuTestIDBase: "workspace-tab-context-agent_123",
+      onCopyResumeCommand: vi.fn(),
+      onCopyAgentId: vi.fn(),
+      onReloadAgent: vi.fn(),
+      onCloseTab: vi.fn(),
+      onCloseTabsBefore: vi.fn(),
+      onCloseTabsAfter: vi.fn(),
+      onCloseOtherTabs: vi.fn(),
+    });
+
+    expect(entries).toContainEqual(
+      expect.objectContaining({
+        kind: "item",
+        key: "reload-agent",
+        tooltip: "Reload agent to update skills, MCPs or login status.",
+      }),
+    );
   });
 });

@@ -47,6 +47,12 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for full setup, build sync requir
 - **NEVER assume a timeout means the service needs restarting** — timeouts can be transient.
 - **NEVER add auth checks to tests** — agent providers handle their own auth.
 - **Always run typecheck after every change.**
+- **NEVER make breaking changes to WebSocket or message schemas.** The mobile app in the App Store always lags behind the daemon, and daemons in the wild lag behind new app releases. Both directions must work. Every schema change MUST be backward-compatible:
+  - New fields: always `.optional()` with a sensible default or `.transform()` fallback.
+  - Never change a field from optional to required.
+  - Never remove a field — deprecate it (keep accepting it, stop sending it).
+  - Never narrow a field's type (e.g. `string` → `enum`, `nullable` → non-null).
+  - Test with: "does a 6-month-old client still parse this?" and "does a 6-month-old daemon still send something this client accepts?"
 
 ## Debugging
 

@@ -98,6 +98,7 @@ export async function checkForAppUpdate(currentVersion: string): Promise<AppUpda
 
 export async function downloadAndInstallUpdate(
   currentVersion: string,
+  onBeforeQuit?: () => Promise<void>,
 ): Promise<AppUpdateInstallResult> {
   if (!app.isPackaged) {
     return {
@@ -131,8 +132,9 @@ export async function downloadAndInstallUpdate(
     await autoUpdater.downloadUpdate();
     // quitAndInstall restarts the app with the new version.
     // Use a short delay to allow the renderer to receive the response.
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
+        if (onBeforeQuit) await onBeforeQuit();
         autoUpdater.quitAndInstall(/* isSilent */ false, /* isForceRunAfter */ true);
       } catch (error) {
         console.error("[auto-updater] quitAndInstall failed:", error);

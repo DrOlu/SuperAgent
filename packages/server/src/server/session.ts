@@ -130,6 +130,7 @@ import {
   getCheckoutDiff,
   getCheckoutShortstat,
   getCheckoutStatus,
+  getCheckoutStatusLite,
   listBranchSuggestions,
   commitChanges,
   mergeToBase,
@@ -175,6 +176,8 @@ const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const MAX_INITIAL_AGENT_TITLE_CHARS = Math.min(60, MAX_EXPLICIT_AGENT_TITLE_CHARS);
 const DEFAULT_AGENT_PROVIDER = AGENT_PROVIDER_IDS[0];
+const LEGACY_PROVIDER_IDS = new Set(["claude", "codex", "opencode"]);
+const MIN_VERSION_ALL_PROVIDERS = "0.1.45";
 const WORKSPACE_GIT_WATCH_DEBOUNCE_MS = 500;
 const WORKSPACE_GIT_WATCH_REMOVED_FINGERPRINT = "__removed__";
 const TERMINAL_STREAM_HIGH_WATER_BYTES = 256 * 1024;
@@ -208,6 +211,20 @@ function deriveInitialAgentTitle(prompt: string): string | null {
   }
   const clamped = normalized.slice(0, MAX_INITIAL_AGENT_TITLE_CHARS).trim();
   return clamped.length > 0 ? clamped : null;
+}
+
+function clientSupportsAllProviders(appVersion: string | null): boolean {
+  if (!appVersion) return false;
+  const base = appVersion.replace(/-.*$/, "");
+  const parts = base.split(".").map(Number);
+  const minParts = MIN_VERSION_ALL_PROVIDERS.split(".").map(Number);
+  for (let i = 0; i < minParts.length; i++) {
+    const current = parts[i] ?? 0;
+    const minimum = minParts[i] ?? 0;
+    if (current > minimum) return true;
+    if (current < minimum) return false;
+  }
+  return true;
 }
 
 export function resolveCreateAgentTitles(options: {
@@ -353,6 +370,7 @@ type VoiceTranscriptionResultPayload = {
 
 export type SessionOptions = {
   clientId: string;
+  appVersion?: string | null;
   onMessage: (msg: SessionOutboundMessage) => void;
   onBinaryMessage?: (frame: Uint8Array) => void;
   getBinaryBufferedAmount?: () => number;
@@ -484,6 +502,7 @@ function coerceAgentProvider(logger: pino.Logger, value: string, agentId?: strin
  */
 export class Session {
   private readonly clientId: string;
+  private appVersion: string | null;
   private readonly sessionId: string;
   private readonly onMessage: (msg: SessionOutboundMessage) => void;
   private readonly onBinaryMessage: ((frame: Uint8Array) => void) | null;
@@ -584,6 +603,7 @@ export class Session {
   constructor(options: SessionOptions) {
     const {
       clientId,
+      appVersion,
       onMessage,
       onBinaryMessage,
       getBinaryBufferedAmount,
@@ -614,6 +634,7 @@ export class Session {
       agentProviderRuntimeSettings,
     } = options;
     this.clientId = clientId;
+    this.appVersion = appVersion ?? null;
     this.sessionId = uuidv4();
     this.onMessage = onMessage;
     this.onBinaryMessage = onBinaryMessage ?? null;
@@ -683,6 +704,12 @@ export class Session {
     this.subscribeToAgentEvents();
 
     this.sessionLogger.trace("Session created");
+  }
+
+  updateAppVersion(appVersion: string | null): void {
+    if (appVersion && appVersion !== this.appVersion) {
+      this.appVersion = appVersion;
+    }
   }
 
   /**
@@ -1111,6 +1138,13 @@ export class Session {
     return record;
   }
 
+  private isProviderVisibleToClient(provider: string): boolean {
+    if (clientSupportsAllProviders(this.appVersion)) {
+      return true;
+    }
+    return LEGACY_PROVIDER_IDS.has(provider);
+  }
+
   private matchesAgentFilter(options: {
     agent: AgentSnapshotPayload;
     project: ProjectPlacementPayload;
@@ -1179,6 +1213,9 @@ export class Session {
     subscription: AgentUpdatesSubscriptionState,
     payload: AgentUpdatePayload,
   ): void {
+    if (payload.kind === "upsert" && !this.isProviderVisibleToClient(payload.agent.provider)) {
+      return;
+    }
     if (subscription.isBootstrapping) {
       subscription.pendingUpdatesByAgentId.set(this.getAgentUpdateTargetId(payload), payload);
       return;
@@ -1221,9 +1258,21 @@ export class Session {
   }
 
   private async findWorkspaceByDirectory(cwd: string): Promise<PersistedWorkspaceRecord | null> {
-    const normalizedCwd = normalizePersistedWorkspaceId(cwd);
+    const normalizedCwd = await this.resolveWorkspaceDirectory(cwd);
     const workspaces = await this.workspaceRegistry.list();
     return workspaces.find((workspace) => workspace.directory === normalizedCwd) ?? null;
+  }
+
+  private async resolveWorkspaceDirectory(cwd: string): Promise<string> {
+    const normalizedCwd = normalizePersistedWorkspaceId(cwd);
+    try {
+      const checkout = await getCheckoutStatusLite(normalizedCwd, {
+        paseoHome: this.paseoHome,
+      });
+      return normalizePersistedWorkspaceId(checkout.worktreeRoot ?? normalizedCwd);
+    } catch {
+      return normalizedCwd;
+    }
   }
 
   private async buildProjectPlacementForWorkspace(
@@ -1451,6 +1500,15 @@ export class Session {
           await this.handleSetAgentModelRequest(msg.agentId, msg.modelId, msg.requestId);
           break;
 
+        case "set_agent_feature_request":
+          await this.handleSetAgentFeatureRequest(
+            msg.agentId,
+            msg.featureId,
+            msg.value,
+            msg.requestId,
+          );
+          break;
+
         case "set_agent_thinking_request":
           await this.handleSetAgentThinkingRequest(
             msg.agentId,
@@ -1549,6 +1607,14 @@ export class Session {
 
         case "list_provider_models_request":
           await this.handleListProviderModelsRequest(msg);
+          break;
+
+        case "list_provider_modes_request":
+          await this.handleListProviderModesRequest(msg);
+          break;
+
+        case "list_provider_features_request":
+          await this.handleListProviderFeaturesRequest(msg);
           break;
 
         case "list_available_providers_request":
@@ -1881,7 +1947,7 @@ export class Session {
   private async handleArchiveAgentRequest(agentId: string, requestId: string): Promise<void> {
     this.sessionLogger.info({ agentId }, `Archiving agent ${agentId}`);
 
-    const { archivedAt } = await this.archiveAgentState(agentId);
+    const { archivedAt } = await this.archiveAgentForClose(agentId);
 
     this.emit({
       type: "agent_archived",
@@ -1893,38 +1959,100 @@ export class Session {
     });
   }
 
-  private async archiveAgentState(agentId: string): Promise<{
-    archivedAt: string;
-    archivedRecord: StoredAgentRecord;
-  }> {
-    if (this.agentManager.getAgent(agentId)) {
-      await this.interruptAgentIfRunning(agentId);
-      await this.agentManager.clearAgentAttention(agentId).catch(() => undefined);
+  private async archiveStoredAgentForClose(
+    agentId: string,
+  ): Promise<{ agentId: string; archivedAt: string }> {
+    const existing = await this.agentStorage.get(agentId);
+    if (!existing) {
+      throw new Error(`Agent not found: ${agentId}`);
+    }
+
+    if (existing.archivedAt) {
+      return {
+        agentId,
+        archivedAt: existing.archivedAt,
+      };
     }
 
     const archivedAt = new Date().toISOString();
-    const nextRecord = await this.agentManager.archiveSnapshot(agentId, archivedAt);
+    const normalizedStatus =
+      existing.lastStatus === "running" || existing.lastStatus === "initializing"
+        ? "idle"
+        : existing.lastStatus;
 
-    // Unload the agent from memory — the storage record is the source of truth now.
-    // This tears down the provider session and drops the hydrated timeline,
-    // freeing memory. ensureAgentLoaded will re-initialize if needed later.
-    if (this.agentManager.getAgent(agentId)) {
-      try {
-        await this.agentManager.closeAgent(agentId);
-      } catch (error) {
-        this.sessionLogger.warn({ err: error, agentId }, "Failed to close agent during archive");
-      }
+    await this.agentStorage.upsert({
+      ...existing,
+      archivedAt,
+      updatedAt: archivedAt,
+      lastStatus: normalizedStatus,
+      requiresAttention: false,
+      attentionReason: null,
+      attentionTimestamp: null,
+    });
+
+    return { agentId, archivedAt };
+  }
+
+  private async archiveAgentForClose(
+    agentId: string,
+  ): Promise<{ agentId: string; archivedAt: string }> {
+    const liveAgent = this.agentManager.getAgent(agentId);
+    if (liveAgent) {
+      await this.interruptAgentIfRunning(agentId);
+      await this.agentManager.clearAgentAttention(agentId).catch(() => undefined);
+      await this.agentManager.archiveAgent(agentId);
+    } else {
+      await this.archiveStoredAgentForClose(agentId);
     }
 
-    return { archivedAt, archivedRecord: nextRecord };
+    const archivedRecord = await this.agentStorage.get(agentId);
+    if (!archivedRecord) {
+      throw new Error(`Agent not found in storage after archive: ${agentId}`);
+    }
+
+    if (this.agentUpdatesSubscription) {
+      const payload = this.buildStoredAgentPayload(archivedRecord);
+      const project = await this.buildProjectPlacementForCwd(payload.cwd);
+      if (project) {
+        const matches = this.matchesAgentFilter({
+          agent: payload,
+          project,
+          filter: this.agentUpdatesSubscription.filter,
+        });
+        this.bufferOrEmitAgentUpdate(
+          this.agentUpdatesSubscription,
+          matches
+            ? {
+                kind: "upsert",
+                agent: payload,
+                project,
+              }
+            : {
+                kind: "remove",
+                agentId,
+              },
+        );
+      } else {
+        this.bufferOrEmitAgentUpdate(this.agentUpdatesSubscription, {
+          kind: "remove",
+          agentId,
+        });
+      }
+      await this.emitWorkspaceUpdateForCwd(payload.cwd);
+    }
+
+    if (!archivedRecord.archivedAt) {
+      throw new Error(`Agent missing archivedAt after archive: ${agentId}`);
+    }
+
+    return { agentId, archivedAt: archivedRecord.archivedAt };
   }
 
   private async handleCloseItemsRequest(msg: CloseItemsRequest): Promise<void> {
     const agents = [];
     for (const agentId of msg.agentIds) {
       try {
-        const { archivedAt } = await this.archiveAgentState(agentId);
-        agents.push({ agentId, archivedAt });
+        agents.push(await this.archiveAgentForClose(agentId));
       } catch (error: any) {
         this.sessionLogger.warn(
           { err: error, agentId, requestId: msg.requestId },
@@ -2848,12 +2976,103 @@ export class Session {
     }
   }
 
+  private async handleListProviderModesRequest(
+    msg: Extract<SessionInboundMessage, { type: "list_provider_modes_request" }>,
+  ): Promise<void> {
+    const fetchedAt = new Date().toISOString();
+    try {
+      const modes = await this.providerRegistry[msg.provider].fetchModes({
+        cwd: msg.cwd ? expandTilde(msg.cwd) : undefined,
+      });
+      this.emit({
+        type: "list_provider_modes_response",
+        payload: {
+          provider: msg.provider,
+          modes,
+          error: null,
+          fetchedAt,
+          requestId: msg.requestId,
+        },
+      });
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, provider: msg.provider },
+        `Failed to list modes for ${msg.provider}`,
+      );
+      this.emit({
+        type: "list_provider_modes_response",
+        payload: {
+          provider: msg.provider,
+          error: (error as Error)?.message ?? String(error),
+          fetchedAt,
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
+  private buildDraftAgentSessionConfig(draftConfig: {
+    provider: AgentProvider;
+    cwd: string;
+    modeId?: string;
+    model?: string;
+    thinkingOptionId?: string;
+    featureValues?: Record<string, unknown>;
+  }): AgentSessionConfig {
+    return {
+      provider: draftConfig.provider,
+      cwd: expandTilde(draftConfig.cwd),
+      ...(draftConfig.modeId ? { modeId: draftConfig.modeId } : {}),
+      ...(draftConfig.model ? { model: draftConfig.model } : {}),
+      ...(draftConfig.thinkingOptionId
+        ? { thinkingOptionId: draftConfig.thinkingOptionId }
+        : {}),
+      ...(draftConfig.featureValues ? { featureValues: draftConfig.featureValues } : {}),
+    };
+  }
+
+  private async handleListProviderFeaturesRequest(
+    msg: Extract<SessionInboundMessage, { type: "list_provider_features_request" }>,
+  ): Promise<void> {
+    const fetchedAt = new Date().toISOString();
+    try {
+      const sessionConfig = this.buildDraftAgentSessionConfig(msg.draftConfig);
+      const features = await this.agentManager.listDraftFeatures(sessionConfig);
+      this.emit({
+        type: "list_provider_features_response",
+        payload: {
+          provider: msg.draftConfig.provider,
+          features,
+          error: null,
+          fetchedAt,
+          requestId: msg.requestId,
+        },
+      });
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, provider: msg.draftConfig.provider, draftConfig: msg.draftConfig },
+        `Failed to list features for ${msg.draftConfig.provider}`,
+      );
+      this.emit({
+        type: "list_provider_features_response",
+        payload: {
+          provider: msg.draftConfig.provider,
+          error: (error as Error)?.message ?? String(error),
+          fetchedAt,
+          requestId: msg.requestId,
+        },
+      });
+    }
+  }
+
   private async handleListAvailableProvidersRequest(
     msg: Extract<SessionInboundMessage, { type: "list_available_providers_request" }>,
   ): Promise<void> {
     const fetchedAt = new Date().toISOString();
     try {
-      const providers = await this.agentManager.listProviderAvailability();
+      const providers = (await this.agentManager.listProviderAvailability()).filter((provider) =>
+        this.isProviderVisibleToClient(provider.provider),
+      );
       this.emit({
         type: "list_available_providers_response",
         payload: {
@@ -3191,6 +3410,53 @@ export class Session {
           agentId,
           accepted: false,
           error: error?.message ? String(error.message) : "Failed to set agent model",
+        },
+      });
+    }
+  }
+
+  private async handleSetAgentFeatureRequest(
+    agentId: string,
+    featureId: string,
+    value: unknown,
+    requestId: string,
+  ): Promise<void> {
+    this.sessionLogger.info(
+      { agentId, featureId, value, requestId },
+      "session: set_agent_feature_request",
+    );
+
+    try {
+      await this.agentManager.setAgentFeature(agentId, featureId, value);
+      this.sessionLogger.info(
+        { agentId, featureId, value, requestId },
+        "session: set_agent_feature_request success",
+      );
+      this.emit({
+        type: "set_agent_feature_response",
+        payload: { requestId, agentId, accepted: true, error: null },
+      });
+    } catch (error: any) {
+      this.sessionLogger.error(
+        { err: error, agentId, featureId, value, requestId },
+        "session: set_agent_feature_request error",
+      );
+      this.emit({
+        type: "activity_log",
+        payload: {
+          id: uuidv4(),
+          timestamp: new Date(),
+          type: "error",
+          content: `Failed to set agent feature: ${error.message}`,
+        },
+      });
+      this.emit({
+        type: "set_agent_feature_response",
+        payload: {
+          requestId,
+          agentId,
+          accepted: false,
+          error: error?.message ? String(error.message) : "Failed to set agent feature",
         },
       });
     }
@@ -4369,6 +4635,8 @@ export class Session {
 
     let agents = [...liveAgents, ...persistedAgents];
 
+    agents = agents.filter((agent) => this.isProviderVisibleToClient(agent.provider));
+
     // Filter by labels if filter provided
     if (filter?.labels) {
       const filterLabels = filter.labels;
@@ -4436,14 +4704,16 @@ export class Session {
   private async getAgentPayloadById(agentId: string): Promise<AgentSnapshotPayload | null> {
     const live = this.agentManager.getAgent(agentId);
     if (live) {
-      return await this.buildAgentPayload(live);
+      const payload = await this.buildAgentPayload(live);
+      return this.isProviderVisibleToClient(payload.provider) ? payload : null;
     }
 
     const record = await this.agentStorage.get(agentId);
     if (!record || record.internal) {
       return null;
     }
-    return this.buildStoredAgentPayload(record);
+    const payload = this.buildStoredAgentPayload(record);
+    return this.isProviderVisibleToClient(payload.provider) ? payload : null;
   }
 
   private normalizeFetchAgentsSort(
@@ -4856,6 +5126,9 @@ export class Session {
       if (agent.archivedAt) {
         continue;
       }
+      if (!this.isProviderVisibleToClient(agent.provider)) {
+        continue;
+      }
 
       const workspaceId = workspaceIdsByDirectory.get(normalizePersistedWorkspaceId(agent.cwd));
       if (workspaceId === undefined) {
@@ -5163,7 +5436,7 @@ export class Session {
   }
 
   private async findOrCreateWorkspaceForDirectory(cwd: string): Promise<PersistedWorkspaceRecord> {
-    const normalizedCwd = normalizePersistedWorkspaceId(cwd);
+    const normalizedCwd = await this.resolveWorkspaceDirectory(cwd);
     const existingWorkspace = await this.findWorkspaceByDirectory(normalizedCwd);
     if (existingWorkspace) {
       return existingWorkspace;
@@ -5299,7 +5572,7 @@ export class Session {
       return;
     }
 
-    const normalizedCwd = normalizePersistedWorkspaceId(cwd);
+    const normalizedCwd = await this.resolveWorkspaceDirectory(cwd);
     const persistedWorkspace = await this.findWorkspaceByDirectory(normalizedCwd);
     const all = await this.listWorkspaceDescriptorsSnapshot();
     const descriptorsByWorkspaceId = new Map(all.map((entry) => [entry.id, entry] as const));
@@ -5341,7 +5614,7 @@ export class Session {
 
     const uniqueWorkspaceCwds = new Set<string>();
     for (const cwd of cwds) {
-      const normalized = normalizePersistedWorkspaceId(cwd);
+      const normalized = await this.resolveWorkspaceDirectory(cwd);
       if (!normalized) {
         continue;
       }

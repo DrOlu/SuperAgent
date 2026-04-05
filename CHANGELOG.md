@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.1.47 - 2026-04-05
+
+### Fixed
+- Voice TTS in Electron — sherpa now requests copied buffers and the voice MCP bridge sets `ELECTRON_RUN_AS_NODE`, preventing "external buffers not allowed" crashes.
+- QR pairing in desktop — CLI JSON output parsing now tolerates Node deprecation warnings in stdout.
+- STT segment race condition — segment ID and audio buffer are snapshotted before the async transcription call, so rapid commits no longer interleave.
+- Per-host "Add connection" button removed — it blocked multi-host setups by scoping new connections to a single server.
+
+## 0.1.46 - 2026-04-04
+
+### Fixed
+- Voice activation in packaged builds — Silero VAD model is now copied out of the Electron asar archive so native code can read it.
+- App version sent in probe client hello so the daemon's version gate no longer hides Pi/Copilot from reconnected sessions.
+- `worktreeRoot` schema made backward-compatible for old clients and daemons that don't send the field.
+- Punycode deprecation warning (DEP0040) suppressed in CLI and desktop daemon entrypoints.
+
+## 0.1.45 - 2026-04-04
+
+### Added
+- Pi (pi.dev) agent provider — connect Pi as a new ACP-based agent type with thinking levels and tool call support.
+- Copilot agent provider re-enabled after ACP compatibility fixes.
+- `paseo .` and `paseo <path>` open the desktop app with the given project, similar to `code .`.
+- Provider-declared features system — providers can expose dynamic toggles and selects that the app renders automatically. First consumer: Codex fast mode.
+- Codex plan mode — start agents in plan-only mode with a dedicated plan card UI for reviewing proposed changes before execution.
+- OpenCode custom agents and slash commands — user-defined agents from opencode.json now appear in the mode picker, and slash commands accept optional arguments.
+- Desktop Integrations settings — install the Paseo CLI and orchestration skills directly from the app without touching the terminal.
+- Daemon status dialog in desktop settings for quick health checks.
+- Auto-restart daemon on version mismatch — the desktop app detects when the running daemon is outdated and restarts it automatically.
+- Setup hint and paseo.sh link on the mobile welcome screen so new App Store users know what to do next.
+
+### Improved
+- Desktop startup is faster — existing daemon connections are raced against bootstrap so the app is usable sooner.
+- Settings sections reordered for better grouping (integrations and daemon together).
+- Sidebar projects and workspaces now persist across sessions, with a context menu to remove projects.
+
+### Fixed
+- Sidebar crash when switching iOS theme (Unistyles/Reanimated interaction).
+- Silero VAD crash caused by external buffer mode in CircularBuffer.
+- Bulk close now correctly archives stored agents instead of leaving orphans.
+- Pinned archived agents are no longer pruned when closing tabs.
+- OpenCode event stream starvation during slash command execution.
+- Duplicate workspaces when multiple git worktrees share the same root.
+- `gh` executable resolution for desktop users whose login shell sets a different PATH.
+- Agent creation timeout increased to 60s to handle slow first-launch scenarios.
+- Forward-compatible provider handling so older app clients don't break on new provider types.
+- Input event listener race condition in the web scrollbar hook.
+- Open-project screen content now vertically centered.
+- Website download page fetches the release version at runtime with asset validation, fixing stale links.
+
+## 0.1.44 - 2026-04-03
+
+### Fixed
+- Desktop app now stops the daemon cleanly before auto-update restarts.
+- Disabled claude-acp and copilot providers from the agent registry.
+- Keyboard focus scope resolution now checks multiple candidates for broader compatibility.
+- OpenCode interrupt now reaches correct terminal state parity with tool-call flows.
+- Shell injection, symlink escape, and pairing endpoint security hardening.
+
 ## 0.1.43 - 2026-04-02
 
 ### Added

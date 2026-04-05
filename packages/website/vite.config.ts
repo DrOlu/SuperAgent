@@ -20,6 +20,7 @@ const sitemapPages = [
   "/docs/best-practices",
   "/docs/cli",
   "/docs/configuration",
+  "/docs/skills",
   "/docs/security",
   "/docs/updates",
   "/docs/voice",
@@ -28,27 +29,8 @@ const sitemapPages = [
   path: routePath,
 }));
 
-async function fetchLatestReleaseVersion(): Promise<string | undefined> {
-  try {
-    const res = await fetch(
-      "https://api.github.com/repos/getpaseo/paseo/releases/latest",
-      { headers: { Accept: "application/vnd.github+json" }, signal: AbortSignal.timeout(5000) },
-    );
-    if (!res.ok) return undefined;
-    const data = (await res.json()) as { tag_name: string };
-    return data.tag_name.replace(/^v/, "");
-  } catch {
-    return undefined;
-  }
-}
-
-export default defineConfig(async (): Promise<UserConfig> => {
-  const latestVersion = await fetchLatestReleaseVersion();
-
+export default defineConfig((): UserConfig => {
   return {
-    define: {
-      ...(latestVersion && { __DESKTOP_VERSION__: JSON.stringify(latestVersion) }),
-    },
     server: {
       port: 8082,
       fs: {

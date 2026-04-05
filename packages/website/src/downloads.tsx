@@ -1,16 +1,21 @@
 import * as React from "react";
-import websitePackage from "../package.json";
 
-declare const __DESKTOP_VERSION__: string | undefined;
+export function releaseBase(version: string) {
+  return `https://github.com/getpaseo/paseo/releases/download/v${version}`;
+}
 
-export const desktopVersion =
-  typeof __DESKTOP_VERSION__ !== "undefined" ? __DESKTOP_VERSION__ : websitePackage.version;
-export const releaseBase = `https://github.com/getpaseo/paseo/releases/download/v${desktopVersion}`;
-export const macAppleSiliconDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-arm64.dmg`;
-export const macIntelDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-x64.dmg`;
-export const linuxAppImageDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-x86_64.AppImage`;
-export const linuxDebDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-amd64.deb`;
-export const linuxRpmDownloadUrl = `${releaseBase}/Paseo-${desktopVersion}-x86_64.rpm`;
+export function downloadUrls(version: string) {
+  const base = releaseBase(version);
+  return {
+    macAppleSilicon: `${base}/Paseo-${version}-arm64.dmg`,
+    macIntel: `${base}/Paseo-${version}-x64.dmg`,
+    linuxAppImage: `${base}/Paseo-${version}-x86_64.AppImage`,
+    linuxDeb: `${base}/Paseo-${version}-amd64.deb`,
+    linuxRpm: `${base}/Paseo-${version}-x86_64.rpm`,
+    windowsExe: `${base}/Paseo-Setup-${version}.exe`,
+    androidApk: `${base}/paseo-v${version}-android.apk`,
+  };
+}
 
 export const appStoreUrl = "https://apps.apple.com/app/paseo-pocket-engineer/id6758887924";
 export const playStoreUrl = "https://play.google.com/store/apps/details?id=sh.paseo";
@@ -25,32 +30,35 @@ export interface DownloadOption {
   icon: (props: React.SVGProps<SVGSVGElement>) => React.ReactElement;
 }
 
-export const downloadOptions: DownloadOption[] = [
-  {
-    platform: "mac-silicon",
-    label: "Mac",
-    href: macAppleSiliconDownloadUrl,
-    icon: AppleIcon,
-  },
-  {
-    platform: "mac-intel",
-    label: "Mac Intel",
-    href: macIntelDownloadUrl,
-    icon: AppleIcon,
-  },
-  {
-    platform: "windows",
-    label: "Windows",
-    href: `${releaseBase}/Paseo-Setup-${desktopVersion}.exe`,
-    icon: WindowsIcon,
-  },
-  {
-    platform: "linux",
-    label: "Linux",
-    href: linuxAppImageDownloadUrl,
-    icon: LinuxIcon,
-  },
-];
+export function getDownloadOptions(version: string): DownloadOption[] {
+  const urls = downloadUrls(version);
+  return [
+    {
+      platform: "mac-silicon",
+      label: "Mac",
+      href: urls.macAppleSilicon,
+      icon: AppleIcon,
+    },
+    {
+      platform: "mac-intel",
+      label: "Mac Intel",
+      href: urls.macIntel,
+      icon: AppleIcon,
+    },
+    {
+      platform: "windows",
+      label: "Windows",
+      href: urls.windowsExe,
+      icon: WindowsIcon,
+    },
+    {
+      platform: "linux",
+      label: "Linux",
+      href: urls.linuxAppImage,
+      icon: LinuxIcon,
+    },
+  ];
+}
 
 export function useDetectedPlatform(): Platform {
   const [platform, setPlatform] = React.useState<Platform>("mac-silicon");

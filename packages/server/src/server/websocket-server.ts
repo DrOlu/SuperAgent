@@ -178,6 +178,7 @@ type WebSocketLike = {
 type SessionConnection = {
   session: Session;
   clientId: string;
+  appVersion: string | null;
   connectionLogger: pino.Logger;
   sockets: Set<WebSocketLike>;
   externalDisconnectCleanupTimeout: ReturnType<typeof setTimeout> | null;
@@ -618,13 +619,15 @@ export class VoiceAssistantWebSocketServer {
   private createSessionConnection(params: {
     ws: WebSocketLike;
     clientId: string;
+    appVersion: string | null;
     connectionLogger: pino.Logger;
   }): SessionConnection {
-    const { ws, clientId, connectionLogger } = params;
+    const { ws, clientId, appVersion, connectionLogger } = params;
     let connection: SessionConnection | null = null;
 
     const session = new Session({
       clientId,
+      appVersion,
       onMessage: (msg) => {
         if (!connection) {
           return;
@@ -703,6 +706,7 @@ export class VoiceAssistantWebSocketServer {
     connection = {
       session,
       clientId,
+      appVersion,
       connectionLogger,
       sockets: new Set([ws]),
       externalDisconnectCleanupTimeout: null,
@@ -767,6 +771,11 @@ export class VoiceAssistantWebSocketServer {
         clearTimeout(existing.externalDisconnectCleanupTimeout);
         existing.externalDisconnectCleanupTimeout = null;
       }
+      const newAppVersion = message.appVersion ?? null;
+      if (newAppVersion && newAppVersion !== existing.appVersion) {
+        existing.appVersion = newAppVersion;
+        existing.session.updateAppVersion(newAppVersion);
+      }
       existing.sockets.add(ws);
       this.sessions.set(ws, existing);
       this.sendToClient(ws, this.createServerInfoMessage());
@@ -786,6 +795,7 @@ export class VoiceAssistantWebSocketServer {
     const connection = this.createSessionConnection({
       ws,
       clientId,
+      appVersion: message.appVersion ?? null,
       connectionLogger,
     });
     this.sessions.set(ws, connection);

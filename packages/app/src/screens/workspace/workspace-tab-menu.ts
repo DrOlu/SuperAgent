@@ -8,8 +8,15 @@ export type WorkspaceTabMenuEntry =
       kind: "item";
       key: string;
       label: string;
-      icon?: "copy" | "arrow-left-to-line" | "arrow-right-to-line" | "copy-x" | "x";
+      icon?:
+        | "copy"
+        | "rotate-cw"
+        | "arrow-left-to-line"
+        | "arrow-right-to-line"
+        | "copy-x"
+        | "x";
       hint?: string;
+      tooltip?: string;
       disabled?: boolean;
       destructive?: boolean;
       testID: string;
@@ -28,6 +35,7 @@ interface BuildWorkspaceTabMenuEntriesInput {
   menuTestIDBase: string;
   onCopyResumeCommand: (agentId: string) => Promise<void> | void;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
+  onReloadAgent: (agentId: string) => Promise<void> | void;
   onCloseTab: (tabId: string) => Promise<void> | void;
   onCloseTabsBefore: (tabId: string) => Promise<void> | void;
   onCloseTabsAfter: (tabId: string) => Promise<void> | void;
@@ -40,6 +48,7 @@ interface BuildWorkspaceDesktopTabActionsInput {
   tabCount: number;
   onCopyResumeCommand: (agentId: string) => Promise<void> | void;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
+  onReloadAgent: (agentId: string) => Promise<void> | void;
   onCloseTab: (tabId: string) => Promise<void> | void;
   onCloseTabsToLeft: (tabId: string) => Promise<void> | void;
   onCloseTabsToRight: (tabId: string) => Promise<void> | void;
@@ -95,6 +104,7 @@ export function buildWorkspaceTabMenuEntries(
     menuTestIDBase,
     onCopyResumeCommand,
     onCopyAgentId,
+    onReloadAgent,
     onCloseTab,
     onCloseTabsBefore,
     onCloseTabsAfter,
@@ -126,6 +136,17 @@ export function buildWorkspaceTabMenuEntries(
       testID: `${menuTestIDBase}-copy-agent-id`,
       onSelect: () => {
         void onCopyAgentId(agentId);
+      },
+    });
+    entries.push({
+      kind: "item",
+      key: "reload-agent",
+      label: "Reload agent",
+      icon: "rotate-cw",
+      tooltip: "Reload agent to update skills, MCPs or login status.",
+      testID: `${menuTestIDBase}-reload-agent`,
+      onSelect: () => {
+        void onReloadAgent(agentId);
       },
     });
     entries.push({
@@ -195,6 +216,7 @@ export function buildWorkspaceDesktopTabActions(
       menuTestIDBase: contextMenuTestId,
       onCopyResumeCommand: input.onCopyResumeCommand,
       onCopyAgentId: input.onCopyAgentId,
+      onReloadAgent: input.onReloadAgent,
       onCloseTab: input.onCloseTab,
       onCloseTabsBefore: input.onCloseTabsToLeft,
       onCloseTabsAfter: input.onCloseTabsToRight,

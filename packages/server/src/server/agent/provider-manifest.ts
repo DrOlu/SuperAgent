@@ -60,17 +60,9 @@ const CLAUDE_MODES: AgentProviderModeDefinition[] = [
 
 const CODEX_MODES: AgentProviderModeDefinition[] = [
   {
-    id: "read-only",
-    label: "Read Only",
-    description:
-      "Read files and answer questions. Manual approval required for edits, commands, or network ops.",
-    icon: "ShieldCheck",
-    colorTier: "safe",
-  },
-  {
     id: "auto",
-    label: "Auto",
-    description: "Edit files and run commands but still request approval before escalating scope.",
+    label: "Default Permissions",
+    description: "Edit files and run commands with Codex's default approval flow.",
     icon: "ShieldAlert",
     colorTier: "moderate",
   },
@@ -138,18 +130,6 @@ export const AGENT_PROVIDER_DEFINITIONS: AgentProviderDefinition[] = [
     },
   },
   {
-    id: "claude-acp",
-    label: "Claude ACP",
-    description: "Claude Code via Agent Client Protocol with streaming, permissions, and session resume",
-    defaultModeId: "default",
-    modes: CLAUDE_MODES,
-    voice: {
-      enabled: true,
-      defaultModeId: "default",
-      defaultModel: "haiku",
-    },
-  },
-  {
     id: "codex",
     label: "Codex",
     description: "OpenAI's Codex workspace agent with sandbox controls and optional network access",
@@ -157,7 +137,7 @@ export const AGENT_PROVIDER_DEFINITIONS: AgentProviderDefinition[] = [
     modes: CODEX_MODES,
     voice: {
       enabled: true,
-      defaultModeId: "read-only",
+      defaultModeId: "auto",
       defaultModel: "gpt-5.1-codex-mini",
     },
   },
@@ -200,6 +180,13 @@ export const AGENT_PROVIDER_DEFINITIONS: AgentProviderDefinition[] = [
       defaultModeId: "build",
     },
   },
+  {
+    id: "pi",
+    label: "Pi",
+    description: "Minimal terminal-based coding agent with multi-provider LLM support",
+    defaultModeId: null,
+    modes: [],
+  },
 ];
 
 export function getAgentProviderDefinition(provider: string): AgentProviderDefinition {
@@ -210,12 +197,9 @@ export function getAgentProviderDefinition(provider: string): AgentProviderDefin
   return definition;
 }
 
-export const AGENT_PROVIDER_IDS = AGENT_PROVIDER_DEFINITIONS.map((d) => d.id) as [
-  string,
-  ...string[],
-];
+export const AGENT_PROVIDER_IDS = AGENT_PROVIDER_DEFINITIONS.map((d) => d.id);
 
-export const AgentProviderSchema = z.enum(AGENT_PROVIDER_IDS);
+export const AgentProviderSchema = z.string();
 
 export function isValidAgentProvider(value: string): boolean {
   return AGENT_PROVIDER_IDS.includes(value);

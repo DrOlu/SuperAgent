@@ -109,6 +109,10 @@ function buildCanonicalDetailDisplay(input: ToolCallDisplayInput): DetailDisplay
       return {
         summary: input.detail.label,
       };
+    case "plan":
+      return {
+        displayName: "Plan",
+      };
     case "unknown":
       return {};
   }

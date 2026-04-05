@@ -38,7 +38,9 @@ import type {
   ArchiveWorkspaceResponseMessage,
   WorkspaceSetupStatusResponseMessage,
   ListCommandsResponse,
+  ListProviderFeaturesResponseMessage,
   ListProviderModelsResponseMessage,
+  ListProviderModesResponseMessage,
   ListAvailableProvidersResponse,
   ListTerminalsResponse,
   CreateTerminalResponse,
@@ -158,6 +160,7 @@ export type DaemonClientConfig = {
   url: string;
   clientId: string;
   clientType?: "mobile" | "browser" | "cli" | "mcp";
+  appVersion?: string;
   runtimeGeneration?: number | null;
   authHeader?: string;
   suppressSendErrors?: boolean;
@@ -221,12 +224,14 @@ type CreatePaseoWorktreePayload = Extract<
 >["payload"];
 type FileExplorerPayload = FileExplorerResponse["payload"];
 type FileDownloadTokenPayload = FileDownloadTokenResponse["payload"];
+type ListProviderFeaturesPayload = ListProviderFeaturesResponseMessage["payload"];
 type ListProviderModelsPayload = ListProviderModelsResponseMessage["payload"];
+type ListProviderModesPayload = ListProviderModesResponseMessage["payload"];
 type ListAvailableProvidersPayload = ListAvailableProvidersResponse["payload"];
 type ListCommandsPayload = ListCommandsResponse["payload"];
 type ListCommandsDraftConfig = Pick<
   AgentSessionConfig,
-  "provider" | "cwd" | "modeId" | "model" | "thinkingOptionId"
+  "provider" | "cwd" | "modeId" | "model" | "thinkingOptionId" | "featureValues"
 >;
 type ListCommandsOptions = {
   requestId?: string;
@@ -1423,7 +1428,7 @@ export class DaemonClient {
     const status = await this.sendRequest({
       requestId,
       message,
-      timeout: 15000,
+      timeout: 60000,
       options: { skipQueue: true },
       select: (msg) => {
         if (msg.type !== "status") {
@@ -1724,6 +1729,35 @@ export class DaemonClient {
     });
     if (!payload.accepted) {
       throw new Error(payload.error ?? "setAgentModel rejected");
+    }
+  }
+
+  async setAgentFeature(agentId: string, featureId: string, value: unknown): Promise<void> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "set_agent_feature_request",
+      agentId,
+      featureId,
+      value,
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 15000,
+      options: { skipQueue: true },
+      select: (msg) => {
+        if (msg.type !== "set_agent_feature_response") {
+          return null;
+        }
+        if (msg.payload.requestId !== requestId) {
+          return null;
+        }
+        return msg.payload;
+      },
+    });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "setAgentFeature rejected");
     }
   }
 
@@ -2496,6 +2530,37 @@ export class DaemonClient {
     });
   }
 
+  async listProviderModes(
+    provider: AgentProvider,
+    options?: { cwd?: string; requestId?: string },
+  ): Promise<ListProviderModesPayload> {
+    return this.sendCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "list_provider_modes_request",
+        provider,
+        cwd: options?.cwd,
+      },
+      responseType: "list_provider_modes_response",
+      timeout: 45000,
+    });
+  }
+
+  async listProviderFeatures(
+    draftConfig: ListCommandsDraftConfig,
+    options?: { requestId?: string },
+  ): Promise<ListProviderFeaturesPayload> {
+    return this.sendCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "list_provider_features_request",
+        draftConfig,
+      },
+      responseType: "list_provider_features_response",
+      timeout: 45000,
+    });
+  }
+
   async listAvailableProviders(options?: {
     requestId?: string;
   }): Promise<ListAvailableProvidersPayload> {
@@ -3247,6 +3312,7 @@ export class DaemonClient {
           clientId: this.config.clientId,
           clientType: this.config.clientType ?? "cli",
           protocolVersion: 1,
+          ...(this.config.appVersion ? { appVersion: this.config.appVersion } : {}),
         }),
       );
     } catch (error) {

@@ -64,6 +64,29 @@ export type AgentSelectOption = {
   metadata?: AgentMetadata;
 };
 
+export type AgentFeatureToggle = {
+  type: "toggle";
+  id: string;
+  label: string;
+  description?: string;
+  tooltip?: string;
+  icon?: string;
+  value: boolean;
+};
+
+export type AgentFeatureSelect = {
+  type: "select";
+  id: string;
+  label: string;
+  description?: string;
+  tooltip?: string;
+  icon?: string;
+  value: string | null;
+  options: AgentSelectOption[];
+};
+
+export type AgentFeature = AgentFeatureToggle | AgentFeatureSelect;
+
 export type AgentCapabilityFlags = {
   supportsStreaming: boolean;
   supportsSessionPersistence: boolean;
@@ -201,6 +224,10 @@ export type ToolCallDetail =
       label?: string;
       text?: string;
       icon?: ToolCallIconName;
+    }
+  | {
+      type: "plan";
+      text: string;
     }
   | {
       type: "unknown";
@@ -368,6 +395,7 @@ export type AgentSessionConfig = {
   modeId?: string;
   model?: string;
   thinkingOptionId?: string;
+  featureValues?: Record<string, unknown>;
   title?: string | null;
   approvalPolicy?: string;
   sandboxMode?: string;
@@ -393,6 +421,7 @@ export interface AgentSession {
   readonly provider: AgentProvider;
   readonly id: string | null;
   readonly capabilities: AgentCapabilityFlags;
+  readonly features?: AgentFeature[];
   run(prompt: AgentPromptInput, options?: AgentRunOptions): Promise<AgentRunResult>;
   startTurn(prompt: AgentPromptInput, options?: AgentRunOptions): Promise<{ turnId: string }>;
   subscribe(callback: (event: AgentStreamEvent) => void): () => void;
@@ -409,9 +438,14 @@ export interface AgentSession {
   listCommands?(): Promise<AgentSlashCommand[]>;
   setModel?(modelId: string | null): Promise<void>;
   setThinkingOption?(thinkingOptionId: string | null): Promise<void>;
+  setFeature?(featureId: string, value: unknown): Promise<void>;
 }
 
 export interface ListModelsOptions {
+  cwd?: string;
+}
+
+export interface ListModesOptions {
   cwd?: string;
 }
 
@@ -428,6 +462,7 @@ export interface AgentClient {
     launchContext?: AgentLaunchContext,
   ): Promise<AgentSession>;
   listModels(options?: ListModelsOptions): Promise<AgentModelDefinition[]>;
+  listModes?(options?: ListModesOptions): Promise<AgentMode[]>;
   listPersistedAgents?(options?: ListPersistedAgentsOptions): Promise<PersistedAgentDescriptor[]>;
   /**
    * Check if this provider is available (CLI binary is installed).

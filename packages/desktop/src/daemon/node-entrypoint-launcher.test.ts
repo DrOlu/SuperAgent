@@ -62,6 +62,20 @@ describe("node-entrypoint-launcher", () => {
       ).toEqual(["--version"]);
     });
 
+    it("passes --open-project through as a normal CLI arg", () => {
+      expect(
+        parseCliPassthroughArgsFromArgv({
+          argv: [
+            "/Applications/Paseo.app/Contents/MacOS/Paseo",
+            "--open-project",
+            "/tmp/project",
+          ],
+          isDefaultApp: false,
+          forceCli: false,
+        }),
+      ).toEqual(["--open-project", "/tmp/project"]);
+    });
+
     it("forces CLI mode for shim launches even without args", () => {
       expect(
         parseCliPassthroughArgsFromArgv({
@@ -81,15 +95,16 @@ describe("node-entrypoint-launcher", () => {
           isPackaged: true,
           packagedRunnerPath: "/Applications/Paseo.app/Contents/Resources/app.asar/dist/daemon/node-entrypoint-runner.js",
           entrypoint: CLI_ENTRYPOINT,
-          argvMode: "bare",
+          argvMode: "node-script",
           args: ["ls", "--json"],
           baseEnv: { PATH: "/usr/bin" },
         }),
       ).toEqual({
         command: "/Applications/Paseo.app/Contents/MacOS/Paseo",
         args: [
+          "--disable-warning=DEP0040",
           "/Applications/Paseo.app/Contents/Resources/app.asar/dist/daemon/node-entrypoint-runner.js",
-          "bare",
+          "node-script",
           "/tmp/paseo-cli.js",
           "ls",
           "--json",
@@ -108,7 +123,7 @@ describe("node-entrypoint-launcher", () => {
           isPackaged: false,
           packagedRunnerPath: null,
           entrypoint: CLI_ENTRYPOINT,
-          argvMode: "bare",
+          argvMode: "node-script",
           args: ["ls"],
           baseEnv: { PATH: "/usr/bin" },
         }),
@@ -136,6 +151,7 @@ describe("node-entrypoint-launcher", () => {
       ).toEqual({
         command: "/Applications/Paseo.app/Contents/MacOS/Paseo",
         args: [
+          "--disable-warning=DEP0040",
           "/Applications/Paseo.app/Contents/Resources/app.asar/dist/daemon/node-entrypoint-runner.js",
           "node-script",
           "/tmp/paseo-cli.js",

@@ -71,6 +71,7 @@ import { getMarkdownListMarker } from "@/utils/markdown-list";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { markScrollInvestigationEvent } from "@/utils/scroll-jank-investigation";
 export type { InlinePathTarget } from "@/utils/inline-path";
+import { PlanCard } from "./plan-card";
 import { useToolCallSheet } from "./tool-call-sheet";
 import { ToolCallDetailsContent } from "./tool-call-details";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
@@ -716,13 +717,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   workspaceRoot,
   disableOuterSpacing,
 }: AssistantMessageProps) {
-  // DEBUG: log when AssistantMessage actually renders (inside memo boundary)
-  console.log("[AssistantMessage] render", {
-    messageLength: message?.length,
-    timestamp,
-    hasOnInlinePathPress: !!onInlinePathPress,
-  });
-
   const { theme, rt } = useUnistyles();
   const resolvedDisableOuterSpacing = useDisableOuterSpacing(disableOuterSpacing);
 
@@ -1764,9 +1758,6 @@ export const ToolCall = memo(function ToolCall({
   onInlineDetailsHoverChange,
   onInlineDetailsExpandedChange,
 }: ToolCallProps) {
-  // DEBUG: log when ToolCall actually renders (inside memo boundary)
-  console.log("[ToolCall] render", { toolName, status });
-
   const { openToolCall } = useToolCallSheet();
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -1883,6 +1874,12 @@ export const ToolCall = memo(function ToolCall({
       />
     );
   }, [isMobile, effectiveDetail, errorText, isLoadingDetails]);
+
+  if (effectiveDetail?.type === "plan") {
+    return (
+      <PlanCard title="Plan" text={effectiveDetail.text} disableOuterSpacing={disableOuterSpacing} />
+    );
+  }
 
   return (
     <ExpandableBadge

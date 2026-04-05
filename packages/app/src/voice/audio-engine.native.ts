@@ -14,20 +14,6 @@ interface AudioEngineTraceOptions {
   traceLabel?: string;
 }
 
-let nextAudioEngineInstanceId = 1;
-
-interface BridgeStats {
-  windowStartedAtMs: number;
-  captureEvents: number;
-  captureBytes: number;
-  volumeEvents: number;
-  volumeMax: number;
-  playbackEvents: number;
-  playbackInputBytes: number;
-  playbackResampledBytes: number;
-  playbackDurationMs: number;
-}
-
 function parsePcmSampleRate(mimeType: string): number | null {
   const match = /rate=(\d+)/i.exec(mimeType);
   if (!match) {
@@ -85,48 +71,6 @@ export function createAudioEngine(
   _options?: AudioEngineTraceOptions,
 ): AudioEngine {
   const native = require("@getpaseo/expo-two-way-audio");
-  const instanceId = nextAudioEngineInstanceId++;
-  const bridgeStats: BridgeStats = {
-    windowStartedAtMs: Date.now(),
-    captureEvents: 0,
-    captureBytes: 0,
-    volumeEvents: 0,
-    volumeMax: 0,
-    playbackEvents: 0,
-    playbackInputBytes: 0,
-    playbackResampledBytes: 0,
-    playbackDurationMs: 0,
-  };
-
-  const toHexPreview = (bytes: Uint8Array, count = 12): string =>
-    Array.from(bytes.slice(0, count))
-      .map((value) => value.toString(16).padStart(2, "0"))
-      .join(" ");
-
-  const maybeFlushBridgeStats = (reason: string): void => {
-    const now = Date.now();
-    const elapsedMs = now - bridgeStats.windowStartedAtMs;
-    if (elapsedMs < 1000) {
-      return;
-    }
-    console.log(
-      `[AudioEngine.native#${instanceId}][bridge] ${reason} ` +
-        `capture=${bridgeStats.captureEvents}ev/${bridgeStats.captureBytes}B ` +
-        `volume=${bridgeStats.volumeEvents}ev max=${bridgeStats.volumeMax.toFixed(3)} ` +
-        `play=${bridgeStats.playbackEvents}ev/${bridgeStats.playbackInputBytes}B->${bridgeStats.playbackResampledBytes}B ` +
-        `playMs=${bridgeStats.playbackDurationMs.toFixed(1)} ` +
-        `windowMs=${elapsedMs}`,
-    );
-    bridgeStats.windowStartedAtMs = now;
-    bridgeStats.captureEvents = 0;
-    bridgeStats.captureBytes = 0;
-    bridgeStats.volumeEvents = 0;
-    bridgeStats.volumeMax = 0;
-    bridgeStats.playbackEvents = 0;
-    bridgeStats.playbackInputBytes = 0;
-    bridgeStats.playbackResampledBytes = 0;
-    bridgeStats.playbackDurationMs = 0;
-  };
 
   const refs: {
     initialized: boolean;
@@ -140,8 +84,6 @@ export function createAudioEngine(
       reject: (error: Error) => void;
       settled: boolean;
     } | null;
-    sawFirstMicChunk: boolean;
-    sawFirstVolumeEvent: boolean;
     destroyed: boolean;
   } = {
     initialized: false,
@@ -151,8 +93,6 @@ export function createAudioEngine(
     processingQueue: false,
     playbackTimeout: null,
     activePlayback: null,
-    sawFirstMicChunk: false,
-    sawFirstVolumeEvent: false,
     destroyed: false,
   };
 
@@ -163,15 +103,6 @@ export function createAudioEngine(
         return;
       }
       const pcm = event.data as Uint8Array;
-      if (!refs.sawFirstMicChunk) {
-        refs.sawFirstMicChunk = true;
-        console.log(
-          `[AudioEngine.native#${instanceId}] firstMicChunk bytes=${pcm.byteLength} head=${toHexPreview(pcm)}`,
-        );
-      }
-      bridgeStats.captureEvents += 1;
-      bridgeStats.captureBytes += pcm.byteLength;
-      maybeFlushBridgeStats("capture");
       callbacks.onCaptureData(pcm);
     },
   );
@@ -182,23 +113,7 @@ export function createAudioEngine(
         return;
       }
       const level = refs.muted ? 0 : event.data;
-      bridgeStats.volumeEvents += 1;
-      bridgeStats.volumeMax = Math.max(bridgeStats.volumeMax, level);
-      if (!refs.sawFirstVolumeEvent) {
-        refs.sawFirstVolumeEvent = true;
-        console.log(
-          `[AudioEngine.native#${instanceId}] firstInputVolume level=${level.toFixed(3)} muted=${refs.muted}`,
-        );
-      }
-      maybeFlushBridgeStats("volume");
       callbacks.onVolumeLevel(level);
-    },
-  );
-
-  const outputVolumeSubscription = native.addExpoTwoWayAudioEventListener(
-    "onOutputVolumeLevelData",
-    (event: any) => {
-      console.log(`[AudioEngine.native#${instanceId}] outputVolume=${event.data}`);
     },
   );
 
@@ -210,20 +125,13 @@ export function createAudioEngine(
     if (!success) {
       throw new Error("expo-two-way-audio: native initialize() returned false");
     }
-    console.log(`[AudioEngine.native#${instanceId}] initialized successfully`);
     refs.initialized = true;
   }
 
   async function ensureMicrophonePermission(): Promise<void> {
     let permission = await native.getMicrophonePermissionsAsync().catch(() => null);
-    console.log(
-      `[AudioEngine.native#${instanceId}] microphonePermission initial=${permission?.status ?? "unknown"} granted=${String(permission?.granted ?? false)}`,
-    );
     if (!permission?.granted) {
       permission = await native.requestMicrophonePermissionsAsync().catch(() => null);
-      console.log(
-        `[AudioEngine.native#${instanceId}] microphonePermission requested=${permission?.status ?? "unknown"} granted=${String(permission?.granted ?? false)}`,
-      );
     }
     if (!permission?.granted) {
       throw new Error(
@@ -253,17 +161,6 @@ export function createAudioEngine(
         // Native AudioEngine expects 16kHz PCM16
         const pcm16k = resamplePcm16(pcm, inputRate, 16000);
         const durationSec = pcm16k.length / 2 / 16000;
-        bridgeStats.playbackEvents += 1;
-        bridgeStats.playbackInputBytes += pcm.length;
-        bridgeStats.playbackResampledBytes += pcm16k.length;
-        bridgeStats.playbackDurationMs += durationSec * 1000;
-
-        console.log(
-          `[AudioEngine.native#${instanceId}] playPCMData: inputRate=${inputRate} inputBytes=${pcm.length} ` +
-            `resampled=${pcm16k.length} durationSec=${durationSec.toFixed(3)} ` +
-            `pcmHead=${toHexPreview(pcm)} resampledHead=${toHexPreview(pcm16k)}`,
-        );
-        maybeFlushBridgeStats("play");
 
         native.resumePlayback();
         native.playPCMData(pcm16k);
@@ -334,26 +231,18 @@ export function createAudioEngine(
       }
       microphoneSubscription.remove();
       volumeSubscription.remove();
-      outputVolumeSubscription.remove();
     },
 
     async startCapture() {
       if (refs.captureActive) {
-        console.log(`[AudioEngine.native#${instanceId}] startCapture skipped: already active`);
         return;
       }
 
       try {
-        console.log(`[AudioEngine.native#${instanceId}] startCapture begin`);
         await ensureMicrophonePermission();
         await ensureInitialized();
-        refs.sawFirstMicChunk = false;
-        refs.sawFirstVolumeEvent = false;
-        const isRecording = native.toggleRecording(true);
+        native.toggleRecording(true);
         refs.captureActive = true;
-        console.log(
-          `[AudioEngine.native#${instanceId}] startCapture toggleRecording(true) => ${String(isRecording)}`,
-        );
       } catch (error) {
         const wrapped = error instanceof Error ? error : new Error(String(error));
         callbacks.onError?.(wrapped);
@@ -363,10 +252,7 @@ export function createAudioEngine(
 
     async stopCapture() {
       if (refs.captureActive) {
-        const isRecording = native.toggleRecording(false);
-        console.log(
-          `[AudioEngine.native#${instanceId}] stopCapture toggleRecording(false) => ${String(isRecording)}`,
-        );
+        native.toggleRecording(false);
       }
       refs.captureActive = false;
       refs.muted = false;

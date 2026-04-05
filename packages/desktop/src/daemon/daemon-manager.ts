@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { app, ipcMain } from "electron";
 import log from "electron-log/main";
-import { resolvePaseoHome, getOrCreateServerId } from "@getpaseo/server";
+import { resolvePaseoHome } from "@getpaseo/server";
 import {
   copyAttachmentFileToManagedStorage,
   deleteManagedAttachmentFile,
@@ -13,6 +13,12 @@ import {
 } from "../features/attachments.js";
 import { checkForAppUpdate, downloadAndInstallUpdate } from "../features/auto-updater.js";
 import {
+  installCli,
+  getCliInstallStatus,
+  installSkills,
+  getSkillsInstallStatus,
+} from "../integrations/integrations-manager.js";
+import {
   openLocalTransportSession,
   sendLocalTransportMessage,
   closeLocalTransportSession,
@@ -21,10 +27,10 @@ import {
   createNodeEntrypointInvocation,
   resolveDaemonRunnerEntrypoint,
   runCliJsonCommand,
+  runCliTextCommand,
 } from "./runtime-paths.js";
 
 const DAEMON_LOG_FILENAME = "daemon.log";
-const DAEMON_PID_FILENAME = "paseo.pid";
 const PID_POLL_INTERVAL_MS = 100;
 const STARTUP_POLL_INTERVAL_MS = 200;
 const STARTUP_POLL_MAX_ATTEMPTS = 150;
@@ -41,6 +47,8 @@ type DesktopDaemonStatus = {
   hostname: string | null;
   pid: number | null;
   home: string;
+  version: string | null;
+  desktopManaged: boolean;
   error: string | null;
 };
 
@@ -55,12 +63,6 @@ type DesktopPairingOffer = {
   qr: string | null;
 };
 
-type CliSymlinkInstructions = {
-  title: string;
-  detail: string;
-  commands: string;
-};
-
 type DesktopCommandHandler = (args?: Record<string, unknown>) => Promise<unknown> | unknown;
 
 // ---------------------------------------------------------------------------
@@ -69,10 +71,6 @@ type DesktopCommandHandler = (args?: Record<string, unknown>) => Promise<unknown
 
 function getPaseoHome(): string {
   return resolvePaseoHome(process.env);
-}
-
-function pidFilePath(): string {
-  return path.join(getPaseoHome(), DAEMON_PID_FILENAME);
 }
 
 function logFilePath(): string {
@@ -164,41 +162,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function resolveTcpHostFromListen(listen: string): string | null {
-  const normalized = listen.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  if (
-    normalized.startsWith("/") ||
-    normalized.startsWith("unix://") ||
-    normalized.startsWith("pipe://") ||
-    normalized.startsWith("\\\\.\\pipe\\") ||
-    /^[A-Za-z]:[/\\]/.test(normalized)
-  ) {
-    return null;
-  }
-
-  if (/^\d+$/.test(normalized)) {
-    return `127.0.0.1:${normalized}`;
-  }
-
-  if (normalized.includes(":")) {
-    return normalized;
-  }
-
-  return null;
-}
-
-function buildDaemonHttpBaseUrl(listen: string): string | null {
-  const endpoint = resolveTcpHostFromListen(listen);
-  if (!endpoint) {
-    return null;
-  }
-  return new URL(`http://${endpoint}`).toString().replace(/\/$/, "");
-}
-
 function resolveDesktopAppVersion(): string {
   if (app.isPackaged) {
     return app.getVersion();
@@ -223,57 +186,69 @@ function resolveDesktopAppVersion(): string {
 // Daemon lifecycle
 // ---------------------------------------------------------------------------
 
-function resolveStatus(): DesktopDaemonStatus {
+async function resolveStatus(): Promise<DesktopDaemonStatus> {
   const home = getPaseoHome();
-  const pidPath = pidFilePath();
-
-  let pid: number | null = null;
-  let hostname: string | null = null;
-  let listen: string | null = null;
 
   try {
-    if (existsSync(pidPath)) {
-      const parsed = JSON.parse(readFileSync(pidPath, "utf-8")) as Record<string, unknown>;
-      const pidValue = parsed.pid;
-      if (typeof pidValue === "number" && Number.isInteger(pidValue) && pidValue > 0) {
-        pid = pidValue;
-        hostname = typeof parsed.hostname === "string" ? parsed.hostname : null;
-        const pidListen =
-          typeof parsed.listen === "string"
-            ? parsed.listen
-            : typeof parsed.sockPath === "string"
-              ? (parsed.sockPath as string)
-              : null;
-        listen = pidListen;
-      }
-    }
-  } catch {
-    // PID file missing or malformed — treat as stopped.
+    const payload = (await runCliJsonCommand(["daemon", "status", "--json"])) as Record<
+      string,
+      unknown
+    >;
+    const localDaemon = typeof payload.localDaemon === "string" ? payload.localDaemon : "stopped";
+    const running = localDaemon === "running";
+
+    return {
+      serverId: typeof payload.serverId === "string" ? payload.serverId : "",
+      status: running ? "running" : "stopped",
+      listen: typeof payload.listen === "string" ? payload.listen : null,
+      hostname: running && typeof payload.hostname === "string" ? payload.hostname : null,
+      pid: running && typeof payload.pid === "number" ? payload.pid : null,
+      home,
+      version: typeof payload.daemonVersion === "string" ? payload.daemonVersion : null,
+      desktopManaged: payload.desktopManaged === true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      serverId: "",
+      status: "stopped",
+      listen: null,
+      hostname: null,
+      pid: null,
+      home,
+      version: null,
+      desktopManaged: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
+}
 
-  const running = pid !== null && isProcessRunning(pid);
-
-  let serverId = "";
-  try {
-    serverId = getOrCreateServerId(home);
-  } catch {
-    // Ignore — server-id may not exist yet.
-  }
-
-  return {
-    serverId,
-    status: running ? "running" : "stopped",
-    listen,
-    hostname: running ? hostname : null,
-    pid: running ? pid : null,
-    home,
-    error: null,
-  };
+function normalizeVersion(version: string | null): string | null {
+  const trimmed = version?.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/^v/i, "");
 }
 
 async function startDaemon(): Promise<DesktopDaemonStatus> {
-  const current = resolveStatus();
-  if (current.status === "running") return current;
+  const current = await resolveStatus();
+  if (current.status === "running") {
+    const appVersion = normalizeVersion(resolveDesktopAppVersion());
+    const daemonVersion = normalizeVersion(current.version);
+    if (
+      current.desktopManaged &&
+      appVersion &&
+      daemonVersion &&
+      appVersion !== daemonVersion
+    ) {
+      logDesktopDaemonLifecycle("daemon version mismatch, restarting", {
+        appVersion,
+        daemonVersion,
+      });
+      await stopDaemon();
+    } else {
+      return current;
+    }
+  }
 
   const daemonRunner = resolveDaemonRunnerEntrypoint();
   const invocation = createNodeEntrypointInvocation({
@@ -296,7 +271,7 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
     invocation.args,
     {
       detached: true,
-      env: invocation.env,
+      env: { ...invocation.env, PASEO_DESKTOP_MANAGED: "1" },
       stdio: ["ignore", "ignore", "ignore"],
     },
   );
@@ -348,7 +323,7 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
 
   // Poll for PID file with server ID
   for (let attempt = 0; attempt < STARTUP_POLL_MAX_ATTEMPTS; attempt++) {
-    const status = resolveStatus();
+    const status = await resolveStatus();
     if (attempt === 0 || attempt === STARTUP_POLL_MAX_ATTEMPTS - 1 || attempt % 10 === 9) {
       logDesktopDaemonLifecycle("polling daemon status after detached start", {
         attempt: attempt + 1,
@@ -362,11 +337,11 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
     await sleep(STARTUP_POLL_INTERVAL_MS);
   }
 
-  return resolveStatus();
+  return await resolveStatus();
 }
 
 async function stopDaemon(): Promise<DesktopDaemonStatus> {
-  const status = resolveStatus();
+  const status = await resolveStatus();
   if (status.status !== "running" || !status.pid) return status;
 
   const pid = status.pid;
@@ -382,7 +357,7 @@ async function stopDaemon(): Promise<DesktopDaemonStatus> {
     throw new Error(`Timed out waiting for daemon PID ${pid} to stop`);
   }
 
-  return resolveStatus();
+  return await resolveStatus();
 }
 
 async function restartDaemon(): Promise<DesktopDaemonStatus> {
@@ -398,8 +373,12 @@ function getDaemonLogs(): DesktopDaemonLogs {
   };
 }
 
+async function getCliDaemonStatus(): Promise<string> {
+  return await runCliTextCommand(["daemon", "status"]);
+}
+
 async function getDaemonPairing(): Promise<DesktopPairingOffer> {
-  const status = resolveStatus();
+  const status = await resolveStatus();
   if (status.status !== "running") {
     return {
       relayEnabled: false,
@@ -409,7 +388,7 @@ async function getDaemonPairing(): Promise<DesktopPairingOffer> {
   }
 
   try {
-    const payload = runCliJsonCommand(["daemon", "pair", "--json"]);
+    const payload = await runCliJsonCommand(["daemon", "pair", "--json"]);
     if (!isRecord(payload)) {
       throw new Error("Daemon pairing response was not an object.");
     }
@@ -428,84 +407,19 @@ async function getDaemonPairing(): Promise<DesktopPairingOffer> {
   }
 }
 
-async function getLocalDaemonVersion(): Promise<{
-  version: string | null;
-  error: string | null;
-}> {
-  const status = resolveStatus();
+async function getLocalDaemonVersion(): Promise<{ version: string | null; error: string | null }> {
+  const status = await resolveStatus();
   if (status.status !== "running") {
-    return {
-      version: null,
-      error: "Daemon is not running.",
-    };
+    return { version: null, error: "Daemon is not running." };
   }
-
-  if (!status.listen) {
-    return { version: null, error: "Daemon listen target is unavailable." };
-  }
-
-  const baseUrl = buildDaemonHttpBaseUrl(status.listen);
-  if (!baseUrl) {
-    return { version: null, error: `Daemon listen target is not a TCP endpoint: ${status.listen}` };
-  }
-
-  try {
-    const response = await fetch(`${baseUrl}/api/status`);
-    if (!response.ok) {
-      return { version: null, error: `Daemon status request failed with ${response.status}` };
-    }
-    const payload = (await response.json()) as Record<string, unknown>;
-    const version = typeof payload.version === "string" ? payload.version.trim() : null;
-    return {
-      version: version && version.length > 0 ? version : null,
-      error: version ? null : "Running daemon did not report a version.",
-    };
-  } catch (error) {
-    return {
-      version: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-async function resolveCurrentUpdateVersion(): Promise<string> {
-  const daemonVersion = await getLocalDaemonVersion();
-  if (daemonVersion.version) {
-    return daemonVersion.version;
-  }
-  return resolveDesktopAppVersion();
-}
-
-function getCliSymlinkInstructions(): CliSymlinkInstructions {
-  const electronExePath = app.getPath("exe");
-  const cliShimFilename = process.platform === "win32" ? "paseo.cmd" : "paseo";
-
-  if (process.platform === "darwin") {
-    const appBundle = electronExePath.replace(/\/Contents\/MacOS\/.+$/, "");
-    const cliPath = path.join(appBundle, "Contents", "Resources", "bin", cliShimFilename);
-    return {
-      title: "Add paseo to your shell",
-      detail: "Create a symlink to the bundled Paseo CLI shim.",
-      commands: `sudo ln -sf "${cliPath}" /usr/local/bin/paseo`,
-    };
-  }
-
-  if (process.platform === "win32") {
-    const cliPath = path.join(path.dirname(electronExePath), "resources", "bin", cliShimFilename);
-    return {
-      title: "Add paseo to your PATH",
-      detail: "Add the Paseo installation directory to your system PATH so paseo.cmd is available.",
-      commands: `setx PATH "%PATH%;${path.dirname(cliPath)}"`,
-    };
-  }
-
-  // Linux
-  const cliPath = path.join(path.dirname(electronExePath), "resources", "bin", cliShimFilename);
   return {
-    title: "Add paseo to your shell",
-    detail: "Create a symlink to the bundled Paseo CLI shim.",
-    commands: `sudo ln -sf "${cliPath}" /usr/local/bin/paseo`,
+    version: status.version,
+    error: status.version ? null : "Running daemon did not report a version.",
   };
+}
+
+function resolveCurrentUpdateVersion(): string {
+  return resolveDesktopAppVersion();
 }
 
 // ---------------------------------------------------------------------------
@@ -520,7 +434,7 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     restart_desktop_daemon: () => restartDaemon(),
     desktop_daemon_logs: () => getDaemonLogs(),
     desktop_daemon_pairing: () => getDaemonPairing(),
-    cli_symlink_instructions: () => getCliSymlinkInstructions(),
+    cli_daemon_status: () => getCliDaemonStatus(),
     write_attachment_base64: (args) => writeAttachmentBase64(args ?? {}),
     copy_attachment_file: (args) => copyAttachmentFileToManagedStorage(args ?? {}),
     read_file_base64: (args) => readManagedFileBase64(args ?? {}),
@@ -548,9 +462,15 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     },
     install_app_update: async () => {
       const currentVersion = await resolveCurrentUpdateVersion();
-      return downloadAndInstallUpdate(currentVersion);
+      return downloadAndInstallUpdate(currentVersion, async () => {
+        await stopDaemon();
+      });
     },
     get_local_daemon_version: () => getLocalDaemonVersion(),
+    install_cli: () => installCli(),
+    get_cli_install_status: () => getCliInstallStatus(),
+    install_skills: () => installSkills(),
+    get_skills_install_status: () => getSkillsInstallStatus(),
   };
 }
 

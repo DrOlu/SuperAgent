@@ -78,7 +78,7 @@ Launch agents with lightweight initial prompts. Each agent gets:
 ### Initial prompt template
 
 ```bash
-paseo run -d --mode full-access --provider codex \
+paseo run -d --mode full-access --provider codex/gpt-5.4 \
   --name "impl-<scope>" \
   "You are an implementation engineer on a team.
 
@@ -114,10 +114,10 @@ Pick the right provider for each role:
 
 | Role | Provider | Why |
 |---|---|---|
-| Implementation | `codex` / `gpt-5.4` | Thorough, methodical, good at deep implementation |
-| Review / Audit | `claude` / `opus` | Good design instinct, catches over-engineering |
-| Investigation | `claude` / `opus` | Strong reasoning, good at tracing code paths |
-| Planning | `claude` / `opus` with `--thinking on` | Extended thinking for complex problems |
+| Implementation | `--provider codex/gpt-5.4` | Thorough, methodical, good at deep implementation |
+| Review / Audit | `--provider claude/opus` | Good design instinct, catches over-engineering |
+| Investigation | `--provider claude/opus` | Strong reasoning, good at tracing code paths |
+| Planning | `--provider claude/opus --thinking on` | Extended thinking for complex problems |
 
 Cross-provider review: Codex implements → Claude reviews. Claude implements → Codex reviews. Each catches the other's blind spots.
 
@@ -179,7 +179,7 @@ paseo stop <old-agent-id>
 # (archiving happens automatically if the agent was part of a loop with --archive)
 
 # Launch a fresh one
-paseo run -d --mode full-access --provider codex \
+paseo run -d --mode full-access --provider codex/gpt-5.4 \
   --name "impl-<scope>-v2" \
   "You are picking up work from a previous agent. Load the paseo-chat skill. Read room '<room>' from the beginning to catch up on the full history — the objective, what was done, what went wrong. Introduce yourself and continue from where the previous agent left off. @mention <orchestrator-id> when you've caught up." -q
 ```
@@ -191,7 +191,7 @@ The chat room has the full history. The new agent reads it and continues.
 After implementation is done, launch a review agent (opposite provider):
 
 ```bash
-paseo run -d --mode bypassPermissions --model opus \
+paseo run -d --mode bypassPermissions --provider claude/opus \
   --name "review-<scope>" \
   "You are a reviewer on a team. Load the paseo-chat skill. Read room '<room>' to understand the objective and what was implemented.
 

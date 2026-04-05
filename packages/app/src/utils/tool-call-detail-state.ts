@@ -51,6 +51,8 @@ export function hasMeaningfulToolCallDetail(detail: ToolCallDetail | undefined):
       );
     case "plain_text":
       return Boolean(detail.label || detail.text);
+    case "plan":
+      return detail.text.trim().length > 0;
     case "unknown":
       return hasMeaningfulUnknownValue(detail.input) || hasMeaningfulUnknownValue(detail.output);
   }

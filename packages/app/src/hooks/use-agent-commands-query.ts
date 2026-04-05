@@ -16,6 +16,7 @@ export interface DraftCommandConfig {
   modeId?: string;
   model?: string;
   thinkingOptionId?: string;
+  featureValues?: Record<string, unknown>;
 }
 
 function commandsQueryKey(serverId: string, agentId: string, draftConfig?: DraftCommandConfig) {
@@ -28,6 +29,7 @@ function commandsQueryKey(serverId: string, agentId: string, draftConfig?: Draft
     draftConfig?.modeId ?? null,
     draftConfig?.model ?? null,
     draftConfig?.thinkingOptionId ?? null,
+    draftConfig?.featureValues ?? null,
   ] as const;
 }
 

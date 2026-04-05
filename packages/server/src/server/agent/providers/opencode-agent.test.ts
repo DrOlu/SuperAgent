@@ -219,6 +219,42 @@ const hasOpenCode = isBinaryInstalled("opencode");
     rmSync(cwd, { recursive: true, force: true });
   }, 60_000);
 
+  test("custom agents defined in opencode.json appear in available modes", async () => {
+    const cwd = tmpCwd();
+    writeFileSync(
+      path.join(cwd, "opencode.json"),
+      JSON.stringify({
+        agent: {
+          "paseo-test-custom": {
+            description: "Custom agent defined for Paseo integration test",
+            mode: "primary",
+          },
+        },
+      }),
+    );
+
+    const client = new OpenCodeAgentClient(logger);
+    const session = await client.createSession(buildConfig(cwd));
+
+    const modes = await session.getAvailableModes();
+
+    expect(modes.some((mode) => mode.id === "build")).toBe(true);
+    expect(modes.some((mode) => mode.id === "plan")).toBe(true);
+
+    const custom = modes.find((mode) => mode.id === "paseo-test-custom");
+    expect(custom).toBeDefined();
+    expect(custom!.label).toBe("Paseo-test-custom");
+    expect(custom!.description).toBe("Custom agent defined for Paseo integration test");
+
+    // System agents should not appear as selectable modes
+    expect(modes.some((mode) => mode.id === "compaction")).toBe(false);
+    expect(modes.some((mode) => mode.id === "summary")).toBe(false);
+    expect(modes.some((mode) => mode.id === "title")).toBe(false);
+
+    await session.close();
+    rmSync(cwd, { recursive: true, force: true });
+  }, 60_000);
+
   test("plan mode blocks edits while build mode can write files", async () => {
     const cwd = tmpCwd();
     const planFile = path.join(cwd, "plan-mode-output.txt");

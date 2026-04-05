@@ -40,12 +40,9 @@ function shouldBlockInitialAuthoritativeReadyState(input: AgentScreenMachineInpu
   );
 }
 
-export type AgentScreenToastLatch = "none" | "history_refresh" | "sync_error";
-
 export interface AgentScreenMachineMemory {
   hasRenderedReady: boolean;
   lastReadyAgent: AgentScreenAgent | null;
-  activeToastLatch: AgentScreenToastLatch;
   hadInitialSyncFailure: boolean;
 }
 
@@ -55,17 +52,8 @@ export type AgentScreenReadySyncState =
   | {
       status: "catching_up";
       ui: "overlay" | "silent";
-      shouldEmitHistoryRefreshToast: false;
     }
-  | {
-      status: "catching_up";
-      ui: "toast";
-      shouldEmitHistoryRefreshToast: boolean;
-    }
-  | {
-      status: "sync_error";
-      shouldEmitSyncErrorToast: boolean;
-    };
+  | { status: "sync_error" };
 
 export type AgentScreenViewState =
   | {
@@ -99,7 +87,6 @@ export function deriveAgentScreenViewState({
   const nextMemory: AgentScreenMachineMemory = {
     hasRenderedReady: memory.hasRenderedReady,
     lastReadyAgent: memory.lastReadyAgent,
-    activeToastLatch: memory.activeToastLatch,
     hadInitialSyncFailure: memory.hadInitialSyncFailure,
   };
 
@@ -181,45 +168,23 @@ export function deriveAgentScreenViewState({
 
   let sync: AgentScreenReadySyncState;
   if (!input.isConnected) {
-    nextMemory.activeToastLatch = "none";
     sync = { status: "reconnecting" };
   } else if (input.missingAgentState.kind === "error") {
-    const shouldEmitSyncErrorToast = memory.activeToastLatch !== "sync_error";
-    nextMemory.activeToastLatch = "sync_error";
-    sync = {
-      status: "sync_error",
-      shouldEmitSyncErrorToast,
-    };
+    sync = { status: "sync_error" };
   } else if (input.needsAuthoritativeSync || input.isHistorySyncing) {
-    let ui: "overlay" | "toast" | "silent";
+    let ui: "overlay" | "silent";
     if (input.shouldUseOptimisticStream) {
       ui = "silent";
     } else if (input.hasHydratedHistoryBefore) {
-      ui = "toast";
+      ui = "silent";
     } else if (nextMemory.hadInitialSyncFailure) {
       ui = "silent";
     } else {
       ui = "overlay";
     }
 
-    if (ui === "toast") {
-      const shouldEmitHistoryRefreshToast = memory.activeToastLatch !== "history_refresh";
-      nextMemory.activeToastLatch = "history_refresh";
-      sync = {
-        status: "catching_up",
-        ui,
-        shouldEmitHistoryRefreshToast,
-      };
-    } else {
-      nextMemory.activeToastLatch = "none";
-      sync = {
-        status: "catching_up",
-        ui,
-        shouldEmitHistoryRefreshToast: false,
-      };
-    }
+    sync = { status: "catching_up", ui };
   } else {
-    nextMemory.activeToastLatch = "none";
     sync = { status: "idle" };
   }
 
@@ -246,7 +211,6 @@ export function useAgentScreenStateMachine({
   const memoryRef = useRef<AgentScreenMachineMemory>({
     hasRenderedReady: false,
     lastReadyAgent: null,
-    activeToastLatch: "none",
     hadInitialSyncFailure: false,
   });
 
@@ -255,7 +219,6 @@ export function useAgentScreenStateMachine({
     memoryRef.current = {
       hasRenderedReady: false,
       lastReadyAgent: null,
-      activeToastLatch: "none",
       hadInitialSyncFailure: false,
     };
   }

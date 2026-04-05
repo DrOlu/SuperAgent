@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { app } from "electron";
@@ -76,7 +76,7 @@ function resolvePackagedAsarPath(): string {
 }
 
 function resolvePackagedNodeEntrypointRunnerPath(): string {
-  return path.join(resolvePackagedAsarPath(), "dist", "daemon", "node-entrypoint-runner.js");
+  return path.join(process.resourcesPath, "app.asar.unpacked", "dist", "daemon", "node-entrypoint-runner.js");
 }
 
 function assertPathExists(input: { label: string; filePath: string }): string {
@@ -223,7 +223,7 @@ function createCliInvocation(args: string[]): NodeEntrypointInvocation {
   const cli = resolveCliEntrypoint();
   return createNodeEntrypointInvocation({
     entrypoint: cli,
-    argvMode: "bare",
+    argvMode: "node-script",
     args,
     baseEnv: process.env,
   });
@@ -246,30 +246,74 @@ export function runCliPassthroughCommand(args: string[]): number {
   return result.signal ? 1 : 0;
 }
 
-export function runCliJsonCommand(args: string[]): unknown {
+function spawnAsync(
+  command: string,
+  args: string[],
+  options: { env: NodeJS.ProcessEnv },
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      env: options.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+    child.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", reject);
+    child.on("close", (exitCode) => {
+      resolve({ stdout, stderr, exitCode });
+    });
+  });
+}
+
+export async function runCliTextCommand(args: string[]): Promise<string> {
   const invocation = createCliInvocation(args);
-  const result = spawnSync(invocation.command, invocation.args, {
+  const result = await spawnAsync(invocation.command, invocation.args, {
     env: invocation.env,
-    encoding: "utf-8",
-    stdio: ["ignore", "pipe", "pipe"],
   });
 
-  if (result.error) {
-    throw result.error;
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.trim();
+    throw new Error(stderr.length > 0 ? stderr : `CLI command failed with exit code ${result.exitCode}`);
   }
 
-  if (result.status !== 0) {
-    const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
-    throw new Error(stderr.length > 0 ? stderr : `CLI command failed with exit code ${result.status}`);
+  return result.stdout.trimEnd();
+}
+
+export async function runCliJsonCommand(args: string[]): Promise<unknown> {
+  const invocation = createCliInvocation(args);
+  const result = await spawnAsync(invocation.command, invocation.args, {
+    env: invocation.env,
+  });
+
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.trim();
+    throw new Error(stderr.length > 0 ? stderr : `CLI command failed with exit code ${result.exitCode}`);
   }
 
-  const stdout = typeof result.stdout === "string" ? result.stdout.trim() : "";
+  const stdout = result.stdout.trim();
   if (stdout.length === 0) {
     throw new Error("CLI command did not produce JSON output.");
   }
 
+  // The stdout may contain non-JSON preamble (e.g. Node deprecation warnings).
+  // Extract the first valid JSON object or array from the output.
+  const jsonStart = stdout.search(/[{[]/);
+  if (jsonStart < 0) {
+    throw new Error("CLI command output contained no JSON.");
+  }
+  const jsonText = stdout.slice(jsonStart);
+
   try {
-    return JSON.parse(stdout) as unknown;
+    return JSON.parse(jsonText) as unknown;
   } catch (error) {
     throw new Error(
       `CLI command returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,

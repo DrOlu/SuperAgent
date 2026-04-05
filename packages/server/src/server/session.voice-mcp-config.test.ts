@@ -13,6 +13,7 @@ describe("voice MCP stdio config", () => {
       baseArgs: ["/tmp/mcp-stdio-socket-bridge-cli.mjs"],
       socketPath: "/tmp/paseo-voice.sock",
       env: {
+        ELECTRON_RUN_AS_NODE: "1",
         PASEO_HOME: "/tmp/paseo-home",
       },
     });
@@ -25,6 +26,7 @@ describe("voice MCP stdio config", () => {
       "/tmp/paseo-voice.sock",
     ]);
     expect(config.env).toEqual({
+      ELECTRON_RUN_AS_NODE: "1",
       PASEO_HOME: "/tmp/paseo-home",
     });
   });

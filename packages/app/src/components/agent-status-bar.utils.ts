@@ -1,6 +1,7 @@
-import type { AgentModelDefinition } from "@server/server/agent/agent-sdk-types";
+import type { AgentFeature, AgentModelDefinition } from "@server/server/agent/agent-sdk-types";
 
 export type ExplainedStatusSelector = "mode" | "model" | "thinking";
+export type FeatureHighlightColor = "blue" | "default" | "yellow";
 
 export function getStatusSelectorHint(selector: ExplainedStatusSelector): string {
   switch (selector) {
@@ -19,6 +20,21 @@ export function normalizeModelId(modelId: string | null | undefined): string | n
     return null;
   }
   return normalized;
+}
+
+export function getFeatureTooltip(feature: Pick<AgentFeature, "label" | "tooltip">): string {
+  return feature.tooltip ?? feature.label;
+}
+
+export function getFeatureHighlightColor(featureId: string): FeatureHighlightColor {
+  switch (featureId) {
+    case "fast_mode":
+      return "yellow";
+    case "plan_mode":
+      return "blue";
+    default:
+      return "default";
+  }
 }
 
 export function resolveAgentModelSelection(input: {

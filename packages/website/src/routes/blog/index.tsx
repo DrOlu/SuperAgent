@@ -7,7 +7,7 @@ export const Route = createFileRoute("/blog/")({
     drafts: search.drafts === true || search.drafts === "" || search.drafts === "true",
   }),
   head: () => ({
-    meta: pageMeta("Blog - Paseo", "Updates, thoughts, and announcements from the Paseo team."),
+    meta: pageMeta("Blog - SuperAgent", "Updates, thoughts, and announcements from the SuperAgent team."),
   }),
   component: BlogIndex,
 });

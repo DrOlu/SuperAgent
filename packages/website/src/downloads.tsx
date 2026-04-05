@@ -1,25 +1,25 @@
 import * as React from "react";
 
 export function releaseBase(version: string) {
-  return `https://github.com/getpaseo/paseo/releases/download/v${version}`;
+  return `https://github.com/DrOlu/SuperAgent/releases/download/v${version}`;
 }
 
 export function downloadUrls(version: string) {
   const base = releaseBase(version);
   return {
-    macAppleSilicon: `${base}/Paseo-${version}-arm64.dmg`,
-    macIntel: `${base}/Paseo-${version}-x64.dmg`,
-    linuxAppImage: `${base}/Paseo-${version}-x86_64.AppImage`,
-    linuxDeb: `${base}/Paseo-${version}-amd64.deb`,
-    linuxRpm: `${base}/Paseo-${version}-x86_64.rpm`,
-    windowsExe: `${base}/Paseo-Setup-${version}.exe`,
+    macAppleSilicon: `${base}/SuperAgent-${version}-arm64.dmg`,
+    macIntel: `${base}/SuperAgent-${version}-x64.dmg`,
+    linuxAppImage: `${base}/SuperAgent-${version}-x86_64.AppImage`,
+    linuxDeb: `${base}/SuperAgent-${version}-amd64.deb`,
+    linuxRpm: `${base}/SuperAgent-${version}-x86_64.rpm`,
+    windowsExe: `${base}/SuperAgent-Setup-${version}.exe`,
     androidApk: `${base}/paseo-v${version}-android.apk`,
   };
 }
 
 export const appStoreUrl = "https://apps.apple.com/app/paseo-pocket-engineer/id6758887924";
 export const playStoreUrl = "https://play.google.com/store/apps/details?id=sh.paseo";
-export const webAppUrl = "https://app.paseo.sh";
+export const webAppUrl = "https://app.hyperspace.ng";
 
 type Platform = "mac-silicon" | "mac-intel" | "windows" | "linux";
 

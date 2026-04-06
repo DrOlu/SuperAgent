@@ -47,7 +47,7 @@ import type { DraggableListDragHandleProps } from "./draggable-list.types";
 import { getHostRuntimeStore, isHostRuntimeConnected } from "@/runtime/host-runtime";
 import { getIsElectronRuntime, isCompactFormFactor } from "@/constants/layout";
 import { projectIconQueryKey } from "@/hooks/use-project-icon-query";
-import { parseHostWorkspaceRouteFromPathname } from "@/utils/host-routes";
+import { buildHostNewWorkspaceRoute, parseHostWorkspaceRouteFromPathname } from "@/utils/host-routes";
 import { prepareWorkspaceTab } from "@/utils/workspace-navigation";
 import {
   type SidebarProjectEntry,
@@ -87,7 +87,6 @@ import { type PrHint, useWorkspacePrHint } from "@/hooks/use-checkout-pr-status-
 import { buildSidebarProjectRowModel } from "@/utils/sidebar-project-row-model";
 import { useNavigationActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
-import { useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
 import { buildWorkspaceArchiveRedirectRoute } from "@/utils/workspace-archive-navigation";
 import { openExternalUrl } from "@/utils/open-external-url";
 import {
@@ -721,20 +720,13 @@ function ProjectHeaderRow({
   const { theme } = useUnistyles();
   const [isHovered, setIsHovered] = useState(false);
   const isMobileBreakpoint = isCompactFormFactor();
-  const beginWorkspaceSetup = useWorkspaceSetupStore((state) => state.beginWorkspaceSetup);
   const handleBeginWorkspaceSetup = useCallback(() => {
     if (!serverId) {
       return;
     }
-    beginWorkspaceSetup({
-      serverId,
-      sourceDirectory: project.iconWorkingDir,
-      displayName,
-      creationMethod: "create_worktree",
-      navigationMethod: "navigate",
-    });
+    router.navigate(buildHostNewWorkspaceRoute(serverId, project.iconWorkingDir, { displayName }) as any);
     onWorkspacePress?.();
-  }, [beginWorkspaceSetup, displayName, onWorkspacePress, project.iconWorkingDir, serverId]);
+  }, [displayName, onWorkspacePress, project.iconWorkingDir, serverId]);
 
   useKeyboardActionHandler({
     handlerId: `worktree-new-${project.projectKey}`,
@@ -1152,18 +1144,16 @@ function WorkspaceRowWithMenu({
         return;
       }
 
+      redirectAfterArchive();
+
       void archiveWorktree({
         serverId: workspace.serverId,
         cwd: workspaceDirectory,
         worktreePath: workspaceDirectory,
-      })
-        .then(() => {
-          redirectAfterArchive();
-        })
-        .catch((error) => {
-          const message = error instanceof Error ? error.message : "Failed to archive worktree";
-          toast.error(message);
-        });
+      }).catch((error) => {
+        const message = error instanceof Error ? error.message : "Failed to archive worktree";
+        toast.error(message);
+      });
     })();
   }, [
     archiveWorktree,
@@ -1200,17 +1190,20 @@ function WorkspaceRowWithMenu({
       }
 
       setIsArchivingWorkspace(true);
-      try {
-        const payload = await client.archiveWorkspace(Number(workspace.workspaceId));
-        if (payload.error) {
-          throw new Error(payload.error);
+      redirectAfterArchive();
+
+      void (async () => {
+        try {
+          const payload = await client.archiveWorkspace(Number(workspace.workspaceId));
+          if (payload.error) {
+            throw new Error(payload.error);
+          }
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to hide workspace");
+        } finally {
+          setIsArchivingWorkspace(false);
         }
-        redirectAfterArchive();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to hide workspace");
-      } finally {
-        setIsArchivingWorkspace(false);
-      }
+      })();
     })();
   }, [
     isArchivingWorkspace,
@@ -1355,17 +1348,20 @@ function NonGitProjectRowWithMenuContent({
       }
 
       setIsArchivingWorkspace(true);
-      try {
-        const payload = await client.archiveWorkspace(Number(workspace.workspaceId));
-        if (payload.error) {
-          throw new Error(payload.error);
+      redirectAfterArchive();
+
+      void (async () => {
+        try {
+          const payload = await client.archiveWorkspace(Number(workspace.workspaceId));
+          if (payload.error) {
+            throw new Error(payload.error);
+          }
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to hide workspace");
+        } finally {
+          setIsArchivingWorkspace(false);
         }
-        redirectAfterArchive();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to hide workspace");
-      } finally {
-        setIsArchivingWorkspace(false);
-      }
+      })();
     })();
   }, [
     isArchivingWorkspace,
@@ -1707,18 +1703,21 @@ function ProjectBlock({
       }
 
       setIsRemovingProject(true);
-      try {
-        for (const ws of project.workspaces) {
+
+      void Promise.allSettled(
+        project.workspaces.map(async (ws) => {
           const payload = await client.archiveWorkspace(Number(ws.workspaceId));
           if (payload.error) {
             throw new Error(payload.error);
           }
+        }),
+      ).then((results) => {
+        const failed = results.filter((r) => r.status === "rejected");
+        if (failed.length > 0) {
+          toast.error("Failed to remove some workspaces");
         }
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to remove project");
-      } finally {
         setIsRemovingProject(false);
-      }
+      });
     })();
   }, [isRemovingProject, serverId, displayName, toast, project.workspaces]);
 

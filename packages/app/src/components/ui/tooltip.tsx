@@ -246,12 +246,11 @@ export function TooltipTrigger({
   asChild = false,
   triggerRefProp = "ref",
   ...props
-}: PropsWithChildren<
-  PressableProps & {
+}: PressableProps & {
     asChild?: boolean;
     triggerRefProp?: string;
   }
->): ReactElement {
+): ReactElement {
   const ctx = useTooltipContext("TooltipTrigger");
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

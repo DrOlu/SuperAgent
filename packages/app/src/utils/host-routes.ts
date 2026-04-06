@@ -347,6 +347,23 @@ export function buildHostOpenProjectRoute(serverId: string): string {
   return `${base}/open-project`;
 }
 
+export function buildHostNewWorkspaceRoute(
+  serverId: string,
+  sourceDirectory: string,
+  options?: { displayName?: string },
+): string {
+  const base = buildHostRootRoute(serverId);
+  if (base === "/") {
+    return "/";
+  }
+  const params = new URLSearchParams();
+  params.set("dir", sourceDirectory);
+  if (options?.displayName) {
+    params.set("name", options.displayName);
+  }
+  return `${base}/new?${params.toString()}`;
+}
+
 export function buildHostSettingsRoute(serverId: string): string {
   const base = buildHostRootRoute(serverId);
   if (base === "/") {

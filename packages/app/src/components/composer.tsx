@@ -610,40 +610,44 @@ export function Composer({
         </Tooltip>
     ) : null;
 
-  const rightContent = (
-    <View style={styles.rightControls}>
-      {!isVoiceModeForAgent && hasAgent ? (
-        <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
-          <TooltipTrigger
-            onPress={handleToggleRealtimeVoice}
-            disabled={!isConnected || voice?.isVoiceSwitching}
-            accessibilityLabel="Enable Voice mode"
-            accessibilityRole="button"
-            style={({ hovered }) => [
-              styles.realtimeVoiceButton as any,
-              (hovered ? styles.iconButtonHovered : undefined) as any,
-              (!isConnected || voice?.isVoiceSwitching ? styles.buttonDisabled : undefined) as any,
-            ]}
-          >
-            {voice?.isVoiceSwitching ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <AudioLines size={buttonIconSize} color={theme.colors.foreground} />
-            )}
-          </TooltipTrigger>
-          <TooltipContent side="top" align="center" offset={8}>
-            <View style={styles.tooltipRow}>
-              <Text style={styles.tooltipText}>Voice mode</Text>
-              {voiceToggleKeys ? (
-                <Shortcut chord={voiceToggleKeys} style={styles.tooltipShortcut} />
-              ) : null}
-            </View>
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
-      {cancelButton}
-    </View>
-  );
+  const showVoiceModeButton = !isVoiceModeForAgent && hasAgent;
+  const rightContent =
+    showVoiceModeButton || cancelButton ? (
+      <View style={styles.rightControls}>
+        {showVoiceModeButton ? (
+          <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+            <TooltipTrigger
+              onPress={handleToggleRealtimeVoice}
+              disabled={!isConnected || voice?.isVoiceSwitching}
+              accessibilityLabel="Enable Voice mode"
+              accessibilityRole="button"
+              style={({ hovered }) => [
+                styles.realtimeVoiceButton as any,
+                (hovered ? styles.iconButtonHovered : undefined) as any,
+                (!isConnected || voice?.isVoiceSwitching ? styles.buttonDisabled : undefined) as any,
+              ]}
+            >
+              {({ hovered }) =>
+                voice?.isVoiceSwitching ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <AudioLines size={buttonIconSize} color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted} />
+                )
+              }
+            </TooltipTrigger>
+            <TooltipContent side="top" align="center" offset={8}>
+              <View style={styles.tooltipRow}>
+                <Text style={styles.tooltipText}>Voice mode</Text>
+                {voiceToggleKeys ? (
+                  <Shortcut chord={voiceToggleKeys} style={styles.tooltipShortcut} />
+                ) : null}
+              </View>
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+        {cancelButton}
+      </View>
+    ) : null;
 
   const leftContent =
     resolveStatusControlMode(statusControls) === "draft" && statusControls ? (

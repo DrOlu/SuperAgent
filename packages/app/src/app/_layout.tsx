@@ -769,6 +769,7 @@ function RootStack() {
         <Stack.Screen name="h/[serverId]/index" />
         <Stack.Screen name="h/[serverId]/sessions" />
         <Stack.Screen name="h/[serverId]/open-project" />
+        <Stack.Screen name="h/[serverId]/new" />
         <Stack.Screen name="h/[serverId]/settings" />
         <Stack.Screen name="pair-scan" />
       </Stack.Protected>

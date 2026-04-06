@@ -111,9 +111,11 @@ export interface MessageInputRef {
   getNativeElement?: () => HTMLElement | null;
 }
 
-const MIN_INPUT_HEIGHT = 30;
+const MIN_INPUT_HEIGHT_MOBILE = 30;
+const MIN_INPUT_HEIGHT_DESKTOP = 46;
 const MAX_INPUT_HEIGHT = 160;
 const IS_WEB = Platform.OS === "web";
+const MIN_INPUT_HEIGHT = IS_WEB ? MIN_INPUT_HEIGHT_DESKTOP : MIN_INPUT_HEIGHT_MOBILE;
 
 type WebTextInputKeyPressEvent = NativeSyntheticEvent<
   TextInputKeyPressEventData & {
@@ -1007,7 +1009,9 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
                       (!isConnected || disabled) && styles.buttonDisabled,
                     ]}
                   >
-                    <Paperclip size={buttonIconSize} color={theme.colors.foreground} />
+                    {({ hovered }) => (
+                      <Paperclip size={buttonIconSize} color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted} />
+                    )}
                   </Pressable>
                 </TooltipTrigger>
                 <TooltipContent side="top" align="center" offset={8}>
@@ -1041,13 +1045,15 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
                   isDictating && styles.voiceButtonRecording,
                 ]}
               >
-                {isDictating ? (
-                  <Square size={buttonIconSize} color="white" fill="white" />
-                ) : isRealtimeVoiceForCurrentAgent && voice?.isMuted ? (
-                  <MicOff size={buttonIconSize} color={theme.colors.foreground} />
-                ) : (
-                  <Mic size={buttonIconSize} color={theme.colors.foreground} />
-                )}
+                {({ hovered }) =>
+                  isDictating ? (
+                    <Square size={buttonIconSize} color="white" fill="white" />
+                  ) : isRealtimeVoiceForCurrentAgent && voice?.isMuted ? (
+                    <MicOff size={buttonIconSize} color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted} />
+                  ) : (
+                    <Mic size={buttonIconSize} color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted} />
+                  )
+                }
               </TooltipTrigger>
               <TooltipContent side="top" align="center" offset={8}>
                 <View style={styles.tooltipRow}>
@@ -1249,6 +1255,7 @@ const styles = StyleSheet.create(((theme: any) => ({
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
+    marginHorizontal: -6,
   },
   leftButtonGroup: {
     flexDirection: "row",

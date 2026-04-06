@@ -4,8 +4,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/docs/voice")({
   head: () => ({
     meta: pageMeta(
-      "Voice - Paseo Docs",
-      "Paseo voice architecture, local-first model execution, and provider configuration.",
+      "Voice - SuperAgent Docs",
+      "SuperAgent voice architecture, local-first model execution, and provider configuration.",
     ),
   }),
   component: VoiceDocs,
@@ -17,7 +17,7 @@ function VoiceDocs() {
       <div>
         <h1 className="text-3xl font-medium font-title mb-4">Voice</h1>
         <p className="text-white/60 leading-relaxed">
-          Paseo has first-class voice support for dictation and realtime conversations with your
+          SuperAgent has first-class voice support for dictation and realtime conversations with your
           coding environment.
         </p>
       </div>
@@ -26,7 +26,7 @@ function VoiceDocs() {
         <h2 className="text-xl font-medium">Philosophy</h2>
         <p className="text-white/60 leading-relaxed">
           Voice is local-first. You can run speech fully on-device, or choose OpenAI for speech
-          features. For voice reasoning/orchestration, Paseo reuses agent providers already
+          features. For voice reasoning/orchestration, SuperAgent reuses agent providers already
           installed and authenticated on your machine.
         </p>
         <p className="text-white/60 leading-relaxed">

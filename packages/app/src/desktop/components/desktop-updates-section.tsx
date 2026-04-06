@@ -344,7 +344,7 @@ export function LocalDaemonSection({ appVersion, showLifecycleControls }: LocalD
                 <Text style={settingsStyles.rowHint}>
                   {isDaemonManagementPaused
                     ? "Paused. The built-in daemon stays stopped until you start it again."
-                    : "Enabled. Paseo can manage the built-in daemon from the desktop app."}
+                    : "Enabled. SuperAgent can manage the built-in daemon from the desktop app."}
                 </Text>
               </View>
               <Button
@@ -591,7 +591,7 @@ function PairingOfferDialogContent(input: {
   return (
     <View style={styles.modalBody}>
       <Text style={settingsStyles.rowHint}>
-        Scan this QR code in Paseo, or copy the pairing link below.
+        Scan this QR code in SuperAgent, or copy the pairing link below.
       </Text>
       <View style={styles.qrCard}>
         {qrDataUrl ? (

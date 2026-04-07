@@ -19,7 +19,6 @@
 
 ### Fixed
 - Voice mode no longer drifts into false speech detection during long sessions.
-- OpenCode context window meter now updates after the first turn.
 - Garbled overlapping text on plan cards.
 - Changes pane could show stale diffs when working with git worktrees.
 - Restarting an agent quickly could crash the session.
@@ -27,7 +26,6 @@
 - Connection and pairing dialogs now display correctly on tablets.
 - Orchestration errors from agents are now surfaced instead of silently lost.
 - Diff stats no longer reset to zero when reconnecting.
-- Diff toolbar buttons have consistent sizing.
 
 ## 0.1.49 - 2026-04-07
 

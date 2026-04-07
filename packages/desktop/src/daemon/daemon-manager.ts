@@ -91,6 +91,13 @@ function isProcessRunning(pid: number): boolean {
 
 function signalProcessSafely(pid: number, signal: NodeJS.Signals): boolean {
   if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid) return false;
+  if (process.platform === "win32") {
+    try {
+      const { spawnSync: _spawnSyncKill } = require("node:child_process");
+      const result = _spawnSyncKill("taskkill", ["/F", "/PID", String(pid)], { stdio: ["ignore","ignore","ignore"] });
+      return result.status === 0;
+    } catch { return false; }
+  }
   try {
     process.kill(pid, signal);
     return true;
@@ -457,7 +464,7 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
       if (sessionId) closeLocalTransportSession(sessionId);
     },
     check_app_update: async () => {
-      const currentVersion = await resolveCurrentUpdateVersion();
+      const currentVersion = resolveDesktopAppVersion();
       return checkForAppUpdate(currentVersion);
     },
     install_app_update: async () => {

@@ -281,13 +281,18 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="v${VERSION}"
+          # Clean up any existing tag/release for this version
+          gh release delete "$TAG" --yes 2>/dev/null || true
           git push origin ":refs/tags/$TAG" 2>/dev/null || true
           sleep 2
-          git tag "$TAG"
-          git push origin "$TAG"
+
+          # Create and push tag (triggers desktop-release.yml automatically)
+          git tag -f "$TAG"
+          git push origin "$TAG" --force
+
+          # Create release
           gh release create "$TAG" \
             --title "SuperAgent $TAG" \
-            --notes "## SuperAgent $TAG
-          Synced with upstream paseo@$(echo ${{ env.UPSTREAM_SHA }} | cut -c1-8)" \
-            --target main
-          echo "Release $TAG created — desktop-release.yml will build automatically"
+            --notes "## SuperAgent $TAG - Synced with upstream paseo@$(echo ${{ env.UPSTREAM_SHA }} | cut -c1-8)" \
+            --target main 2>/dev/null || echo "Release may already exist"
+          echo "Done — builds will trigger automatically"

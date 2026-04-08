@@ -19,6 +19,14 @@ import {
   getSkillsInstallStatus,
 } from "../integrations/integrations-manager.js";
 import {
+  installOrUpdateOpencode,
+  getOpencodeStatus,
+  installOrUpdatePi,
+  getPiStatus,
+  installOrUpdateUv,
+  getUvStatus,
+} from "../integrations/tools-manager.js";
+import {
   openLocalTransportSession,
   sendLocalTransportMessage,
   closeLocalTransportSession,
@@ -478,6 +486,13 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     get_cli_install_status: () => getCliInstallStatus(),
     install_skills: () => installSkills(),
     get_skills_install_status: () => getSkillsInstallStatus(),
+    // Third-party tools
+    get_opencode_status: () => getOpencodeStatus(),
+    install_opencode: () => installOrUpdateOpencode(),
+    get_pi_status: () => getPiStatus(),
+    install_pi: () => installOrUpdatePi(),
+    get_uv_status: () => getUvStatus(),
+    install_uv: () => installOrUpdateUv(),
   };
 }
 

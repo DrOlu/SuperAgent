@@ -204,11 +204,32 @@ export interface InstallStatus {
   installed: boolean;
 }
 
+export interface ToolStatus {
+  installed: boolean;
+  version: string | null;
+  latestVersion: string | null;
+  hasUpdate: boolean;
+  path: string | null;
+}
+
 function parseInstallStatus(raw: unknown): InstallStatus {
   if (!isRecord(raw)) {
     throw new Error("Unexpected install status response.");
   }
   return { installed: raw.installed === true };
+}
+
+function parseToolStatus(raw: unknown): ToolStatus {
+  if (!isRecord(raw)) {
+    throw new Error("Unexpected tool status response.");
+  }
+  return {
+    installed: raw.installed === true,
+    version: typeof raw.version === "string" ? raw.version : null,
+    latestVersion: typeof raw.latestVersion === "string" ? raw.latestVersion : null,
+    hasUpdate: raw.hasUpdate === true,
+    path: typeof raw.path === "string" ? raw.path : null,
+  };
 }
 
 export async function getCliInstallStatus(): Promise<InstallStatus> {
@@ -225,4 +246,29 @@ export async function getSkillsInstallStatus(): Promise<InstallStatus> {
 
 export async function installSkills(): Promise<InstallStatus> {
   return parseInstallStatus(await invokeDesktopCommand("install_skills"));
+}
+
+// Third-party tool status and install
+export async function getOpencodeStatus(): Promise<ToolStatus> {
+  return parseToolStatus(await invokeDesktopCommand("get_opencode_status"));
+}
+
+export async function installOpencode(): Promise<ToolStatus> {
+  return parseToolStatus(await invokeDesktopCommand("install_opencode"));
+}
+
+export async function getPiStatus(): Promise<ToolStatus> {
+  return parseToolStatus(await invokeDesktopCommand("get_pi_status"));
+}
+
+export async function installPi(): Promise<ToolStatus> {
+  return parseToolStatus(await invokeDesktopCommand("install_pi"));
+}
+
+export async function getUvStatus(): Promise<ToolStatus> {
+  return parseToolStatus(await invokeDesktopCommand("get_uv_status"));
+}
+
+export async function installUv(): Promise<ToolStatus> {
+  return parseToolStatus(await invokeDesktopCommand("install_uv"));
 }

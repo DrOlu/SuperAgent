@@ -1,8 +1,9 @@
 import { promises as fs } from "node:fs";
 import { createWriteStream, existsSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
-import { createGunzip } from "node:zlib";
 import * as https from "node:https";
 import { app } from "electron";
 import log from "electron-log/main";
@@ -140,8 +141,6 @@ function downloadFile(url: string, destPath: string): Promise<void> {
     req.on("error", reject);
   });
 }
-
-import { spawnSync } from "node:child_process";
 
 function extractTarGz(archivePath: string, destDir: string): void {
   const result = spawnSync("tar", ["-xzf", archivePath, "-C", destDir, "--strip-components=1"], {
@@ -529,7 +528,6 @@ async function ensureToolsInPath(): Promise<void> {
 }
 
 async function ensureWindowsUserPath(toolsDir: string): Promise<void> {
-  const { spawnSync } = await import("node:child_process");
   // Read current user PATH from registry
   const result = spawnSync("powershell", [
     "-Command",
@@ -583,7 +581,7 @@ async function ensureUnixShellPath(toolsDir: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function writePiProviderConfig(piPath: string): Promise<void> {
-  const { resolvePaseoHome } = await import("@getpaseo/server");
+  const { resolvePaseoHome } = require("@getpaseo/server") as { resolvePaseoHome: (env: NodeJS.ProcessEnv) => string };
   const configPath = path.join(resolvePaseoHome(process.env), "config.json");
 
   try {

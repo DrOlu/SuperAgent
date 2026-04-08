@@ -268,6 +268,7 @@ jobs:
         if: steps.check.outputs.has_changes == 'true'
         run: |
           git add -A
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
           git commit -m "sync: SuperAgent rebrand on upstream ${{ env.UPSTREAM_SHA }}
 
           upstream-sync: ${{ env.UPSTREAM_SHA }}"

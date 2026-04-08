@@ -1225,14 +1225,65 @@ function extractContextWindowSize(modelUsage: unknown): number | undefined {
   return maxContextWindow;
 }
 
-function readContextWindowUsedTokensFromTaskProgress(
-  message: SDKTaskProgressMessage,
+function readUsageTotalTokens(
+  usage: unknown,
 ): number | undefined {
-  const totalTokens = message.usage?.total_tokens;
+  if (!usage || typeof usage !== "object") {
+    return undefined;
+  }
+  const totalTokens = (usage as { total_tokens?: unknown }).total_tokens;
   if (typeof totalTokens !== "number" || !Number.isFinite(totalTokens) || totalTokens < 0) {
     return undefined;
   }
   return totalTokens;
+}
+
+function readContextWindowUsedTokensFromTaskProgress(
+  message: SDKTaskProgressMessage,
+): number | undefined {
+  return readUsageTotalTokens(message.usage);
+}
+
+function readUsageFromTaskNotification(message: { usage?: unknown }): number | undefined {
+  return readUsageTotalTokens(message.usage);
+}
+
+function readStreamRequestInputTokens(event: Record<string, unknown>): number | undefined {
+  const messageUsage = (event.message as { usage?: unknown } | undefined)?.usage;
+  if (!messageUsage || typeof messageUsage !== "object") {
+    return undefined;
+  }
+  const usage = messageUsage as {
+    input_tokens?: unknown;
+    cache_creation_input_tokens?: unknown;
+    cache_read_input_tokens?: unknown;
+  };
+  const inputTokens =
+    typeof usage.input_tokens === "number" && Number.isFinite(usage.input_tokens)
+      ? usage.input_tokens
+      : undefined;
+  const cacheCreationInputTokens =
+    typeof usage.cache_creation_input_tokens === "number" &&
+    Number.isFinite(usage.cache_creation_input_tokens)
+      ? usage.cache_creation_input_tokens
+      : 0;
+  const cacheReadInputTokens =
+    typeof usage.cache_read_input_tokens === "number" &&
+    Number.isFinite(usage.cache_read_input_tokens)
+      ? usage.cache_read_input_tokens
+      : 0;
+  if (typeof inputTokens !== "number" || inputTokens < 0) {
+    return undefined;
+  }
+  return inputTokens + cacheCreationInputTokens + cacheReadInputTokens;
+}
+
+function readStreamRequestOutputTokens(event: Record<string, unknown>): number | undefined {
+  const outputTokens = (event.usage as { output_tokens?: unknown } | undefined)?.output_tokens;
+  if (typeof outputTokens !== "number" || !Number.isFinite(outputTokens) || outputTokens < 0) {
+    return undefined;
+  }
+  return outputTokens;
 }
 
 class ClaudeAgentSession implements AgentSession {
@@ -1278,6 +1329,9 @@ class ClaudeAgentSession implements AgentSession {
   private lastForegroundPromptText: string | null = null;
   private foregroundHasVisibleActivity = false;
   private lastContextWindowUsedTokens: number | undefined;
+  private lastContextWindowMaxTokens: number | undefined;
+  private lastStreamRequestInputTokens: number | undefined;
+  private lastStreamRequestOutputTokens: number | undefined;
   private userMessageIds: string[] = [];
   private recentStderr = "";
   private closed = false;
@@ -2672,10 +2726,18 @@ class ClaudeAgentSession implements AgentSession {
               provider: "claude",
             });
           }
+          const usage = readUsageFromTaskNotification(message);
+          if (typeof usage === "number") {
+            this.lastContextWindowUsedTokens = usage;
+            events.push(this.createUsageUpdatedEvent(usage));
+          }
         } else if (message.subtype === "task_progress") {
           this.lastContextWindowUsedTokens =
             readContextWindowUsedTokensFromTaskProgress(message) ??
             this.lastContextWindowUsedTokens;
+          if (typeof this.lastContextWindowUsedTokens === "number") {
+            events.push(this.createUsageUpdatedEvent(this.lastContextWindowUsedTokens));
+          }
         }
         break;
       case "user": {
@@ -2743,6 +2805,10 @@ class ClaudeAgentSession implements AgentSession {
         break;
       }
       case "stream_event": {
+        const usageUpdatedEvent = this.trackStreamEventUsage(message.event);
+        if (usageUpdatedEvent) {
+          events.push(usageUpdatedEvent);
+        }
         const timelineItems = this.mapPartialEvent(message.event, {
           suppressAssistantText: options?.suppressAssistantText ?? false,
           suppressReasoning: options?.suppressReasoning ?? false,
@@ -2911,12 +2977,21 @@ class ClaudeAgentSession implements AgentSession {
       modelUsage ?? message.modelUsage,
     );
     if (contextWindowMaxTokens !== undefined) {
+      this.lastContextWindowMaxTokens = contextWindowMaxTokens;
       usage.contextWindowMaxTokens = contextWindowMaxTokens;
+    } else if (this.lastContextWindowMaxTokens !== undefined) {
+      usage.contextWindowMaxTokens = this.lastContextWindowMaxTokens;
     }
     if (typeof this.lastContextWindowUsedTokens === "number") {
       // task_progress.total_tokens is the accurate context window fill level.
       // Prefer it over result.usage which contains accumulated session totals.
       usage.contextWindowUsedTokens = this.lastContextWindowUsedTokens;
+    } else if (
+      typeof this.lastStreamRequestInputTokens === "number" &&
+      typeof this.lastStreamRequestOutputTokens === "number"
+    ) {
+      usage.contextWindowUsedTokens =
+        this.lastStreamRequestInputTokens + this.lastStreamRequestOutputTokens;
     } else if (message.usage) {
       // Fallback: derive from result.usage when no task_progress has been
       // received yet. These values are accumulated across all API calls, but
@@ -2935,6 +3010,54 @@ class ClaudeAgentSession implements AgentSession {
       }
     }
     return usage;
+  }
+
+  private createUsageUpdatedEvent(contextWindowUsedTokens: number): AgentStreamEvent {
+    const usage: AgentUsage = {
+      contextWindowUsedTokens,
+    };
+    if (this.lastContextWindowMaxTokens !== undefined) {
+      usage.contextWindowMaxTokens = this.lastContextWindowMaxTokens;
+    }
+    return {
+      type: "usage_updated",
+      provider: "claude",
+      usage,
+    };
+  }
+
+  private trackStreamEventUsage(event: unknown): AgentStreamEvent | null {
+    if (!event || typeof event !== "object") {
+      return null;
+    }
+    const streamEvent = event as Record<string, unknown>;
+    const eventType = readTrimmedString(streamEvent.type);
+    if (eventType === "message_start") {
+      const inputTokens = readStreamRequestInputTokens(streamEvent);
+      if (typeof inputTokens !== "number") {
+        return null;
+      }
+      this.lastStreamRequestInputTokens = inputTokens;
+      this.lastStreamRequestOutputTokens = 0;
+    } else if (eventType === "message_delta") {
+      const outputTokens = readStreamRequestOutputTokens(streamEvent);
+      if (typeof outputTokens !== "number") {
+        return null;
+      }
+      this.lastStreamRequestOutputTokens = outputTokens;
+    } else {
+      return null;
+    }
+
+    if (
+      typeof this.lastStreamRequestInputTokens !== "number" ||
+      typeof this.lastStreamRequestOutputTokens !== "number"
+    ) {
+      return null;
+    }
+    return this.createUsageUpdatedEvent(
+      this.lastStreamRequestInputTokens + this.lastStreamRequestOutputTokens,
+    );
   }
 
   private handlePermissionRequest: CanUseTool = async (

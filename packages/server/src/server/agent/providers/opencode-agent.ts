@@ -450,16 +450,16 @@ function mergeOpenCodeStepFinishUsage(
   const cost = readPositiveFiniteNumber(part.cost);
 
   if (inputTokens !== undefined) {
-    usage.inputTokens = (usage.inputTokens ?? 0) + inputTokens;
+    usage.inputTokens = inputTokens;
   }
   if (cacheReadTokens !== undefined) {
-    usage.cachedInputTokens = (usage.cachedInputTokens ?? 0) + cacheReadTokens;
+    usage.cachedInputTokens = cacheReadTokens;
   }
   if (outputTokens !== undefined) {
-    usage.outputTokens = (usage.outputTokens ?? 0) + outputTokens;
+    usage.outputTokens = outputTokens;
   }
   if (totalTokens > 0) {
-    usage.contextWindowUsedTokens = (usage.contextWindowUsedTokens ?? 0) + totalTokens;
+    usage.contextWindowUsedTokens = totalTokens;
   }
   if (cost !== undefined) {
     usage.totalCostUsd = (usage.totalCostUsd ?? 0) + cost;
@@ -1144,6 +1144,13 @@ export function translateOpenCodeEvent(
         }
       } else if (partType === "step-finish") {
         mergeOpenCodeStepFinishUsage(state.accumulatedUsage, part);
+        if (hasNormalizedOpenCodeUsage(state.accumulatedUsage)) {
+          events.push({
+            type: "usage_updated",
+            provider: "opencode",
+            usage: { ...state.accumulatedUsage },
+          });
+        }
       }
       break;
     }

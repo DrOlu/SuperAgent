@@ -2,7 +2,6 @@ import { promises as fs } from "node:fs";
 import { createWriteStream, existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
 import * as https from "node:https";
 import { app } from "electron";
@@ -142,34 +141,35 @@ function downloadFile(url: string, destPath: string): Promise<void> {
   });
 }
 
-async function extractTarGz(archivePath: string, destDir: string, fileName: string): Promise<void> {
-  // Use Node's built-in tar (Node 22+) or manual extraction for the single binary
-  const { extract } = await import("node:tar" as string) as { extract: (opts: unknown) => Promise<void> };
-  await extract({
-    file: archivePath,
-    cwd: destDir,
-    filter: (filePath: string) => path.basename(filePath) === fileName || path.basename(filePath) === fileName + ".exe",
-    strip: 1,
+import { spawnSync } from "node:child_process";
+
+function extractTarGz(archivePath: string, destDir: string): void {
+  const result = spawnSync("tar", ["-xzf", archivePath, "-C", destDir, "--strip-components=1"], {
+    encoding: "utf-8",
+    timeout: 120_000,
   });
+  if (result.status !== 0) {
+    throw new Error(`tar extraction failed: ${result.stderr ?? result.error?.message ?? "unknown"}`);
+  }
 }
 
-async function extractZip(archivePath: string, destDir: string, fileNames: string[]): Promise<void> {
-  // Use a minimal zip extraction that works with Node's built-in APIs
-  // For zip: use the 'yauzl' that's already in the electron app, or unzip via spawn
-  const { spawnSync } = await import("node:child_process");
-  await fs.mkdir(destDir, { recursive: true });
-
+function extractZip(archivePath: string, destDir: string, fileNames: string[]): void {
   if (process.platform === "win32") {
-    const namesArg = fileNames.map(f => `*${f}`).join(",");
+    const moveSteps = fileNames
+      .map(f => `Get-ChildItem -Recurse "$d\\__tmp" -Filter "${f}" | ForEach-Object { Move-Item $_.FullName "$d\\${f}" -Force }`)
+      .join("; ");
     spawnSync("powershell", [
       "-Command",
-      `Expand-Archive -Path "${archivePath}" -DestinationPath "${destDir}" -Force; ` +
-      `Get-ChildItem -Recurse "${destDir}" -Include ${namesArg} | ` +
-      `ForEach-Object { Move-Item $_.FullName "${destDir}" -Force }`
-    ], { timeout: 60_000 });
+      `$d="${destDir}"; New-Item -ItemType Directory -Force -Path $d | Out-Null; ` +
+      `Expand-Archive -LiteralPath "${archivePath}" -DestinationPath "$d\\__tmp" -Force; ` +
+      `${moveSteps}; ` +
+      `if (Test-Path "$d\\__tmp") { Get-ChildItem "$d\\__tmp" | ForEach-Object { $_.Delete() } }`,
+    ], { encoding: "utf-8", timeout: 120_000 });
   } else {
     for (const name of fileNames) {
-      spawnSync("unzip", ["-j", archivePath, `*/${name}`, "-d", destDir], { timeout: 60_000 });
+      spawnSync("unzip", ["-j", "-o", archivePath, `*/${name}`, "-d", destDir], {
+        encoding: "utf-8", timeout: 120_000,
+      });
     }
   }
 }
@@ -271,9 +271,9 @@ async function installSingleBinary(
       await downloadFile(url, tmpArchivePath);
 
       if (archiveType === "tar.gz") {
-        await extractTarGz(tmpArchivePath, binDir, path.basename(finalPath));
+        extractTarGz(tmpArchivePath, binDir);
       } else {
-        await extractZip(tmpArchivePath, binDir, binNamesInArchive);
+        extractZip(tmpArchivePath, binDir, binNamesInArchive);
       }
 
       // Ensure executable
@@ -480,12 +480,12 @@ export async function installOrUpdateUv(): Promise<ToolInstallStatus> {
 
   const binNames = [getToolExeName("uv"), getToolExeName("uvx")];
   if (assetUrl.endsWith(".zip")) {
-    await extractZip(tmpArchive, binDir, binNames);
+    extractZip(tmpArchive, binDir, binNames);
   } else {
     // tar.gz — extract both uv and uvx
     for (const name of binNames) {
       const dest = path.join(binDir, name);
-      await extractTarGz(tmpArchive, binDir, name).catch(() => {});
+      try { extractTarGz(tmpArchive, binDir); } catch { /* continue */ }
       if (process.platform !== "win32") {
         await fs.chmod(dest, 0o755).catch(() => {});
       }

@@ -514,7 +514,7 @@ export function LocalDaemonSection({ appVersion, showLifecycleControls }: LocalD
   );
 }
 
-const ADVANCED_DAEMON_SETTINGS_URL = "https://paseo.sh/docs/configuration";
+const ADVANCED_DAEMON_SETTINGS_URL = "https://hyperspace.ng/docs/configuration";
 
 function PairingOfferDialogContent(input: {
   isLoading: boolean;

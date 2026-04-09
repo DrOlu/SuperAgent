@@ -9,7 +9,7 @@ import {
   type GestureResponderEvent,
 } from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime, useUnistyles } from "react-native-unistyles";
 import {
   ArrowLeft,
   ChevronDown,
@@ -348,7 +348,9 @@ function ProviderSearchInput({
 }) {
   const { theme } = useUnistyles();
   const inputRef = useRef<TextInput>(null);
-  const InputComponent = Platform.OS === "web" ? TextInput : BottomSheetTextInput;
+  const isMobile =
+    UnistylesRuntime.breakpoint === "xs" || UnistylesRuntime.breakpoint === "sm";
+  const InputComponent = isMobile ? BottomSheetTextInput : TextInput;
 
   useEffect(() => {
     if (autoFocus && Platform.OS === "web" && inputRef.current) {

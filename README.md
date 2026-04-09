@@ -1,17 +1,17 @@
 <p align="center">
-  <img src="packages/website/public/logo.svg" width="64" height="64" alt="Paseo logo">
+  <img src="packages/website/public/logo.svg" width="64" height="64" alt="SuperAgent logo">
 </p>
 
-<h1 align="center">Paseo</h1>
+<h1 align="center">SuperAgent</h1>
 
 <p align="center">One interface for all your Claude Code, Codex and OpenCode agents.</p>
 
 <p align="center">
-  <img src="https://paseo.sh/hero-mockup.png" alt="Paseo app screenshot" width="100%">
+  <img src="https://hyperspace.ng/hero-mockup.png" alt="SuperAgent app screenshot" width="100%">
 </p>
 
 <p align="center">
-  <img src="https://paseo.sh/mobile-mockup.png" alt="Paseo mobile app" width="100%">
+  <img src="https://hyperspace.ng/mobile-mockup.png" alt="SuperAgent mobile app" width="100%">
 </p>
 
 ---
@@ -22,11 +22,11 @@ Run agents in parallel on your own machines. Ship from your phone or your desk.
 - **Multi-provider:** Claude Code, Codex, and OpenCode through the same interface. Pick the right model for each job.
 - **Voice control:** Dictate tasks or talk through problems in voice mode. Hands-free when you need it.
 - **Cross-device:** iOS, Android, desktop, web, and CLI. Start work at your desk, check in from your phone, script it from the terminal.
-- **Privacy-first:** Paseo doesn't have any telemetry, tracking, or forced log-ins.
+- **Privacy-first:** SuperAgent doesn't have any telemetry, tracking, or forced log-ins.
 
 ## Getting Started
 
-Paseo runs a local server called the daemon that manages your coding agents. Clients like the desktop app, mobile app, web app, and CLI connect to it.
+SuperAgent runs a local server called the daemon that manages your coding agents. Clients like the desktop app, mobile app, web app, and CLI connect to it.
 
 ### Prerequisites
 
@@ -38,13 +38,13 @@ You need at least one agent CLI installed and configured with your credentials:
 
 ### Desktop app (recommended)
 
-Download it from [paseo.sh/download](https://paseo.sh/download) or the [GitHub releases page](https://github.com/getpaseo/paseo/releases). Open the app and the daemon starts automatically. Nothing else to install.
+Download it from [hyperspace.ng/download](https://hyperspace.ng/download) or the [GitHub releases page](https://github.com/DrOlu/SuperAgent/releases). Open the app and the daemon starts automatically. Nothing else to install.
 
 To connect from your phone, scan the QR code shown in Settings.
 
 ### CLI / headless
 
-Install the CLI and start Paseo:
+Install the CLI and start SuperAgent:
 
 ```bash
 npm install -g @getpaseo/cli
@@ -54,8 +54,8 @@ paseo
 This shows a QR code in the terminal. Connect from any client. This path is useful for servers and remote machines.
 
 For full setup and configuration, see:
-- [Docs](https://paseo.sh/docs)
-- [Configuration reference](https://paseo.sh/docs/configuration)
+- [Docs](https://hyperspace.ng/docs)
+- [Configuration reference](https://hyperspace.ng/docs/configuration)
 
 ## CLI
 
@@ -73,14 +73,14 @@ paseo send abc123 "also add tests" # follow-up task
 paseo --host workstation.local:6767 run "run the full test suite"
 ```
 
-See the [full CLI reference](https://paseo.sh/docs/cli) for more.
+See the [full CLI reference](https://hyperspace.ng/docs/cli) for more.
 
 ## Orchestration skills (Unstable)
 
-Experimental skills that teach agents how to use the Paseo CLI to orchestrate other agents. I am updating these very frequently as I learn new things, expect changes without notice, might be coupled to my own setup, use at your own risk.
+Experimental skills that teach agents how to use the SuperAgent CLI to orchestrate other agents. I am updating these very frequently as I learn new things, expect changes without notice, might be coupled to my own setup, use at your own risk.
 
 ```bash
-npx skills add getpaseo/paseo
+npx skills add DrOlu/SuperAgent
 ```
 
 Then use them in any agent conversation:
@@ -101,12 +101,12 @@ Then use them in any agent conversation:
 ## Development
 
 Quick monorepo package map:
-- `packages/server`: Paseo daemon (agent process orchestration, WebSocket API, MCP server)
+- `packages/server`: SuperAgent daemon (agent process orchestration, WebSocket API, MCP server)
 - `packages/app`: Expo client (iOS, Android, web)
 - `packages/cli`: `paseo` CLI for daemon and agent workflows
 - `packages/desktop`: Electron desktop app
 - `packages/relay`: Relay package for remote connectivity
-- `packages/website`: Marketing site and documentation (`paseo.sh`)
+- `packages/website`: Marketing site and documentation (`hyperspace.ng`)
 
 Common commands:
 

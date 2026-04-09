@@ -36,7 +36,7 @@ import { parseOpenProjectPathFromArgv } from "./open-project-routing.js";
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
 const OPEN_PROJECT_EVENT = "paseo:event:open-project";
-app.setName("Paseo");
+app.setName("SuperAgent");
 
 // Allow users to pass Chromium flags via PASEO_ELECTRON_FLAGS for debugging
 // rendering issues (e.g. "--disable-gpu --ozone-platform=x11").

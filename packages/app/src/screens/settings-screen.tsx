@@ -861,7 +861,7 @@ function DesktopAppUpdateRow() {
 
     void confirmDialog({
       title: "Install desktop update",
-      message: "This updates Paseo on this computer.",
+      message: "This updates SuperAgent on this computer.",
       confirmLabel: "Install update",
       cancelLabel: "Cancel",
     })
@@ -1276,7 +1276,7 @@ function HostDetailModal({
     if (!isHostConnected()) {
       Alert.alert(
         "Host offline",
-        "This host is offline. Paseo reconnects automatically—wait until it's back online before restarting.",
+        "This host is offline. SuperAgent reconnects automatically—wait until it's back online before restarting.",
       );
       return;
     }
@@ -1288,7 +1288,7 @@ function HostDetailModal({
       setIsRestarting(false);
       Alert.alert(
         "Error",
-        "Failed to send the restart request. Paseo reconnects automatically—try again once the host shows as online.",
+        "Failed to send the restart request. SuperAgent reconnects automatically—try again once the host shows as online.",
       );
     });
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.56 - 2026-04-14
+
+### Fixed
+- Projects with empty git repositories (no commits yet) no longer crash the app on startup.
+- A single problematic project can no longer prevent the rest of your workspaces from loading.
+
 ## 0.1.55 - 2026-04-14
 
 ### Added

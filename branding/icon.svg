@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Red background with rounded corners -->
+  <rect width="512" height="512" rx="80" ry="80" fill="#CC1100"/>
+  <!-- World of Water capital S - white, centered, Y-flipped -->
+  <g transform="translate(163.88,376.60) scale(0.335000,-0.335000)">
+    <path d="M36 0C83 -9 142 -12 193 -12C336 -12 522 18 522 204C522 268 495 311 453 343C393 389 308 413 244 441C199 461 166 482 166 516C166 573 236 594 343 594C387 594 430 590 474 581V700C429 709 384 712 338 712C168 712 35 649 35 509C35 453 59 414 95 385C162 331 271 313 335 277C366 260 387 238 387 206C387 131 320 106 192 106C133 106 79 110 36 120Z" fill="#FFFFFF"/>
+  </g>
+</svg>

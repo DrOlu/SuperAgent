@@ -81,6 +81,8 @@ type WorkspaceDesktopTabsRowProps = {
   onCloseOtherTabs: (tabId: string) => Promise<void> | void;
   onCreateDraftTab: (input: { paneId?: string }) => void;
   onCreateTerminalTab: (input: { paneId?: string }) => void;
+  disableCreateTerminal?: boolean;
+  isWaitingOnTerminalReadiness?: boolean;
   onReorderTabs: (nextTabs: WorkspaceTabDescriptor[]) => void;
   onSplitRight: () => void;
   onSplitDown: () => void;
@@ -382,6 +384,8 @@ export function WorkspaceDesktopTabsRow({
   onCloseOtherTabs,
   onCreateDraftTab,
   onCreateTerminalTab,
+  disableCreateTerminal = false,
+  isWaitingOnTerminalReadiness = false,
   onReorderTabs,
   onSplitRight,
   onSplitDown,
@@ -544,10 +548,15 @@ export function WorkspaceDesktopTabsRow({
           <TooltipTrigger
             testID="workspace-new-terminal"
             onPress={() => onCreateTerminalTab({ paneId })}
+            disabled={disableCreateTerminal || isWaitingOnTerminalReadiness}
             accessibilityRole="button"
-            accessibilityLabel="New terminal tab"
+            accessibilityLabel={
+              isWaitingOnTerminalReadiness ? "Preparing terminal tab" : "New terminal tab"
+            }
             style={({ hovered, pressed }) => [
               styles.newTabActionButton,
+              (disableCreateTerminal || isWaitingOnTerminalReadiness) &&
+                styles.newTabActionButtonDisabled,
               (hovered || pressed) && styles.newTabActionButtonHovered,
             ]}
           >
@@ -555,7 +564,9 @@ export function WorkspaceDesktopTabsRow({
           </TooltipTrigger>
           <TooltipContent side="bottom" align="center" offset={8}>
             <View style={styles.newTabTooltipRow}>
-              <Text style={styles.newTabTooltipText}>New terminal tab</Text>
+              <Text style={styles.newTabTooltipText}>
+                {isWaitingOnTerminalReadiness ? "Preparing terminal..." : "New terminal tab"}
+              </Text>
               {newTerminalKeys ? (
                 <Shortcut chord={newTerminalKeys} style={styles.newTabTooltipShortcut} />
               ) : null}
@@ -862,6 +873,9 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  newTabActionButtonDisabled: {
+    opacity: 0.5,
   },
   newTabActionButtonHovered: {
     backgroundColor: theme.colors.surface2,

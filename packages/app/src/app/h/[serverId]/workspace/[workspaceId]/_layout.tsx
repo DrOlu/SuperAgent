@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useIsFocused, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import {
   useGlobalSearchParams,
   useLocalSearchParams,
@@ -77,7 +77,6 @@ export default function HostWorkspaceLayout() {
 }
 
 function HostWorkspaceLayoutContent() {
-  const isFocused = useIsFocused();
   const navigation = useNavigation();
   const router = useRouter();
   const rootNavigationState = useRootNavigationState();
@@ -99,9 +98,6 @@ function HostWorkspaceLayoutContent() {
 
   useEffect(() => {
     if (!openValue) {
-      return;
-    }
-    if (!isFocused) {
       return;
     }
     if (!rootNavigationState?.key) {
@@ -142,7 +138,7 @@ function HostWorkspaceLayoutContent() {
     });
 
     setIntentConsumed(true);
-  }, [isFocused, navigation, openValue, rootNavigationState?.key, router, serverId, workspaceId]);
+  }, [navigation, openValue, rootNavigationState?.key, router, serverId, workspaceId]);
 
   if (openValue && !intentConsumed) {
     return null;

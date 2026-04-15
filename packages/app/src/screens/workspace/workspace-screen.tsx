@@ -645,6 +645,10 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
   );
   const workspaceDirectory = workspaceAuthority?.workspaceDirectory ?? null;
   const isMissingWorkspaceExecutionAuthority = Boolean(workspaceDescriptor && !workspaceAuthority);
+  const [pendingTerminalCreateInput, setPendingTerminalCreateInput] = useState<{
+    paneId?: string;
+  } | null>(null);
+  const canCreateTerminalNow = Boolean(client && isConnected && workspaceDirectory);
 
   const workspaceAgentVisibility = useStoreWithEqualityFn(
     useSessionStore,
@@ -780,6 +784,30 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
   const hasHydratedAgents = useSessionStore(
     (state) => state.sessions[normalizedServerId]?.hasHydratedAgents ?? false,
   );
+  useEffect(() => {
+    if (!pendingTerminalCreateInput) {
+      return;
+    }
+
+    if (canCreateTerminalNow && !createTerminalMutation.isPending) {
+      const pendingInput = pendingTerminalCreateInput;
+      setPendingTerminalCreateInput(null);
+      createTerminalMutation.mutate(pendingInput);
+      return;
+    }
+
+    if (hasHydratedWorkspaces && isMissingWorkspaceExecutionAuthority) {
+      setPendingTerminalCreateInput(null);
+      toast.error("Workspace path is not available yet");
+    }
+  }, [
+    canCreateTerminalNow,
+    createTerminalMutation,
+    hasHydratedWorkspaces,
+    isMissingWorkspaceExecutionAuthority,
+    pendingTerminalCreateInput,
+    toast,
+  ]);
   const workspaceHeader = workspaceDescriptor
     ? resolveWorkspaceHeader({ workspace: workspaceDescriptor })
     : null;
@@ -1216,16 +1244,31 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
 
   const handleCreateTerminal = useCallback(
     (input?: { paneId?: string }) => {
-      if (createTerminalMutation.isPending) {
-        return;
-      }
-      if (!workspaceDirectory) {
+      if (createTerminalMutation.isPending || pendingTerminalCreateInput) {
         return;
       }
 
-      createTerminalMutation.mutate(input);
+      if (canCreateTerminalNow) {
+        createTerminalMutation.mutate(input);
+        return;
+      }
+
+      if (hasHydratedWorkspaces && isMissingWorkspaceExecutionAuthority) {
+        toast.error("Workspace path is not available yet");
+        return;
+      }
+
+      setPendingTerminalCreateInput(input ?? {});
+      toast.show("Preparing workspace, opening terminal when ready...");
     },
-    [createTerminalMutation, workspaceDirectory],
+    [
+      canCreateTerminalNow,
+      createTerminalMutation,
+      hasHydratedWorkspaces,
+      isMissingWorkspaceExecutionAuthority,
+      pendingTerminalCreateInput,
+      toast,
+    ],
   );
 
   const handleSelectSwitcherTab = useCallback(
@@ -2087,7 +2130,9 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
                           leading={
                             <SquareTerminal size={16} color={theme.colors.foregroundMuted} />
                           }
-                          disabled={createTerminalMutation.isPending}
+                          disabled={
+                            createTerminalMutation.isPending || pendingTerminalCreateInput !== null
+                          }
                           onSelect={handleCreateTerminal}
                         >
                           New terminal
@@ -2294,6 +2339,8 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
               onCloseOtherTabs={handleCloseOtherTabs}
               onCreateDraftTab={handleCreateDraftTab}
               onCreateTerminalTab={handleCreateTerminal}
+              disableCreateTerminal={createTerminalMutation.isPending}
+              isWaitingOnTerminalReadiness={pendingTerminalCreateInput !== null}
               onReorderTabs={handleReorderTabsInFocusedPane}
               onSplitRight={() => {}}
               onSplitDown={() => {}}

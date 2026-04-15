@@ -67,6 +67,10 @@ interface ComposerProps {
   onSubmitMessage?: (payload: MessagePayload) => Promise<void>;
   /** When true, the submit button is enabled even without text or images (e.g. external attachment selected). */
   hasExternalContent?: boolean;
+  /** When true, the composer can submit even with no text or attachments. */
+  allowEmptySubmit?: boolean;
+  /** Optional accessibility label for the primary submit button. */
+  submitButtonAccessibilityLabel?: string;
   /** Externally controlled loading state. When true, disables the submit button. */
   isSubmitLoading?: boolean;
   /** When true, blurs the input immediately when submitting. */
@@ -105,6 +109,8 @@ export function Composer({
   isInputActive,
   onSubmitMessage,
   hasExternalContent = false,
+  allowEmptySubmit = false,
+  submitButtonAccessibilityLabel,
   isSubmitLoading = false,
   blurOnSubmit = false,
   value,
@@ -745,6 +751,8 @@ export function Composer({
               onChangeText={setUserInput}
               onSubmit={handleSubmit}
               hasExternalContent={hasExternalContent}
+              allowEmptySubmit={allowEmptySubmit}
+              submitButtonAccessibilityLabel={submitButtonAccessibilityLabel}
               isSubmitDisabled={isProcessing || isSubmitLoading}
               isSubmitLoading={isProcessing || isSubmitLoading}
               images={selectedImages}

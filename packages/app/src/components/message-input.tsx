@@ -64,6 +64,10 @@ export interface MessageInputProps {
   onSubmit: (payload: MessagePayload) => void;
   /** When true, the submit button is enabled even without text or images (e.g. external attachment selected). */
   hasExternalContent?: boolean;
+  /** When true, the submit button stays visible and can submit even with no content. */
+  allowEmptySubmit?: boolean;
+  /** Optional accessibility label for the primary submit button. */
+  submitButtonAccessibilityLabel?: string;
   isSubmitDisabled?: boolean;
   isSubmitLoading?: boolean;
   images?: ImageAttachment[];
@@ -201,6 +205,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
     onChangeText,
     onSubmit,
     hasExternalContent = false,
+    allowEmptySubmit = false,
+    submitButtonAccessibilityLabel,
     isSubmitDisabled = false,
     isSubmitLoading = false,
     images = [],
@@ -571,7 +577,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
 
   const handleSendMessage = useCallback(() => {
     const trimmed = value.trim();
-    if (!trimmed && images.length === 0 && !hasExternalContent) return;
+    if (!trimmed && images.length === 0 && !hasExternalContent && !allowEmptySubmit) return;
     const payload = {
       text: trimmed,
       images: images.length > 0 ? images : undefined,
@@ -581,7 +587,15 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
     inputHeightRef.current = MIN_INPUT_HEIGHT;
     setInputHeight(MIN_INPUT_HEIGHT);
     onHeightChange?.(MIN_INPUT_HEIGHT);
-  }, [value, images, onSubmit, isAgentRunning, onHeightChange, hasExternalContent]);
+  }, [
+    allowEmptySubmit,
+    value,
+    images,
+    onSubmit,
+    isAgentRunning,
+    onHeightChange,
+    hasExternalContent,
+  ]);
 
   const handleQueueMessage = useCallback(() => {
     if (!onQueue) return;
@@ -934,18 +948,20 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
   const hasImages = images.length > 0;
   const hasRealContent = value.trim().length > 0 || hasImages;
   const hasSendableContent = hasRealContent || hasExternalContent;
-  const shouldShowSendButton = hasSendableContent || isSubmitLoading;
+  const shouldShowSendButton = hasSendableContent || allowEmptySubmit || isSubmitLoading;
   const canPressLoadingButton = isSubmitLoading && typeof onSubmitLoadingPress === "function";
   const isSendButtonDisabled =
     disabled || (!canPressLoadingButton && (isSubmitDisabled || isSubmitLoading));
   const defaultActionQueues = defaultSendBehavior === "queue" && isAgentRunning;
-  const submitAccessibilityLabel = canPressLoadingButton
+  const defaultSubmitAccessibilityLabel = canPressLoadingButton
     ? "Interrupt agent"
     : defaultActionQueues
       ? "Queue message"
       : isAgentRunning
         ? "Send and interrupt"
         : "Send message";
+  const submitAccessibilityLabel =
+    submitButtonAccessibilityLabel ?? defaultSubmitAccessibilityLabel;
 
   const handleInputChange = useCallback(
     (nextValue: string) => {
@@ -1178,7 +1194,9 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
                 </TooltipTrigger>
                 <TooltipContent side="top" align="center" offset={8}>
                   <View style={styles.tooltipRow}>
-                    <Text style={styles.tooltipText}>{defaultActionQueues ? "Queue" : "Send"}</Text>
+                    <Text style={styles.tooltipText}>
+                      {submitButtonAccessibilityLabel ?? (defaultActionQueues ? "Queue" : "Send")}
+                    </Text>
                     {sendKeys ? <Shortcut chord={sendKeys} style={styles.tooltipShortcut} /> : null}
                   </View>
                 </TooltipContent>

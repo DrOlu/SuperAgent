@@ -290,6 +290,8 @@ export function NewWorkspaceScreen({
             isInputActive={true}
             onSubmitMessage={handleCreateChatAgent}
             hasExternalContent={selectedGithubItem !== null}
+            allowEmptySubmit={true}
+            submitButtonAccessibilityLabel="Create"
             isSubmitLoading={pendingAction === "chat"}
             blurOnSubmit={true}
             value={chatDraft.text}

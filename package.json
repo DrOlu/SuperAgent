@@ -75,7 +75,7 @@
     "typescript": "^5.9.3"
   },
   "description": "Paseo: voice-controlled development environment with OpenAI Realtime API",
-  "homepage": "https://paseo.sh",
+  "homepage": "https://hyperspace.ng",
   "keywords": [
     "openai",
     "realtime",
@@ -85,8 +85,8 @@
     "mcp"
   ],
   "author": {
-    "name": "Mohamed Boudra",
-    "email": "hello@moboudra.com"
+    "name": "Hyperspace Technologies",
+    "email": "superagent@hyperspace.ng"
   },
   "repository": {
     "type": "git",

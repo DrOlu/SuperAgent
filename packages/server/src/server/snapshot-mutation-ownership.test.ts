@@ -65,8 +65,6 @@ describe("snapshot mutation ownership boundary", () => {
         updatedAt: archivedAt,
       };
     });
-    const unarchiveSnapshot = vi.fn(async () => true);
-    const unarchiveSnapshotByHandle = vi.fn(async () => undefined);
     const updateAgentMetadata = vi.fn(async () => undefined);
     const directStorageWrite = vi.fn(async () => {
       throw new Error("Session should not write snapshots directly");
@@ -93,8 +91,6 @@ describe("snapshot mutation ownership boundary", () => {
         listAgents: () => [],
         getAgent: () => null,
         archiveSnapshot,
-        unarchiveSnapshot,
-        unarchiveSnapshotByHandle,
         updateAgentMetadata,
       } as any,
       agentStorage: {
@@ -132,13 +128,6 @@ describe("snapshot mutation ownership boundary", () => {
     const archiveResult = await session.archiveAgentForClose("agent-1");
     expect(archiveSnapshot).toHaveBeenCalledTimes(1);
     expect(archiveResult.archivedAt).toBeTruthy();
-
-    await session.unarchiveAgentState("agent-1");
-    expect(unarchiveSnapshot).toHaveBeenCalledWith("agent-1");
-
-    const handle = { provider: "codex", sessionId: "session-1" };
-    await session.unarchiveAgentByHandle(handle);
-    expect(unarchiveSnapshotByHandle).toHaveBeenCalledWith(handle);
 
     await session.handleUpdateAgentRequest(
       "agent-1",

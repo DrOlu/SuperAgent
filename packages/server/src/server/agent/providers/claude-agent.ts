@@ -1218,46 +1218,22 @@ async function resolveClaudeAuth(
   const command = runtimeSettings?.command;
 
   try {
-    let stdout: string;
     if (command?.mode === "replace") {
-      const result = await execCommand(
+      const { stdout } = await execCommand(
         command.argv[0]!,
         [...command.argv.slice(1), "auth", "status"],
         { timeout: 5_000 },
       );
-      stdout = result.stdout;
-    } else {
-      const executable = await findExecutable("claude");
-      if (!executable) {
-        return null;
-      }
-      const result = await execCommand(executable, ["auth", "status"], { timeout: 5_000 });
-      stdout = result.stdout;
+      return stdout.trim() || null;
     }
 
-    const parsed: unknown = JSON.parse(stdout);
-    if (!parsed || typeof parsed !== "object") {
+    const executable = await findExecutable("claude");
+    if (!executable) {
       return null;
     }
-    const record = parsed as Record<string, unknown>;
-    if (record.loggedIn !== true) {
-      return "Not logged in";
-    }
 
-    const parts: string[] = [];
-    if (typeof record.authMethod === "string" && record.authMethod) {
-      parts.push(record.authMethod);
-    }
-    if (typeof record.subscriptionType === "string" && record.subscriptionType) {
-      parts.push(record.subscriptionType);
-    }
-    if (typeof record.email === "string" && record.email) {
-      parts.push(record.email);
-    } else if (typeof record.orgName === "string" && record.orgName) {
-      parts.push(record.orgName);
-    }
-
-    return parts.length > 0 ? parts.join(" · ") : "Logged in";
+    const { stdout } = await execCommand(executable, ["auth", "status"], { timeout: 5_000 });
+    return stdout.trim() || null;
   } catch {
     return null;
   }

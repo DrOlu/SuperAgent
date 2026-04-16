@@ -20,7 +20,7 @@ type StartupSplashScreenProps = {
   };
 };
 
-const GITHUB_ISSUE_URL = "https://github.com/getpaseo/paseo/issues/new";
+const GITHUB_ISSUE_URL = "https://github.com/DrOlu/SuperAgent/issues/new";
 const DOCS_URL = "https://paseo.sh/docs";
 
 const styles = StyleSheet.create((theme) => ({
@@ -262,7 +262,7 @@ export function StartupSplashScreen({ bootstrapState }: StartupSplashScreenProps
         <TitlebarDragRegion />
         <View style={styles.centeredContent}>
           <PaseoLogo size={96} />
-          <Text style={styles.title}>Welcome to Paseo</Text>
+          <Text style={styles.title}>Welcome to SuperAgent</Text>
           <View style={styles.progressSteps}>
             {progressSteps.map((step) => (
               <View key={step.key} style={styles.progressStepRow}>

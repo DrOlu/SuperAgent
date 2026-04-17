@@ -21,7 +21,8 @@ import {
   insertSplit,
   moveTabToPaneInLayout,
   normalizeLayout,
-  openTabInLayout,
+  openTabInLayoutBackground,
+  openTabInLayoutFocused,
   reconcileWorkspaceTabs,
   removePaneFromTree,
   removeTabFromTree,
@@ -66,7 +67,8 @@ interface WorkspaceLayoutStore {
   splitSizesByWorkspace: Record<string, Record<string, number[]>>;
   pinnedAgentIdsByWorkspace: Record<string, Set<string>>;
   hiddenAgentIdsByWorkspace: Record<string, Set<string>>;
-  openTab: (workspaceKey: string, target: WorkspaceTabTarget) => string | null;
+  openTabFocused: (workspaceKey: string, target: WorkspaceTabTarget) => string | null;
+  openTabInBackground: (workspaceKey: string, target: WorkspaceTabTarget) => string | null;
   closeTab: (workspaceKey: string, tabId: string) => void;
   focusTab: (workspaceKey: string, tabId: string) => void;
   retargetTab: (workspaceKey: string, tabId: string, target: WorkspaceTabTarget) => string | null;
@@ -165,14 +167,44 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutStore>()(
       splitSizesByWorkspace: {},
       pinnedAgentIdsByWorkspace: {},
       hiddenAgentIdsByWorkspace: {},
-      openTab: (workspaceKey, target) => {
+      openTabFocused: (workspaceKey, target) => {
         const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);
         const normalizedTarget = normalizeWorkspaceTabTarget(target);
         if (!normalizedWorkspaceKey || !normalizedTarget) {
           return null;
         }
 
-        const result = openTabInLayout({
+        const result = openTabInLayoutFocused({
+          layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
+          target: normalizedTarget,
+          now: Date.now(),
+        });
+
+        set((state) => ({
+          hiddenAgentIdsByWorkspace:
+            normalizedTarget.kind !== "agent"
+              ? state.hiddenAgentIdsByWorkspace
+              : removeAgentIdFromWorkspaceSet(
+                  state.hiddenAgentIdsByWorkspace,
+                  normalizedWorkspaceKey,
+                  normalizedTarget.agentId,
+                ),
+          layoutByWorkspace: {
+            ...state.layoutByWorkspace,
+            [normalizedWorkspaceKey]: result.layout,
+          },
+        }));
+
+        return result.tabId;
+      },
+      openTabInBackground: (workspaceKey, target) => {
+        const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);
+        const normalizedTarget = normalizeWorkspaceTabTarget(target);
+        if (!normalizedWorkspaceKey || !normalizedTarget) {
+          return null;
+        }
+
+        const result = openTabInLayoutBackground({
           layout: getWorkspaceLayout(get().layoutByWorkspace, normalizedWorkspaceKey),
           target: normalizedTarget,
           now: Date.now(),

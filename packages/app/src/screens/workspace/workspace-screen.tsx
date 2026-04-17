@@ -713,12 +713,9 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
         if (input?.paneId) {
           focusWorkspacePane(workspaceKey, input.paneId);
         }
-        const tabId = useWorkspaceLayoutStore
+        useWorkspaceLayoutStore
           .getState()
-          .openTab(workspaceKey, { kind: "terminal", terminalId: createdTerminal.id });
-        if (tabId) {
-          useWorkspaceLayoutStore.getState().focusTab(workspaceKey, tabId);
-        }
+          .openTabFocused(workspaceKey, { kind: "terminal", terminalId: createdTerminal.id });
       }
     },
   });
@@ -911,7 +908,10 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
     () => (workspaceLayout ? collectAllTabs(workspaceLayout.root) : EMPTY_UI_TABS),
     [workspaceLayout],
   );
-  const openWorkspaceTab = useWorkspaceLayoutStore((state) => state.openTab);
+  const openWorkspaceTabFocused = useWorkspaceLayoutStore((state) => state.openTabFocused);
+  const openWorkspaceTabInBackground = useWorkspaceLayoutStore(
+    (state) => state.openTabInBackground,
+  );
   const focusWorkspaceTab = useWorkspaceLayoutStore((state) => state.focusTab);
   const closeWorkspaceTab = useWorkspaceLayoutStore((state) => state.closeTab);
   const unpinWorkspaceAgent = useWorkspaceLayoutStore((state) => state.unpinAgent);
@@ -989,26 +989,9 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       if (!persistenceKey) {
         return null;
       }
-
-      const normalizedTarget = normalizeWorkspaceTabTarget(target);
-      if (!normalizedTarget) {
-        return null;
-      }
-
-      const existingTab =
-        uiTabs.find((tab) => workspaceTabTargetsEqual(tab.target, normalizedTarget)) ?? null;
-      if (existingTab) {
-        return existingTab.tabId;
-      }
-
-      const previousFocusedTabId = focusedPaneTabState.activeTabId;
-      const tabId = openWorkspaceTab(persistenceKey, normalizedTarget);
-      if (tabId && previousFocusedTabId && previousFocusedTabId !== tabId) {
-        focusWorkspaceTab(persistenceKey, previousFocusedTabId);
-      }
-      return tabId;
+      return openWorkspaceTabInBackground(persistenceKey, target);
     },
-    [focusWorkspaceTab, focusedPaneTabState, openWorkspaceTab, persistenceKey, uiTabs],
+    [openWorkspaceTabInBackground, persistenceKey],
   );
 
   const openWorkspaceDraftTab = useCallback(
@@ -1023,16 +1006,11 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       });
       invariant(target?.kind === "draft", "Draft tab target must be valid");
       if (input?.focus === false) {
-        return ensureWorkspaceTab(target);
+        return openWorkspaceTabInBackground(persistenceKey, target);
       }
-
-      const tabId = openWorkspaceTab(persistenceKey, target);
-      if (tabId) {
-        focusWorkspaceTab(persistenceKey, tabId);
-      }
-      return tabId;
+      return openWorkspaceTabFocused(persistenceKey, target);
     },
-    [ensureWorkspaceTab, focusWorkspaceTab, openWorkspaceTab, persistenceKey],
+    [openWorkspaceTabFocused, openWorkspaceTabInBackground, persistenceKey],
   );
 
   useEffect(() => {
@@ -1156,18 +1134,16 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       return;
     }
 
-    const tabId = openWorkspaceTab(persistenceKey, target);
+    const tabId = openWorkspaceTabInBackground(persistenceKey, target);
     if (!tabId) {
       return;
     }
 
-    focusWorkspaceTab(persistenceKey, tabId);
     autoOpenedSetupTabWorkspaceRef.current = persistenceKey;
   }, [
-    focusWorkspaceTab,
     hasSetupTab,
     normalizedWorkspaceId,
-    openWorkspaceTab,
+    openWorkspaceTabInBackground,
     persistenceKey,
     workspaceSetupSnapshot,
   ]);
@@ -1180,12 +1156,12 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       if (!persistenceKey) {
         return;
       }
-      const tabId = openWorkspaceTab(persistenceKey, { kind: "file", path: filePath });
+      const tabId = openWorkspaceTabFocused(persistenceKey, { kind: "file", path: filePath });
       if (tabId) {
         navigateToTabId(tabId);
       }
     },
-    [closeToAgent, isMobile, navigateToTabId, openWorkspaceTab, persistenceKey],
+    [closeToAgent, isMobile, navigateToTabId, openWorkspaceTabFocused, persistenceKey],
   );
 
   const handleOpenFileFromChat = useCallback(
@@ -1520,11 +1496,8 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
     if (!target) {
       return;
     }
-    const tabId = openWorkspaceTab(persistenceKey, target);
-    if (tabId) {
-      focusWorkspaceTab(persistenceKey, tabId);
-    }
-  }, [focusWorkspaceTab, normalizedWorkspaceId, openWorkspaceTab, persistenceKey]);
+    openWorkspaceTabFocused(persistenceKey, target);
+  }, [normalizedWorkspaceId, openWorkspaceTabFocused, persistenceKey]);
 
   const handleBulkCloseTabs = useCallback(
     async (input: { tabsToClose: WorkspaceTabDescriptor[]; title: string; logLabel: string }) => {
@@ -1841,7 +1814,7 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
           if (input.focusPaneBeforeOpen && input.paneId) {
             focusWorkspacePane(persistenceKey, input.paneId);
           }
-          const tabId = openWorkspaceTab(persistenceKey, target);
+          const tabId = openWorkspaceTabFocused(persistenceKey, target);
           if (tabId) {
             navigateToTabId(tabId);
           }
@@ -1873,7 +1846,7 @@ function WorkspaceScreenContent({ serverId, workspaceId }: WorkspaceScreenProps)
       navigateToTabId,
       normalizedServerId,
       normalizedWorkspaceId,
-      openWorkspaceTab,
+      openWorkspaceTabFocused,
       persistenceKey,
       convertWorkspaceDraftToAgent,
       retargetWorkspaceTab,

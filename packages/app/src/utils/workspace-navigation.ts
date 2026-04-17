@@ -33,11 +33,7 @@ export function prepareWorkspaceTab(input: PrepareWorkspaceTabInput) {
       workspaceId: input.workspaceId,
     }) ?? "";
 
-  const tabId = useWorkspaceLayoutStore.getState().openTab(key, target);
-
-  if (tabId) {
-    useWorkspaceLayoutStore.getState().focusTab(key, tabId);
-  }
+  useWorkspaceLayoutStore.getState().openTabFocused(key, target);
 
   if (input.pin && target.kind === "agent") {
     useWorkspaceLayoutStore.getState().pinAgent(key, target.agentId);

@@ -1019,6 +1019,7 @@ function insertNewTabIntoFocusedPane(input: {
   layout: WorkspaceLayout;
   target: WorkspaceTabTarget;
   now: number;
+  focus: boolean;
 }): OpenTabInLayoutResult {
   const layout = asInternalLayout(input.layout);
   const focusedPane =
@@ -1034,20 +1035,22 @@ function insertNewTabIntoFocusedPane(input: {
     createdAt: input.now,
   };
 
+  const preservedFocusTabId = focusedPane.focusedTabId ?? tabId;
+
   return {
     tabId,
     layout: {
       root: insertTabIntoPane(layout.root, {
         paneId: focusedPane.id,
         tab: nextTab,
-        focusTabId: tabId,
+        focusTabId: input.focus ? tabId : preservedFocusTabId,
       }),
-      focusedPaneId: focusedPane.id,
+      focusedPaneId: input.focus ? focusedPane.id : layout.focusedPaneId,
     },
   };
 }
 
-export function openTabInLayout(input: OpenTabInLayoutInput): OpenTabInLayoutResult {
+export function openTabInLayoutFocused(input: OpenTabInLayoutInput): OpenTabInLayoutResult {
   const layout = asInternalLayout(input.layout);
   const existingTab = collectAllTabs(layout.root).find((tab) =>
     workspaceTabTargetsEqual(tab.target, input.target),
@@ -1063,7 +1066,19 @@ export function openTabInLayout(input: OpenTabInLayoutInput): OpenTabInLayoutRes
     };
   }
 
-  return insertNewTabIntoFocusedPane(input);
+  return insertNewTabIntoFocusedPane({ ...input, focus: true });
+}
+
+export function openTabInLayoutBackground(input: OpenTabInLayoutInput): OpenTabInLayoutResult {
+  const layout = asInternalLayout(input.layout);
+  const existingTab = collectAllTabs(layout.root).find((tab) =>
+    workspaceTabTargetsEqual(tab.target, input.target),
+  );
+  if (existingTab) {
+    return { tabId: existingTab.tabId, layout: input.layout };
+  }
+
+  return insertNewTabIntoFocusedPane({ ...input, focus: false });
 }
 
 export function closeTabInLayout(input: CloseTabInLayoutInput): WorkspaceLayout | null {

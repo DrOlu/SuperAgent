@@ -39,7 +39,7 @@ const WORKSPACE_ID = "/repo/project";
 
 function createOpenDraftTab() {
   return (workspaceKey: string) =>
-    useWorkspaceLayoutStore.getState().openTab(workspaceKey, {
+    useWorkspaceLayoutStore.getState().openTabFocused(workspaceKey, {
       kind: "draft",
       draftId: generateDraftId(),
     });

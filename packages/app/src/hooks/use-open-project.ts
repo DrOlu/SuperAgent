@@ -71,7 +71,7 @@ export function useOpenProject(serverId: string | null): (path: string) => Promi
         mergeWorkspaces,
         setHasHydratedWorkspaces,
         openDraftTab: (workspaceKey: string) =>
-          useWorkspaceLayoutStore.getState().openTab(workspaceKey, {
+          useWorkspaceLayoutStore.getState().openTabFocused(workspaceKey, {
             kind: "draft",
             draftId: generateDraftId(),
           }),

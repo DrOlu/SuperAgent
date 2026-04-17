@@ -236,8 +236,14 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const firstTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    const firstTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/a.ts",
+    });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
@@ -247,7 +253,7 @@ describe("workspace-layout-store actions", () => {
     expect(splitPaneId).toBe("pane_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
     store.focusPane(workspaceKey, "main");
-    const duplicateTabId = store.openTab(workspaceKey, {
+    const duplicateTabId = store.openTabFocused(workspaceKey, {
       kind: "file",
       path: "/repo/worktree/b.ts",
     });
@@ -263,12 +269,55 @@ describe("workspace-layout-store actions", () => {
     ]);
   });
 
+  it("openTabInBackground inserts a tab without stealing focus", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    const agentTabId = store.openTabFocused(workspaceKey, { kind: "agent", agentId: "agent-1" });
+    const setupTabId = store.openTabInBackground(workspaceKey, {
+      kind: "setup",
+      workspaceId: "ws-main",
+    });
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+    const pane = findPaneById(layout.root, "main")!;
+
+    expect(agentTabId).toBe("agent_agent-1");
+    expect(setupTabId).toBe("setup_ws-main");
+    expect(pane.tabIds).toEqual([agentTabId, setupTabId]);
+    expect(pane.focusedTabId).toBe(agentTabId);
+    expect(layout.focusedPaneId).toBe("main");
+  });
+
+  it("openTabInBackground on an existing target is a no-op", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = useWorkspaceLayoutStore.getState();
+
+    const firstTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/a.ts",
+    });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
+    const duplicateTabId = store.openTabInBackground(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/a.ts",
+    });
+    const layoutAfter = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
+    const pane = findPaneById(layoutAfter.root, "main")!;
+
+    expect(duplicateTabId).toBe(firstTabId);
+    expect(pane.tabIds).toEqual([firstTabId, secondTabId]);
+    expect(pane.focusedTabId).toBe(secondTabId);
+  });
+
   it("openTab creates distinct draft tabs for repeated Cmd+T/new-tab opens", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const firstTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-1" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-2" });
+    const firstTabId = store.openTabFocused(workspaceKey, { kind: "draft", draftId: "draft-1" });
+    const secondTabId = store.openTabFocused(workspaceKey, { kind: "draft", draftId: "draft-2" });
     const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
 
     expect(firstTabId).toBe("draft-1");
@@ -296,12 +345,15 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
     const newPaneId = store.splitPaneEmpty(workspaceKey, {
       targetPaneId: "main",
       position: "right",
     });
-    const draftTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-split" });
+    const draftTabId = store.openTabFocused(workspaceKey, {
+      kind: "draft",
+      draftId: "draft-split",
+    });
     const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
 
     expect(newPaneId).toBe("pane_77777777-7777-7777-7777-777777777777");
@@ -319,8 +371,14 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const fileTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const terminalTabId = store.openTab(workspaceKey, { kind: "terminal", terminalId: "term-1" });
+    const fileTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/a.ts",
+    });
+    const terminalTabId = store.openTabFocused(workspaceKey, {
+      kind: "terminal",
+      terminalId: "term-1",
+    });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: terminalTabId!,
       targetPaneId: "main",
@@ -345,8 +403,8 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-2" });
+    store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const secondTabId = store.openTabFocused(workspaceKey, { kind: "draft", draftId: "draft-2" });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
@@ -373,7 +431,10 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const draftTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-retarget" });
+    const draftTabId = store.openTabFocused(workspaceKey, {
+      kind: "draft",
+      draftId: "draft-retarget",
+    });
     const nextTabId = store.retargetTab(workspaceKey, draftTabId!, {
       kind: "file",
       path: "/repo/worktree/retargeted.ts",
@@ -399,17 +460,20 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const existingFileTabId = store.openTab(workspaceKey, {
+    const existingFileTabId = store.openTabFocused(workspaceKey, {
       kind: "file",
       path: "/repo/worktree/existing.ts",
     });
-    const draftTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-dup" });
+    const draftTabId = store.openTabFocused(workspaceKey, { kind: "draft", draftId: "draft-dup" });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: draftTabId!,
       targetPaneId: "main",
       position: "right",
     });
-    const secondDraftTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-dup-2" });
+    const secondDraftTabId = store.openTabFocused(workspaceKey, {
+      kind: "draft",
+      draftId: "draft-dup-2",
+    });
 
     const nextTabId = store.retargetTab(workspaceKey, secondDraftTabId!, {
       kind: "file",
@@ -433,7 +497,7 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const firstDraftTabId = store.openTab(workspaceKey, {
+    const firstDraftTabId = store.openTabFocused(workspaceKey, {
       kind: "draft",
       draftId: "draft-agent-1",
     });
@@ -441,7 +505,7 @@ describe("workspace-layout-store actions", () => {
       kind: "agent",
       agentId: "agent-1",
     });
-    const secondDraftTabId = store.openTab(workspaceKey, {
+    const secondDraftTabId = store.openTabFocused(workspaceKey, {
       kind: "draft",
       draftId: "draft-agent-2",
     });
@@ -468,9 +532,18 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const firstTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
-    const thirdTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/c.ts" });
+    const firstTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/a.ts",
+    });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
+    const thirdTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/c.ts",
+    });
 
     store.reorderTabs(workspaceKey, [thirdTabId!, firstTabId!]);
     const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
@@ -506,10 +579,19 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
-    const thirdTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/c.ts" });
-    const fourthTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/d.ts" });
+    store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
+    const thirdTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/c.ts",
+    });
+    const fourthTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/d.ts",
+    });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: thirdTabId!,
       targetPaneId: "main",
@@ -549,8 +631,11 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
@@ -575,8 +660,11 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
@@ -604,11 +692,11 @@ describe("workspace-layout-store actions", () => {
 
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
-    const a = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const b = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
-    const c = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/c.ts" });
-    const d = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/d.ts" });
-    const e = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/e.ts" });
+    const a = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const b = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    const c = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/c.ts" });
+    const d = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/d.ts" });
+    const e = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/e.ts" });
 
     expect(a).toBeTruthy();
     const pane1 = store.splitPane(workspaceKey, {
@@ -647,8 +735,14 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const leftTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const rightTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    const leftTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/a.ts",
+    });
+    const rightTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: rightTabId!,
       targetPaneId: "main",
@@ -675,9 +769,15 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
-    const thirdTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/c.ts" });
+    store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
+    const thirdTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/c.ts",
+    });
     const paneBId = store.splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
@@ -732,8 +832,11 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const secondTabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const secondTabId = store.openTabFocused(workspaceKey, {
+      kind: "file",
+      path: "/repo/worktree/b.ts",
+    });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: secondTabId!,
       targetPaneId: "main",
@@ -741,7 +844,7 @@ describe("workspace-layout-store actions", () => {
     });
 
     store.focusPane(workspaceKey, "main");
-    const duplicateTabId = store.openTab(workspaceKey, {
+    const duplicateTabId = store.openTabFocused(workspaceKey, {
       kind: "file",
       path: "/repo/worktree/b.ts",
     });
@@ -765,9 +868,9 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const a = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
-    const b = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
-    const c = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/c.ts" });
+    const a = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const b = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/b.ts" });
+    const c = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/c.ts" });
 
     expect(a).toBeTruthy();
     const rightPaneId = store.splitPane(workspaceKey, {
@@ -802,7 +905,7 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const tabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-1" });
+    const tabId = store.openTabFocused(workspaceKey, { kind: "draft", draftId: "draft-1" });
     store.closeTab(workspaceKey, tabId!);
     const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey]!;
 
@@ -888,8 +991,11 @@ describe("workspace-layout-store actions", () => {
     const workspaceKey = createWorkspaceKey();
     const store = useWorkspaceLayoutStore.getState();
 
-    const draftTabId = store.openTab(workspaceKey, { kind: "draft", draftId: "draft-existing" });
-    const agentTabId = store.openTab(workspaceKey, { kind: "agent", agentId: "agent-1" });
+    const draftTabId = store.openTabFocused(workspaceKey, {
+      kind: "draft",
+      draftId: "draft-existing",
+    });
+    const agentTabId = store.openTabFocused(workspaceKey, { kind: "agent", agentId: "agent-1" });
     const splitPaneId = store.splitPane(workspaceKey, {
       tabId: agentTabId!,
       targetPaneId: "main",
@@ -1006,7 +1112,7 @@ describe("workspace-layout-store actions", () => {
     const store = useWorkspaceLayoutStore.getState();
 
     store.hideAgent(workspaceKey, "agent-1");
-    store.openTab(workspaceKey, { kind: "agent", agentId: "agent-1" });
+    store.openTabFocused(workspaceKey, { kind: "agent", agentId: "agent-1" });
 
     const state = useWorkspaceLayoutStore.getState();
     expect(state.hiddenAgentIdsByWorkspace[workspaceKey]).toBeUndefined();
@@ -1034,7 +1140,7 @@ describe("workspace-layout-store actions", () => {
     const store = useWorkspaceLayoutStore.getState();
 
     store.hideAgent(workspaceKey, "agent-1");
-    const tabId = store.openTab(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
+    const tabId = store.openTabFocused(workspaceKey, { kind: "file", path: "/repo/worktree/a.ts" });
     store.retargetTab(workspaceKey, tabId!, { kind: "agent", agentId: "agent-1" });
 
     const state = useWorkspaceLayoutStore.getState();

@@ -13,6 +13,7 @@ import { useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import { encodeImages } from "@/utils/encode-images";
 import { toErrorMessage } from "@/utils/error-messages";
+import { splitComposerAttachmentsForSubmit } from "@/components/composer-attachments";
 import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-display-name";
 import { requireWorkspaceExecutionAuthority } from "@/utils/workspace-execution";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
@@ -47,6 +48,7 @@ export function WorkspaceSetupDialog() {
   const isConnected = useHostRuntimeIsConnected(serverId);
   const chatDraft = useAgentInputDraft({
     draftKey: `workspace-setup:${serverId}:${sourceDirectory}`,
+    initialCwd: sourceDirectory,
     composer: {
       initialServerId: serverId || null,
       initialValues: workspace?.workspaceDirectory
@@ -105,47 +107,54 @@ export function WorkspaceSetupDialog() {
     return client;
   }, [client, isConnected]);
 
-  const ensureWorkspace = useCallback(async () => {
-    if (!pendingWorkspaceSetup) {
-      throw new Error("No workspace setup is pending");
-    }
+  const ensureWorkspace = useCallback(
+    async (input: { cwd: string; attachments: MessagePayload["attachments"] }) => {
+      if (!pendingWorkspaceSetup) {
+        throw new Error("No workspace setup is pending");
+      }
 
-    if (createdWorkspace) {
-      return createdWorkspace;
-    }
+      if (createdWorkspace) {
+        return createdWorkspace;
+      }
 
-    const connectedClient = withConnectedClient();
-    const payload =
-      pendingWorkspaceSetup.creationMethod === "create_worktree"
-        ? await connectedClient.createPaseoWorktree({
-            cwd: pendingWorkspaceSetup.sourceDirectory,
-            worktreeSlug: createNameId(),
-          })
-        : await connectedClient.openProject(pendingWorkspaceSetup.sourceDirectory);
+      const connectedClient = withConnectedClient();
+      const wirePayload = splitComposerAttachmentsForSubmit(input.attachments);
+      const payload =
+        pendingWorkspaceSetup.creationMethod === "create_worktree"
+          ? await connectedClient.createPaseoWorktree({
+              cwd: input.cwd,
+              worktreeSlug: createNameId(),
+              ...(wirePayload.attachments.length > 0
+                ? { attachments: wirePayload.attachments }
+                : {}),
+            })
+          : await connectedClient.openProject(input.cwd);
 
-    if (payload.error || !payload.workspace) {
-      throw new Error(
-        payload.error ??
-          (pendingWorkspaceSetup.creationMethod === "create_worktree"
-            ? "Failed to create worktree"
-            : "Failed to open project"),
-      );
-    }
+      if (payload.error || !payload.workspace) {
+        throw new Error(
+          payload.error ??
+            (pendingWorkspaceSetup.creationMethod === "create_worktree"
+              ? "Failed to create worktree"
+              : "Failed to open project"),
+        );
+      }
 
-    const normalizedWorkspace = normalizeWorkspaceDescriptor(payload.workspace);
-    mergeWorkspaces(pendingWorkspaceSetup.serverId, [normalizedWorkspace]);
-    if (pendingWorkspaceSetup.creationMethod === "open_project") {
-      setHasHydratedWorkspaces(pendingWorkspaceSetup.serverId, true);
-    }
-    setCreatedWorkspace(normalizedWorkspace);
-    return normalizedWorkspace;
-  }, [
-    createdWorkspace,
-    mergeWorkspaces,
-    pendingWorkspaceSetup,
-    setHasHydratedWorkspaces,
-    withConnectedClient,
-  ]);
+      const normalizedWorkspace = normalizeWorkspaceDescriptor(payload.workspace);
+      mergeWorkspaces(pendingWorkspaceSetup.serverId, [normalizedWorkspace]);
+      if (pendingWorkspaceSetup.creationMethod === "open_project") {
+        setHasHydratedWorkspaces(pendingWorkspaceSetup.serverId, true);
+      }
+      setCreatedWorkspace(normalizedWorkspace);
+      return normalizedWorkspace;
+    },
+    [
+      createdWorkspace,
+      mergeWorkspaces,
+      pendingWorkspaceSetup,
+      setHasHydratedWorkspaces,
+      withConnectedClient,
+    ],
+  );
 
   const getIsStillActive = useCallback(() => {
     const current = useWorkspaceSetupStore.getState().pendingWorkspaceSetup;
@@ -161,17 +170,18 @@ export function WorkspaceSetupDialog() {
   ]);
 
   const handleCreateChatAgent = useCallback(
-    async ({ text, images }: MessagePayload) => {
+    async ({ text, attachments, cwd }: MessagePayload) => {
       try {
         setPendingAction("chat");
         setErrorMessage(null);
-        const workspace = await ensureWorkspace();
+        const workspace = await ensureWorkspace({ cwd, attachments });
         const connectedClient = withConnectedClient();
         if (!composerState) {
           throw new Error("Workspace setup composer state is required");
         }
 
-        const encodedImages = await encodeImages(images);
+        const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+        const encodedImages = await encodeImages(wirePayload.images);
         const workspaceDirectory = requireWorkspaceExecutionAuthority({
           workspace,
         }).workspaceDirectory;
@@ -188,6 +198,7 @@ export function WorkspaceSetupDialog() {
             : {}),
           ...(text.trim() ? { initialPrompt: text.trim() } : {}),
           ...(encodedImages && encodedImages.length > 0 ? { images: encodedImages } : {}),
+          ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
         });
 
         if (!getIsStillActive()) {
@@ -285,8 +296,9 @@ export function WorkspaceSetupDialog() {
           blurOnSubmit={true}
           value={chatDraft.text}
           onChangeText={chatDraft.setText}
-          images={chatDraft.images}
-          onChangeImages={chatDraft.setImages}
+          attachments={chatDraft.attachments}
+          onChangeAttachments={chatDraft.setAttachments}
+          cwd={chatDraft.cwd}
           clearDraft={chatDraft.clear}
           autoFocus
           commandDraftConfig={composerState?.commandDraftConfig}

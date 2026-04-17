@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useReducer } from "react";
+import type { ComposerAttachment } from "@/attachments/types";
+import { splitComposerAttachmentsForSubmit } from "@/components/composer-attachments";
 import { useCreateFlowStore } from "@/stores/create-flow-store";
 import {
   generateMessageId,
   type StreamItem,
   type UserMessageImageAttachment,
 } from "@/types/stream";
+import type { AgentAttachment } from "@server/shared/messages";
 
 const EMPTY_STREAM_ITEMS: StreamItem[] = [];
 
@@ -60,13 +63,16 @@ type CreateRequestResult<TCreateResult> = {
 
 type SubmitContext = {
   text: string;
-  images?: UserMessageImageAttachment[];
+  attachments: ComposerAttachment[];
+  cwd: string;
 };
 
 type CreateRequestContext = {
   attempt: CreateAttempt;
   text: string;
   images?: UserMessageImageAttachment[];
+  attachments?: AgentAttachment[];
+  cwd: string;
 };
 
 interface UseDraftAgentCreateFlowOptions<TDraftAgent, TCreateResult> {
@@ -137,12 +143,14 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
   }, [buildDraftAgent, machine]);
 
   const handleCreateFromInput = useCallback(
-    async ({ text, images }: SubmitContext) => {
+    async ({ text, attachments, cwd }: SubmitContext) => {
       if (isSubmitting) {
         throw new Error("Already loading");
       }
 
       dispatch({ type: "DRAFT_SET_ERROR", message: "" });
+      const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+      const images = wirePayload.images;
 
       const trimmedPrompt = text.trim();
       if (!trimmedPrompt && !allowEmptyText) {
@@ -151,7 +159,11 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         throw error;
       }
 
-      const validationError = validateBeforeSubmit?.({ text: trimmedPrompt, images });
+      const validationError = validateBeforeSubmit?.({
+        text: trimmedPrompt,
+        attachments,
+        cwd,
+      });
       if (validationError) {
         const error = new Error(validationError);
         dispatch({ type: "DRAFT_SET_ERROR", message: validationError });
@@ -182,7 +194,13 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         ...(attempt.images && attempt.images.length > 0 ? { images: attempt.images } : {}),
       });
 
-      onBeforeSubmit?.({ attempt, text: trimmedPrompt, images });
+      onBeforeSubmit?.({
+        attempt,
+        text: trimmedPrompt,
+        images,
+        attachments: wirePayload.attachments,
+        cwd,
+      });
       dispatch({ type: "SUBMIT", attempt });
       onCreateStart?.();
 
@@ -191,6 +209,8 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
           attempt,
           text: trimmedPrompt,
           images,
+          attachments: wirePayload.attachments,
+          cwd,
         });
 
         if (createResult.agentId) {

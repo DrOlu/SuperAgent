@@ -1,11 +1,21 @@
-import { View, Pressable, Text, ActivityIndicator } from "react-native";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { View, Pressable, Text, ActivityIndicator, Image } from "react-native";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useShallow } from "zustand/shallow";
-import { ArrowUp, Square, Pencil, AudioLines } from "lucide-react-native";
+import {
+  ArrowUp,
+  Square,
+  Pencil,
+  AudioLines,
+  CircleDot,
+  GitPullRequest,
+  Github,
+  Paperclip,
+} from "lucide-react-native";
 import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
 import { FOOTER_HEIGHT, MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { generateMessageId, type StreamItem } from "@/types/stream";
 import {
@@ -21,6 +31,7 @@ import {
   type MessagePayload,
   type ImageAttachment,
   type MessageInputRef,
+  type AttachmentMenuItem,
 } from "./message-input";
 import { Theme } from "@/styles/theme";
 import type { DraftCommandConfig } from "@/hooks/use-agent-commands-query";
@@ -51,14 +62,32 @@ import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispat
 import { submitAgentInput } from "@/components/agent-input-submit";
 import { useAppSettings } from "@/hooks/use-settings";
 import { isWeb, isNative } from "@/constants/platform";
+import type { GitHubSearchItem } from "@server/shared/messages";
+import type { AttachmentMetadata, ComposerAttachment } from "@/attachments/types";
+import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
+import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
+import { splitComposerAttachmentsForSubmit } from "@/components/composer-attachments";
+import { AttachmentPill } from "@/components/attachment-pill";
+import { AttachmentLightbox } from "@/components/attachment-lightbox";
+import { openExternalUrl } from "@/utils/open-external-url";
 
 type QueuedMessage = {
   id: string;
   text: string;
-  images?: ImageAttachment[];
+  attachments: ComposerAttachment[];
 };
 
-type ImageListUpdater = ImageAttachment[] | ((prev: ImageAttachment[]) => ImageAttachment[]);
+type AttachmentListUpdater =
+  | ComposerAttachment[]
+  | ((prev: ComposerAttachment[]) => ComposerAttachment[]);
+
+function ImageAttachmentThumbnail({ image }: { image: ImageAttachment }) {
+  const uri = useAttachmentPreviewUrl(image);
+  if (!uri) {
+    return <View style={styles.imageThumbnailPlaceholder} />;
+  }
+  return <Image source={{ uri }} style={styles.imageThumbnail} />;
+}
 
 interface ComposerProps {
   agentId: string;
@@ -77,8 +106,9 @@ interface ComposerProps {
   blurOnSubmit?: boolean;
   value: string;
   onChangeText: (text: string) => void;
-  images: ImageAttachment[];
-  onChangeImages: (updater: ImageListUpdater) => void;
+  attachments: ComposerAttachment[];
+  onChangeAttachments: (updater: AttachmentListUpdater) => void;
+  cwd: string;
   clearDraft: (lifecycle: "sent" | "abandoned") => void;
   /** When true, auto-focuses the text input on web. */
   autoFocus?: boolean;
@@ -115,8 +145,9 @@ export function Composer({
   blurOnSubmit = false,
   value,
   onChangeText,
-  images,
-  onChangeImages,
+  attachments,
+  onChangeAttachments,
+  cwd,
   clearDraft,
   autoFocus = false,
   onAddImages,
@@ -175,13 +206,17 @@ export function Composer({
     : MOBILE_MESSAGE_PLACEHOLDER;
   const userInput = value;
   const setUserInput = onChangeText;
-  const selectedImages = images;
-  const setSelectedImages = onChangeImages;
+  const selectedAttachments = attachments;
+  const setSelectedAttachments = onChangeAttachments;
   const [cursorIndex, setCursorIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCancellingAgent, setIsCancellingAgent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isMessageInputFocused, setIsMessageInputFocused] = useState(false);
+  const [isGithubPickerOpen, setIsGithubPickerOpen] = useState(false);
+  const [githubSearchQuery, setGithubSearchQuery] = useState("");
+  const [lightboxMetadata, setLightboxMetadata] = useState<AttachmentMetadata | null>(null);
+  const attachButtonRef = useRef<View | null>(null);
   const messageInputRef = useRef<MessageInputRef>(null);
   const keyboardHandlerIdRef = useRef(
     `message-input:${serverId}:${agentId}:${Math.random().toString(36).slice(2)}`,
@@ -213,16 +248,19 @@ export function Composer({
   const { pickImages } = useImageAttachmentPicker();
   const agentIdRef = useRef(agentId);
   const sendAgentMessageRef = useRef<
-    ((agentId: string, text: string, images?: ImageAttachment[]) => Promise<void>) | null
+    ((agentId: string, text: string, attachments: ComposerAttachment[]) => Promise<void>) | null
   >(null);
   const onSubmitMessageRef = useRef(onSubmitMessage);
 
   // Expose addImages function to parent for drag-and-drop support
   const addImages = useCallback(
     (images: ImageAttachment[]) => {
-      setSelectedImages((prev) => [...prev, ...images]);
+      setSelectedAttachments((prev) => [
+        ...prev,
+        ...images.map((metadata) => ({ kind: "image" as const, metadata })),
+      ]);
     },
-    [setSelectedImages],
+    [setSelectedAttachments],
   );
 
   useEffect(() => {
@@ -245,18 +283,18 @@ export function Composer({
   }, [focusInput, onFocusInput]);
 
   const submitMessage = useCallback(
-    async (text: string, images?: ImageAttachment[]) => {
+    async (text: string, attachments: ComposerAttachment[]) => {
       onMessageSent?.();
       if (onSubmitMessageRef.current) {
-        await onSubmitMessageRef.current({ text, images });
+        await onSubmitMessageRef.current({ text, attachments, cwd });
         return;
       }
       if (!sendAgentMessageRef.current) {
         throw new Error("Host is not connected");
       }
-      await sendAgentMessageRef.current(agentIdRef.current, text, images);
+      await sendAgentMessageRef.current(agentIdRef.current, text, attachments);
     },
-    [onMessageSent],
+    [cwd, onMessageSent],
   );
 
   useEffect(() => {
@@ -267,19 +305,20 @@ export function Composer({
     sendAgentMessageRef.current = async (
       agentId: string,
       text: string,
-      images?: ImageAttachment[],
+      attachments: ComposerAttachment[],
     ) => {
       if (!client) {
         throw new Error("Host is not connected");
       }
 
+      const wirePayload = splitComposerAttachmentsForSubmit(attachments);
       const clientMessageId = generateMessageId();
       const userMessage: StreamItem = {
         kind: "user_message",
         id: clientMessageId,
         text,
         timestamp: new Date(),
-        ...(images && images.length > 0 ? { images } : {}),
+        ...(wirePayload.images.length > 0 ? { images: wirePayload.images } : {}),
       };
 
       // Append to head if streaming (keeps the user message with the current
@@ -303,10 +342,11 @@ export function Composer({
           return updated;
         });
       }
-      const imagesData = await encodeImages(images);
+      const imagesData = await encodeImages(wirePayload.images);
       await client.sendAgentMessage(agentId, text, {
         messageId: clientMessageId,
-        ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
+        images: imagesData ?? [],
+        attachments: wirePayload.attachments,
       });
       onAttentionPromptSend?.();
     };
@@ -330,14 +370,14 @@ export function Composer({
     [agentId, serverId, setQueuedMessages],
   );
 
-  function queueMessage(message: string, imageAttachments?: ImageAttachment[]) {
+  function queueMessage(message: string, attachments: ComposerAttachment[]) {
     const trimmedMessage = message.trim();
-    if (!trimmedMessage && !imageAttachments?.length) return;
+    if (!trimmedMessage && attachments.length === 0) return;
 
     const newItem = {
       id: generateMessageId(),
       text: trimmedMessage,
-      images: imageAttachments,
+      attachments,
     };
 
     setQueuedMessages(serverId, (prev: Map<string, QueuedMessage[]>) => {
@@ -347,17 +387,17 @@ export function Composer({
     });
 
     setUserInput("");
-    setSelectedImages([]);
+    setSelectedAttachments([]);
   }
 
   async function sendMessageWithContent(
     message: string,
-    imageAttachments?: ImageAttachment[],
+    attachments: ComposerAttachment[],
     forceSend?: boolean,
   ) {
     await submitAgentInput({
       message,
-      imageAttachments,
+      attachments,
       hasExternalContent,
       allowEmptySubmit,
       forceSend,
@@ -365,16 +405,16 @@ export function Composer({
       // Parent-managed submits are still valid submit paths even when the
       // transport is disconnected, because the parent decides the failure mode.
       canSubmit: Boolean(sendAgentMessageRef.current || onSubmitMessageRef.current),
-      queueMessage: ({ message, imageAttachments }) => {
-        queueMessage(message, imageAttachments);
+      queueMessage: ({ message, attachments }) => {
+        queueMessage(message, attachments);
       },
-      submitMessage: async ({ message, imageAttachments }) => {
-        await submitMessage(message, imageAttachments);
+      submitMessage: async ({ message, attachments }) => {
+        await submitMessage(message, attachments);
       },
       clearDraft,
       setUserInput,
-      setSelectedImages: (images) => {
-        setSelectedImages(images);
+      setAttachments: (nextAttachments) => {
+        setSelectedAttachments(nextAttachments);
       },
       setSendError,
       setIsProcessing,
@@ -388,10 +428,10 @@ export function Composer({
     if (blurOnSubmit) {
       messageInputRef.current?.blur();
     }
-    void sendMessageWithContent(payload.text, payload.images, payload.forceSend);
+    void sendMessageWithContent(payload.text, payload.attachments, payload.forceSend);
   }
 
-  async function handlePickImage() {
+  const handlePickImage = useCallback(async () => {
     const result = await pickImages();
     if (!result?.length) {
       return;
@@ -414,17 +454,25 @@ export function Composer({
         });
       }),
     );
-    setSelectedImages((prev) => [...prev, ...newImages]);
-  }
+    addImages(newImages);
+  }, [addImages, pickImages]);
 
-  function handleRemoveImage(index: number) {
-    setSelectedImages((prev) => {
+  function handleRemoveAttachment(index: number) {
+    setSelectedAttachments((prev) => {
       const removed = prev[index];
-      if (removed) {
-        void deleteAttachments([removed]);
+      if (removed?.kind === "image") {
+        void deleteAttachments([removed.metadata]);
       }
       return prev.filter((_, i) => i !== index);
     });
+  }
+
+  function handleOpenAttachment(attachment: ComposerAttachment) {
+    if (attachment.kind === "image") {
+      setLightboxMetadata(attachment.metadata);
+      return;
+    }
+    void openExternalUrl(attachment.item.url);
   }
 
   useEffect(() => {
@@ -459,16 +507,12 @@ export function Composer({
             },
           });
           return true;
-        case "message-input.send":
-          return messageInputRef.current?.runKeyboardAction("send") ?? false;
         case "message-input.dictation-toggle":
           messageInputRef.current?.runKeyboardAction("dictation-toggle");
           return true;
         case "message-input.dictation-cancel":
           messageInputRef.current?.runKeyboardAction("dictation-cancel");
           return true;
-        case "message-input.dictation-confirm":
-          return messageInputRef.current?.runKeyboardAction("dictation-confirm") ?? false;
         case "message-input.voice-toggle":
           messageInputRef.current?.runKeyboardAction("voice-toggle");
           return true;
@@ -543,7 +587,7 @@ export function Composer({
 
     updateQueue((current) => current.filter((q) => q.id !== id));
     setUserInput(item.text);
-    setSelectedImages(item.images ?? []);
+    setSelectedAttachments(item.attachments);
   }
 
   async function handleSendQueuedNow(id: string) {
@@ -555,7 +599,7 @@ export function Composer({
 
     // Reuse the regular send path; server-side send atomically interrupts any active run.
     try {
-      await submitMessage(item.text, item.images);
+      await submitMessage(item.text, item.attachments);
     } catch (error) {
       updateQueue((current) => [item, ...current]);
       setSendError(error instanceof Error ? error.message : "Failed to send message");
@@ -563,10 +607,10 @@ export function Composer({
   }
 
   const handleQueue = useCallback((payload: MessagePayload) => {
-    queueMessage(payload.text, payload.images);
+    queueMessage(payload.text, payload.attachments);
   }, []);
 
-  const hasSendableContent = userInput.trim().length > 0 || selectedImages.length > 0;
+  const hasSendableContent = userInput.trim().length > 0 || selectedAttachments.length > 0;
 
   // Handle keyboard navigation for command autocomplete and stop action.
   const handleCommandKeyPress = useCallback(
@@ -686,6 +730,78 @@ export function Composer({
     </View>
   );
 
+  const githubSearchQueryTrimmed = githubSearchQuery.trim();
+  const githubSearchResultsQuery = useQuery({
+    queryKey: ["composer-github-search", serverId, cwd, githubSearchQueryTrimmed],
+    queryFn: async () => {
+      if (!client) {
+        throw new Error("Host is not connected");
+      }
+      return client.searchGitHub({
+        cwd,
+        query: githubSearchQueryTrimmed,
+        limit: 20,
+      });
+    },
+    enabled: isConnected && !!client && cwd.trim().length > 0,
+    staleTime: 30_000,
+  });
+
+  const githubSearchItems = githubSearchResultsQuery.data?.items ?? [];
+  const githubSearchOptions: ComboboxOption[] = useMemo(
+    () =>
+      githubSearchItems.map((item) => ({
+        id: `${item.kind}:${item.number}`,
+        label: `#${item.number} ${item.title}`,
+        description: githubSearchQueryTrimmed,
+      })),
+    [githubSearchItems, githubSearchQueryTrimmed],
+  );
+
+  const attachmentMenuItems = useMemo<AttachmentMenuItem[]>(
+    () => [
+      {
+        id: "image",
+        label: "Add image",
+        icon: <Paperclip size={theme.iconSize.md} color={theme.colors.foregroundMuted} />,
+        onSelect: () => {
+          void handlePickImage();
+        },
+      },
+      {
+        id: "github",
+        label: "Add issue or PR",
+        icon: <Github size={theme.iconSize.md} color={theme.colors.foregroundMuted} />,
+        onSelect: () => {
+          setIsGithubPickerOpen(true);
+        },
+      },
+    ],
+    [handlePickImage, theme.colors.foregroundMuted, theme.iconSize.md],
+  );
+
+  const handleToggleGithubItem = useCallback(
+    (item: GitHubSearchItem) => {
+      setSelectedAttachments((current) => {
+        const matches = (attachment: ComposerAttachment) =>
+          attachment.kind !== "image" &&
+          attachment.item.kind === item.kind &&
+          attachment.item.number === item.number;
+
+        if (current.some(matches)) {
+          return current.filter((attachment) => !matches(attachment));
+        }
+
+        const nextAttachment: ComposerAttachment =
+          item.kind === "pr" ? { kind: "github_pr", item } : { kind: "github_issue", item };
+        return [...current, nextAttachment];
+      });
+      setIsGithubPickerOpen(false);
+      setGithubSearchQuery("");
+    },
+    [setSelectedAttachments, setGithubSearchQuery, setIsGithubPickerOpen],
+  );
+
   const leftContent =
     resolveStatusControlMode(statusControls) === "draft" && statusControls ? (
       <DraftAgentStatusBar {...statusControls} />
@@ -697,6 +813,7 @@ export function Composer({
     <Animated.View
       style={[styles.container, { paddingBottom: insets.bottom }, keyboardAnimatedStyle]}
     >
+      <AttachmentLightbox metadata={lightboxMetadata} onClose={() => setLightboxMetadata(null)} />
       {/* Input area */}
       <View style={styles.inputAreaContainer}>
         <View style={styles.inputAreaContent}>
@@ -745,6 +862,59 @@ export function Composer({
               </View>
             )}
 
+            {selectedAttachments.length > 0 ? (
+              <View style={styles.attachmentPreviewContainer} testID="composer-attachment-pills">
+                {selectedAttachments.map((attachment, index) => {
+                  if (attachment.kind === "image") {
+                    return (
+                      <AttachmentPill
+                        key={`${attachment.metadata.id}-${index}`}
+                        testID="composer-image-attachment-pill"
+                        onOpen={() => handleOpenAttachment(attachment)}
+                        onRemove={() => handleRemoveAttachment(index)}
+                        openAccessibilityLabel="Open image attachment"
+                        removeAccessibilityLabel="Remove image attachment"
+                      >
+                        <ImageAttachmentThumbnail image={attachment.metadata} />
+                      </AttachmentPill>
+                    );
+                  }
+
+                  const item = attachment.item;
+                  const kindLabel = item.kind === "pr" ? "PR" : "issue";
+                  return (
+                    <AttachmentPill
+                      key={`${item.kind}:${item.number}`}
+                      testID="composer-github-attachment-pill"
+                      onOpen={() => handleOpenAttachment(attachment)}
+                      onRemove={() => handleRemoveAttachment(index)}
+                      openAccessibilityLabel={`Open ${kindLabel} #${item.number}`}
+                      removeAccessibilityLabel={`Remove ${kindLabel} #${item.number}`}
+                    >
+                      <View style={styles.githubPillBody}>
+                        <View style={styles.githubPillIcon}>
+                          {item.kind === "pr" ? (
+                            <GitPullRequest
+                              size={theme.iconSize.sm}
+                              color={theme.colors.foregroundMuted}
+                            />
+                          ) : (
+                            <CircleDot
+                              size={theme.iconSize.sm}
+                              color={theme.colors.foregroundMuted}
+                            />
+                          )}
+                        </View>
+                        <Text style={styles.githubPillText} numberOfLines={1}>
+                          #{item.number} {item.title}
+                        </Text>
+                      </View>
+                    </AttachmentPill>
+                  );
+                })}
+              </View>
+            ) : null}
+
             {/* MessageInput handles everything: text, dictation, attachments, all buttons */}
             <MessageInput
               ref={messageInputRef}
@@ -756,10 +926,13 @@ export function Composer({
               submitButtonAccessibilityLabel={submitButtonAccessibilityLabel}
               isSubmitDisabled={isProcessing || isSubmitLoading}
               isSubmitLoading={isProcessing || isSubmitLoading}
-              images={selectedImages}
-              onPickImages={handlePickImage}
+              attachments={selectedAttachments}
+              cwd={cwd}
+              attachmentMenuItems={attachmentMenuItems}
+              onAttachButtonRef={(node) => {
+                attachButtonRef.current = node;
+              }}
               onAddImages={addImages}
-              onRemoveImage={handleRemoveImage}
               client={client}
               isReadyForDictation={isDictationReady}
               placeholder={messagePlaceholder}
@@ -788,6 +961,60 @@ export function Composer({
               }}
               onHeightChange={onComposerHeightChange}
               inputWrapperStyle={inputWrapperStyle}
+            />
+            <Combobox
+              options={githubSearchOptions}
+              value=""
+              onSelect={() => {}}
+              keepOpenOnSelect
+              searchable
+              searchPlaceholder="Search issues and PRs..."
+              title="Attach issue or PR"
+              open={isGithubPickerOpen}
+              onOpenChange={(open) => {
+                setIsGithubPickerOpen(open);
+                if (!open) {
+                  setGithubSearchQuery("");
+                }
+              }}
+              onSearchQueryChange={setGithubSearchQuery}
+              desktopPlacement="top-start"
+              anchorRef={attachButtonRef}
+              emptyText={githubSearchResultsQuery.isFetching ? "Searching..." : "No results found."}
+              renderOption={({ option, active }) => {
+                const item = githubSearchItems.find((candidate) => {
+                  return `${candidate.kind}:${candidate.number}` === option.id;
+                });
+                if (!item) {
+                  return <View key={option.id} />;
+                }
+                const selected = selectedAttachments.some(
+                  (attachment) =>
+                    attachment.kind !== "image" &&
+                    attachment.item.kind === item.kind &&
+                    attachment.item.number === item.number,
+                );
+                return (
+                  <ComboboxItem
+                    key={option.id}
+                    testID={`composer-github-option-${option.id}`}
+                    label={option.label}
+                    selected={selected}
+                    active={active}
+                    onPress={() => handleToggleGithubItem(item)}
+                    leadingSlot={
+                      item.kind === "pr" ? (
+                        <GitPullRequest
+                          size={theme.iconSize.sm}
+                          color={theme.colors.foregroundMuted}
+                        />
+                      ) : (
+                        <CircleDot size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+                      )
+                    }
+                  />
+                );
+              }}
             />
           </View>
         </View>
@@ -824,6 +1051,7 @@ const styles = StyleSheet.create(((theme: Theme) => ({
   messageInputContainer: {
     position: "relative",
     width: "100%",
+    gap: theme.spacing[3],
   },
   autocompletePopover: {
     position: "absolute",
@@ -866,6 +1094,41 @@ const styles = StyleSheet.create(((theme: Theme) => ({
   },
   iconButtonHovered: {
     backgroundColor: theme.colors.surface2,
+  },
+  attachmentPreviewContainer: {
+    flexDirection: "row",
+    gap: theme.spacing[2],
+    flexWrap: "wrap",
+  },
+  imageThumbnail: {
+    width: 48,
+    height: 48,
+  },
+  imageThumbnailPlaceholder: {
+    width: 48,
+    height: 48,
+    backgroundColor: theme.colors.surface2,
+  },
+  githubPillBody: {
+    minHeight: 48,
+    maxWidth: 260,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
+    backgroundColor: theme.colors.surface1,
+  },
+  githubPillIcon: {
+    width: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  githubPillText: {
+    minWidth: 0,
+    flexShrink: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
   },
   tooltipRow: {
     flexDirection: "row",

@@ -4,7 +4,7 @@ import type { DaemonClient } from "@server/client/daemon-client";
 import type { AgentDirectoryEntry } from "@/types/agent-directory";
 import type { StreamItem } from "@/types/stream";
 import type { PendingPermission } from "@/types/shared";
-import type { AttachmentMetadata } from "@/attachments/types";
+import type { ComposerAttachment } from "@/attachments/types";
 import type { AgentLifecycleStatus } from "@server/shared/agent-lifecycle";
 import type {
   AgentPermissionResponse,
@@ -263,7 +263,10 @@ export interface SessionState {
   fileExplorer: Map<string, AgentFileExplorerState>;
 
   // Queued messages
-  queuedMessages: Map<string, Array<{ id: string; text: string; images?: AttachmentMetadata[] }>>;
+  queuedMessages: Map<
+    string,
+    Array<{ id: string; text: string; attachments: ComposerAttachment[] }>
+  >;
 }
 
 // Global store state
@@ -379,10 +382,10 @@ interface SessionStoreActions {
   setQueuedMessages: (
     serverId: string,
     value:
-      | Map<string, Array<{ id: string; text: string; images?: AttachmentMetadata[] }>>
+      | Map<string, Array<{ id: string; text: string; attachments: ComposerAttachment[] }>>
       | ((
-          prev: Map<string, Array<{ id: string; text: string; images?: AttachmentMetadata[] }>>,
-        ) => Map<string, Array<{ id: string; text: string; images?: AttachmentMetadata[] }>>),
+          prev: Map<string, Array<{ id: string; text: string; attachments: ComposerAttachment[] }>>,
+        ) => Map<string, Array<{ id: string; text: string; attachments: ComposerAttachment[] }>>),
   ) => void;
 
   // Hydration

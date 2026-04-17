@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AttachmentMetadata } from "@/attachments/types";
+import type { ComposerAttachment } from "@/attachments/types";
 import type { DraftAgentStatusBarProps } from "@/components/agent-status-bar";
 import type { DraftCommandConfig } from "@/hooks/use-agent-commands-query";
 import {
@@ -11,7 +11,9 @@ import { useDraftAgentFeatures } from "@/hooks/use-draft-agent-features";
 import { useDraftStore } from "@/stores/draft-store";
 import type { AgentModelDefinition } from "@server/server/agent/agent-sdk-types";
 
-type ImageUpdater = AttachmentMetadata[] | ((prev: AttachmentMetadata[]) => AttachmentMetadata[]);
+type AttachmentUpdater =
+  | ComposerAttachment[]
+  | ((prev: ComposerAttachment[]) => ComposerAttachment[]);
 
 type AgentInputDraftComposerOptions = {
   initialServerId: string | null;
@@ -29,6 +31,7 @@ type DraftKeyInput = string | ((context: DraftKeyContext) => string);
 
 type UseAgentInputDraftInput = {
   draftKey: DraftKeyInput;
+  initialCwd?: string;
   composer?: AgentInputDraftComposerOptions;
 };
 
@@ -44,33 +47,36 @@ type DraftComposerState = UseAgentFormStateResult & {
 interface AgentInputDraft {
   text: string;
   setText: (text: string) => void;
-  images: AttachmentMetadata[];
-  setImages: (updater: ImageUpdater) => void;
+  attachments: ComposerAttachment[];
+  setAttachments: (updater: AttachmentUpdater) => void;
+  cwd: string;
+  setCwd: (cwd: string) => void;
   clear: (lifecycle: "sent" | "abandoned") => void;
   isHydrated: boolean;
   composerState: DraftComposerState | null;
 }
 
-function hasDraftContent(input: { text: string; images: AttachmentMetadata[] }): boolean {
-  return input.text.trim().length > 0 || input.images.length > 0;
+function hasDraftContent(input: {
+  text: string;
+  attachments: ComposerAttachment[];
+  cwd: string;
+}): boolean {
+  return (
+    input.text.trim().length > 0 || input.attachments.length > 0 || input.cwd.trim().length > 0
+  );
 }
 
-function areImagesEqual(input: {
-  left: AttachmentMetadata[];
-  right: AttachmentMetadata[];
+function areAttachmentsEqual(input: {
+  left: ComposerAttachment[];
+  right: ComposerAttachment[];
 }): boolean {
   if (input.left.length !== input.right.length) {
     return false;
   }
 
-  return input.left.every((image, index) => {
+  return input.left.every((attachment, index) => {
     const other = input.right[index];
-    return (
-      image.id === other?.id &&
-      image.mimeType === other?.mimeType &&
-      image.storageType === other?.storageType &&
-      image.storageKey === other?.storageKey
-    );
+    return JSON.stringify(attachment) === JSON.stringify(other);
   });
 }
 
@@ -183,15 +189,16 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     [formState.selectedServerId, input.draftKey],
   );
   const [text, setText] = useState("");
-  const [images, setImagesState] = useState<AttachmentMetadata[]>([]);
+  const [attachments, setAttachmentsState] = useState<ComposerAttachment[]>([]);
+  const [cwd, setCwd] = useState(input.initialCwd ?? "");
   const [isHydrated, setIsHydrated] = useState(false);
   const draftGenerationRef = useRef(0);
   const hydratedGenerationRef = useRef(0);
 
-  const setImages = useCallback((updater: ImageUpdater) => {
-    setImagesState((previousImages) => {
+  const setAttachments = useCallback((updater: AttachmentUpdater) => {
+    setAttachmentsState((previousAttachments) => {
       if (typeof updater === "function") {
-        return updater(previousImages);
+        return updater(previousAttachments);
       }
       return updater;
     });
@@ -207,7 +214,8 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
       hydratedGenerationRef.current = generation;
 
       setText("");
-      setImagesState([]);
+      setAttachmentsState([]);
+      setCwd("");
       setIsHydrated(true);
     },
     [draftKey],
@@ -220,13 +228,17 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     hydratedGenerationRef.current = 0;
 
     setText("");
-    setImagesState([]);
+    setAttachmentsState([]);
+    setCwd(input.initialCwd ?? "");
     setIsHydrated(false);
 
     let cancelled = false;
 
     void (async () => {
-      const draft = await store.hydrateDraftInput(draftKey);
+      const draft = await store.hydrateDraftInput({
+        draftKey,
+        initialCwd: input.initialCwd,
+      });
       if (cancelled) {
         return;
       }
@@ -236,7 +248,8 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
 
       if (draft) {
         setText(draft.text);
-        setImagesState(draft.images);
+        setAttachmentsState(draft.attachments);
+        setCwd(draft.cwd);
       }
 
       hydratedGenerationRef.current = generation;
@@ -246,7 +259,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     return () => {
       cancelled = true;
     };
-  }, [draftKey]);
+  }, [draftKey, input.initialCwd]);
 
   useEffect(() => {
     const currentGeneration = draftGenerationRef.current;
@@ -268,16 +281,18 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
 
     const existing = store.getDraftInput(draftKey);
     const isSameDraft =
-      existing?.text === text &&
-      areImagesEqual({
-        left: existing?.images ?? [],
-        right: images,
+      existing !== undefined &&
+      existing.text === text &&
+      existing.cwd === cwd &&
+      areAttachmentsEqual({
+        left: existing.attachments,
+        right: attachments,
       });
     if (isSameDraft) {
       return;
     }
 
-    if (!hasDraftContent({ text, images })) {
+    if (!hasDraftContent({ text, attachments, cwd })) {
       if (existing) {
         store.clearDraftInput({ draftKey, lifecycle: "abandoned" });
       }
@@ -288,10 +303,11 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
       draftKey,
       draft: {
         text,
-        images,
+        attachments,
+        cwd,
       },
     });
-  }, [draftKey, images, text]);
+  }, [attachments, cwd, draftKey, text]);
 
   const lockedWorkingDir = composerOptions?.lockedWorkingDir?.trim() ?? "";
   useEffect(() => {
@@ -395,8 +411,10 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   return {
     text,
     setText,
-    images,
-    setImages,
+    attachments,
+    setAttachments,
+    cwd,
+    setCwd,
     clear,
     isHydrated,
     composerState,

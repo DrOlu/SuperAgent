@@ -3,17 +3,14 @@ import { Pressable, Text, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { createNameId } from "mnemonic-id";
 import { useQuery } from "@tanstack/react-query";
-import {
-  CircleDot,
-  ChevronDown,
-  ExternalLink,
-  GitBranch,
-  GitPullRequest,
-} from "lucide-react-native";
-import { GitHubIcon } from "@/components/icons/github-icon";
+import { ChevronDown, GitBranch } from "lucide-react-native";
 import { Composer } from "@/components/composer";
+import { splitComposerAttachmentsForSubmit } from "@/components/composer-attachments";
 import { Combobox, ComboboxItem } from "@/components/ui/combobox";
 import type { ComboboxOption as ComboboxOptionType } from "@/components/ui/combobox";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import type { SegmentedControlOption } from "@/components/ui/segmented-control";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import { ScreenHeader } from "@/components/headers/screen-header";
@@ -30,17 +27,35 @@ import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import { encodeImages } from "@/utils/encode-images";
 import { toErrorMessage } from "@/utils/error-messages";
-import { openExternalUrl } from "@/utils/open-external-url";
-import { buildGitHubAttachmentFromSearchItem } from "@/utils/review-attachments";
 import { requireWorkspaceExecutionAuthority } from "@/utils/workspace-execution";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
 import type { ImageAttachment, MessagePayload } from "@/components/message-input";
-import type { GitHubSearchItem } from "@server/shared/messages";
+import type { AgentAttachment } from "@server/shared/messages";
 
 interface NewWorkspaceScreenProps {
   serverId: string;
   sourceDirectory: string;
   displayName?: string;
+}
+
+type BaseRef = { name: string };
+
+interface Checkout {
+  action: "checkout" | "branch-off";
+  ref: BaseRef;
+}
+
+function refId(ref: BaseRef): string {
+  return `branch:${ref.name}`;
+}
+
+function refLabel(ref: BaseRef): string {
+  return ref.name;
+}
+
+function formatCheckoutBadge(c: Checkout): string {
+  const label = c.ref.name;
+  return c.action === "branch-off" ? `new branch off ${label}` : label;
 }
 
 export function NewWorkspaceScreen({
@@ -57,13 +72,10 @@ export function NewWorkspaceScreen({
     typeof normalizeWorkspaceDescriptor
   > | null>(null);
   const [pendingAction, setPendingAction] = useState<"chat" | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
-  const [branchPickerOpen, setBranchPickerOpen] = useState(false);
-  const branchAnchorRef = useRef<View>(null);
-  const [selectedGithubItem, setSelectedGithubItem] = useState<GitHubSearchItem | null>(null);
-  const [githubPickerOpen, setGithubPickerOpen] = useState(false);
-  const [githubSearchQuery, setGithubSearchQuery] = useState("");
-  const githubAnchorRef = useRef<View>(null);
+  const [checkout, setCheckout] = useState<Checkout | null>(null);
+  const [checkoutPickerOpen, setCheckoutPickerOpen] = useState(false);
+  const [pickerAction, setPickerAction] = useState<Checkout["action"]>("branch-off");
+  const checkoutAnchorRef = useRef<View>(null);
 
   const displayName = displayNameProp?.trim() ?? "";
   const workspace = createdWorkspace;
@@ -71,6 +83,7 @@ export function NewWorkspaceScreen({
   const isConnected = useHostRuntimeIsConnected(serverId);
   const chatDraft = useAgentInputDraft({
     draftKey: `new-workspace:${serverId}:${sourceDirectory}`,
+    initialCwd: sourceDirectory,
     composer: {
       initialServerId: serverId || null,
       initialValues: workspace?.workspaceDirectory
@@ -110,89 +123,74 @@ export function NewWorkspaceScreen({
     enabled: isConnected && !!client,
   });
 
-  const githubSearchQuery_trimmed = githubSearchQuery.trim();
-  const githubSearchResultsQuery = useQuery({
-    queryKey: ["github-search", serverId, sourceDirectory, githubSearchQuery_trimmed],
-    queryFn: async () => {
-      const connectedClient = withConnectedClient();
-      return connectedClient.searchGitHub({
-        cwd: sourceDirectory,
-        query: githubSearchQuery_trimmed,
-        limit: 20,
-      });
-    },
-    enabled: isConnected && !!client,
-    staleTime: 30_000,
-  });
-
-  const githubSearchOptions: ComboboxOptionType[] = useMemo(() => {
-    const items = githubSearchResultsQuery.data?.items ?? [];
-    return items.map((item) => ({
-      id: `${item.kind}:${item.number}`,
-      label: `#${item.number} ${item.title}`,
-      // Include search query so the Combobox's client-side filter doesn't
-      // discard server-searched results that match on body but not title.
-      description: githubSearchQuery_trimmed,
-    }));
-  }, [githubSearchResultsQuery.data?.items, githubSearchQuery_trimmed]);
-
-  const handleSelectGithubItem = useCallback(
-    (id: string) => {
-      const items = githubSearchResultsQuery.data?.items ?? [];
-      const [kind, numberStr] = id.split(":");
-      const item = items.find((i) => i.kind === kind && i.number === Number(numberStr));
-      setSelectedGithubItem(item ?? null);
-      setGithubPickerOpen(false);
-      setGithubSearchQuery("");
-    },
-    [githubSearchResultsQuery.data?.items],
-  );
-
-  const branchOptions: ComboboxOptionType[] = useMemo(
-    () =>
-      (branchSuggestionsQuery.data?.branches ?? []).map((branch) => ({
-        id: branch,
-        label: branch,
-      })),
+  const checkoutRefs: BaseRef[] = useMemo(
+    () => (branchSuggestionsQuery.data?.branches ?? []).map((name): BaseRef => ({ name })),
     [branchSuggestionsQuery.data?.branches],
   );
 
-  const ensureWorkspace = useCallback(async () => {
-    if (createdWorkspace) {
-      return createdWorkspace;
-    }
+  const checkoutOptions: ComboboxOptionType[] = useMemo(
+    () =>
+      checkoutRefs.map((ref) => ({
+        id: refId(ref),
+        label: refLabel(ref),
+      })),
+    [checkoutRefs],
+  );
 
-    const connectedClient = withConnectedClient();
-    const reviewAttachment = buildGitHubAttachmentFromSearchItem(selectedGithubItem);
-    const payload = await connectedClient.createPaseoWorktree({
-      cwd: sourceDirectory,
-      worktreeSlug: createNameId(),
-      ...(reviewAttachment ? { attachments: [reviewAttachment] } : {}),
-    });
+  const effectiveCheckout: Checkout | null =
+    checkout ?? (currentBranch ? { action: "branch-off", ref: { name: currentBranch } } : null);
 
-    if (payload.error || !payload.workspace) {
-      throw new Error(payload.error ?? "Failed to create worktree");
-    }
+  const commitCheckout = useCallback((ref: BaseRef, action: Checkout["action"]) => {
+    setCheckout({ action, ref });
+    setCheckoutPickerOpen(false);
+  }, []);
 
-    const normalizedWorkspace = normalizeWorkspaceDescriptor(payload.workspace);
-    mergeWorkspaces(serverId, [normalizedWorkspace]);
-    setCreatedWorkspace(normalizedWorkspace);
-    return normalizedWorkspace;
-  }, [
-    createdWorkspace,
-    mergeWorkspaces,
-    serverId,
-    selectedGithubItem,
-    sourceDirectory,
-    withConnectedClient,
-  ]);
+  const openCheckoutPicker = useCallback(() => {
+    setPickerAction(effectiveCheckout?.action ?? "branch-off");
+    setCheckoutPickerOpen(true);
+  }, [effectiveCheckout]);
+
+  const checkoutModeOptions: SegmentedControlOption<Checkout["action"]>[] = useMemo(
+    () => [
+      { value: "checkout", label: "Check out" },
+      { value: "branch-off", label: "Branch off" },
+    ],
+    [],
+  );
+
+  const ensureWorkspace = useCallback(
+    async (input: { cwd: string; attachments: AgentAttachment[] }) => {
+      if (createdWorkspace) {
+        return createdWorkspace;
+      }
+
+      const connectedClient = withConnectedClient();
+      const payload = await connectedClient.createPaseoWorktree({
+        cwd: input.cwd,
+        worktreeSlug: createNameId(),
+        ...(input.attachments.length > 0 ? { attachments: input.attachments } : {}),
+      });
+
+      if (payload.error || !payload.workspace) {
+        throw new Error(payload.error ?? "Failed to create worktree");
+      }
+
+      const normalizedWorkspace = normalizeWorkspaceDescriptor(payload.workspace);
+      mergeWorkspaces(serverId, [normalizedWorkspace]);
+      setCreatedWorkspace(normalizedWorkspace);
+      return normalizedWorkspace;
+    },
+    [createdWorkspace, mergeWorkspaces, serverId, withConnectedClient],
+  );
 
   const handleCreateChatAgent = useCallback(
-    async ({ text, images }: MessagePayload) => {
+    async ({ text, attachments, cwd }: MessagePayload) => {
       try {
         setPendingAction("chat");
         setErrorMessage(null);
-        const workspace = await ensureWorkspace();
+        const { images, attachments: reviewAttachments } =
+          splitComposerAttachmentsForSubmit(attachments);
+        const workspace = await ensureWorkspace({ cwd, attachments: reviewAttachments });
         const connectedClient = withConnectedClient();
         if (!composerState) {
           throw new Error("Composer state is required");
@@ -200,7 +198,6 @@ export function NewWorkspaceScreen({
 
         const initialPrompt = text.trim();
         const encodedImages = await encodeImages(images);
-        const reviewAttachment = buildGitHubAttachmentFromSearchItem(selectedGithubItem);
         const workspaceDirectory = requireWorkspaceExecutionAuthority({
           workspace,
         }).workspaceDirectory;
@@ -217,7 +214,7 @@ export function NewWorkspaceScreen({
             : {}),
           ...(initialPrompt ? { initialPrompt } : {}),
           ...(encodedImages && encodedImages.length > 0 ? { images: encodedImages } : {}),
-          ...(reviewAttachment ? { attachments: [reviewAttachment] } : {}),
+          ...(reviewAttachments.length > 0 ? { attachments: reviewAttachments } : {}),
         });
 
         setAgents(serverId, (previous) => {
@@ -239,15 +236,7 @@ export function NewWorkspaceScreen({
         setPendingAction(null);
       }
     },
-    [
-      composerState,
-      ensureWorkspace,
-      selectedGithubItem,
-      serverId,
-      setAgents,
-      toast,
-      withConnectedClient,
-    ],
+    [composerState, ensureWorkspace, serverId, setAgents, toast, withConnectedClient],
   );
 
   const workspaceTitle =
@@ -289,15 +278,15 @@ export function NewWorkspaceScreen({
             serverId={serverId}
             isPaneFocused={true}
             onSubmitMessage={handleCreateChatAgent}
-            hasExternalContent={selectedGithubItem !== null}
             allowEmptySubmit={true}
             submitButtonAccessibilityLabel="Create"
             isSubmitLoading={pendingAction === "chat"}
             blurOnSubmit={true}
             value={chatDraft.text}
             onChangeText={chatDraft.setText}
-            images={chatDraft.images}
-            onChangeImages={chatDraft.setImages}
+            attachments={chatDraft.attachments}
+            onChangeAttachments={chatDraft.setAttachments}
+            cwd={chatDraft.cwd}
             clearDraft={() => {
               // No-op: screen navigates away on success, text should stay for retry on error
             }}
@@ -315,166 +304,74 @@ export function NewWorkspaceScreen({
           />
           <View style={styles.optionsRow}>
             <View>
-              <Pressable
-                ref={branchAnchorRef}
-                onPress={() => setBranchPickerOpen(true)}
-                style={({ pressed, hovered }) => [
-                  styles.badge,
-                  hovered && styles.badgeHovered,
-                  pressed && styles.badgePressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Branch"
-              >
-                <GitBranch size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
-                <Text style={styles.badgeText} numberOfLines={1}>
-                  {selectedBranch ?? currentBranch ?? "main"}
-                </Text>
-                <ChevronDown size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-              </Pressable>
+              <Tooltip>
+                <TooltipTrigger asChild triggerRefProp="ref">
+                  <Pressable
+                    ref={checkoutAnchorRef}
+                    onPress={openCheckoutPicker}
+                    style={({ pressed, hovered }) => [
+                      styles.badge,
+                      hovered && styles.badgeHovered,
+                      pressed && styles.badgePressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Checkout ref"
+                  >
+                    <View style={styles.badgeIconBox}>
+                      <GitBranch size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+                    </View>
+                    <Text style={styles.badgeText} numberOfLines={1}>
+                      {effectiveCheckout ? formatCheckoutBadge(effectiveCheckout) : "main"}
+                    </Text>
+                    <ChevronDown size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+                  </Pressable>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="center" offset={8}>
+                  <Text style={styles.tooltipText}>Choose where to start from</Text>
+                </TooltipContent>
+              </Tooltip>
               <Combobox
-                options={branchOptions}
-                value={selectedBranch ?? currentBranch ?? ""}
-                onSelect={(id) => setSelectedBranch(id)}
+                options={checkoutOptions}
+                value={effectiveCheckout ? refId(effectiveCheckout.ref) : ""}
+                onSelect={(id) => {
+                  const ref = checkoutRefs.find((r) => refId(r) === id);
+                  if (ref) commitCheckout(ref, pickerAction);
+                }}
                 searchable
                 searchPlaceholder="Search branches"
-                title="Branch"
-                open={branchPickerOpen}
-                onOpenChange={setBranchPickerOpen}
+                title="Start from"
+                open={checkoutPickerOpen}
+                onOpenChange={setCheckoutPickerOpen}
                 desktopPlacement="bottom-start"
-                anchorRef={branchAnchorRef}
-                renderOption={({ option, selected, active, onPress }) => (
-                  <ComboboxItem
-                    key={option.id}
-                    label={option.label}
-                    selected={selected}
-                    active={active}
-                    onPress={onPress}
-                    leadingSlot={
-                      <GitBranch size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-                    }
-                  />
-                )}
-              />
-            </View>
-            <View>
-              <Pressable
-                ref={githubAnchorRef}
-                onPress={() => setGithubPickerOpen(true)}
-                style={({ pressed, hovered }) => [
-                  styles.badge,
-                  hovered && styles.badgeHovered,
-                  pressed && styles.badgePressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  selectedGithubItem
-                    ? `#${selectedGithubItem.number} ${selectedGithubItem.title}`
-                    : "Add GitHub issue or PR"
-                }
-              >
-                {selectedGithubItem ? (
-                  <>
-                    <View style={styles.badgeIcon}>
-                      {selectedGithubItem.kind === "pr" ? (
-                        <GitPullRequest
-                          size={theme.iconSize.md}
-                          color={theme.colors.foregroundMuted}
-                        />
-                      ) : (
-                        <CircleDot size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
-                      )}
-                    </View>
-                    <Text style={styles.badgeText} numberOfLines={1}>
-                      #{selectedGithubItem.number} {selectedGithubItem.title}
-                    </Text>
-                    <Pressable
-                      onPress={() => openExternalUrl(selectedGithubItem.url)}
-                      accessibilityLabel="Open on GitHub"
-                      hitSlop={4}
-                    >
-                      {({ hovered }) => (
-                        <ExternalLink
-                          size={theme.iconSize.sm}
-                          color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
-                        />
-                      )}
-                    </Pressable>
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.badgeIcon}>
-                      <GitHubIcon size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
-                    </View>
-                    <Text style={styles.badgeText} numberOfLines={1}>
-                      Issue or PR
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-              <Combobox
-                options={githubSearchOptions}
-                value={
-                  selectedGithubItem
-                    ? `${selectedGithubItem.kind}:${selectedGithubItem.number}`
-                    : ""
-                }
-                onSelect={handleSelectGithubItem}
-                searchable
-                searchPlaceholder="Search issues and PRs..."
-                title="GitHub"
-                open={githubPickerOpen}
-                onOpenChange={(open) => {
-                  setGithubPickerOpen(open);
-                  if (!open) setGithubSearchQuery("");
-                }}
-                onSearchQueryChange={setGithubSearchQuery}
-                desktopPlacement="bottom-start"
-                anchorRef={githubAnchorRef}
-                emptyText={
-                  githubSearchResultsQuery.isFetching ? "Searching..." : "No results found."
+                anchorRef={checkoutAnchorRef}
+                emptyText="No branches."
+                stickyHeader={
+                  <View style={styles.checkoutPickerHeader}>
+                    <SegmentedControl
+                      size="sm"
+                      options={checkoutModeOptions}
+                      value={pickerAction}
+                      onValueChange={setPickerAction}
+                    />
+                  </View>
                 }
                 renderOption={({ option, selected, active, onPress }) => {
-                  const item = (githubSearchResultsQuery.data?.items ?? []).find(
-                    (i) => `${i.kind}:${i.number}` === option.id,
-                  );
+                  const ref = checkoutRefs.find((r) => refId(r) === option.id);
+                  if (!ref) return <View key={option.id} />;
                   return (
                     <ComboboxItem
                       key={option.id}
-                      label={option.label}
+                      label={refLabel(ref)}
                       selected={selected}
                       active={active}
                       onPress={onPress}
                       leadingSlot={
-                        item?.kind === "pr" ? (
-                          <GitPullRequest
+                        <View style={styles.rowIconBox}>
+                          <GitBranch
                             size={theme.iconSize.sm}
                             color={theme.colors.foregroundMuted}
                           />
-                        ) : (
-                          <CircleDot
-                            size={theme.iconSize.sm}
-                            color={theme.colors.foregroundMuted}
-                          />
-                        )
-                      }
-                      trailingSlot={
-                        item?.url ? (
-                          <Pressable
-                            onPress={() => openExternalUrl(item.url)}
-                            hitSlop={8}
-                            accessibilityLabel="Open on GitHub"
-                          >
-                            {({ hovered }) => (
-                              <ExternalLink
-                                size={theme.iconSize.sm}
-                                color={
-                                  hovered ? theme.colors.foreground : theme.colors.foregroundMuted
-                                }
-                              />
-                            )}
-                          </Pressable>
-                        ) : undefined
+                        </View>
                       }
                     />
                   );
@@ -561,12 +458,32 @@ const styles = StyleSheet.create((theme) => ({
   badgePressed: {
     backgroundColor: theme.colors.surface0,
   },
-  badgeIcon: {
-    flexShrink: 0,
-  },
   badgeText: {
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
     flexShrink: 1,
+  },
+  tooltipText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.popoverForeground,
+  },
+  checkoutPickerHeader: {
+    paddingHorizontal: theme.spacing[2],
+    paddingTop: theme.spacing[2],
+    paddingBottom: theme.spacing[1],
+    alignItems: "flex-start",
+  },
+  badgeIconBox: {
+    width: theme.iconSize.md,
+    height: theme.iconSize.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  rowIconBox: {
+    width: theme.iconSize.md,
+    height: theme.iconSize.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
 }));

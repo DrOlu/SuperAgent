@@ -208,6 +208,7 @@ function DraftAgentScreenContent({
         agentId: draftAgentIdRef.current,
         draftId: draftIdRef.current,
       }),
+    initialCwd: resolvedWorkingDir ?? "",
     composer: {
       initialServerId: resolvedServerId ?? null,
       initialValues,
@@ -850,7 +851,7 @@ function DraftAgentScreenContent({
         labels: {},
       };
     },
-    createRequest: async ({ attempt, text, images }) => {
+    createRequest: async ({ attempt, text, images, attachments }) => {
       const trimmedPath = workingDir.trim();
       const resolvedWorkingDir =
         isAttachWorktree && selectedWorktreePath ? selectedWorktreePath : trimmedPath;
@@ -896,6 +897,7 @@ function DraftAgentScreenContent({
         initialPrompt: text,
         clientMessageId: attempt.clientMessageId,
         ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
         git: gitOptions,
       });
 
@@ -1201,8 +1203,9 @@ function DraftAgentScreenContent({
               blurOnSubmit={true}
               value={draftInput.text}
               onChangeText={draftInput.setText}
-              images={draftInput.images}
-              onChangeImages={draftInput.setImages}
+              attachments={draftInput.attachments}
+              onChangeAttachments={draftInput.setAttachments}
+              cwd={draftInput.cwd}
               clearDraft={draftInput.clear}
               autoFocus={!isSubmitting}
               onAddImages={handleAddImagesCallback}

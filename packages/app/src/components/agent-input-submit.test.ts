@@ -24,19 +24,20 @@ describe("submitAgentInput", () => {
     });
     const clearDraft = vi.fn();
     const setUserInput = vi.fn();
-    const setSelectedImages = vi.fn();
+    const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
 
     const submitPromise = submitAgentInput({
       message: "  hello world  ",
+      attachments: [],
       isAgentRunning: false,
       canSubmit: true,
       queueMessage,
       submitMessage,
       clearDraft,
       setUserInput,
-      setSelectedImages,
+      setAttachments,
       setSendError,
       setIsProcessing,
     });
@@ -44,10 +45,10 @@ describe("submitAgentInput", () => {
     expect(queueMessage).not.toHaveBeenCalled();
     expect(submitMessage).toHaveBeenCalledWith({
       message: "hello world",
-      imageAttachments: undefined,
+      attachments: [],
     });
     expect(setUserInput).toHaveBeenCalledWith("");
-    expect(setSelectedImages).toHaveBeenCalledWith([]);
+    expect(setAttachments).toHaveBeenCalledWith([]);
     expect(setSendError).toHaveBeenCalledWith(null);
     expect(setIsProcessing).toHaveBeenCalledWith(true);
     expect(clearDraft).not.toHaveBeenCalled();
@@ -63,21 +64,21 @@ describe("submitAgentInput", () => {
     const submitMessage = vi.fn();
     const clearDraft = vi.fn();
     const setUserInput = vi.fn();
-    const setSelectedImages = vi.fn();
+    const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
 
     await expect(
       submitAgentInput({
         message: "  queued message  ",
-        imageAttachments: [{ id: "img-1" }],
+        attachments: [{ id: "img-1" }],
         isAgentRunning: true,
         canSubmit: true,
         queueMessage,
         submitMessage,
         clearDraft,
         setUserInput,
-        setSelectedImages,
+        setAttachments,
         setSendError,
         setIsProcessing,
       }),
@@ -85,11 +86,11 @@ describe("submitAgentInput", () => {
 
     expect(queueMessage).toHaveBeenCalledWith({
       message: "queued message",
-      imageAttachments: [{ id: "img-1" }],
+      attachments: [{ id: "img-1" }],
     });
     expect(submitMessage).not.toHaveBeenCalled();
     expect(setUserInput).toHaveBeenCalledWith("");
-    expect(setSelectedImages).toHaveBeenCalledWith([]);
+    expect(setAttachments).toHaveBeenCalledWith([]);
     expect(setSendError).not.toHaveBeenCalled();
     expect(setIsProcessing).not.toHaveBeenCalled();
     expect(clearDraft).not.toHaveBeenCalled();
@@ -103,23 +104,23 @@ describe("submitAgentInput", () => {
     });
     const clearDraft = vi.fn();
     const setUserInput = vi.fn();
-    const setSelectedImages = vi.fn();
+    const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
     const onSubmitError = vi.fn();
-    const imageAttachments = [{ id: "img-1" }];
+    const attachments = [{ id: "img-1" }];
 
     await expect(
       submitAgentInput({
         message: "  hello world  ",
-        imageAttachments,
+        attachments,
         isAgentRunning: false,
         canSubmit: true,
         queueMessage,
         submitMessage,
         clearDraft,
         setUserInput,
-        setSelectedImages,
+        setAttachments,
         setSendError,
         setIsProcessing,
         onSubmitError,
@@ -129,8 +130,8 @@ describe("submitAgentInput", () => {
     expect(onSubmitError).toHaveBeenCalledWith(submitError);
     expect(setUserInput).toHaveBeenNthCalledWith(1, "");
     expect(setUserInput).toHaveBeenNthCalledWith(2, "hello world");
-    expect(setSelectedImages).toHaveBeenNthCalledWith(1, []);
-    expect(setSelectedImages).toHaveBeenNthCalledWith(2, imageAttachments);
+    expect(setAttachments).toHaveBeenNthCalledWith(1, []);
+    expect(setAttachments).toHaveBeenNthCalledWith(2, attachments);
     expect(setSendError).toHaveBeenNthCalledWith(1, null);
     expect(setSendError).toHaveBeenNthCalledWith(2, "No host selected");
     expect(setIsProcessing).toHaveBeenNthCalledWith(1, true);
@@ -143,13 +144,14 @@ describe("submitAgentInput", () => {
     const submitMessage = vi.fn(async () => {});
     const clearDraft = vi.fn();
     const setUserInput = vi.fn();
-    const setSelectedImages = vi.fn();
+    const setAttachments = vi.fn();
     const setSendError = vi.fn();
     const setIsProcessing = vi.fn();
 
     await expect(
       submitAgentInput({
         message: "   ",
+        attachments: [],
         allowEmptySubmit: true,
         isAgentRunning: false,
         canSubmit: true,
@@ -157,7 +159,7 @@ describe("submitAgentInput", () => {
         submitMessage,
         clearDraft,
         setUserInput,
-        setSelectedImages,
+        setAttachments,
         setSendError,
         setIsProcessing,
       }),
@@ -166,7 +168,7 @@ describe("submitAgentInput", () => {
     expect(queueMessage).not.toHaveBeenCalled();
     expect(submitMessage).toHaveBeenCalledWith({
       message: "",
-      imageAttachments: undefined,
+      attachments: [],
     });
     expect(clearDraft).toHaveBeenCalledWith("sent");
   });

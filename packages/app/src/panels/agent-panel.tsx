@@ -432,13 +432,6 @@ function ChatAgentContent({
     routeKey: string;
     reason: "initial-entry" | "resume";
   } | null>(null);
-  const agentInputDraft = useAgentInputDraft({
-    draftKey: buildDraftStoreKey({
-      serverId,
-      agentId: agentId ?? "__pending__",
-    }),
-  });
-
   const handleFilesDropped = useCallback((files: ImageAttachment[]) => {
     addImagesRef.current?.(files);
   }, []);
@@ -462,6 +455,13 @@ function ChatAgentContent({
       };
     }),
   );
+  const agentInputDraft = useAgentInputDraft({
+    draftKey: buildDraftStoreKey({
+      serverId,
+      agentId: agentId ?? "__pending__",
+    }),
+    initialCwd: agentState.cwd ?? "",
+  });
   const projectPlacement = useStoreWithEqualityFn(
     useSessionStore,
     (state) =>
@@ -968,8 +968,9 @@ function ChatAgentContent({
               isPaneFocused={isPaneFocused}
               value={agentInputDraft.text}
               onChangeText={agentInputDraft.setText}
-              images={agentInputDraft.images}
-              onChangeImages={agentInputDraft.setImages}
+              attachments={agentInputDraft.attachments}
+              onChangeAttachments={agentInputDraft.setAttachments}
+              cwd={agentInputDraft.cwd}
               clearDraft={agentInputDraft.clear}
               autoFocus={isPaneFocused}
               isSubmitLoading={showPendingCreateSubmitLoading}

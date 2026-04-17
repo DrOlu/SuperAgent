@@ -66,6 +66,7 @@ export function WorkspaceDraftAgentTab({
   );
   const draftInput = useAgentInputDraft({
     draftKey: draftStoreKey,
+    initialCwd: workspaceDirectory ?? "",
     composer: {
       initialServerId: serverId,
       initialValues: workspaceDirectory ? { workingDir: workspaceDirectory } : undefined,
@@ -148,7 +149,7 @@ export function WorkspaceDraftAgentTab({
         labels: {},
       };
     },
-    createRequest: async ({ attempt, text, images }) => {
+    createRequest: async ({ attempt, text, images, attachments }) => {
       invariant(workspaceDirectory, "Workspace directory is required");
       invariant(workspaceExecutionAuthority, "Workspace authority is required");
       if (!client) {
@@ -173,6 +174,7 @@ export function WorkspaceDraftAgentTab({
         ...(text ? { initialPrompt: text } : {}),
         clientMessageId: attempt.clientMessageId,
         ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
       });
 
       return {
@@ -291,8 +293,9 @@ export function WorkspaceDraftAgentTab({
             blurOnSubmit={true}
             value={draftInput.text}
             onChangeText={draftInput.setText}
-            images={draftInput.images}
-            onChangeImages={draftInput.setImages}
+            attachments={draftInput.attachments}
+            onChangeAttachments={draftInput.setAttachments}
+            cwd={draftInput.cwd}
             clearDraft={draftInput.clear}
             autoFocus={shouldAutoFocusWorkspaceDraftComposer({ isPaneFocused, isSubmitting })}
             onAddImages={handleAddImagesCallback}

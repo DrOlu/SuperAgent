@@ -81,6 +81,8 @@ export interface ComboboxProps {
   desktopFixedHeight?: number;
   /** Content rendered above the scroll area on desktop (sticky header). */
   stickyHeader?: ReactNode;
+  /** When true, selecting an option does not close the picker (multi-select mode). */
+  keepOpenOnSelect?: boolean;
   anchorRef: React.RefObject<View | null>;
   children?: ReactNode;
 }
@@ -262,6 +264,7 @@ export function Combobox({
   desktopMinWidth,
   desktopFixedHeight,
   stickyHeader,
+  keepOpenOnSelect = false,
   anchorRef,
   children,
 }: ComboboxProps): ReactElement {
@@ -587,9 +590,11 @@ export function Combobox({
   const handleSelect = useCallback(
     (id: string) => {
       onSelect(id);
-      handleClose();
+      if (!keepOpenOnSelect) {
+        handleClose();
+      }
     },
-    [handleClose, onSelect],
+    [handleClose, keepOpenOnSelect, onSelect],
   );
 
   const handleSubmitSearch = useCallback(() => {
@@ -779,6 +784,7 @@ export function Combobox({
             </>
           ) : (
             <>
+              {stickyHeader}
               {searchable ? searchInput : null}
               {effectiveOptionsPosition === "above-search" ? (
                 <ScrollView

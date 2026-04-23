@@ -134,11 +134,26 @@ jobs:
              'check_app_update: async () => {\n      const currentVersion = resolveDesktopAppVersion();\n      return checkForAppUpdate(currentVersion);'],
           ]);
 
-          // auto-updater: version normalisation
-          replaceIn('packages/desktop/src/features/auto-updater.ts', [
-            ['    const hasUpdate = latestVersion !== currentVersion;',
-             \"    const nv = (v: string) => v.replace(/^v/i, '').trim();\\n    const hasUpdate = nv(latestVersion) !== nv(currentVersion);\"],
-          ]);
+          // auto-updater: version normalisation (written verbatim to avoid
+          // type-annotation loss via inline node -e quoting layers)
+          {
+            const p = 'packages/desktop/src/features/auto-updater.ts';
+            if (fs.existsSync(p)) {
+              let s = fs.readFileSync(p, 'utf8');
+              const needle = '    const hasUpdate = latestVersion !== currentVersion;';
+              const replacement =
+                '    const nv = (v' + ': string) => v.replace(/^v/i, \"\").trim();\n' +
+                '    const hasUpdate = nv(latestVersion) !== nv(currentVersion);';
+              if (s.includes(needle)) {
+                s = s.replace(needle, replacement);
+                fs.writeFileSync(p, s);
+              } else if (s.includes('const nv = (v)')) {
+                // Patch already applied but lost its type annotation in a prior sync
+                s = s.replace('const nv = (v)', 'const nv = (v' + ': string)');
+                fs.writeFileSync(p, s);
+              }
+            }
+          }
 
           // after-pack.js: executable name
           replaceIn('packages/desktop/scripts/after-pack.js', [

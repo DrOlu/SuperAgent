@@ -143,7 +143,7 @@ export async function checkForAppUpdate(currentVersion: string): Promise<AppUpda
 
     const info = result.updateInfo;
     const latestVersion = info.version;
-    const nv = (v) => v.replace(/^v/i, '').trim();
+    const nv = (v: string) => v.replace(/^v/i, "").trim();
     const hasUpdate = nv(latestVersion) !== nv(currentVersion);
 
     if (hasUpdate) {

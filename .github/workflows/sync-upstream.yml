@@ -156,6 +156,21 @@ jobs:
             ['Bundled Paseo', 'Bundled SuperAgent'],
           ]);
 
+          // Fix emit-release-env.mjs: add RELEASE_CHANNEL (upstream bug — referenced but never emitted)
+          {
+            const p = 'scripts/emit-release-env.mjs';
+            if (fs.existsSync(p)) {
+              let s = fs.readFileSync(p, 'utf8');
+              if (!s.includes('RELEASE_CHANNEL')) {
+                s = s.replace(
+                  '[\"RELEASE_TYPE\", info.releaseType],',
+                  '[\"RELEASE_TYPE\", info.releaseType],\n  [\"RELEASE_CHANNEL\", info.isPrerelease ? \"beta\" : \"latest\"],'
+                );
+                fs.writeFileSync(p, s);
+              }
+            }
+          }
+
           // electron-builder.yml
           replaceIn('packages/desktop/electron-builder.yml', [
             ['appId: sh.paseo.desktop', 'appId: ng.hyperspace.superagent'],

@@ -31,6 +31,8 @@ function parseArgs(argv) {
 const sourceTag = parseArgs(process.argv.slice(2));
 const info = getReleaseInfoFromSourceTag(sourceTag);
 
+const releaseChannel = info.isPrerelease ? "beta" : "latest";
+
 const entries = [
   ["SOURCE_TAG", info.sourceTag],
   ["RELEASE_TAG", info.releaseTag],
@@ -40,6 +42,7 @@ const entries = [
   ["IS_PRERELEASE", info.isPrerelease ? "true" : "false"],
   ["IS_RELEASE_CANDIDATE", info.isReleaseCandidate ? "true" : "false"],
   ["RELEASE_TYPE", info.releaseType],
+  ["RELEASE_CHANNEL", releaseChannel],
   ["DESKTOP_VERSION", info.version],
   ["IS_SMOKE_TAG", info.isSmokeTag ? "true" : "false"],
 ];

@@ -3,21 +3,21 @@ name: Desktop Release
 on:
   push:
     tags:
-      - 'v*'
-      - 'desktop-v*'
-      - 'desktop-macos-v*'
-      - 'desktop-linux-v*'
-      - 'desktop-windows-v*'
+      - "v*"
+      - "desktop-v*"
+      - "desktop-macos-v*"
+      - "desktop-linux-v*"
+      - "desktop-windows-v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to build (e.g. v0.1.0)'
+        description: "Existing tag to build (e.g. v0.1.0)"
         required: true
         type: string
       platform:
-        description: 'Optional desktop platform to build.'
+        description: "Optional desktop platform to build."
         required: false
-        default: 'all'
+        default: "all"
         type: choice
         options:
           - all
@@ -31,8 +31,8 @@ concurrency:
 
 env:
   SOURCE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
-  DESKTOP_WORKSPACE: '@getpaseo/desktop'
-  DESKTOP_PACKAGE_PATH: 'packages/desktop'
+  DESKTOP_WORKSPACE: "@getpaseo/desktop"
+  DESKTOP_PACKAGE_PATH: "packages/desktop"
 
 jobs:
   create-release:
@@ -64,9 +64,11 @@ jobs:
             fi
             gh release create "$RELEASE_TAG" \
               --repo "${{ github.repository }}" \
-              --title "Paseo $RELEASE_TAG" \
-              --generate-notes \
-              $prerelease_flag
+              --title "SuperAgent $RELEASE_TAG" \
+              --notes "" \
+              $prerelease_flag || {
+                echo "Release creation raced with another workflow; continuing."
+              }
           fi
 
   publish-macos:
@@ -98,14 +100,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
           cache-dependency-path: package-lock.json
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@boudra'
 
       - name: Install JS dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -145,6 +145,7 @@ jobs:
           if [[ "$IS_SMOKE_TAG" != "true" ]]; then
             publish_mode="always"
             publish_args+=("-c.publish.releaseType=$RELEASE_TYPE")
+            publish_args+=("-c.publish.channel=$RELEASE_CHANNEL")
           fi
 
           npm run build --workspace="$DESKTOP_WORKSPACE" -- --publish "$publish_mode" --mac --${{ matrix.electron_arch }} "${publish_args[@]}"
@@ -154,7 +155,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-manifest-${{ matrix.electron_arch }}
-          path: ${{ env.DESKTOP_PACKAGE_PATH }}/release/latest-mac.yml
+          path: ${{ env.DESKTOP_PACKAGE_PATH }}/release/${{ env.RELEASE_CHANNEL }}-mac.yml
           retention-days: 1
 
   finalize-mac-manifest:
@@ -227,8 +228,9 @@ jobs:
             return out;
           }
 
-          const arm64Text = fs.readFileSync('mac-manifest-arm64/latest-mac.yml', 'utf8');
-          const x64Text = fs.readFileSync('mac-manifest-x64/latest-mac.yml', 'utf8');
+          const manifestName = `${process.env.RELEASE_CHANNEL}-mac.yml`;
+          const arm64Text = fs.readFileSync(`mac-manifest-arm64/${manifestName}`, 'utf8');
+          const x64Text = fs.readFileSync(`mac-manifest-x64/${manifestName}`, 'utf8');
 
           const arm64 = parseManifest(arm64Text);
           const x64 = parseManifest(x64Text);
@@ -243,7 +245,7 @@ jobs:
           };
 
           const output = toYaml(merged);
-          fs.writeFileSync('latest-mac.yml', output);
+          fs.writeFileSync(manifestName, output);
           console.log('Merged manifest:\n' + output);
           NODE
 
@@ -251,7 +253,7 @@ jobs:
         if: env.IS_SMOKE_TAG != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$RELEASE_TAG" latest-mac.yml --clobber --repo "${{ github.repository }}"
+        run: gh release upload "$RELEASE_TAG" "$RELEASE_CHANNEL-mac.yml" --clobber --repo "${{ github.repository }}"
 
   publish-linux:
     needs: [create-release]
@@ -274,14 +276,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
           cache-dependency-path: package-lock.json
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@boudra'
 
       - name: Install JS dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -316,6 +316,7 @@ jobs:
           if [[ "$IS_SMOKE_TAG" != "true" ]]; then
             publish_mode="always"
             publish_args+=("-c.publish.releaseType=$RELEASE_TYPE")
+            publish_args+=("-c.publish.channel=$RELEASE_CHANNEL")
           fi
 
           npm run build --workspace="$DESKTOP_WORKSPACE" -- --publish "$publish_mode" --linux --x64 "${publish_args[@]}"
@@ -341,14 +342,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
           cache-dependency-path: package-lock.json
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@boudra'
 
       - name: Install JS dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -391,6 +390,7 @@ jobs:
           if [[ "$IS_SMOKE_TAG" != "true" ]]; then
             publish_mode="always"
             publish_args+=("-c.publish.releaseType=$RELEASE_TYPE")
+            publish_args+=("-c.publish.channel=$RELEASE_CHANNEL")
           fi
 
           npm run build --workspace="$DESKTOP_WORKSPACE" -- --publish "$publish_mode" --win --x64 "${publish_args[@]}"

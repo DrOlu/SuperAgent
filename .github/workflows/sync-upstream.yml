@@ -1,0 +1,324 @@
+name: Sync Upstream & Release
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force sync even if no new upstream commits'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout SuperAgent (main)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fetch upstream paseo
+        run: |
+          git remote add upstream https://github.com/getpaseo/paseo.git || true
+          git fetch upstream main --depth=50
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+          echo "UPSTREAM_SHA=$UPSTREAM_SHA" >> $GITHUB_ENV
+          echo "Upstream SHA: $UPSTREAM_SHA"
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          LAST_SYNC=$(git log --format=%B main | grep -o 'upstream-sync: [a-f0-9]\{40\}' | head -1 | awk '{print $2}' || echo "")
+          echo "Last synced SHA: '$LAST_SYNC'"
+          echo "Upstream SHA:    '$UPSTREAM_SHA'"
+          if [ -z "$LAST_SYNC" ]; then
+            echo "No previous sync found - will sync"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          elif [ "$LAST_SYNC" = "$UPSTREAM_SHA" ] && [ "${{ github.event.inputs.force }}" != "true" ]; then
+            echo "Already up to date with upstream"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "New upstream commits detected"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Apply SuperAgent rebrand to upstream
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          git config user.name "Hyperspace Technologies"
+          git config user.email "superagent@hyperspace.ng"
+
+          # Reset working tree to upstream (clean slate)
+          git checkout -B sync-work upstream/main
+
+          # Restore our branding assets and workflows
+          git checkout main -- branding/ .github/workflows/sync-upstream.yml 2>/dev/null || true
+          git checkout main -- packages/desktop/src/integrations/tools-manager.ts 2>/dev/null || true
+
+          # Apply all branding changes via inline script
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+
+          function replaceIn(filePath, replacements) {
+            if (!fs.existsSync(filePath)) return;
+            let c = fs.readFileSync(filePath, 'utf8');
+            const orig = c;
+            for (const [o, n] of replacements) c = c.split(o).join(n);
+            if (c !== orig) fs.writeFileSync(filePath, c);
+          }
+
+          // app.config.js - visible name only
+          replaceIn('packages/app/app.config.js', [
+            ['name: \"Paseo\"', 'name: \"SuperAgent\"'],
+            ['name: \"Paseo Debug\"', 'name: \"SuperAgent Debug\"'],
+          ]);
+
+          // Welcome / splash text
+          replaceIn('packages/app/src/components/welcome-screen.tsx', [
+            ['Welcome to Paseo', 'Welcome to SuperAgent'],
+          ]);
+          replaceIn('packages/app/src/screens/startup-splash-screen.tsx', [
+            ['Welcome to Paseo', 'Welcome to SuperAgent'],
+            ['https://github.com/getpaseo/paseo/issues/new', 'https://github.com/DrOlu/SuperAgent/issues/new'],
+          ]);
+
+          // Settings strings
+          replaceIn('packages/app/src/screens/settings-screen.tsx', [
+            ['\"This updates Paseo on this computer.\"', '\"This updates SuperAgent on this computer.\"'],
+            ['\"This host is offline. Paseo reconnects', '\"This host is offline. SuperAgent reconnects'],
+            ['\"Failed to send the restart request. Paseo', '\"Failed to send the restart request. SuperAgent'],
+          ]);
+          replaceIn('packages/app/src/desktop/components/desktop-updates-section.tsx', [
+            ['\"Enabled. Paseo can manage', '\"Enabled. SuperAgent can manage'],
+            ['title=\"Add paseo to your shell\"', 'title=\"Add SuperAgent to your shell\"'],
+            ['Paseo does not add the command for you.', 'SuperAgent does not add the command for you.'],
+            ['Scan this QR code in Paseo,', 'Scan this QR code in SuperAgent,'],
+            ['https://paseo.sh/docs/configuration', 'https://hyperspace.ng/docs/configuration'],
+          ]);
+          replaceIn('packages/app/src/desktop/permissions/use-desktop-permissions.ts', [
+            ['title: \"Paseo notification test\"', 'title: \"SuperAgent notification test\"'],
+          ]);
+          replaceIn('packages/app/src/desktop/updates/update-banner.tsx', [
+            ['\"https://paseo.sh/changelog\"', '\"https://github.com/DrOlu/SuperAgent/releases\"'],
+          ]);
+          replaceIn('packages/app/src/components/agent-form/agent-form-dropdowns.tsx', [
+            ['\"Pick a Paseo worktree by branch\"', '\"Pick a SuperAgent worktree by branch\"'],
+          ]);
+
+          // Desktop main
+          replaceIn('packages/desktop/src/main.ts', [
+            ['app.setName(\"Paseo\");', 'app.setName(\"SuperAgent\");'],
+          ]);
+
+          // daemon-manager: visible strings + update check fix
+          replaceIn('packages/desktop/src/daemon/daemon-manager.ts', [
+            ['\"Create a symlink to the bundled Paseo CLI shim.\"', '\"Create a symlink to the bundled SuperAgent CLI shim.\"'],
+            ['\"Add the Paseo installation directory', '\"Add the SuperAgent installation directory'],
+            ['check_app_update: async () => {\n      const currentVersion = await resolveCurrentUpdateVersion();\n      return checkForAppUpdate(currentVersion);',
+             'check_app_update: async () => {\n      const currentVersion = resolveDesktopAppVersion();\n      return checkForAppUpdate(currentVersion);'],
+          ]);
+
+          // auto-updater: version normalisation
+          replaceIn('packages/desktop/src/features/auto-updater.ts', [
+            ['    const hasUpdate = latestVersion !== currentVersion;',
+             \"    const nv = (v: string) => v.replace(/^v/i, '').trim();\\n    const hasUpdate = nv(latestVersion) !== nv(currentVersion);\"],
+          ]);
+
+          // after-pack.js: executable name
+          replaceIn('packages/desktop/scripts/after-pack.js', [
+            ['const EXECUTABLE_NAME = \"Paseo\";', 'const EXECUTABLE_NAME = \"SuperAgent\";'],
+          ]);
+
+          // bin shims
+          replaceIn('packages/desktop/bin/paseo', [
+            ['MacOS/Paseo', 'MacOS/SuperAgent'],
+            ['\"\\${RESOURCES_DIR}/../Paseo\"', '\"\\${RESOURCES_DIR}/../SuperAgent\"'],
+            ['Bundled Paseo executable', 'Bundled SuperAgent executable'],
+          ]);
+          replaceIn('packages/desktop/bin/paseo.cmd', [
+            ['Paseo.exe', 'SuperAgent.exe'],
+            ['Bundled Paseo', 'Bundled SuperAgent'],
+          ]);
+
+          // electron-builder.yml
+          replaceIn('packages/desktop/electron-builder.yml', [
+            ['appId: sh.paseo.desktop', 'appId: ng.hyperspace.superagent'],
+            ['productName: Paseo', 'productName: SuperAgent'],
+            ['executableName: Paseo', 'executableName: SuperAgent'],
+            ['owner: getpaseo', 'owner: DrOlu'],
+            ['repo: paseo', 'repo: SuperAgent'],
+            ['artifactName: \"Paseo-', 'artifactName: \"SuperAgent-'],
+            ['maintainer: \"Mohamed Boudra <hello@moboudra.com>\"', 'maintainer: \"Hyperspace Technologies <superagent@hyperspace.ng>\"'],
+            ['vendor: \"Paseo\"', 'vendor: \"SuperAgent by Hyperspace Technologies\"'],
+            ['hardenedRuntime: true', 'hardenedRuntime: false'],
+            ['notarize: true', 'notarize: false'],
+          ]);
+
+          // Remove entitlements + add identity:null for mac
+          const ebPath = 'packages/desktop/electron-builder.yml';
+          if (fs.existsSync(ebPath)) {
+            let eb = fs.readFileSync(ebPath, 'utf8');
+            eb = eb.replace('  notarize: false\n  entitlements: build/entitlements.mac.plist\n  entitlementsInherit: build/entitlements.mac.inherit.plist',
+                            '  notarize: false\n  identity: null');
+            fs.writeFileSync(ebPath, eb);
+          }
+
+          // desktop/package.json
+          const dpkg = JSON.parse(fs.readFileSync('packages/desktop/package.json', 'utf8'));
+          dpkg.description = 'SuperAgent desktop app (Electron wrapper)';
+          dpkg.homepage = 'https://hyperspace.ng';
+          dpkg.author = { name: 'Hyperspace Technologies', email: 'superagent@hyperspace.ng' };
+          if (dpkg.repository?.url) dpkg.repository.url = 'https://github.com/DrOlu/SuperAgent.git';
+          fs.writeFileSync('packages/desktop/package.json', JSON.stringify(dpkg, null, 2) + '\n');
+
+          // root package.json
+          const rpkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          rpkg.author = { name: 'Hyperspace Technologies', email: 'superagent@hyperspace.ng' };
+          rpkg.homepage = 'https://hyperspace.ng';
+          fs.writeFileSync('package.json', JSON.stringify(rpkg, null, 2) + '\n');
+
+          // Website downloads
+          replaceIn('packages/website/src/downloads.tsx', [
+            ['https://github.com/getpaseo/paseo/releases/download/v\${desktopVersion}',
+             'https://github.com/DrOlu/SuperAgent/releases/download/v\${desktopVersion}'],
+            ['/Paseo-\${desktopVersion}', '/SuperAgent-\${desktopVersion}'],
+            ['/Paseo-Setup-\${desktopVersion}', '/SuperAgent-Setup-\${desktopVersion}'],
+          ]);
+
+          // README
+          replaceIn('README.md', [
+            ['# Paseo', '# SuperAgent'],
+            ['Paseo', 'SuperAgent'],
+            ['getpaseo/paseo', 'DrOlu/SuperAgent'],
+            ['paseo.sh', 'hyperspace.ng'],
+          ]);
+
+          console.log('Rebrand applied');
+          "
+
+          # Replace icon files from branding/
+          for DEST_SRC in \
+            "packages/desktop/assets/icon.png:branding/icon.png" \
+            "packages/desktop/assets/icon.ico:branding/icon.ico" \
+            "packages/desktop/assets/icon.icns:branding/icon.icns" \
+            "packages/desktop/assets/128x128@2x.png:branding/icon_256.png" \
+            "packages/desktop/assets/128x128.png:branding/icon_128.png" \
+            "packages/desktop/assets/64x64.png:branding/icon_64.png" \
+            "packages/desktop/assets/32x32.png:branding/icon_32.png" \
+            "packages/app/assets/images/icon.png:branding/icon.png" \
+            "packages/app/assets/images/favicon.png:branding/icon_256.png" \
+            "packages/app/assets/images/splash-icon.png:branding/icon.png" \
+            "packages/app/assets/images/notification-icon.png:branding/icon.png" \
+            "packages/app/assets/images/android-icon-foreground.png:branding/icon.png"; do
+            DEST="${DEST_SRC%%:*}"
+            SRC="${DEST_SRC##*:}"
+            [ -f "$SRC" ] && cp "$SRC" "$DEST"
+          done
+
+          # Replace SVG favicons
+          for f in packages/app/assets/images/*.svg; do
+            [ -f "branding/icon-s.svg" ] && cp branding/icon-s.svg "$f"
+          done
+          for f in packages/app/assets/images/favicon*.png; do
+            [ -f "branding/icon_256.png" ] && cp branding/icon_256.png "$f"
+          done
+
+          # Website icons
+          [ -f branding/icon-s.svg ] && cat > packages/website/public/logo.svg << 'SVGEOF'
+          <svg width="32" height="32" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M80,0 H432 A80,80,0,0,1,512,80 V432 A80,80,0,0,1,432,512 H80 A80,80,0,0,1,0,432 V80 A80,80,0,0,1,80,0 Z" fill="#CC1100"/>
+          <path d="M180.6,373.2 C196.4,376.3 216.1,377.3 233.2,377.3 C281.1,377.3 343.4,367.2 343.4,304.9 C343.4,283.5 334.4,269.1 320.3,258.3 C300.2,242.9 271.8,234.9 250.3,225.5 C235.2,218.8 224.2,211.8 224.2,200.4 C224.2,181.3 247.6,174.3 283.5,174.3 C298.2,174.3 312.6,175.6 327.4,178.6 L327.4,138.8 C312.3,135.7 297.2,134.7 281.8,134.7 C233.9,134.7 168.2,144.8 168.2,207.1 C168.2,228.5 177.3,242.9 191.3,253.7 C211.4,269.1 239.9,277.1 261.4,286.5 C276.4,293.2 287.5,300.2 287.5,311.6 C287.5,330.7 264.0,337.7 228.2,337.7 C213.5,337.7 199.1,336.4 184.3,333.4 L184.3,373.2 Z" fill="#FFFFFF"/>
+          </svg>
+          SVGEOF
+          cp packages/website/public/logo.svg packages/website/public/favicon.svg 2>/dev/null || true
+          [ -f branding/icon.ico ] && cp branding/icon.ico packages/website/public/favicon.ico
+
+          # Replace the app logo component with SuperAgent S
+          cat > packages/app/src/components/icons/paseo-logo.tsx << 'LOGOEOF'
+import Svg, { Path, Rect } from "react-native-svg";
+
+interface PaseoLogoProps {
+  size?: number;
+  color?: string;
+}
+
+export function PaseoLogo({ size = 64 }: PaseoLogoProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 512 512" fill="none">
+      <Rect width="512" height="512" rx="80" ry="80" fill="#CC1100" />
+      <Path
+        d="M180.6,373.2 C196.4,376.3 216.1,377.3 233.2,377.3 C281.1,377.3 343.4,367.2 343.4,304.9 C343.4,283.5 334.4,269.1 320.3,258.3 C300.2,242.9 271.8,234.9 250.3,225.5 C235.2,218.8 224.2,211.8 224.2,200.4 C224.2,181.3 247.6,174.3 283.5,174.3 C298.2,174.3 312.6,175.6 327.4,178.6 L327.4,138.8 C312.3,135.7 297.2,134.7 281.8,134.7 C233.9,134.7 168.2,144.8 168.2,207.1 C168.2,228.5 177.3,242.9 191.3,253.7 C211.4,269.1 239.9,277.1 261.4,286.5 C276.4,293.2 287.5,300.2 287.5,311.6 C287.5,330.7 264.0,337.7 228.2,337.7 C213.5,337.7 199.1,336.4 184.3,333.4 L184.3,373.2 Z"
+        fill="#FFFFFF"
+        transform="translate(0, 0) scale(1, -1) translate(0, -512)"
+      />
+    </Svg>
+  );
+}
+LOGOEOF
+
+          echo "All branding applied"
+
+      - name: Set version
+        if: steps.check.outputs.has_changes == 'true'
+        id: version
+        run: |
+          VERSION=$(node -e "console.log(require('./package.json').version)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          node -e "
+            const fs = require('fs');
+            for (const p of ['package.json', 'packages/desktop/package.json']) {
+              const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+              pkg.version = '$VERSION';
+              fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');
+            }
+          "
+          echo "Version: $VERSION"
+
+      - name: Commit and push
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          git add -A
+          git commit -m "sync: SuperAgent rebrand on upstream ${{ env.UPSTREAM_SHA }}
+
+          upstream-sync: ${{ env.UPSTREAM_SHA }}"
+          git push origin sync-work:main --force
+          echo "Pushed to main"
+
+      - name: Create tag and release
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          # Clean up any existing tag/release for this version
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          git push origin ":refs/tags/$TAG" 2>/dev/null || true
+          sleep 2
+
+          # Create and push tag (triggers desktop-release.yml automatically)
+          git tag -f "$TAG"
+          git push origin "$TAG" --force
+
+          # Create release
+          gh release create "$TAG" \
+            --title "SuperAgent $TAG" \
+            --notes "## SuperAgent $TAG - Synced with upstream paseo@$(echo ${{ env.UPSTREAM_SHA }} | cut -c1-8)" \
+            --target main 2>/dev/null || echo "Release may already exist"
+          echo "Done — builds will trigger automatically"

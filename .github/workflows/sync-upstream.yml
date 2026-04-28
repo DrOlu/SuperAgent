@@ -173,6 +173,12 @@ jobs:
             ['const EXECUTABLE_NAME = \"Paseo\";', 'const EXECUTABLE_NAME = \"SuperAgent\";'],
           ]);
 
+          // smoke-packaged-desktop-app.js (added in upstream v0.1.64): executable name
+          replaceIn('packages/desktop/scripts/smoke-packaged-desktop-app.js', [
+            ['const EXECUTABLE_NAME = \"Paseo\";', 'const EXECUTABLE_NAME = \"SuperAgent\";'],
+            ['node smoke-packaged-desktop-app.js --app <Paseo.app>', 'node smoke-packaged-desktop-app.js --app <SuperAgent.app>'],
+          ]);
+
           // Release notes sync title: Paseo -> SuperAgent
           replaceIn('scripts/sync-release-notes-from-changelog.mjs', [
             ['\`Paseo \${targetTag}\`', '\`SuperAgent \${targetTag}\`'],

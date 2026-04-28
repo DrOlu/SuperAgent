@@ -178,6 +178,11 @@ jobs:
             ['\`Paseo \${targetTag}\`', '\`SuperAgent \${targetTag}\`'],
           ]);
 
+          // desktop-release.yml: release title Paseo -> SuperAgent
+          replaceIn('.github/workflows/desktop-release.yml', [
+            ['--title \"Paseo \$RELEASE_TAG\"', '--title \"SuperAgent \$RELEASE_TAG\"'],
+          ]);
+
           // bin shims
           replaceIn('packages/desktop/bin/paseo', [
             ['MacOS/Paseo', 'MacOS/SuperAgent'],

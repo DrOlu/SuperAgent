@@ -179,6 +179,11 @@ jobs:
             ['node smoke-packaged-desktop-app.js --app <Paseo.app>', 'node smoke-packaged-desktop-app.js --app <SuperAgent.app>'],
           ]);
 
+          // after-sign.js (added in upstream v0.1.64): macOS .app name used by smoke
+          replaceIn('packages/desktop/scripts/after-sign.js', [
+            ['const EXECUTABLE_NAME = \"Paseo\";', 'const EXECUTABLE_NAME = \"SuperAgent\";'],
+          ]);
+
           // Release notes sync title: Paseo -> SuperAgent
           replaceIn('scripts/sync-release-notes-from-changelog.mjs', [
             ['\`Paseo \${targetTag}\`', '\`SuperAgent \${targetTag}\`'],
@@ -189,14 +194,23 @@ jobs:
             ['--title \"Paseo \$RELEASE_TAG\"', '--title \"SuperAgent \$RELEASE_TAG\"'],
           ]);
 
-          // bin shims
-          replaceIn('packages/desktop/bin/paseo', [
-            ['MacOS/Paseo', 'MacOS/SuperAgent'],
-            ['\"\\${RESOURCES_DIR}/../Paseo\"', '\"\\${RESOURCES_DIR}/../SuperAgent\"'],
-            ['Bundled Paseo executable', 'Bundled SuperAgent executable'],
-          ]);
+          // bin shims - rewrite via direct file read/write to avoid bash \$ quoting traps
+          {
+            const p = 'packages/desktop/bin/paseo';
+            if (fs.existsSync(p)) {
+              let s = fs.readFileSync(p, 'utf8');
+              // Order matters: more-specific patterns first so '/Paseo' replacement
+              // doesn't greedily eat into '/Paseo.bin' or 'MacOS/Paseo'.
+              s = s.split('MacOS/Paseo').join('MacOS/SuperAgent');
+              s = s.split('Paseo.bin').join('SuperAgent.bin');
+              s = s.split('/../Paseo' + String.fromCharCode(34)).join('/../SuperAgent' + String.fromCharCode(34));
+              s = s.split('Bundled Paseo executable').join('Bundled SuperAgent executable');
+              fs.writeFileSync(p, s);
+            }
+          }
           replaceIn('packages/desktop/bin/paseo.cmd', [
             ['Paseo.exe', 'SuperAgent.exe'],
+            ['Paseo.bin', 'SuperAgent.bin'],
             ['Bundled Paseo', 'Bundled SuperAgent'],
           ]);
 

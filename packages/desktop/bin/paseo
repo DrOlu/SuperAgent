@@ -20,18 +20,18 @@ done
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)
 RESOURCES_DIR=$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)
 
-# macOS: MacOS/Paseo is a sibling of Resources/
+# macOS: MacOS/SuperAgent is a sibling of Resources/
 # Linux: the executable sits next to resources/. Prefer Paseo.bin when present
 # because Paseo is a GUI wrapper that adds Chromium flags not accepted by
 # ELECTRON_RUN_AS_NODE.
-if [ -x "${RESOURCES_DIR}/../MacOS/Paseo" ]; then
-  APP_EXECUTABLE="${RESOURCES_DIR}/../MacOS/Paseo"
+if [ -x "${RESOURCES_DIR}/../MacOS/SuperAgent" ]; then
+  APP_EXECUTABLE="${RESOURCES_DIR}/../MacOS/SuperAgent"
 elif [ -x "${RESOURCES_DIR}/../Paseo.bin" ]; then
   APP_EXECUTABLE="${RESOURCES_DIR}/../Paseo.bin"
 elif [ -x "${RESOURCES_DIR}/../Paseo" ]; then
   APP_EXECUTABLE="${RESOURCES_DIR}/../Paseo"
 else
-  echo "Bundled Paseo executable not found relative to ${RESOURCES_DIR}" >&2
+  echo "Bundled SuperAgent executable not found relative to ${RESOURCES_DIR}" >&2
   exit 1
 fi
 

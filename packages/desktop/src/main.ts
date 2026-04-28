@@ -49,7 +49,7 @@ const APP_SCHEME = "paseo";
 const OPEN_PROJECT_EVENT = "paseo:event:open-project";
 const DESKTOP_SMOKE_ENV = "PASEO_DESKTOP_SMOKE";
 const DESKTOP_SMOKE_STOP_REQUEST = "paseo-smoke-stop";
-app.setName("Paseo");
+app.setName("SuperAgent");
 
 // In dev mode, detect git worktrees and isolate each instance so multiple
 // Electron windows can run side-by-side (separate userData = separate lock).

@@ -11,11 +11,11 @@
     "voice",
     "voice-assistant"
   ],
-  "homepage": "https://paseo.sh",
+  "homepage": "https://hyperspace.ng",
   "license": "AGPL-3.0-or-later",
   "author": {
-    "name": "Mohamed Boudra",
-    "email": "hello@moboudra.com"
+    "name": "Hyperspace Technologies",
+    "email": "superagent@hyperspace.ng"
   },
   "repository": {
     "type": "git",

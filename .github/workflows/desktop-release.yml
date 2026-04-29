@@ -85,7 +85,7 @@ jobs:
             fi
             gh release create "$RELEASE_TAG" \
               --repo "${{ github.repository }}" \
-              --title "Paseo $RELEASE_TAG" \
+              --title "SuperAgent $RELEASE_TAG" \
               --notes "" \
               $prerelease_flag || {
                 echo "Release creation raced with another workflow; continuing."

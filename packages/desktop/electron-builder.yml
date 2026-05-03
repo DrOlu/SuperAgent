@@ -1,7 +1,7 @@
 npmRebuild: false
-appId: sh.paseo.desktop
-productName: Paseo
-executableName: Paseo
+appId: ng.hyperspace.superagent
+productName: SuperAgent
+executableName: SuperAgent
 afterPack: ./scripts/after-pack.js
 afterSign: ./scripts/after-sign.js
 directories:
@@ -18,16 +18,15 @@ extraResources:
     to: skills
 publish:
   provider: github
-  owner: getpaseo
-  repo: paseo
+  owner: DrOlu
+  repo: SuperAgent
 mac:
-  artifactName: "Paseo-${version}-${arch}.${ext}"
+  artifactName: "SuperAgent-${version}-${arch}.${ext}"
   category: public.app-category.developer-tools
   icon: assets/icon.icns
-  hardenedRuntime: true
-  notarize: true
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.inherit.plist
+  hardenedRuntime: false
+  notarize: false
+  identity: null
   extraResources:
     - from: bin/paseo
       to: bin/paseo
@@ -37,9 +36,9 @@ mac:
 linux:
   category: Development
   icon: assets
-  artifactName: "Paseo-${version}-${arch}.${ext}"
-  maintainer: "Mohamed Boudra <hello@moboudra.com>"
-  vendor: "Paseo"
+  artifactName: "SuperAgent-${version}-${arch}.${ext}"
+  maintainer: "Hyperspace Technologies <superagent@hyperspace.ng>"
+  vendor: "SuperAgent by Hyperspace Technologies"
   extraResources:
     - from: bin/paseo
       to: bin/paseo
@@ -49,7 +48,7 @@ linux:
     - rpm
     - tar.gz
 win:
-  artifactName: "Paseo-Setup-${version}-${arch}.${ext}"
+  artifactName: "SuperAgent-Setup-${version}-${arch}.${ext}"
   icon: assets/icon.ico
   extraResources:
     - from: bin/paseo.cmd

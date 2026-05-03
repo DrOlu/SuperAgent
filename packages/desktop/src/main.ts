@@ -106,7 +106,7 @@ const FORWARDED_PASEO_SHORTCUT_KEYS = new Set([
 ]);
 const DESKTOP_SMOKE_ENV = "PASEO_DESKTOP_SMOKE";
 const DESKTOP_SMOKE_STOP_REQUEST = "paseo-smoke-stop";
-app.setName("Paseo");
+app.setName("SuperAgent");
 
 function getBrowserIdFromWebviewPartition(partition: string | undefined): string | null {
   const prefix = "persist:paseo-browser-";

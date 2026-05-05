@@ -2,7 +2,7 @@ const path = require("node:path");
 
 const { smokePackagedDesktopApp } = require("./smoke-packaged-desktop-app.js");
 
-const EXECUTABLE_NAME = "Paseo";
+const EXECUTABLE_NAME = "SuperAgent";
 
 exports.default = async function afterSign(context) {
   if (process.env.PASEO_DESKTOP_SMOKE !== "1") {

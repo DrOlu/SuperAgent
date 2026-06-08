@@ -1,155 +1,134 @@
 <p align="center">
-  <img src="packages/website/public/logo.svg" width="64" height="64" alt="SuperAgent logo">
+  <a href="https://www.producthunt.com/products/superagent?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-superagent" target="_blank" rel="noopener noreferrer"><img alt="CATE - Figma like open canvas for development | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1150094&theme=neutral&t=1779630669260"></a>
+</p>
+
+<p align="center">
+  <img src="assets/superagent-logo.svg" alt="SuperAgent" width="240" />
 </p>
 
 <h1 align="center">SuperAgent</h1>
 
 <p align="center">
-  <a href="https://github.com/DrOlu/SuperAgent/stargazers">
-    <img src="https://img.shields.io/github/stars/DrOlu/SuperAgent?style=flat&logo=github" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/DrOlu/SuperAgent/releases">
-    <img src="https://img.shields.io/github/v/release/DrOlu/SuperAgent?style=flat&logo=github" alt="GitHub release">
-  </a>
-  <a href="https://x.com/moboudra">
-    <img src="https://img.shields.io/badge/%40moboudra-555?logo=x" alt="X">
-  </a>
-  <a href="https://discord.gg/jz8T2uahpH">
-    <img src="https://img.shields.io/badge/Discord-555?logo=discord" alt="Discord">
-  </a>
-</p>
-
-<p align="center">One interface for all your Claude Code, Codex and OpenCode agents.</p>
-
-<p align="center">
-  <img src="https://hyperspace.ng/hero-mockup.png" alt="SuperAgent app screenshot" width="100%">
+  <a href="README.md">English</a> | <a href="README.fr.md">Français</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.de.md">Deutsch</a>
 </p>
 
 <p align="center">
-  <img src="https://hyperspace.ng/mobile-mockup.png" alt="SuperAgent mobile app" width="100%">
+  An infinite canvas for your code, terminals, browsers, docs, and AI agents.
+</p>
+
+<p align="center">
+  <a href="https://github.com/DrOlu/SuperAgent/releases"><img src="https://img.shields.io/github/v/release/DrOlu/SuperAgent?style=flat-square" alt="Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/DrOlu/SuperAgent?style=flat-square" alt="MIT License" /></a>
+  <a href="https://github.com/DrOlu/SuperAgent/actions"><img src="https://img.shields.io/github/actions/workflow/status/DrOlu/SuperAgent/ci.yml?style=flat-square" alt="CI" /></a>
+  <a href="https://github.com/DrOlu/SuperAgent/releases"><img src="https://img.shields.io/github/downloads/DrOlu/SuperAgent/total?style=flat-square" alt="Downloads" /></a>
 </p>
 
 ---
 
-Run agents in parallel on your own machines. Ship from your phone or your desk.
-
-- **Self-hosted:** Agents run on your machine with your full dev environment. Use your tools, your configs, and your skills.
-- **Multi-provider:** Claude Code, Codex, and OpenCode through the same interface. Pick the right model for each job.
-- **Voice control:** Dictate tasks or talk through problems in voice mode. Hands-free when you need it.
-- **Cross-device:** iOS, Android, desktop, web, and CLI. Start work at your desk, check in from your phone, script it from the terminal.
-- **Privacy-first:** SuperAgent doesn't have any telemetry, tracking, or forced log-ins.
-
-## Getting Started
-
-SuperAgent runs a local server called the daemon that manages your coding agents. Clients like the desktop app, mobile app, web app, and CLI connect to it.
-
-### Prerequisites
-
-You need at least one agent CLI installed and configured with your credentials:
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- [Codex](https://github.com/openai/codex)
-- [OpenCode](https://github.com/anomalyco/opencode)
-
-### Desktop app (recommended)
-
-Download it from [hyperspace.ng/download](https://hyperspace.ng/download) or the [GitHub releases page](https://github.com/DrOlu/SuperAgent/releases). Open the app and the daemon starts automatically. Nothing else to install.
-
-To connect from your phone, scan the QR code shown in Settings.
-
-### CLI / headless
-
-Install the CLI and start SuperAgent:
-
-```bash
-npm install -g @getpaseo/cli
-paseo
-```
-
-This shows a QR code in the terminal. Connect from any client. This path is useful for servers and remote machines.
-
-For full setup and configuration, see:
-
-- [Docs](https://hyperspace.ng/docs)
-- [Configuration reference](https://hyperspace.ng/docs/configuration)
-
-## CLI
-
-Everything you can do in the app, you can do from the terminal.
-
-```bash
-paseo run --provider claude/opus-4.6 "implement user authentication"
-paseo run --provider codex/gpt-5.4 --worktree feature-x "implement feature X"
-
-paseo ls                           # list running agents
-paseo attach abc123                # stream live output
-paseo send abc123 "also add tests" # follow-up task
-
-# run on a remote daemon
-paseo --host workstation.local:6767 run "run the full test suite"
-```
-
-See the [full CLI reference](https://hyperspace.ng/docs/cli) for more.
-
-## Orchestration skills (Unstable)
-
-Experimental skills that teach agents how to use the SuperAgent CLI to orchestrate other agents. I am updating these very frequently as I learn new things, expect changes without notice, might be coupled to my own setup, use at your own risk.
-
-```bash
-npx skills add DrOlu/SuperAgent
-```
-
-Then use them in any agent conversation:
-
-```bash
-# Use handoff when you discuss something with an agent but want another one to implement.
-# I use this to plan with Claude and then handoff to Codex to implement.
-/paseo-handoff hand off the authentication fix to codex 5.4 in a worktree
-
-# Use loops when you have clear acceptance criteria (aka Ralph loops).
-/paseo-loop loop a codex agent to fix the backend tests, use sonnet to verify, max 10 iterations
-
-# Orchestrator teaches the agent how to create teams and manage them via a chat room.
-# Very opinionated and expects both Codex and Claude to work.
-/paseo-orchestrator spin up a team to implement the database refactor, use chat to coordinate. use claude to plan and codex to implement and review
-```
-
-## Development
-
-Quick monorepo package map:
-
-- `packages/server`: SuperAgent daemon (agent process orchestration, WebSocket API, MCP server)
-- `packages/app`: Expo client (iOS, Android, web)
-- `packages/cli`: `paseo` CLI for daemon and agent workflows
-- `packages/desktop`: Electron desktop app
-- `packages/relay`: Relay package for remote connectivity
-- `packages/website`: Marketing site and documentation (`hyperspace.ng`)
-
-Common commands:
-
-```bash
-# run all local dev services
-npm run dev
-
-# run individual surfaces
-npm run dev:server
-npm run dev:app
-npm run dev:desktop
-npm run dev:website
-
-# build the daemon
-npm run build:daemon
-
-# repo-wide checks
-npm run typecheck
-```
-
 <p align="center">
-  <a href="https://star-history.com/#getpaseo/paseo&Date">
-    <img src="https://api.star-history.com/svg?repos=getpaseo/paseo&type=Date" alt="Star history chart for getpaseo/paseo" width="100%">
-  </a>
+  <img src="assets/demo.gif" alt="SuperAgent demo" width="900" />
 </p>
+
+SuperAgent is a desktop IDE built on an infinite canvas. Instead of stacking windows and tabs, you spread editors, terminals, browsers, documents, and AI agents across freeform space and arrange them however you think about the project. Float panels on the canvas, dock them into tabs and splits, or detach them into their own OS windows. SuperAgent restores everything when you reopen the folder.
+
+## Getting started
+
+Open a folder. SuperAgent makes it a workspace and brings back your layout, panel positions, and terminals each time you return. Right-click the canvas to add panels, press `Cmd+K` for the command palette, and drag panels onto the dock to build tabs and splits. There are no config files to set up.
+
+## Why a canvas?
+
+Alt-tab is fine until you have a dozen terminals, six open files, docs in another window, and notes spread across desktops. Past that point, finding the right window is the bottleneck.
+
+SuperAgent gives each project one canvas that remembers where you left things. This is not a window manager. Tiling WMs like Hyprland, Niri, and GlazeWM arrange OS windows for everything you run; SuperAgent arranges the tools for a single project, closer to Figma than to a WM.
+
+## What's inside
+
+**Canvas and layout.** Zoom and pan an infinite canvas, dock panels into tabs and splits across four zones, detach panels into separate windows, and save named layouts. Keep several projects open and restore them on restart.
+
+**Editors and terminals.** Monaco editor panels with syntax highlighting, multi-cursor, find/replace, diffs, and Markdown preview. Native xterm.js terminals backed by `node-pty`, rooted in the workspace with shell auto-detection. Document panels render PDFs, DOCX, and images.
+
+**Git.** A git-aware file tree with live watching and search, plus a source-control sidebar for staging, branches, worktrees, history, and inline diffs. Full-text project search.
+
+**AI agents.** Run an in-app coding agent (Pi) with chat threads and per-chat model memory. Connect Anthropic, OpenAI Codex, GitHub Copilot, Gemini, OpenRouter, Groq, Mistral, DeepSeek, and others via OAuth or API key. Install extensions from the marketplace.
+
+**Navigation.** Canvas-wide search across files, terminal scrollback, and panel titles (`Cmd+Shift+F`). Panel switcher (`Ctrl+Space`). Command palette (`Cmd+K`).
+
+## Install
+
+Download a prebuilt release. Don't build from source for daily use.
+
+| Platform | Formats | Link |
+|----------|---------|------|
+| macOS | DMG, ZIP (`arm64`, `x64`) | [Latest release](https://github.com/DrOlu/SuperAgent/releases/latest) |
+| Windows | NSIS installer, ZIP (`x64`) | [Latest release](https://github.com/DrOlu/SuperAgent/releases/latest) |
+| Linux | AppImage, DEB, `tar.gz` (`x64`) | [Latest release](https://github.com/DrOlu/SuperAgent/releases/latest) |
+
+> **macOS:** release builds are notarized. Unsigned local builds may need `xattr -cr /Applications/SuperAgent.app`.
+
+> **Linux:** on Steam Deck or read-only-root distros, use the `tar.gz` build. If the AppImage won't launch, try `./SuperAgent.AppImage --no-sandbox`.
+
+## Build from source
+
+For contributors. Use the release above otherwise.
+
+**Prerequisites:**
+- [Bun](https://bun.sh) — package manager and script runner.
+- [Node.js](https://nodejs.org/) 20 or 22 LTS (see `.nvmrc`) on your PATH. The build scripts run under it; the companion daemon bundles its own Node 22.
+- **Linux only:** `node-pty` ships prebuilt binaries for macOS and Windows, but not Linux, so it compiles from source there. Install Python 3 and a C++ toolchain:
+  - Debian/Ubuntu: `sudo apt install build-essential python3`
+  - Fedora/RHEL: `sudo dnf install @development-tools gcc-c++ make python3`
+  - Arch: `sudo pacman -S base-devel python`
+
+Fresh clone — one command sets everything up (installs dependencies and builds the local companion daemon):
+
+```bash
+git clone https://github.com/DrOlu/SuperAgent.git
+cd superagent
+bun run setup
+```
+
+Then:
+
+```bash
+bun run dev          # dev server with hot reload
+bun run typecheck
+bun run test         # unit tests (vitest)
+bun run test:e2e     # Playwright integration tests
+bun run build        # production build
+bun run package      # package for distribution (:mac, :win, :linux)
+```
+
+Packaged binaries land in `release/`. The companion daemon is rebuilt by `bun run companion:tarball` (re-run it after changing anything under `src/companion/`).
+
+## Architecture
+
+```text
+src/
+├── agent/      # Embedded Pi coding-agent: process manager, auth, marketplace, panel UI
+├── main/       # Electron main process: IPC, workspaces, windows, updater, security
+├── preload/    # Context-isolated IPC bridge
+├── renderer/   # React 18 app: canvas, docking, panels, sidebar, stores, hooks
+└── shared/     # IPC channels and shared types
+```
+
+SuperAgent runs all IPC through a context-isolated preload bridge. Filesystem access is scoped to registered workspace roots, browser panels disable node integration, and terminals can't spawn outside approved directories.
+
+**Stack:** Electron 41, React 18, Zustand 5, Monaco 0.52, xterm.js 5.5 + node-pty 1.0, Tailwind 3.4, electron-vite, electron-builder, electron-updater, Sentry. PDFs and DOCX via pdf.js and mammoth, git via simple-git, file watching via chokidar. The agent runtime is `@earendil-works/pi`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Release-by-release history lives in the [CHANGELOG](CHANGELOG.md).
+
+## Star history
+
+<a href="https://www.star-history.com/#DrOlu/SuperAgent&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date" />
+  </picture>
+</a>
 
 ## License
 
-AGPL-3.0
+[MIT](LICENSE)

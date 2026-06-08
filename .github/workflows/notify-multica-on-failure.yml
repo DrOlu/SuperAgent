@@ -1,0 +1,40 @@
+name: Notify Multica on Workflow Failure
+
+on:
+  workflow_run:
+    workflows:
+      - "*"
+    types:
+      - completed
+
+jobs:
+  notify:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Multica autopilot
+        run: |
+          python3 -c "
+          import json, urllib.request
+          payload = json.dumps({
+            'action': 'failure',
+            'workflow_run': {
+              'id': '${{ github.event.workflow_run.id }}',
+              'name': '${{ github.event.workflow_run.name }}',
+              'conclusion': '${{ github.event.workflow_run.conclusion }}',
+              'html_url': '${{ github.event.workflow_run.html_url }}',
+              'head_branch': '${{ github.event.workflow_run.head_branch }}'
+            },
+            'repository': {
+              'full_name': '${{ github.repository }}',
+              'name': '${{ github.event.repository.name }}'
+            }
+          }).encode()
+          req = urllib.request.Request(
+            'https://api.multica.ai/api/webhooks/autopilots/awt_azjpEQ-2NJYENF86fUIV8Zm6pWE7_0qanO76WOaG0kw',
+            data=payload,
+            headers={'Content-Type': 'application/json'}
+          )
+          urllib.request.urlopen(req)
+          print('Notified Multica autopilot of workflow failure')
+          "

@@ -48,7 +48,7 @@ function promptMoveToApplications(version: string): void {
     cancelId: 1,
     message: version ? `Update available (v${version})` : 'Update available',
     detail:
-      'SuperAgent can't update itself because it's running from outside the Applications folder ' +
+      'SuperAgent can\'t update itself because it\'s running from outside the Applications folder ' +
       '(macOS blocks self-updates there). Move SuperAgent to Applications to enable automatic updates. ' +
       'Your settings and sessions are preserved.',
   })

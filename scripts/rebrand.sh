@@ -100,6 +100,11 @@ sed -i '' \
   -e 's|Welcome to Cate|Welcome to SuperAgent|' \
   src/renderer/dialogs/WelcomeDialog.tsx
 echo '  src/renderer/dialogs/WelcomeDialog.tsx'
+# ── src/renderer/dialogs/WelcomeDialog.test.tsx ──────────────────────
+sed -i '' \
+  -e 's|Welcome to Cate|Welcome to SuperAgent|' \
+  src/renderer/dialogs/WelcomeDialog.test.tsx
+echo '  src/renderer/dialogs/WelcomeDialog.test.tsx'
 
 # ── src/renderer/dialogs/PostUpdateFeedbackDialog.tsx ────────────────────────
 sed -i '' \

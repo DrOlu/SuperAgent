@@ -55,7 +55,7 @@ describe('WelcomeDialog', () => {
 
   it('shows the welcome + consent on first run', () => {
     act(() => root.render(<WelcomeDialog />))
-    expect(host.textContent).toContain('Welcome to Cate')
+    expect(host.textContent).toContain('Welcome to SuperAgent')
     expect(host.textContent).toContain('Star on GitHub')
     expect(host.querySelector('[role="switch"]')).not.toBeNull()
   })

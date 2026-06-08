@@ -1,0 +1,318 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release (skip if exists)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # A tag with a semver pre-release suffix (a hyphen, e.g. v1.2.0-beta.1)
+          # is published as a GitHub pre-release. GitHub excludes pre-releases
+          # from the "Latest" badge and the /releases/latest API the website
+          # uses, so stable users and the public download are unaffected — only
+          # users who opted into beta builds in-app (autoUpdater.allowPrerelease)
+          # are offered it. The later "Publish release" step un-drafts without
+          # touching the pre-release flag, so it stays a pre-release.
+          PRERELEASE_FLAG=""
+          case "${{ github.ref_name }}" in
+            *-*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
+          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "Release ${{ github.ref_name }} already exists — skipping creation"
+          else
+            gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" --title "${{ github.ref_name }}" --draft --generate-notes $PRERELEASE_FLAG
+          fi
+
+  release:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools (needed by node-gyp)
+        run: pip install setuptools
+
+      - name: Delete lockfile
+        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate icons
+        run: npm run icons
+
+      # Regenerate the embedded companion + pi version strings (src/companion/
+      # version.ts, piVersion.ts) from package.json / the installed pi BEFORE
+      # building the app. `npm run build` bakes COMPANION_VERSION/PI_VERSION into
+      # the app, and the daemon resolves its tarball by that version
+      # (cate-companion-<COMPANION_VERSION>-<target>.tgz). A release whose version
+      # bump only touched package.json (e.g. a beta tag) otherwise leaves the
+      # committed version.ts stale, so the app looks for the wrong tarball name —
+      # in dev/e2e that means no ripgrep and 0-result content search (which gates
+      # the macOS release), and in the shipped app a missing companion/pi pull.
+      - name: Sync companion + pi versions to package.json
+        run: |
+          npm run build:companion
+          npm run pi:tarball
+
+      - name: Build app
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      # The companion tarball stages node-pty's native binary from build/Release.
+      # On macOS/Windows `npm install` satisfies node-pty from a shipped prebuild
+      # and never populates build/Release, so compile from source here. On Linux
+      # node-pty ships NO prebuild, so `npm install` already built it from source
+      # into build/Release — a rebuild would just duplicate that, so skip it.
+      # (node-pty is N-API: the node-20 binary runs under the bundled node-22.)
+      - name: Compile node-pty from source (mac/win; Linux builds it at install)
+        if: runner.os != 'Linux'
+        run: npm rebuild node-pty --build-from-source
+
+      # Import the Developer ID cert into a scoped keychain and export the signing
+      # identity, so the next step can codesign the companion's bundled native
+      # binaries. Without this, notarytool rejects the unsigned node-pty/rg Mach-O
+      # inside companion-host.tgz and the macOS release fails to notarize.
+      - name: Set up macOS signing for companion natives
+        if: matrix.platform == 'mac'
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+        run: bash scripts/ci-mac-signing-keychain.sh
+
+      # The local workspace runs the companion daemon tarball, shipped inside the
+      # installer (electron-builder.yml extraResources → companion-host.tgz). Build
+      # this runner's host-target tarball and stage it under the fixed name so the
+      # extraResource exists. Each runner builds only its own host target. On macOS
+      # the build script signs the bundled natives via CATE_MAC_SIGN_IDENTITY
+      # (exported above) before packing, so the tarball notarizes inside the app.
+      - name: Build + stage host companion tarball
+        shell: bash
+        run: |
+          node scripts/build-companion-tarball.mjs
+          cp dist-companion/cate-companion-*.tgz dist-companion/companion-host.tgz
+
+      # Functional + content-search e2e against the real built app and the host
+      # companion tarball staged above (so the daemon's ripgrep is present — this
+      # is why e2e lives here, not in the fast PR CI). Gates the release on macOS
+      # only: mac runs Playwright against the real window server, so the drag /
+      # detach specs are faithful and stable. Linux only ran under xvfb, where
+      # synthetic-mouse drags and multi-window detach are flaky enough to redden
+      # green releases even with retries, and Windows' headless runner can't
+      # deliver drags to the never-shown window at all. Both still build + package;
+      # they just skip e2e — mac is the reliable signal.
+      # E2E_SKIP_PERF is set here rather than inline in the npm script: npm runs
+      # scripts through cmd.exe on Windows, where `VAR=1 cmd` is a syntax error.
+      # Setting it at the step level (inherited by Git Bash on all runners) and
+      # invoking playwright directly keeps this cross-platform.
+      - name: E2E tests (functional + search)
+        if: matrix.platform == 'mac'
+        shell: bash
+        env:
+          E2E_SKIP_PERF: '1'
+        run: npx playwright test
+
+      - name: Package (macOS)
+        if: matrix.platform == 'mac'
+        # Raise the file-descriptor limit: codesign walks every unpacked file
+        # under app.asar.unpacked, and the macOS runner's default soft limit
+        # (256) is exhausted now that the full node_modules tree is unpacked,
+        # surfacing as `EMFILE: too many open files` during signing.
+        run: ulimit -n 65536 && npx electron-builder --mac --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Package (Linux)
+        if: matrix.platform == 'linux'
+        run: npx electron-builder --linux --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package (Windows)
+        if: matrix.platform == 'win'
+        # Code signing: set the WINDOWS_CERTS (base64 of the .pfx) +
+        # WINDOWS_CERTS_PASSWORD repo secrets and electron-builder signs the
+        # installer + exe automatically (removes the SmartScreen "unknown
+        # publisher" warning). When the secrets are absent the build still
+        # succeeds — it just produces an unsigned artifact, so this is safe to
+        # land before the certificate is provisioned. (Microsoft's newer Azure
+        # Trusted Signing is the alternative if an OV/EV .pfx isn't available.)
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.WINDOWS_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTS_PASSWORD }}
+
+      - name: Upload release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          files=()
+          while IFS= read -r -d '' file; do
+            files+=("$file")
+          done < <(find release -maxdepth 1 -type f \
+            ! -name 'builder-debug.yml' \
+            ! -name 'builder-effective-config.yaml' \
+            -print0)
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No top-level release artifacts found in $(pwd)/release"
+            exit 1
+          fi
+
+          gh release upload "$TAG_NAME" "${files[@]}" \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+  # Per-target cate-companion daemon tarballs. Built on the matching runner so
+  # node-pty's native binary is correct for the target; linux-arm64 is cross-
+  # built in a QEMU-emulated container (--docker). Uploaded to the same release
+  # so a connecting host can pull its tarball straight from the release URL
+  # (see src/main/companion/companionArtifacts.ts).
+  companion:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: ubuntu-latest
+            target: linux-arm64
+            docker: true
+          - os: macos-latest
+            target: darwin-arm64
+          - os: windows-latest
+            target: win32-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools (needed by node-gyp)
+        run: pip install setuptools
+
+      - name: Set up QEMU (linux-arm64 cross-build)
+        if: matrix.docker
+        uses: docker/setup-qemu-action@v3
+
+      - name: Delete lockfile
+        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
+
+      - name: Install dependencies
+        run: npm install
+
+      # Stage node-pty from build/Release. macOS/Windows installs use a shipped
+      # prebuild (build/Release empty) so compile from source; Linux ships no
+      # prebuild, so `npm install` already built it from source. The --docker
+      # linux-arm64 cross-build compiles node-pty in the container — all of these
+      # Linux cases are exactly the ones runner.os != 'Linux' skips.
+      - name: Compile node-pty from source (mac/win; Linux builds it at install)
+        if: runner.os != 'Linux'
+        run: npm rebuild node-pty --build-from-source
+
+      # Sign the bundled darwin natives so a mac host that pulls this per-target
+      # tarball from the release runs Developer ID-signed binaries (no Gatekeeper
+      # quarantine block), mirroring the host tarball staged in the app.
+      - name: Set up macOS signing for companion natives
+        if: startsWith(matrix.target, 'darwin-')
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTS }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+        run: bash scripts/ci-mac-signing-keychain.sh
+
+      - name: Build companion tarball (${{ matrix.target }})
+        run: node scripts/build-companion-tarball.mjs --target ${{ matrix.target }} ${{ matrix.docker && '--docker' || '' }}
+
+      - name: Upload companion tarball
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG_NAME" dist-companion/cate-companion-*-${{ matrix.target }}.tgz \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+  # The pi coding agent tarball — cross-platform (no native deps in --mode rpc),
+  # so a single runner builds the one artifact for every host. Pulled on demand
+  # when the agent is first used on a host (local or remote).
+  pi:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Delete lockfile
+        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
+      - name: Install dependencies
+        run: npm install
+      - name: Build pi tarball
+        run: node scripts/build-pi-tarball.mjs
+      - name: Upload pi tarball
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG_NAME" dist-companion/cate-pi-*.tgz \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+  publish-release:
+    needs: [release, companion, pi]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release (remove draft)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false

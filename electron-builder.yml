@@ -1,0 +1,223 @@
+appId: ng.hyperspace.superagent
+productName: SuperAgent
+directories:
+  output: release
+# The cate-companion daemon is NOT bundled in the app. One self-contained
+# tarball per target is built in CI and uploaded to the GitHub release
+# `v<version>`; on connect the remote pulls its own tarball (with a client-side
+# fallback). See companionArtifacts.ts + .github/workflows/release.yml.
+#
+# @earendil-works/pi-coding-agent (the agent runtime, ~271MB) is NO LONGER
+# bundled — it's a devDependency, shipped on demand as the cate-pi tarball and
+# run by the companion (local or remote). See build-pi-tarball.mjs + ensurePi.ts.
+# @earendil-works/pi-ai stays a production dependency (authManager uses /oauth
+# for cate's own login flow) and is unpacked here. The @earendil-works glob now
+# only matches pi-ai + pi-agent-core; the SDK closure below is retained for pi-ai
+# (electron-builder prunes anything that was pi-coding-agent-only). Unpacking the
+# whole node_modules tree caused codesign EMFILE on macOS (issue #150).
+asarUnpack:
+  - "node_modules/@earendil-works/**"
+  - "node_modules/.bin/pi"
+  - "node_modules/.bin/pi.cmd"
+  - "node_modules/@anthropic-ai/sdk/**"
+  - "node_modules/@aws-crypto/crc32/**"
+  - "node_modules/@aws-crypto/sha256-browser/**"
+  - "node_modules/@aws-crypto/sha256-js/**"
+  - "node_modules/@aws-crypto/supports-web-crypto/**"
+  - "node_modules/@aws-crypto/util/**"
+  - "node_modules/@aws-sdk/client-bedrock-runtime/**"
+  - "node_modules/@aws-sdk/core/**"
+  - "node_modules/@aws-sdk/credential-provider-env/**"
+  - "node_modules/@aws-sdk/credential-provider-http/**"
+  - "node_modules/@aws-sdk/credential-provider-ini/**"
+  - "node_modules/@aws-sdk/credential-provider-login/**"
+  - "node_modules/@aws-sdk/credential-provider-node/**"
+  - "node_modules/@aws-sdk/credential-provider-process/**"
+  - "node_modules/@aws-sdk/credential-provider-sso/**"
+  - "node_modules/@aws-sdk/credential-provider-web-identity/**"
+  - "node_modules/@aws-sdk/eventstream-handler-node/**"
+  - "node_modules/@aws-sdk/middleware-eventstream/**"
+  - "node_modules/@aws-sdk/middleware-websocket/**"
+  - "node_modules/@aws-sdk/nested-clients/**"
+  - "node_modules/@aws-sdk/signature-v4-multi-region/**"
+  - "node_modules/@aws-sdk/token-providers/**"
+  - "node_modules/@aws-sdk/types/**"
+  - "node_modules/@aws-sdk/util-locate-window/**"
+  - "node_modules/@aws-sdk/xml-builder/**"
+  - "node_modules/@aws/lambda-invoke-store/**"
+  - "node_modules/@babel/runtime/**"
+  - "node_modules/@google/genai/**"
+  - "node_modules/@mariozechner/clipboard/**"
+  - "node_modules/@mariozechner/clipboard-darwin-arm64/**"
+  - "node_modules/@mariozechner/clipboard-darwin-universal/**"
+  - "node_modules/@mistralai/mistralai/**"
+  - "node_modules/@nodable/entities/**"
+  - "node_modules/@protobufjs/aspromise/**"
+  - "node_modules/@protobufjs/base64/**"
+  - "node_modules/@protobufjs/codegen/**"
+  - "node_modules/@protobufjs/eventemitter/**"
+  - "node_modules/@protobufjs/fetch/**"
+  - "node_modules/@protobufjs/float/**"
+  - "node_modules/@protobufjs/inquire/**"
+  - "node_modules/@protobufjs/path/**"
+  - "node_modules/@protobufjs/pool/**"
+  - "node_modules/@protobufjs/utf8/**"
+  - "node_modules/@silvia-odwyer/photon-node/**"
+  - "node_modules/@smithy/core/**"
+  - "node_modules/@smithy/credential-provider-imds/**"
+  - "node_modules/@smithy/fetch-http-handler/**"
+  - "node_modules/@smithy/is-array-buffer/**"
+  - "node_modules/@smithy/node-http-handler/**"
+  - "node_modules/@smithy/signature-v4/**"
+  - "node_modules/@smithy/types/**"
+  - "node_modules/@smithy/util-buffer-from/**"
+  - "node_modules/@smithy/util-utf8/**"
+  - "node_modules/@types/node/**"
+  - "node_modules/@types/retry/**"
+  - "node_modules/agent-base/**"
+  - "node_modules/balanced-match/**"
+  - "node_modules/base64-js/**"
+  - "node_modules/bignumber.js/**"
+  - "node_modules/bowser/**"
+  - "node_modules/brace-expansion/**"
+  - "node_modules/buffer-equal-constant-time/**"
+  - "node_modules/chalk/**"
+  - "node_modules/cross-spawn/**"
+  - "node_modules/data-uri-to-buffer/**"
+  - "node_modules/debug/**"
+  - "node_modules/diff/**"
+  - "node_modules/ecdsa-sig-formatter/**"
+  - "node_modules/extend/**"
+  - "node_modules/fast-xml-builder/**"
+  - "node_modules/fast-xml-parser/**"
+  - "node_modules/fetch-blob/**"
+  - "node_modules/formdata-polyfill/**"
+  - "node_modules/gaxios/**"
+  - "node_modules/gcp-metadata/**"
+  - "node_modules/get-east-asian-width/**"
+  - "node_modules/glob/**"
+  - "node_modules/google-auth-library/**"
+  - "node_modules/google-logging-utils/**"
+  - "node_modules/graceful-fs/**"
+  - "node_modules/highlight.js/**"
+  - "node_modules/hosted-git-info/**"
+  - "node_modules/http-proxy-agent/**"
+  - "node_modules/https-proxy-agent/**"
+  - "node_modules/ignore/**"
+  - "node_modules/isexe/**"
+  - "node_modules/jiti/**"
+  - "node_modules/json-bigint/**"
+  - "node_modules/json-schema-to-ts/**"
+  - "node_modules/jwa/**"
+  - "node_modules/jws/**"
+  - "node_modules/koffi/**"
+  - "node_modules/long/**"
+  - "node_modules/lru-cache/**"
+  - "node_modules/marked/**"
+  - "node_modules/minimatch/**"
+  - "node_modules/minipass/**"
+  - "node_modules/ms/**"
+  - "node_modules/node-domexception/**"
+  - "node_modules/node-fetch/**"
+  - "node_modules/openai/**"
+  - "node_modules/p-retry/**"
+  - "node_modules/partial-json/**"
+  - "node_modules/path-expression-matcher/**"
+  - "node_modules/path-key/**"
+  - "node_modules/path-scurry/**"
+  - "node_modules/proper-lockfile/**"
+  - "node_modules/protobufjs/**"
+  - "node_modules/retry/**"
+  - "node_modules/safe-buffer/**"
+  - "node_modules/shebang-command/**"
+  - "node_modules/shebang-regex/**"
+  - "node_modules/signal-exit/**"
+  - "node_modules/strnum/**"
+  - "node_modules/ts-algebra/**"
+  - "node_modules/tslib/**"
+  - "node_modules/typebox/**"
+  - "node_modules/undici/**"
+  - "node_modules/undici-types/**"
+  - "node_modules/web-streams-polyfill/**"
+  - "node_modules/which/**"
+  - "node_modules/ws/**"
+  - "node_modules/xml-naming/**"
+  - "node_modules/yaml/**"
+  - "node_modules/zod/**"
+  - "node_modules/zod-to-json-schema/**"
+extraResources:
+  # Ship bundled pi extensions (e.g. cate-plan-mode) into the packaged app so
+  # installPlanModeExtension can copy them into ~/.pi/agent/extensions/ on
+  # first use. The src/ tree itself isn't packaged, so we mirror the files
+  # under resources/cate-extensions/.
+  - from: src/agent/extensions
+    to: cate-extensions
+    filter:
+      - "**/*"
+  # Ship the cate-theme authoring skill so installThemeSkill can copy it into
+  # ~/.claude/skills/cate-theme/ on first launch.
+  - from: skills
+    to: skills
+    filter:
+      - "**/*"
+  # Ship the host-target companion tarball under a fixed name so the packaged
+  # LOCAL workspace can run the same daemon tarball as remote hosts (resolved at
+  # runtime via shippedCompanionTarball() → resources/companion-host.tgz).
+  # scripts/package.mjs always produces this file before electron-builder runs
+  # (copying cate-companion-<version>-<target>.tgz → companion-host.tgz).
+  - from: dist-companion/companion-host.tgz
+    to: companion-host.tgz
+publish:
+  provider: github
+  owner: DrOlu
+  repo: SuperAgent
+  releaseType: release
+mac:
+  icon: build/icon.icns
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
+  extendInfo:
+    NSMicrophoneUsageDescription: SuperAgent needs microphone access so terminal-based tools (like Claude Code) can record audio for voice input.
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+win:
+  icon: build/icon.ico
+  # Code signing is driven by CI env vars (CSC_LINK / CSC_KEY_PASSWORD), wired
+  # from the WINDOWS_CERTS / WINDOWS_CERTS_PASSWORD repo secrets in
+  # .github/workflows/release.yml. With them set, electron-builder signs the
+  # nsis installer + the app exe (no SmartScreen "unknown publisher" warning)
+  # and uses an RFC-3161 timestamp so the signature outlives the cert. Without
+  # them the build is simply unsigned — nothing here forces signing.
+  signtoolOptions:
+    rfc3161TimeStampServer: http://timestamp.digicert.com
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+linux:
+  icon: build/icon.png
+  category: Development
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: tar.gz
+      arch:
+        - x64

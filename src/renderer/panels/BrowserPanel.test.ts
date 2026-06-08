@@ -1,0 +1,87 @@
+// =============================================================================
+// URL helpers used by BrowserPanel address bar.
+//
+// Regression: prior versions hard-coded an http(s)-only protocol prefix, which
+// rewrote `file:///path/to/index.html` into `https://file:///...` and made
+// local HTML files unreachable from the browser panel (issue #106).
+// =============================================================================
+
+import { describe, it, expect } from 'vitest'
+import { isUrl, normalizeUrl } from './browserUrl'
+
+describe('isUrl', () => {
+  it('recognises absolute http(s) URLs', () => {
+    expect(isUrl('http://example.com')).toBe(true)
+    expect(isUrl('https://example.com/path')).toBe(true)
+  })
+
+  it('recognises file:// URLs', () => {
+    expect(isUrl('file:///Users/foo/index.html')).toBe(true)
+  })
+
+  it('recognises POSIX absolute paths', () => {
+    expect(isUrl('/Users/foo/index.html')).toBe(true)
+    expect(isUrl('/etc/hosts')).toBe(true)
+  })
+
+  it('recognises Windows absolute paths', () => {
+    expect(isUrl('C:\\Users\\foo\\index.html')).toBe(true)
+    expect(isUrl('C:/Users/foo/index.html')).toBe(true)
+  })
+
+  it('recognises domains and localhost', () => {
+    expect(isUrl('example.com')).toBe(true)
+    expect(isUrl('localhost:3000')).toBe(true)
+    expect(isUrl('myhost:8080/path')).toBe(true)
+  })
+
+  it('treats spaces as a search query', () => {
+    expect(isUrl('how to use file://')).toBe(false)
+  })
+
+  it('treats single bare words as search queries', () => {
+    expect(isUrl('react')).toBe(false)
+  })
+})
+
+describe('normalizeUrl', () => {
+  it('passes http(s) and about: through unchanged', () => {
+    expect(normalizeUrl('http://example.com')).toBe('http://example.com')
+    expect(normalizeUrl('https://example.com')).toBe('https://example.com')
+    expect(normalizeUrl('about:blank')).toBe('about:blank')
+  })
+
+  it('passes file:// URLs through unchanged', () => {
+    expect(normalizeUrl('file:///Users/foo/index.html')).toBe('file:///Users/foo/index.html')
+  })
+
+  it('prepends file:// to POSIX absolute paths', () => {
+    expect(normalizeUrl('/Users/foo/index.html')).toBe('file:///Users/foo/index.html')
+  })
+
+  it('escapes #, ?, and % in POSIX paths so they are not parsed as URL syntax', () => {
+    expect(normalizeUrl('/tmp/a#b.html')).toBe('file:///tmp/a%23b.html')
+    expect(normalizeUrl('/tmp/a?b.html')).toBe('file:///tmp/a%3Fb.html')
+    expect(normalizeUrl('/tmp/100%done.html')).toBe('file:///tmp/100%25done.html')
+  })
+
+  it('converts Windows absolute paths to file:// URLs with forward slashes', () => {
+    expect(normalizeUrl('C:\\Users\\foo\\index.html')).toBe('file:///C:/Users/foo/index.html')
+    expect(normalizeUrl('C:/Users/foo/index.html')).toBe('file:///C:/Users/foo/index.html')
+  })
+
+  it('escapes URL syntax characters in Windows paths', () => {
+    expect(normalizeUrl('C:\\tmp\\a#b.html')).toBe('file:///C:/tmp/a%23b.html')
+  })
+
+  it('prepends http:// for localhost variants', () => {
+    expect(normalizeUrl('localhost')).toBe('http://localhost')
+    expect(normalizeUrl('localhost:3000')).toBe('http://localhost:3000')
+    expect(normalizeUrl('127.0.0.1:8080')).toBe('http://127.0.0.1:8080')
+  })
+
+  it('prepends https:// for bare domains', () => {
+    expect(normalizeUrl('example.com')).toBe('https://example.com')
+    expect(normalizeUrl('example.com/path')).toBe('https://example.com/path')
+  })
+})

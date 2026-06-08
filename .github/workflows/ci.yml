@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    # Without this, a hung step (e.g. a test leaving a child process that holds
+    # the step's stdout pipe open) runs until GitHub's 6-hour default. Bound it
+    # so CI fails fast and surfaces the culprit instead of hanging for hours.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install setuptools (needed by node-gyp)
+        run: pip install setuptools
+
+      - name: Delete lockfile
+        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Electron smoke test (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: npm run test:smoke:electron
+
+      # NOTE: the Playwright e2e suite is intentionally NOT run here. The content-
+      # search specs drive the real local companion daemon, whose ripgrep ships in
+      # the companion tarball — building that tarball (node-pty compile + node/rg
+      # download + pi bundle) adds ~5min to every PR. The release workflow builds
+      # the tarball anyway, so e2e runs there instead (see release.yml). Keep this
+      # PR gate fast: build + typecheck + lint + unit + smoke.

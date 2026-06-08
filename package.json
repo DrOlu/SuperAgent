@@ -1,0 +1,121 @@
+{
+  "name": "superagent",
+  "version": "1.2.4",
+  "productName": "SuperAgent",
+  "description": "An infinite zoomable canvas IDE",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DrOlu/SuperAgent.git"
+  },
+  "homepage": "https://github.com/DrOlu/SuperAgent",
+  "bugs": {
+    "url": "https://github.com/DrOlu/SuperAgent/issues"
+  },
+  "author": {
+    "name": "Hyperspace",
+    "email": "superagent@hyperspace.ng"
+  },
+  "main": "dist/main/index.js",
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "scripts": {
+    "postinstall": "bash scripts/patch-electron-name.sh",
+    "predev": "bash scripts/patch-electron-name.sh",
+    "setup": "bun install && bun run companion:tarball",
+    "dev": "electron-vite dev",
+    "dev:dialog": "DEV_FORCE_DIALOG=1 electron-vite dev",
+    "dev:firststart": "CATE_FRESH_USERDATA=1 electron-vite dev",
+    "dev:update:button": "CATE_SIMULATE_UPDATE_BUTTON=available electron-vite dev",
+    "dev:update:major": "CATE_SIMULATE_UPDATE=major electron-vite dev",
+    "dev:update:minor": "CATE_SIMULATE_UPDATE=minor electron-vite dev",
+    "dev:update:patch": "CATE_SIMULATE_UPDATE=patch electron-vite dev",
+    "sentry:test": "node scripts/sentry-test.mjs",
+    "build": "electron-vite build",
+    "build:companion": "node src/companion/build/esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ci": "E2E_SKIP_PERF=1 playwright test",
+    "test:smoke:electron": "node scripts/run-electron-smoke.mjs",
+    "icons": "node scripts/generate-icons.js",
+    "companion:tarball": "node scripts/build-companion-tarball.mjs",
+    "pi:tarball": "node scripts/build-pi-tarball.mjs",
+    "package": "node scripts/package.mjs",
+    "package:mac": "node scripts/package.mjs --mac",
+    "package:win": "node scripts/package.mjs --win",
+    "package:linux": "node scripts/package.mjs --linux"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "node-pty",
+      "sharp",
+      "esbuild"
+    ]
+  },
+  "trustedDependencies": [
+    "@google/genai",
+    "electron",
+    "esbuild",
+    "koffi",
+    "node-pty",
+    "protobufjs",
+    "sharp"
+  ],
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "^0.75.4",
+    "@earendil-works/pi-ai": "^0.75.5",
+    "@phosphor-icons/react": "^2.1.10",
+    "@sentry/electron": "^5.11.0",
+    "@types/ssh2": "^1.15.5",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/addon-webgl": "^0.18.0",
+    "@xterm/xterm": "^5.5.0",
+    "chokidar": "^4.0.0",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
+    "mammoth": "^1.12.0",
+    "monaco-editor": "^0.52.0",
+    "pdfjs-dist": "^5.7.284",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "simple-git": "^3.27.0",
+    "ssh2": "^1.17.0",
+    "use-sync-external-store": "^1.6.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.75.4",
+    "@electron/rebuild": "^4.0.3",
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.60.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "@vscode/ripgrep": "^1.18.0",
+    "autoprefixer": "^10.4.0",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.39.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "jsdom": "^29.1.1",
+    "node-pty": "^1.0.0",
+    "playwright": "^1.60.0",
+    "png-to-ico": "^3.0.1",
+    "postcss": "^8.4.0",
+    "sharp": "^0.33.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^3.2.4"
+  }
+}

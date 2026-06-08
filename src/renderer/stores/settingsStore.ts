@@ -1,0 +1,163 @@
+// =============================================================================
+// Settings Store — Zustand state for application settings.
+// Ported from AppSettings.swift
+// =============================================================================
+
+import { create } from 'zustand'
+import log from '../lib/logger'
+import type { AppSettings } from '../../shared/types'
+import { DEFAULT_SETTINGS } from '../../shared/types'
+
+// -----------------------------------------------------------------------------
+// Electron API type (exposed via preload)
+// -----------------------------------------------------------------------------
+
+interface ElectronSettingsAPI {
+  settingsGet: (key: string) => Promise<unknown>
+  settingsSet: (key: string, value: unknown) => Promise<void>
+  settingsGetAll: () => Promise<Partial<AppSettings>>
+  settingsReset: (key: string) => Promise<void>
+  settingsOpenInEditor?: () => Promise<string>
+  onSettingsReloaded?: (callback: (settings: Partial<AppSettings>) => void) => () => void
+}
+
+// Copy only known AppSettings keys from a source object onto a target patch.
+function pickKnownSettings(source: Partial<AppSettings>): Partial<AppSettings> {
+  const out: Partial<AppSettings> = {}
+  for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
+    if (key in source && source[key] !== undefined) {
+      ;(out as Record<string, unknown>)[key] = source[key]
+    }
+  }
+  return out
+}
+
+// Subscribe once (per window) to SETTINGS_RELOADED. Main broadcasts the full
+// settings through one funnel on EVERY change — UI-driven SETTINGS_SET/RESET,
+// main-driven writes, and external hand-edits of settings.json — so this store
+// is a pure projection of the authoritative main file and multi-window copies
+// never drift. Guarded so repeat loadSettings() calls (e.g. in detached windows)
+// don't stack listeners.
+let reloadSubscribed = false
+
+function getElectronAPI(): ElectronSettingsAPI | null {
+  if (
+    typeof window !== 'undefined' &&
+    (window as unknown as Record<string, unknown>).electronAPI
+  ) {
+    return (window as unknown as Record<string, unknown>).electronAPI as ElectronSettingsAPI
+  }
+  return null
+}
+
+// -----------------------------------------------------------------------------
+// Store interface
+// -----------------------------------------------------------------------------
+
+interface SettingsStoreState extends AppSettings {
+  _loaded: boolean
+}
+
+interface SettingsStoreActions {
+  setSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void
+  resetSetting: (key: keyof AppSettings) => void
+  resetAll: () => void
+  loadSettings: () => Promise<void>
+  saveSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => Promise<void>
+}
+
+export type SettingsStore = SettingsStoreState & SettingsStoreActions
+
+// -----------------------------------------------------------------------------
+// Store
+// -----------------------------------------------------------------------------
+
+export const useSettingsStore = create<SettingsStore>((set, get) => ({
+  // --- State: all settings with defaults ---
+  ...DEFAULT_SETTINGS,
+  _loaded: false,
+
+  // --- Actions ---
+
+  setSetting(key, value) {
+    set({ [key]: value } as Partial<SettingsStoreState>)
+    // Fire-and-forget IPC save
+    const api = getElectronAPI()
+    if (api) {
+      api.settingsSet(key, value).catch((err) => log.warn('[settings] Save failed for %s:', key, err))
+    }
+  },
+
+  resetSetting(key) {
+    const defaultValue = DEFAULT_SETTINGS[key]
+    set({ [key]: defaultValue } as Partial<SettingsStoreState>)
+    const api = getElectronAPI()
+    if (api) {
+      api.settingsReset(key).catch((err) => log.warn('[settings] Reset failed for %s:', key, err))
+    }
+  },
+
+  resetAll() {
+    set({ ...DEFAULT_SETTINGS })
+    const api = getElectronAPI()
+    if (api) {
+      // Reset each key individually via IPC
+      for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
+        api.settingsReset(key).catch((err) => log.warn('[settings] Reset failed for %s:', key, err))
+      }
+    }
+  },
+
+  async loadSettings() {
+    const api = getElectronAPI()
+    if (!api) {
+      set({ _loaded: true })
+      return
+    }
+
+    try {
+      const stored = await api.settingsGetAll()
+      // Merge stored values over defaults (only known keys)
+      const merged: Partial<AppSettings> = {}
+      for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
+        if (key in stored && stored[key] !== undefined) {
+          ;(merged as Record<string, unknown>)[key] = stored[key]
+        }
+      }
+      // Migrate the legacy appearanceMode setting → activeThemeId. The old
+      // values map directly to built-in theme ids (with two legacy aliases).
+      // terminalCustomThemes / defaultTerminalTheme are intentionally dropped:
+      // the unified theme has no separate per-terminal palette.
+      if (!('activeThemeId' in stored) && 'appearanceMode' in (stored as Record<string, unknown>)) {
+        const legacy = String((stored as Record<string, unknown>).appearanceMode ?? 'system')
+        const map: Record<string, string> = {
+          dark: 'dark-warm',
+          light: 'light-subtle',
+        }
+        merged.activeThemeId = map[legacy] ?? legacy
+        log.info('[settings] Migrated appearanceMode "%s" → activeThemeId "%s"', legacy, merged.activeThemeId)
+      }
+      set({ ...merged, _loaded: true })
+    } catch {
+      // Fall back to defaults on error
+      set({ _loaded: true })
+    }
+
+    // Track external edits to settings.json (VS Code-style) so the UI updates
+    // live when the file is hand-edited.
+    if (!reloadSubscribed && api.onSettingsReloaded) {
+      reloadSubscribed = true
+      api.onSettingsReloaded((settings) => {
+        set(pickKnownSettings(settings))
+      })
+    }
+  },
+
+  async saveSetting(key, value) {
+    set({ [key]: value } as Partial<SettingsStoreState>)
+    const api = getElectronAPI()
+    if (api) {
+      await api.settingsSet(key, value)
+    }
+  },
+}))

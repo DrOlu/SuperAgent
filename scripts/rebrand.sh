@@ -31,7 +31,7 @@ console.log('  package.json');
 "
 
 # ── electron-builder.yml ─────────────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e 's|^appId: com\.cate\.app|appId: ng.hyperspace.superagent|' \
   -e 's|^productName: Cate|productName: SuperAgent|' \
   -e 's|  owner: 0-AI-UG|  owner: DrOlu|' \
@@ -41,11 +41,11 @@ sed -i '' \
 echo '  electron-builder.yml'
 
 # ── index.html ───────────────────────────────────────────────────────────────
-sed -i '' 's|<title>Cate</title>|<title>SuperAgent</title>|' index.html
+sed -i 's|<title>Cate</title>|<title>SuperAgent</title>|' index.html
 echo '  index.html'
 
 # ── src/main/index.ts ─────────────────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|app\.setName('Cate')|app.setName('SuperAgent')|" \
   -e "s|app\.setAppUserModelId('com\.cate\.app')|app.setAppUserModelId('ng.hyperspace.superagent')|" \
   -e "s|copyright: \`\© \${new Date()\.getFullYear()} Cate\`|copyright: \`\© \${new Date().getFullYear()} Hyperspace\`|" \
@@ -56,7 +56,7 @@ sed -i '' \
 echo '  src/main/index.ts'
 
 # ── src/main/menu.ts ─────────────────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|label: 'New Cate Agent'|label: 'New SuperAgent Agent'|" \
   -e "s|label: 'Cate Documentation'|label: 'SuperAgent Documentation'|" \
   -e "s|shell\.openExternal('https://github.com/0-AI-UG/cate')|shell.openExternal('https://github.com/DrOlu/SuperAgent')|" \
@@ -65,35 +65,35 @@ sed -i '' \
 echo '  src/main/menu.ts'
 
 # ── src/main/auto-updater.ts ─────────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|'Cate can|'SuperAgent can|g" \
   -e "s|Move Cate to Applications|Move SuperAgent to Applications|" \
   src/main/auto-updater.ts
 echo '  src/main/auto-updater.ts'
 
 # ── src/main/workspaceManager.ts ──────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|message: 'Another Cate instance|message: 'Another SuperAgent instance|" \
   -e "s|while another Cate instance|while another SuperAgent instance|" \
   src/main/workspaceManager.ts
 echo '  src/main/workspaceManager.ts'
 
 # ── src/main/analytics.ts ────────────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|User-Agent.*Cate/|User-Agent\`, \`SuperAgent/|; s|\`Cate/\${app|SuperAgent/\${app|" \
   src/main/analytics.ts 2>/dev/null || \
-sed -i '' "s|'Cate/\${app|'SuperAgent/\${app|" src/main/analytics.ts
+sed -i "s|'Cate/\${app|'SuperAgent/\${app|" src/main/analytics.ts
 echo '  src/main/analytics.ts'
 
 # ── src/renderer/App.tsx ──────────────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|\${name} \· Cate|\${name} · SuperAgent|" \
   -e "s|: 'Cate'|: 'SuperAgent'|" \
   src/renderer/App.tsx
 echo '  src/renderer/App.tsx'
 
 # ── src/renderer/dialogs/WelcomeDialog.tsx ────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|const GITHUB_REPO = 'https://github.com/0-AI-UG/cate'|const GITHUB_REPO = 'https://github.com/DrOlu/SuperAgent'|" \
   -e "s|const NEWSLETTER_URL = 'https://cate\.cero-ai\.com'|const NEWSLETTER_URL = 'https://hyperspace.ng'|" \
   -e "s|const PRIVACY_URL = 'https://cate\.cero-ai\.com/privacy'|const PRIVACY_URL = 'https://hyperspace.ng/privacy'|" \
@@ -101,13 +101,13 @@ sed -i '' \
   src/renderer/dialogs/WelcomeDialog.tsx
 echo '  src/renderer/dialogs/WelcomeDialog.tsx'
 # ── src/renderer/dialogs/WelcomeDialog.test.tsx ──────────────────────
-sed -i '' \
+sed -i \
   -e 's|Welcome to Cate|Welcome to SuperAgent|' \
   src/renderer/dialogs/WelcomeDialog.test.tsx
 echo '  src/renderer/dialogs/WelcomeDialog.test.tsx'
 
 # ── src/renderer/dialogs/PostUpdateFeedbackDialog.tsx ────────────────────────
-sed -i '' \
+sed -i \
   -e "s|const GITHUB_REPO = 'https://github.com/0-AI-UG/cate'|const GITHUB_REPO = 'https://github.com/DrOlu/SuperAgent'|" \
   -e "s|const GITHUB_API = 'https://api\.github\.com/repos/0-AI-UG/cate'|const GITHUB_API = 'https://api.github.com/repos/DrOlu/SuperAgent'|" \
   -e "s|const NEWSLETTER_URL = 'https://cate\.cero-ai\.com'|const NEWSLETTER_URL = 'https://hyperspace.ng'|" \
@@ -118,76 +118,76 @@ sed -i '' \
 echo '  src/renderer/dialogs/PostUpdateFeedbackDialog.tsx'
 
 # ── src/renderer/settings/ ───────────────────────────────────────────────────
-sed -i '' 's|while Cate is in focus|while SuperAgent is in focus|' \
+sed -i 's|while Cate is in focus|while SuperAgent is in focus|' \
   src/renderer/settings/NotificationSettings.tsx
-sed -i '' "s|Zooms Cate's interface|Zooms SuperAgent's interface|" \
+sed -i "s|Zooms Cate's interface|Zooms SuperAgent's interface|" \
   src/renderer/settings/AppearanceSettings.tsx
 echo '  src/renderer/settings/'
 
 # ── src/renderer/ui/CommandPalette.tsx ───────────────────────────────────────
-sed -i '' "s|title: 'New Cate Agent'|title: 'New SuperAgent Agent'|" \
+sed -i "s|title: 'New Cate Agent'|title: 'New SuperAgent Agent'|" \
   src/renderer/ui/CommandPalette.tsx
 echo '  src/renderer/ui/CommandPalette.tsx'
 
 # ── src/renderer/canvas/ ────────────────────────────────────────────────────
-sed -i '' "s|label: 'New Cate agent'|label: 'New SuperAgent agent'|" \
+sed -i "s|label: 'New Cate agent'|label: 'New SuperAgent agent'|" \
   src/renderer/canvas/Canvas.tsx
-sed -i '' 's|title="Cate agent"|title="SuperAgent agent"|' \
+sed -i 's|title="Cate agent"|title="SuperAgent agent"|' \
   src/renderer/canvas/CanvasToolbar.tsx
-sed -i '' 's|title="Cate agent"|title="SuperAgent agent"|' \
+sed -i 's|title="Cate agent"|title="SuperAgent agent"|' \
   src/renderer/canvas/WorktreeToolbarMenu.tsx
 echo '  src/renderer/canvas/'
 
 # ── src/renderer/onboarding/steps.ts ────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e 's|or Cate agent from|or SuperAgent agent from|' \
   -e 's|get around Cate|get around SuperAgent|' \
   src/renderer/onboarding/steps.ts
 echo '  src/renderer/onboarding/steps.ts'
 
 # ── src/renderer/stores/useParallelWork.ts ──────────────────────────────────
-sed -i '' 's|or Cate agent bound|or SuperAgent agent bound|' \
+sed -i 's|or Cate agent bound|or SuperAgent agent bound|' \
   src/renderer/stores/useParallelWork.ts
 echo '  src/renderer/stores/useParallelWork.ts'
 
 # ── src/shared/ ──────────────────────────────────────────────────────────────
-sed -i '' "s|label: 'Cate Agent'|label: 'SuperAgent Agent'|" \
+sed -i "s|label: 'Cate Agent'|label: 'SuperAgent Agent'|" \
   src/shared/panels.ts
-sed -i '' "s|newAgent: 'New Cate Agent'|newAgent: 'New SuperAgent Agent'|" \
+sed -i "s|newAgent: 'New Cate Agent'|newAgent: 'New SuperAgent Agent'|" \
   src/shared/types.ts
-sed -i '' "s|label: 'Cate Agent'|label: 'SuperAgent Agent'|" \
+sed -i "s|label: 'Cate Agent'|label: 'SuperAgent Agent'|" \
   src/shared/skills.ts
 echo '  src/shared/'
 
 # ── Theme authors ────────────────────────────────────────────────────────────
-find src/shared/themes -name '*.ts' -exec sed -i '' "s|author: 'Cate theme pack'|author: 'SuperAgent theme pack'|g" {} +
+find src/shared/themes -name '*.ts' -exec sed -i "s|author: 'Cate theme pack'|author: 'SuperAgent theme pack'|g" {} +
 echo '  src/shared/themes/'
 
 # ── src/agent/ ────────────────────────────────────────────────────────────────
-sed -i '' 's|not supported in Cate yet|not supported in SuperAgent yet|' \
+sed -i 's|not supported in Cate yet|not supported in SuperAgent yet|' \
   src/agent/renderer/AgentSettingsView.tsx
-sed -i '' "s|'user-agent': 'Cate/marketplace|'user-agent': 'SuperAgent/marketplace|" \
+sed -i "s|'user-agent': 'Cate/marketplace|'user-agent': 'SuperAgent/marketplace|" \
   src/agent/main/marketplace.ts
-sed -i '' 's|from Cate is not supported|from SuperAgent is not supported|' \
+sed -i 's|from Cate is not supported|from SuperAgent is not supported|' \
   src/agent/main/marketplace.ts
 echo '  src/agent/'
 
 # ── src/skills/ ───────────────────────────────────────────────────────────────
-sed -i '' "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
+sed -i "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
   src/skills/main/githubCrawl.ts
-sed -i '' "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
+sed -i "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
   src/skills/main/skillsRegistry.ts
 echo '  src/skills/'
 
 # ── scripts/patch-electron-name.sh ───────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e 's|CFBundleDisplayName Cate|CFBundleDisplayName SuperAgent|' \
   -e 's|CFBundleName Cate|CFBundleName SuperAgent|' \
   scripts/patch-electron-name.sh
 echo '  scripts/patch-electron-name.sh'
 
 # ── scripts/generate-icons.js ────────────────────────────────────────────────
-sed -i '' \
+sed -i \
   -e "s|cate-logo\.svg|superagent-logo.svg|" \
   -e 's|Logo is 389x204|SuperAgent logo is 512x512|' \
   -e 's|const logoWidth = Math.round(size \* 0\.6)|const logoWidth = Math.round(size * 0.85)|' \
@@ -245,7 +245,7 @@ echo '  src/renderer/ui/CateLogo.tsx'
 
 # ── WelcomePage.tsx — replace inline SVG logo ────────────────────────────────
 # Replace the old CATE letter paths with SuperAgent logo paths
-sed -i '' 's|viewBox="0 0 389 204" className="h-8 text-primary mb-2"|viewBox="0 0 512 512" className="h-8 text-primary mb-2"|' \
+sed -i 's|viewBox="0 0 389 204" className="h-8 text-primary mb-2"|viewBox="0 0 512 512" className="h-8 text-primary mb-2"|' \
   src/renderer/ui/WelcomePage.tsx
 # Replace the old CATE SVG paths with SuperAgent logo (the 4 path elements)
 # This is complex — use a Node script for precision

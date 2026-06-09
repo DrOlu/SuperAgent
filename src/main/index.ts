@@ -128,13 +128,13 @@ function registerDeferredHandlers(): void {
 // =============================================================================
 
 // Set app name before menu and window creation
-app.setName('Cate')
+app.setName('SuperAgent')
 
 // Windows: the toast notification system keys off the AppUserModelID, and it
 // must match the install shortcut's ID (electron-builder uses `appId`) for the
 // notification 'click' event to fire reliably. No-op on macOS/Linux.
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.cate.app')
+  app.setAppUserModelId('ng.hyperspace.superagent')
 }
 
 // In dev mode, use a separate userData directory so dev and production don't collide
@@ -204,7 +204,7 @@ registerOpenFileHandler()
 // Build application menu
 buildApplicationMenu()
 
-log.info('Cate v%s starting (electron %s, node %s, platform %s)', app.getVersion(), process.versions.electron, process.versions.node, process.platform)
+log.info('SuperAgent v%s starting (electron %s, node %s, platform %s)', app.getVersion(), process.versions.electron, process.versions.node, process.platform)
 
 // Load persisted settings synchronously so window-creation code paths can read
 // them before the async electron-store finishes initializing.
@@ -312,7 +312,7 @@ app.whenReady().then(async () => {
       applicationName: app.getName(),
       applicationVersion: app.getVersion(),
       version: app.getVersion(),
-      copyright: `© ${new Date().getFullYear()} Cate`,
+      copyright: `© ${new Date().getFullYear()} Hyperspace`,
     })
   }
 

@@ -173,7 +173,7 @@ export function AppearanceSettings() {
       </button>
       </SearchableBlock>
 
-      <SettingRow label="UI scale" description="Zooms Cate's interface; doesn't affect browser-panel pages">
+      <SettingRow label="UI scale" description="Zooms SuperAgent's interface; doesn't affect browser-panel pages">
         <Select
           value={String(store.uiScale)}
           onChange={(v) => store.setSetting('uiScale', parseFloat(v))}

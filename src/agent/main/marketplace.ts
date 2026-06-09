@@ -245,7 +245,7 @@ async function fetchWithTimeout(url: string, ms: number): Promise<string> {
       headers: {
         // pi.dev returns HTML to ordinary browsers without auth.
         'accept': 'text/html,*/*;q=0.8',
-        'user-agent': 'Cate/marketplace (electron)',
+        'user-agent': 'SuperAgent/marketplace (electron)',
       },
       redirect: 'follow',
     })
@@ -391,7 +391,7 @@ export async function listInstalled(cwd: string): Promise<InstalledExtension[]> 
 // We return a structured "not supported" so the UI shows a clear message
 // instead of silently failing on a missing binary.
 const INSTALL_NOT_SUPPORTED =
-  'Installing pi extensions from Cate is not supported on this host yet. ' +
+  'Installing pi extensions from SuperAgent is not supported on this host yet. ' +
   'Use the pi CLI in a terminal on the workspace host (e.g. `pi install npm:<name>`).'
 
 export async function installExtension(

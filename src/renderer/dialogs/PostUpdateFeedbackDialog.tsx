@@ -5,11 +5,11 @@ import { useEscapeKey } from '../lib/hooks/useEscapeKey'
 
 type Payload = { fromVersion: string; toVersion: string }
 
-const GITHUB_REPO = 'https://github.com/0-AI-UG/cate'
-const GITHUB_API = 'https://api.github.com/repos/0-AI-UG/cate'
+const GITHUB_REPO = 'https://github.com/DrOlu/SuperAgent'
+const GITHUB_API = 'https://api.github.com/repos/DrOlu/SuperAgent'
 const PRODUCT_HUNT_URL = 'https://www.producthunt.com/products/cate?embed=true&utm_source=embed&utm_medium=post_embed'
 const PRODUCT_HUNT_LOGO = 'https://ph-files.imgix.net/fd92bbb7-e106-43a8-93e2-a9e5b663e320.png?auto=format&fit=crop&w=80&h=80'
-const NEWSLETTER_URL = 'https://cate.cero-ai.com'
+const NEWSLETTER_URL = 'https://hyperspace.ng'
 
 function openLink(url: string, linkName: string) {
   window.electronAPI.trackLinkClick(linkName)
@@ -116,7 +116,7 @@ export function PostUpdateFeedbackDialog() {
                   {isFirstInstall ? 'Welcome' : `v${payload.toVersion}`}
                 </span>
                 <h2 className="text-white text-lg font-bold leading-tight drop-shadow-lg">
-                  {isFirstInstall ? 'Welcome to Cate' : "What's New"}
+                  {isFirstInstall ? 'Welcome to SuperAgent' : "What's New"}
                 </h2>
               </div>
             </div>
@@ -136,12 +136,12 @@ export function PostUpdateFeedbackDialog() {
                 <div className="flex items-center gap-3">
                   <img
                     src={PRODUCT_HUNT_LOGO}
-                    alt="CATE"
+                    alt="SuperAgent"
                     className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[#1a1a1a] text-[15px] font-semibold leading-tight">CATE</div>
+                    <div className="text-[#1a1a1a] text-[15px] font-semibold leading-tight">SuperAgent</div>
                     <div className="text-[#666] text-[12px] mt-0.5 leading-snug">Figma like open canvas for development</div>
                   </div>
                 </div>

@@ -272,7 +272,7 @@ interface InstalledExtensionEntry {
 }
 
 const TERMINAL_TOOLTIP =
-  'Some features in this extension require a terminal and are not supported in Cate yet.'
+  'Some features in this extension require a terminal and are not supported in SuperAgent yet.'
 
 type MarketplaceSortValue = 'downloads' | 'recent' | 'name'
 

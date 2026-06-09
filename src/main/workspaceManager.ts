@@ -62,8 +62,8 @@ function claimProjectLock(rootPath: string, name?: string): void {
   if (acquireProjectLock(rootPath)) return
   void dialog.showMessageBox({
     type: 'warning',
-    message: 'Another Cate instance has this project open',
-    detail: `Changes you make to the workspace${name ? ` "${name}"` : ''} won't be saved while another Cate instance has it open. Close the other instance to resume saving.`,
+    message: 'Another SuperAgent instance has this project open',
+    detail: `Changes you make to the workspace${name ? ` "${name}"` : ''} won't be saved while another SuperAgent instance has it open. Close the other instance to resume saving.`,
     buttons: ['OK'],
     noLink: true,
   })

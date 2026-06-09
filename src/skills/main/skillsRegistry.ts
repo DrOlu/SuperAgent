@@ -43,7 +43,7 @@ async function fetchCurated(): Promise<SkillEntry[]> {
   try {
     const res = await fetch(CURATED_INDEX_URL, {
       signal: ctrl.signal,
-      headers: { 'Accept': 'application/json', 'User-Agent': 'Cate-skills' },
+      headers: { 'Accept': 'application/json', 'User-Agent': 'SuperAgent-skills' },
       redirect: 'follow',
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)

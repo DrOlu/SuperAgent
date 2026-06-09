@@ -145,10 +145,10 @@ jobs:
             git add -A
             git commit --no-edit || true
           }
-          # Remove ALL upstream workflow files before pushing to avoid 'workflows' permission error.
-          # GITHUB_TOKEN only has 'contents: write', not 'workflows: write', so we cannot
-          # push any .github/workflows/ files that weren't already on main.
-          # Strategy: delete everything in .github/workflows/, then restore only our own from main.
+          # Remove upstream workflow files from the merge before pushing.
+          # Strategy: remove all workflow files from index, then restore only the pre-merge
+          # versions using ORIG_HEAD (set by git merge). This ensures no upstream workflow
+          # changes leak into the push, even when SUPERAGENT_PAT has workflows permission.
           git rm -r --cached .github/workflows/ 2>/dev/null || true
           git checkout ORIG_HEAD -- .github/workflows/ 2>/dev/null || true
           git add -A

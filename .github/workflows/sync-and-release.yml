@@ -92,12 +92,12 @@ jobs:
           UPSTREAM_TAG="v${UPSTREAM_VERSION}"
           echo "Syncing from upstream tag: $UPSTREAM_TAG"
 
-          if ! git rev-parse "upstream/${UPSTREAM_TAG}" >/dev/null 2>&1; then
+          if ! git rev-parse "${UPSTREAM_TAG}" >/dev/null 2>&1; then
             echo "ERROR: Upstream tag $UPSTREAM_TAG not found!"
             exit 1
           fi
 
-          git checkout -b sync-upstream "upstream/${UPSTREAM_TAG}"
+          git checkout -b sync-upstream "${UPSTREAM_TAG}"
 
           git checkout main -- \
             scripts/rebrand.sh \

@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  workflows: write
 
 jobs:
   check-and-sync:
@@ -145,6 +146,19 @@ jobs:
             git add -A
             git commit --no-edit || true
           }
+          # Remove upstream workflow files that aren't ours (GitHub token lacks permission to push them)
+          for wf in .github/workflows/*.yml; do
+            case "$wf" in
+              .github/workflows/sync-and-release.yml)
+                # keep our sync workflow
+                ;;
+              *)
+                echo "Removing upstream workflow: $wf"
+                git rm -f "$wf" 2>/dev/null || rm -f "$wf"
+                ;;
+            esac
+          done
+          git add -A
 
           git push origin main
 

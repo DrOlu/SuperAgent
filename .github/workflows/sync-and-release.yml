@@ -151,7 +151,7 @@ jobs:
           git add -A
           git diff --cached --quiet || git commit -m "chore: restore workflow files from main" || true
 
-          git push origin main
+          git push --force-with-lease origin main
 
           git tag -f "v${UPSTREAM_VERSION}"
           git push origin "v${UPSTREAM_VERSION}" --force

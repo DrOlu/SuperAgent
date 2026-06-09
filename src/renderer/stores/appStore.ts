@@ -51,6 +51,7 @@ import {
 import { setActivePanel, clearActivePanelIfMatches } from '../lib/activePanel'
 import { recordRecentFile } from '../lib/fs/recentFiles'
 import { LOCAL_COMPANION_ID } from '../../main/companion/locator'
+import { useWindowPanelStore } from './windowPanelStore'
 
 export type { CanvasOperations }
 export {
@@ -447,7 +448,15 @@ function placePanel(
   // works for a background restore into an inactive workspace.
   const pinnedCanvasId = placement?.target === 'canvas' ? placement.canvasPanelId : undefined
   const ops = pinnedCanvasId ? ensureCanvasOpsForPanel(pinnedCanvasId) : getWorkspaceCanvasOps(workspaceId)
-  if (!ops) return
+  if (!ops) {
+    // No canvas to place onto — e.g. a detached dock window (center zone only)
+    // where nothing was focused, so placementForActivePanel couldn't tab into a
+    // stack. Fall back to the center dock zone so the panel still lands instead
+    // of becoming a ghost. (The main window always has a center canvas, so this
+    // only engages for canvas-less windows.)
+    dockStore.getState().dockPanel(panelId, 'center')
+    return
+  }
   const canvasPosition = placement?.target === 'canvas' ? placement.position ?? position : position
   const canvasSize = placement?.target === 'canvas' ? placement.size : undefined
   // Ambiguous create (no explicit position) on the active workspace: when the
@@ -792,20 +801,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   createTerminal(workspaceId, initialInput?, position?, placement?, cwd?) {
     const panelId = generateId()
-    // Auto-number terminal titles within the workspace so `cate ask "Terminal 2"`
-    // and similar inter-panel calls can address each one unambiguously. Looks
-    // for the highest existing "Terminal N" name and picks N+1.
-    const ws = get().workspaces.find((w) => w.id === workspaceId)
+    // Auto-number terminal titles uniquely across ALL windows — scan this
+    // window's panels AND the cross-window union (windowPanelStore) so a
+    // "Terminal 2" detached into another window still makes the next one
+    // "Terminal 3" rather than colliding.
+    const re = /^Terminal\s+(\d+)$/
     let maxN = 0
+    const considerTitle = (title: string) => {
+      const m = re.exec(title)
+      if (m) { const n = parseInt(m[1], 10); if (n > maxN) maxN = n }
+    }
+    const ws = get().workspaces.find((w) => w.id === workspaceId)
     if (ws) {
       for (const p of Object.values(ws.panels)) {
-        if (p.type !== 'terminal') continue
-        const m = /^Terminal\s+(\d+)$/.exec(p.title)
-        if (m) {
-          const n = parseInt(m[1], 10)
-          if (n > maxN) maxN = n
-        }
+        if (p.type === 'terminal') considerTitle(p.title)
       }
+    }
+    for (const p of useWindowPanelStore.getState().panels) {
+      if (p.workspaceId === workspaceId && p.type === 'terminal') considerTitle(p.title)
     }
     const panel: PanelState = {
       id: panelId,
@@ -1026,6 +1039,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setWorkspaceRootPath(wsId, rootPath) {
     const ws = get().workspaces.find((w) => w.id === wsId)
     if (!ws) return Promise.resolve(false)
+
+    // Don't open the same folder twice in this instance. Two tabs on one root
+    // would share its .cate/workspace.json + session.json and clobber each
+    // other's autosave. Redirect to the workspace that already has this folder.
+    const duplicate = get().workspaces.find((w) => w.id !== wsId && w.rootPath === rootPath)
+    if (duplicate) {
+      // selectWorkspace already discards a never-rooted outgoing tab on switch,
+      // so the empty workspace we were about to fill is cleaned up; an
+      // already-rooted one is left untouched.
+      get().selectWorkspace(duplicate.id)
+      return Promise.resolve(false)
+    }
+
     const folderName = workspaceDisplayName(rootPath) || rootPath
     const desiredName = ws.name === 'Workspace' ? folderName : ws.name
     // Apply optimistically so any panel created synchronously after this call

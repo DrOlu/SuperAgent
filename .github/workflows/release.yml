@@ -131,11 +131,20 @@ jobs:
 
       - name: Package (macOS)
         if: matrix.platform == 'mac'
-        # Raise the file-descriptor limit: codesign walks every unpacked file
-        # under app.asar.unpacked, and the macOS runner's default soft limit
-        # (256) is exhausted now that the full node_modules tree is unpacked,
-        # surfacing as `EMFILE: too many open files` during signing.
-        run: ulimit -n 65536 && npx electron-builder --mac --publish never
+        # When MAC_CERTS/Apple notarization secrets are absent (empty strings),
+        # electron-builder misinterprets the empty CSC_LINK as a file path and
+        # notarization still fires (it's hardcoded true in electron-builder.yml).
+        # Unset the empty vars and disable notarization + hardenedRuntime so the
+        # build produces an unsigned, unnotarized DMG — same as Windows without cert.
+        shell: bash
+        run: |
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            echo "::warning::No MAC_CERTS secret — building unsigned, unnotarized macOS package"
+            ulimit -n 65536 && npx electron-builder --mac --publish never -c.mac.notarize=false -c.mac.hardenedRuntime=false
+          else
+            ulimit -n 65536 && npx electron-builder --mac --publish never
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.MAC_CERTS }}

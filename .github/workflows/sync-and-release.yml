@@ -123,22 +123,23 @@ jobs:
           git checkout main
           git merge sync-upstream --allow-unrelated-histories --no-edit || {
             echo "Merge conflicts detected, resolving..."
-            # Keep our brand-specific files (rebrand script, workflow, logos)
-            for f in scripts/rebrand.sh .github/workflows/sync-and-release.yml assets/superagent-logo.svg src/renderer/assets/superagent-logo.svg; do
-              git checkout --ours "$f" 2>/dev/null || true
+            # List all unmerged files using git ls-files -u (more reliable than git diff --diff-filter=U)
+            CONFLICTS=$(git ls-files -u | awk '{print $4}' | sort -u)
+            echo "Conflicted files:"
+            echo "$CONFLICTS"
+            # Brand files: keep our version (--ours)
+            OURS_FILES="scripts/rebrand.sh .github/workflows/sync-and-release.yml assets/superagent-logo.svg src/renderer/assets/superagent-logo.svg"
+            echo "$CONFLICTS" | while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              if echo "$OURS_FILES" | grep -qw "$f"; then
+                echo "  Keeping ours: $f"
+                git checkout --ours "$f"
+              else
+                echo "  Taking upstream: $f"
+                git checkout --theirs "$f"
+              fi
+              git add "$f"
             done
-            # Accept upstream code for all other conflicting files
-            CONFLICTS=$(git diff --name-only --diff-filter=U)
-            while IFS= read -r conflicted; do
-              case "$conflicted" in
-                scripts/rebrand.sh|.github/workflows/sync-and-release.yml|assets/superagent-logo.svg|src/renderer/assets/superagent-logo.svg)
-                  # already resolved with --ours above
-                  ;;
-                *)
-                  git checkout --theirs "$conflicted"
-                  ;;
-              esac
-            done <<< "$CONFLICTS"
             # Re-apply branding on top of upstream code
             bash scripts/rebrand.sh
             git add -A

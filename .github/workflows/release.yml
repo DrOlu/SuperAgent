@@ -105,7 +105,7 @@ jobs:
       # binaries. Without this, notarytool rejects the unsigned node-pty/rg Mach-O
       # inside companion-host.tgz and the macOS release fails to notarize.
       - name: Set up macOS signing for companion natives
-        if: matrix.platform == 'mac'
+        if: matrix.platform == 'mac' && secrets.MAC_CERTS != ''
         env:
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
@@ -131,16 +131,17 @@ jobs:
 
       - name: Package (macOS)
         if: matrix.platform == 'mac'
-        # When MAC_CERTS/Apple notarization secrets are absent (empty strings),
-        # electron-builder misinterprets the empty CSC_LINK as a file path and
-        # notarization still fires (it's hardcoded true in electron-builder.yml).
-        # Unset the empty vars and disable notarization + hardenedRuntime so the
-        # build produces an unsigned, unnotarized DMG — same as Windows without cert.
+        # When MAC_CERTS/MAC_CERTS_PASSWORD or Apple notarization secrets are absent
+        # (empty strings), electron-builder misinterprets the empty CSC_LINK as a
+        # file path and notarization still fires (it's hardcoded true in
+        # electron-builder.yml). Unset the empty vars and disable notarization +
+        # hardenedRuntime so the build produces an unsigned, unnotarized DMG —
+        # same as Windows without cert.
         shell: bash
         run: |
-          if [ -z "${CSC_LINK:-}" ]; then
+          if [ -z "${CSC_LINK:-}" ] || [ -z "${CSC_KEY_PASSWORD:-}" ]; then
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
-            echo "::warning::No MAC_CERTS secret — building unsigned, unnotarized macOS package"
+            echo "::warning::MAC_CERTS or MAC_CERTS_PASSWORD not set — building unsigned, unnotarized macOS package"
             ulimit -n 65536 && npx electron-builder --mac --publish never -c.mac.notarize=false -c.mac.hardenedRuntime=false
           else
             ulimit -n 65536 && npx electron-builder --mac --publish never
@@ -257,7 +258,7 @@ jobs:
       # tarball from the release runs Developer ID-signed binaries (no Gatekeeper
       # quarantine block), mirroring the host tarball staged in the app.
       - name: Set up macOS signing for companion natives
-        if: startsWith(matrix.target, 'darwin-')
+        if: startsWith(matrix.target, 'darwin-') && secrets.MAC_CERTS != ''
         env:
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}

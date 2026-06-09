@@ -105,11 +105,16 @@ jobs:
       # binaries. Without this, notarytool rejects the unsigned node-pty/rg Mach-O
       # inside companion-host.tgz and the macOS release fails to notarize.
       - name: Set up macOS signing for companion natives
-        if: matrix.platform == 'mac' && secrets.MAC_CERTS != ''
+        if: matrix.platform == 'mac'
         env:
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-        run: bash scripts/ci-mac-signing-keychain.sh
+        run: |
+          if [ -z "${CSC_LINK:-}" ] || [ -z "${CSC_KEY_PASSWORD:-}" ]; then
+            echo "::warning::MAC_CERTS or MAC_CERTS_PASSWORD not set — skipping macOS signing setup"
+            exit 0
+          fi
+          bash scripts/ci-mac-signing-keychain.sh
 
       # The local workspace runs the companion daemon tarball, shipped inside the
       # installer (electron-builder.yml extraResources → companion-host.tgz). Build
@@ -258,11 +263,16 @@ jobs:
       # tarball from the release runs Developer ID-signed binaries (no Gatekeeper
       # quarantine block), mirroring the host tarball staged in the app.
       - name: Set up macOS signing for companion natives
-        if: startsWith(matrix.target, 'darwin-') && secrets.MAC_CERTS != ''
+        if: startsWith(matrix.target, 'darwin-')
         env:
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-        run: bash scripts/ci-mac-signing-keychain.sh
+        run: |
+          if [ -z "${CSC_LINK:-}" ] || [ -z "${CSC_KEY_PASSWORD:-}" ]; then
+            echo "::warning::MAC_CERTS or MAC_CERTS_PASSWORD not set — skipping macOS signing setup"
+            exit 0
+          fi
+          bash scripts/ci-mac-signing-keychain.sh
 
       - name: Build companion tarball (${{ matrix.target }})
         run: node scripts/build-companion-tarball.mjs --target ${{ matrix.target }} ${{ matrix.docker && '--docker' || '' }}

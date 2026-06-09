@@ -88,7 +88,7 @@ jobs:
           UPSTREAM_VERSION: ${{ needs.check-and-sync.outputs.upstream_version }}
         run: |
           git remote add upstream https://github.com/0-AI-UG/cate.git
-          git fetch upstream --tags
+          git fetch upstream --tags --force
 
           UPSTREAM_TAG="v${UPSTREAM_VERSION}"
           echo "Syncing from upstream tag: $UPSTREAM_TAG"

@@ -207,3 +207,4 @@ This release syncs with [Cate v${VERSION}](https://github.com/0-AI-UG/cate/relea
   # The actual platform builds are handled by the existing release.yml workflow
   # which triggers on tag pushes. No duplication needed — once sync-and-rebrand
   # pushes the new tag, release.yml takes over and builds all platforms.
+

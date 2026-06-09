@@ -145,17 +145,12 @@ jobs:
             git add -A
             git commit --no-edit || true
           }
-          # Remove upstream workflow files from the merge commit tree before pushing.
-          # Keep only SuperAgent's own workflow files.
-          KEEP_WORKFLOWS="sync-and-release.yml ci.yml release.yml skills-index.yml notify-multica-on-failure.yml notify-multica-release.yml"
-          for wf in .github/workflows/*; do
-            [ -f "$wf" ] || continue
-            wf_name=$(basename "$wf")
-            if ! echo "$KEEP_WORKFLOWS" | grep -qw "$wf_name"; then
-              echo "Removing upstream workflow: $wf"
-              git rm -f "$wf" 2>/dev/null || rm -f "$wf"
-            fi
-          done
+          # Remove ALL upstream workflow files before pushing to avoid 'workflows' permission error.
+          # GITHUB_TOKEN only has 'contents: write', not 'workflows: write', so we cannot
+          # push any .github/workflows/ files that weren't already on main.
+          # Strategy: delete everything in .github/workflows/, then restore only our own from main.
+          git rm -r --cached .github/workflows/ 2>/dev/null || true
+          git checkout ORIG_HEAD -- .github/workflows/ 2>/dev/null || true
           git add -A
           git diff --cached --quiet || git commit --amend --no-edit || true
 
@@ -168,6 +163,20 @@ jobs:
 
           echo "Sync complete. Version v${UPSTREAM_VERSION} pushed to main."
 
+      - name: Verify no workflow file changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # With ORIG_HEAD restoration, workflow files should match the remote.
+          # Verify no workflow diffs exist — if they do, the push above would have failed.
+          echo "Checking for workflow file changes..."
+          CHANGED=$(git diff HEAD~1 --name-only -- .github/workflows/ 2>/dev/null || true)
+          if [ -n "$CHANGED" ]; then
+            echo "WARNING: Workflow files changed in last commit: $CHANGED"
+            echo "These may need manual cleanup with a PAT that has workflows permission."
+          else
+            echo "No workflow file changes detected. Sync is clean."
+          fi
 
   build-and-release:
     needs: [check-and-sync, sync-and-rebrand]

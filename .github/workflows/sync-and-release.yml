@@ -158,6 +158,7 @@ jobs:
             esac
           done
           git add -A
+          git diff --cached --quiet || git commit -m "chore: remove upstream workflow files" || true
 
           git push origin main
 

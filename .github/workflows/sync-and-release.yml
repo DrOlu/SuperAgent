@@ -75,7 +75,7 @@ jobs:
       - name: Checkout SuperAgent
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.SUPERAGENT_PAT }}
           fetch-depth: 0
 
       - name: Set up Git
@@ -145,14 +145,19 @@ jobs:
             git add -A
             git commit --no-edit || true
           }
-          # Remove ALL upstream workflow files before pushing to avoid 'workflows' permission error.
-          # GITHUB_TOKEN only has 'contents: write', not 'workflows: write', so we cannot
-          # push any .github/workflows/ files that weren't already on main.
-          # Strategy: delete everything in .github/workflows/, then restore only our own from main.
-          git rm -r --cached .github/workflows/ 2>/dev/null || true
-          git checkout main -- .github/workflows/ 2>/dev/null || true
+          # Remove upstream workflow files from the merge commit tree before pushing.
+          # Keep only SuperAgent's own workflow files.
+          KEEP_WORKFLOWS="sync-and-release.yml ci.yml release.yml skills-index.yml notify-multica-on-failure.yml notify-multica-release.yml"
+          for wf in .github/workflows/*; do
+            [ -f "$wf" ] || continue
+            wf_name=$(basename "$wf")
+            if ! echo "$KEEP_WORKFLOWS" | grep -qw "$wf_name"; then
+              echo "Removing upstream workflow: $wf"
+              git rm -f "$wf" 2>/dev/null || rm -f "$wf"
+            fi
+          done
           git add -A
-          git diff --cached --quiet || git commit -m "chore: remove upstream workflows and restore SuperAgent workflows" || true
+          git diff --cached --quiet || git commit --amend --no-edit || true
 
           git push --force-with-lease origin main
 
@@ -163,25 +168,6 @@ jobs:
 
           echo "Sync complete. Version v${UPSTREAM_VERSION} pushed to main."
 
-      - name: Remove upstream workflow files via API
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Delete workflow files that came from upstream and aren't ours.
-          # Using GitHub API because GITHUB_TOKEN lacks 'workflows' permission for git push.
-          KEEP="sync-and-release.yml"
-          gh api "repos/${{ github.repository }}/contents/.github/workflows" \
-            --jq '.[].name' | while read -r wf; do
-            if echo "$KEEP" | grep -qw "$wf"; then
-              echo "Keeping workflow: $wf"
-            else
-              echo "Deleting upstream workflow: $wf"
-              SHA=$(gh api "repos/${{ github.repository }}/contents/.github/workflows/$wf" --jq '.sha')
-              gh api -X DELETE "repos/${{ github.repository }}/contents/.github/workflows/$wf" \
-                -f message="chore: remove upstream workflow $wf" \
-                -f sha="$SHA" || echo "  (could not delete $wf, skipping)"
-            fi
-          done
 
   build-and-release:
     needs: [check-and-sync, sync-and-rebrand]

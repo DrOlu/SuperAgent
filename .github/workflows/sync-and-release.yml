@@ -1,10 +1,8 @@
 name: Sync Upstream & Release
 
 on:
-  # Run daily at 6am UTC to check for new upstream releases
   schedule:
     - cron: '0 6 * * *'
-  # Allow manual trigger for on-demand syncs
   workflow_dispatch:
     inputs:
       force:
@@ -38,11 +36,9 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
           UPSTREAM_TAG: ${{ github.event.inputs.upstream_tag }}
         run: |
-          # Get current SuperAgent version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current SuperAgent version: $CURRENT_VERSION"
 
-          # Get latest upstream release tag
           if [ -n "$UPSTREAM_TAG" ]; then
             LATEST_TAG="$UPSTREAM_TAG"
           else
@@ -56,7 +52,6 @@ jobs:
             exit 0
           fi
 
-          # Strip the 'v' prefix
           UPSTREAM_VERSION="${LATEST_TAG#v}"
           echo "Latest upstream version: $UPSTREAM_VERSION"
 
@@ -91,24 +86,19 @@ jobs:
         env:
           UPSTREAM_VERSION: ${{ needs.check-and-sync.outputs.upstream_version }}
         run: |
-          # Add upstream remote
           git remote add upstream https://github.com/0-AI-UG/cate.git
           git fetch upstream --tags
 
           UPSTREAM_TAG="v${UPSTREAM_VERSION}"
           echo "Syncing from upstream tag: $UPSTREAM_TAG"
 
-          # Check if the tag exists in upstream
           if ! git rev-parse "upstream/${UPSTREAM_TAG}" >/dev/null 2>&1; then
             echo "ERROR: Upstream tag $UPSTREAM_TAG not found!"
             exit 1
           fi
 
-          # Create a sync branch from upstream tag
           git checkout -b sync-upstream "upstream/${UPSTREAM_TAG}"
 
-          # Copy our rebrand script and SuperAgent-specific files before merging
-          # First, save our additions from main
           git checkout main -- \
             scripts/rebrand.sh \
             .github/workflows/sync-and-release.yml \
@@ -116,7 +106,6 @@ jobs:
             src/renderer/assets/superagent-logo.svg \
             2>/dev/null || true
 
-          # Update package.json version to match upstream
           node -e "
             const fs = require('fs');
             const p = 'package.json';
@@ -125,40 +114,28 @@ jobs:
             fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
           "
 
-          # Run the rebrand script
           bash scripts/rebrand.sh
 
-          # Stage all changes
           git add -A
-
-          # Commit
           git commit -m "Sync v${UPSTREAM_VERSION} from upstream Cate + apply SuperAgent rebrand" || true
 
-          # Merge back into main
           git checkout main
           git merge sync-upstream --no-edit || {
-            # Handle merge conflicts by preferring our version for branding files
-            # and upstream for everything else
             echo "Merge conflicts detected, resolving..."
-            # For branding-critical files, keep ours
             for f in scripts/rebrand.sh .github/workflows/sync-and-release.yml assets/superagent-logo.svg src/renderer/assets/superagent-logo.svg; do
               git checkout --ours "$f" 2>/dev/null || true
             done
-            # Re-run rebrand on any conflicting source files
             git checkout --ours scripts/rebrand.sh
             bash scripts/rebrand.sh
             git add -A
             git commit --no-edit || true
           }
 
-          # Push to main
           git push origin main
 
-          # Create the version tag
           git tag "v${UPSTREAM_VERSION}"
           git push origin "v${UPSTREAM_VERSION}"
 
-          # Clean up
           git branch -D sync-upstream 2>/dev/null || true
 
           echo "Sync complete. Version v${UPSTREAM_VERSION} pushed to main."
@@ -173,38 +150,36 @@ jobs:
           VERSION: ${{ needs.check-and-sync.outputs.upstream_version }}
         run: |
           TAG="v${VERSION}"
-          # Check if release already exists
           if gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
             echo "Release $TAG already exists — skipping creation"
           else
+            RELEASE_NOTES=$(cat << 'NOTES_EOF'
+          SuperAgent ${VERSION} — synced from upstream Cate ${VERSION}
+
+          ## Changes
+          This release syncs with [Cate v${VERSION}](https://github.com/0-AI-UG/cate/releases/tag/v${VERSION}) and applies the SuperAgent rebrand.
+
+          ### Branding
+          - App name: **SuperAgent** by **Hyperspace Technologies**
+          - App ID: `ng.hyperspace.superagent`
+          - Contact: superagent@hyperspace.ng
+          - Repo: https://github.com/DrOlu/SuperAgent
+
+          ### Downloads
+          | Platform | File |
+          |----------|------|
+          | macOS (Apple Silicon) | `SuperAgent-${VERSION}-arm64.dmg` |
+          | macOS (Intel) | `SuperAgent-${VERSION}.dmg` |
+          | Windows | `SuperAgent.Setup.${VERSION}.exe` |
+          | Linux | `SuperAgent-${VERSION}.AppImage` |
+          | Linux (deb) | `superagent_${VERSION}_amd64.deb` |
+
+          > **Note:** macOS builds are ad-hoc signed. On first launch, right-click the app → Open to bypass Gatekeeper.
+          NOTES_EOF
+          )
             gh release create "$TAG" \
               --repo "${{ github.repository }}" \
               --title "SuperAgent $TAG" \
               --generate-notes \
-              --notes "SuperAgent ${VERSION} — synced from upstream Cate ${VERSION}
-
-## Changes
-This release syncs with [Cate v${VERSION}](https://github.com/0-AI-UG/cate/releases/tag/${TAG}) and applies the SuperAgent rebrand.
-
-### Branding
-- App name: **SuperAgent** by **Hyperspace Technologies**
-- App ID: \`ng.hyperspace.superagent\`
-- Contact: superagent@hyperspace.ng
-- Repo: https://github.com/DrOlu/SuperAgent
-
-### Downloads
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | \`SuperAgent-${VERSION}-arm64.dmg\` |
-| macOS (Intel) | \`SuperAgent-${VERSION}.dmg\` |
-| Windows | \`SuperAgent.Setup.${VERSION}.exe\` |
-| Linux | \`SuperAgent-${VERSION}.AppImage\` |
-| Linux (deb) | \`superagent_${VERSION}_amd64.deb\` |
-
-> **Note:** macOS builds are ad-hoc signed. On first launch, right-click the app → Open to bypass Gatekeeper."
+              --notes "$RELEASE_NOTES"
           fi
-
-  # The actual platform builds are handled by the existing release.yml workflow
-  # which triggers on tag pushes. No duplication needed — once sync-and-rebrand
-  # pushes the new tag, release.yml takes over and builds all platforms.
-

@@ -16,7 +16,6 @@ on:
 
 permissions:
   contents: write
-  workflows: write
 
 jobs:
   check-and-sync:
@@ -146,11 +145,14 @@ jobs:
             git add -A
             git commit --no-edit || true
           }
-          # Restore all workflow files from main to avoid needing workflows permission on GITHUB_TOKEN.
-          # Then delete unwanted upstream workflows via GitHub API after the push succeeds.
+          # Remove ALL upstream workflow files before pushing to avoid 'workflows' permission error.
+          # GITHUB_TOKEN only has 'contents: write', not 'workflows: write', so we cannot
+          # push any .github/workflows/ files that weren't already on main.
+          # Strategy: delete everything in .github/workflows/, then restore only our own from main.
+          git rm -r --cached .github/workflows/ 2>/dev/null || true
           git checkout main -- .github/workflows/ 2>/dev/null || true
           git add -A
-          git diff --cached --quiet || git commit -m "chore: restore workflow files from main" || true
+          git diff --cached --quiet || git commit -m "chore: remove upstream workflows and restore SuperAgent workflows" || true
 
           git push --force-with-lease origin main
 

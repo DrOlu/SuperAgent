@@ -76,6 +76,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Set up Git
         run: |
@@ -120,7 +121,7 @@ jobs:
           git commit -m "Sync v${UPSTREAM_VERSION} from upstream Cate + apply SuperAgent rebrand" || true
 
           git checkout main
-          git merge sync-upstream --no-edit || {
+          git merge sync-upstream --allow-unrelated-histories --no-edit || {
             echo "Merge conflicts detected, resolving..."
             for f in scripts/rebrand.sh .github/workflows/sync-and-release.yml assets/superagent-logo.svg src/renderer/assets/superagent-logo.svg; do
               git checkout --ours "$f" 2>/dev/null || true
@@ -133,8 +134,8 @@ jobs:
 
           git push origin main
 
-          git tag "v${UPSTREAM_VERSION}"
-          git push origin "v${UPSTREAM_VERSION}"
+          git tag -f "v${UPSTREAM_VERSION}"
+          git push origin "v${UPSTREAM_VERSION}" --force
 
           git branch -D sync-upstream 2>/dev/null || true
 

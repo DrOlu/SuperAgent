@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus, X, ArrowCounterClockwise } from '@phosphor-icons/react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { DEFAULT_SETTINGS } from '../../shared/types'
-import { SearchableBlock } from './SettingsComponents'
+import { SearchableBlock, SecondaryButton, TextInput } from './SettingsComponents'
 
 function sameAsDefault(list: string[]): boolean {
   const defaults = DEFAULT_SETTINGS.fileExclusions
@@ -57,18 +57,17 @@ export function FileExplorerSettings() {
       </p>
 
       <div className="flex gap-1.5">
-        <input
-          type="text"
+        <TextInput
           value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value)
+          onChange={(value) => {
+            setDraft(value)
             if (error) setError(null)
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') add()
           }}
           placeholder="Add a name, e.g. dist"
-          className="flex-1 bg-surface-5 border border-subtle rounded-md px-2 py-1 text-sm text-primary placeholder:text-muted focus:border-focus-blue focus:outline-none"
+          layoutClassName="flex-1 px-2"
         />
         <button
           onClick={add}
@@ -106,14 +105,10 @@ export function FileExplorerSettings() {
       </div>
 
       <div className="mt-4 pt-3 border-t border-subtle flex justify-end">
-        <button
-          onClick={restore}
-          disabled={sameAsDefault(folders)}
-          className="flex items-center gap-1.5 px-2 py-1 text-[11px] rounded text-secondary hover:text-primary bg-surface-2 hover:bg-hover border border-subtle disabled:opacity-40 disabled:cursor-default disabled:hover:bg-surface-2 disabled:hover:text-secondary"
-        >
+        <SecondaryButton onClick={restore} disabled={sameAsDefault(folders)}>
           <ArrowCounterClockwise size={11} />
           Restore defaults
-        </button>
+        </SecondaryButton>
       </div>
     </div>
     </SearchableBlock>

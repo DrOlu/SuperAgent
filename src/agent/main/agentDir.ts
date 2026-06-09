@@ -18,10 +18,11 @@ import { app } from 'electron'
 import log from '../../main/logger'
 import { writeTextAtomic } from '../../main/writeJsonAtomic'
 import { LOCAL_COMPANION_ID } from '../../main/companion/locator'
+import { sharedAuthWriteQueue } from './writeQueue'
 import type { Companion } from '../../main/companion/types'
 
 const CATE_DIR = '.cate'
-const PI_AGENT_DIR = 'pi-agent'
+export const PI_AGENT_DIR = 'pi-agent'
 
 /** Per-workspace pi config dir on the LOCAL machine (native path). Used by the
  *  local skill-file IPC; companion-aware code uses hostAgentDir(). */
@@ -69,14 +70,6 @@ async function readFileOrNull(p: string): Promise<string | null> {
   catch { return null }
 }
 
-// Serialize writes to the shared auth file so two workspaces refreshing tokens
-// at the same moment can't interleave on it.
-let sharedWriteQueue: Promise<void> = Promise.resolve()
-function queueSharedWrite(fn: () => Promise<void>): Promise<void> {
-  sharedWriteQueue = sharedWriteQueue.then(fn, fn)
-  return sharedWriteQueue
-}
-
 async function ensureSharedAuth(): Promise<void> {
   const shared = sharedAuthPath()
   if (fs.existsSync(shared)) return
@@ -113,7 +106,9 @@ export async function pushSharedToWorkspace(companion: Companion, hostCwd: strin
 }
 
 async function syncBack(companion: Companion, hostCwd: string): Promise<void> {
-  await queueSharedWrite(async () => {
+  // Shared queue with authManager so two workspaces refreshing tokens (or a
+  // UI-driven credential write) can't interleave on the shared auth.json.
+  await sharedAuthWriteQueue(async () => {
     const authPath = hostJoin(companion.id, hostAgentDir(companion.id, hostCwd), 'auth.json')
     let wsData: string | null
     try { wsData = await companion.file.readFile(authPath) } catch { return }

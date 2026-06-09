@@ -27,6 +27,7 @@ import {
 } from '@phosphor-icons/react'
 import { CateLogo } from '../../renderer/ui/CateLogo'
 import log from '../../renderer/lib/logger'
+import { errorMessage as toErrorMessage } from '../../renderer/lib/errorMessage'
 import type { PanelProps } from '../../renderer/panels/types'
 import { useAppStore } from '../../renderer/stores/appStore'
 import { useUIStore } from '../../renderer/stores/uiStore'
@@ -37,7 +38,7 @@ import { ChatThread } from './ChatThread'
 import { AgentSidebar } from './AgentSidebar'
 import { ChatInput } from './AgentChatInput'
 import { SettingsView } from './AgentSettingsView'
-import { ModelPicker } from './ModelPicker'
+import { ModelPickerDropdown } from './ModelPicker'
 import {
   ExtensionDialog,
   ExtensionStatusBar,
@@ -425,7 +426,7 @@ export default function AgentPanel({ panelId, workspaceId }: PanelProps) {
         await window.electronAPI.agentPrompt(activeAgentKey, text, images.length > 0 ? images : undefined)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = toErrorMessage(err)
       useAgentStore.getState().appendSystem(activeAgentKey, `Send failed: ${msg}`, 'error')
     }
   }, [running, activeAgentKey, setDraft, setDraftImages])
@@ -682,7 +683,7 @@ export default function AgentPanel({ panelId, workspaceId }: PanelProps) {
       useAgentStore.getState().setCompaction(key, { active: true, reason: 'manual' })
       await window.electronAPI.agentCompact(key)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = toErrorMessage(err)
       useAgentStore.getState().appendSystem(key, `Compact failed: ${msg}`, 'error')
       useAgentStore.getState().setCompaction(key, { active: false, lastErrorMessage: msg })
     } finally {
@@ -735,7 +736,7 @@ export default function AgentPanel({ panelId, workspaceId }: PanelProps) {
       setDraft(res.text ?? '')
       void refreshStatsAndState()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = toErrorMessage(err)
       useAgentStore.getState().appendSystem(key, `Fork failed: ${msg}`, 'error')
     }
   }, [activeAgentKey, forkMap, refreshStatsAndState, setDraft])
@@ -759,10 +760,11 @@ export default function AgentPanel({ panelId, workspaceId }: PanelProps) {
     if (!activeAgentKey) return
     const key = activeAgentKey
     try {
+      // The cate-plan-mode extension clears plan mode and starts the implement
+      // turn itself (via a custom message), so there's no synthetic user prompt.
       await window.electronAPI.agentPrompt(key, '/apply-plan')
-      await window.electronAPI.agentPrompt(key, 'Now execute the plan above.')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = toErrorMessage(err)
       useAgentStore.getState().appendSystem(key, `Implement failed: ${msg}`, 'error')
     }
   }, [activeAgentKey])
@@ -772,7 +774,7 @@ export default function AgentPanel({ panelId, workspaceId }: PanelProps) {
     const key = activeAgentKey
     try { await window.electronAPI.agentPrompt(key, text) }
     catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = toErrorMessage(err)
       useAgentStore.getState().appendSystem(key, `Refine failed: ${msg}`, 'error')
     }
   }, [activeAgentKey])
@@ -784,10 +786,11 @@ export default function AgentPanel({ panelId, workspaceId }: PanelProps) {
       useAgentStore.getState().setCompaction(key, { active: true, reason: 'manual' })
       await window.electronAPI.agentCompact(key)
       useAgentStore.getState().setCompaction(key, { active: false })
-      await window.electronAPI.agentPrompt(key, '/apply-plan')
-      await window.electronAPI.agentPrompt(key, 'Now execute the plan above.')
+      // 'fresh' tells the extension to restate the full plan: compaction dropped
+      // the original plan_complete call from context.
+      await window.electronAPI.agentPrompt(key, '/apply-plan fresh')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = toErrorMessage(err)
       useAgentStore.getState().appendSystem(key, `Clear & implement failed: ${msg}`, 'error')
       useAgentStore.getState().setCompaction(key, { active: false, lastErrorMessage: msg })
     } finally {
@@ -925,7 +928,7 @@ export default function AgentPanel({ panelId, workspaceId }: PanelProps) {
                 <CaretDown size={10} className="text-muted" />
               </button>
               {modelPickerOpen && (
-                <ModelPicker
+                <ModelPickerDropdown
                   models={availableModels}
                   selected={selectedModel}
                   onPick={handlePickModel}

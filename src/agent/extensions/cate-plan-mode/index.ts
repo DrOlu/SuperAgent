@@ -11,6 +11,13 @@
 // The custom `plan_complete` tool has no side effects — it's just the channel
 // the agent uses to surface a structured summary + steps that Cate renders as
 // a "Plan ready" card with Implement / Refine / Clear actions.
+//
+// Implement is driven entirely by `/apply-plan`: it clears plan mode and kicks
+// off the execution turn via pi.sendMessage({triggerTurn}) using a *custom*
+// (non-user) message. So no synthetic "execute the plan" user prompt appears in
+// the thread — Cate only renders user/assistant/tool roles, and the user sees
+// the implementation work directly. `/apply-plan fresh` restates the recorded
+// plan in full for the "Clear context & implement" path (post-compaction).
 // =============================================================================
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
@@ -104,10 +111,41 @@ function bashDenyReason(command: string): string | null {
   return null
 }
 
+interface PlanStep {
+  title: string
+  detail?: string
+}
+interface Plan {
+  summary: string
+  steps: PlanStep[]
+}
+
+/** Render a recorded plan as plain text. Used by the "Clear context & implement"
+ *  flow, where the conversation (and the original plan_complete call) has been
+ *  compacted away, so the plan must be restated in full for the execute turn. */
+function formatPlanText(plan: Plan): string {
+  const lines: string[] = []
+  if (plan.summary) lines.push(plan.summary, "")
+  lines.push("Plan:")
+  plan.steps.forEach((s, i) => {
+    lines.push(`${i + 1}. ${s.title}${s.detail ? ` — ${s.detail}` : ""}`)
+  })
+  return lines.join("\n")
+}
+
+const EXECUTE_PREAMBLE =
+  "Plan mode is now OFF and you have full write access. The user reviewed and " +
+  "approved the plan. Implement it now — make the actual code changes, do not " +
+  "just describe them."
+
 export default function (pi: ExtensionAPI) {
   // Per-process module state. Pi reloads extensions per session, so this is
   // session-scoped — exactly what we want for the toggle.
   let active = false
+  // The most recent plan submitted via plan_complete. Survives compaction (the
+  // extension closure outlives it), so "Clear context & implement" can restate
+  // the plan after the conversation has been summarized away.
+  let lastPlan: Plan | null = null
 
   const enable = (ctx: { ui: { setStatus: (k: string, v: string | undefined) => void } }) => {
     active = true
@@ -130,9 +168,25 @@ export default function (pi: ExtensionAPI) {
   })
 
   pi.registerCommand("apply-plan", {
-    description: "Exit plan mode and allow writes (called by Cate's Implement button).",
-    handler: async (_args, ctx) => {
+    description:
+      "Exit plan mode and implement the approved plan (called by Cate's Implement button). Pass 'fresh' when the conversation was just compacted so the plan is restated in full.",
+    handler: async (args, ctx) => {
       disable(ctx)
+      // "Clear context & implement" compacts first, then calls `/apply-plan fresh`.
+      // The original plan_complete call is gone from context, so inline the plan.
+      const fresh = args.trim() === "fresh"
+      const content =
+        fresh && lastPlan
+          ? `${EXECUTE_PREAMBLE} The prior conversation was compacted, so the approved plan is restated here in full:\n\n${formatPlanText(lastPlan)}`
+          : `${EXECUTE_PREAMBLE} The plan you proposed is above; follow it.`
+      // Drive the implement turn from the extension as a custom (non-user)
+      // message. Cate renders only user/assistant/tool roles, so this carries the
+      // instruction to the model without showing up as a user message — and the
+      // user sees the implementation work directly, not a synthetic prompt.
+      pi.sendMessage(
+        { customType: "cate-plan-execute", content, display: false },
+        { triggerTurn: true },
+      )
     },
   })
 
@@ -184,6 +238,9 @@ export default function (pi: ExtensionAPI) {
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      // Remember the plan so "Clear context & implement" can restate it after
+      // the conversation is compacted away.
+      lastPlan = { summary: params.summary, steps: params.steps }
       // Halt the agent after recording the plan — the plan card is the user's
       // turn now, not another assistant message. Without this the model may
       // emit a "what would you like next?" wrap-up that adds noise.

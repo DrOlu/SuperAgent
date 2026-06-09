@@ -1,25 +1,48 @@
 // =============================================================================
-// ModelPicker — provider-grouped dropdown for the AgentPanel header. Searchable,
-// collapsible per provider, with a "Manage providers…" escape hatch.
+// ModelPickerDropdown — provider-grouped dropdown for selecting an agent model.
+// Searchable, collapsible per provider. Shared by the AgentPanel header (with a
+// "Manage providers…" footer) and the Settings default-model picker (with a
+// "First available" none row). Each call site overrides size via className.
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MagnifyingGlass, CaretRight, CaretDown, CheckCircle } from '@phosphor-icons/react'
 import type { AgentModelRef } from '../../shared/types'
 
-export function ModelPicker({
+type ModelOption = { provider: string; model: string; label?: string }
+
+type ModelPickerDropdownProps = {
+  models: ModelOption[]
+  selected: AgentModelRef | null
+  onClose: () => void
+  /** Override the container sizing/width (e.g. `w-[280px] max-h-[360px]`). */
+  className?: string
+  /** Footer action (renders a "Manage providers…" button when provided). */
+  onManage?: () => void
+} & (
+  | {
+      /** When true, render a top "none" row that calls onPick(null). */
+      allowNone: true
+      noneLabel: string
+      onPick: (m: ModelOption | null) => void
+    }
+  | {
+      allowNone?: false
+      noneLabel?: undefined
+      onPick: (m: ModelOption) => void
+    }
+)
+
+export function ModelPickerDropdown({
   models,
   selected,
   onPick,
   onClose,
+  className = 'w-[280px] max-h-[360px]',
+  allowNone = false,
+  noneLabel,
   onManage,
-}: {
-  models: Array<{ provider: string; model: string; label?: string }>
-  selected: AgentModelRef | null
-  onPick: (m: { provider: string; model: string }) => void
-  onClose: () => void
-  onManage: () => void
-}) {
+}: ModelPickerDropdownProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -45,7 +68,7 @@ export function ModelPicker({
   }, [models, search])
 
   const grouped = useMemo(() => {
-    const out = new Map<string, typeof models>()
+    const out = new Map<string, ModelOption[]>()
     for (const m of filtered) {
       const arr = out.get(m.provider) ?? []
       arr.push(m)
@@ -75,7 +98,7 @@ export function ModelPicker({
   return (
     <div
       ref={wrapRef}
-      className="absolute top-full left-0 mt-1 w-[280px] max-h-[360px] flex flex-col rounded-lg border border-strong bg-surface-4/98 backdrop-blur-xl shadow-[0_12px_32px_var(--shadow-node)] z-20"
+      className={`absolute top-full left-0 mt-1 ${className} flex flex-col rounded-lg border border-strong bg-surface-4/98 backdrop-blur-xl shadow-[0_12px_32px_var(--shadow-node)] z-20`}
     >
       <div className="px-2 py-2 border-b border-strong shrink-0">
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-0 border border-subtle">
@@ -90,6 +113,17 @@ export function ModelPicker({
         </div>
       </div>
       <div className="flex-1 overflow-y-auto min-h-0">
+      {allowNone && (
+        <button
+          onClick={() => (onPick as (m: ModelOption | null) => void)(null)}
+          className={`w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 ${
+            !selected ? 'bg-hover-strong text-primary' : 'text-muted hover:bg-hover'
+          }`}
+        >
+          <span className="truncate flex-1">{noneLabel}</span>
+          {!selected && <CheckCircle size={10} weight="fill" className="text-agent-light" />}
+        </button>
+      )}
       {grouped.length === 0 ? (
         <div className="px-3 py-4 text-[12px] text-muted text-center">
           {models.length === 0 ? 'No models connected yet.' : 'No matches.'}
@@ -131,14 +165,16 @@ export function ModelPicker({
         })
       )}
       </div>
-      <div className="border-t border-strong shrink-0">
-        <button
-          onClick={onManage}
-          className="w-full text-left px-3 py-1.5 text-[12px] text-agent-light hover:bg-hover"
-        >
-          Manage providers…
-        </button>
-      </div>
+      {onManage && (
+        <div className="border-t border-strong shrink-0">
+          <button
+            onClick={onManage}
+            className="w-full text-left px-3 py-1.5 text-[12px] text-agent-light hover:bg-hover"
+          >
+            Manage providers…
+          </button>
+        </div>
+      )}
     </div>
   )
 }

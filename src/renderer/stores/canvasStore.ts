@@ -14,6 +14,7 @@ import type { StoreApi } from 'zustand'
 import type { CanvasNodeId, CanvasNodeState } from '../../shared/types'
 import { ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT } from '../../shared/types'
 import { perfCount } from '../lib/perf/perfClient'
+import { primitiveArrayEqual } from './selectorUtils'
 
 import type { CanvasStore } from './canvas/storeTypes'
 import { createCanvasStoreCtx } from './canvas/storeCtx'
@@ -135,6 +136,15 @@ export function getOrCreateCanvasStoreForPanel(
   return store
 }
 
+/** Return the existing canvas store for a panel WITHOUT creating one. Lets
+ *  read-only consumers (e.g. the cross-window panel report) inspect a canvas's
+ *  nodes without instantiating empty stores for canvases that aren't mounted. */
+export function peekCanvasStoreForPanel(
+  panelId: string,
+): UseBoundStore<StoreApi<CanvasStore>> | undefined {
+  return canvasBoundStoresByPanelId.get(panelId)
+}
+
 export function releaseCanvasStoreForPanel(panelId: string): void {
   const store = canvasBoundStoresByPanelId.get(panelId)
   canvasBoundStoresByPanelId.delete(panelId)
@@ -163,13 +173,7 @@ export function useNodeIds(store?: UseBoundStore<StoreApi<CanvasStore>>): string
     (s) => Object.values(s.nodes)
       .sort((a, b) => a.zOrder - b.zOrder)
       .map(n => n.id),
-    (a, b) => {
-      if (a.length !== b.length) return false
-      for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) return false
-      }
-      return true
-    },
+    primitiveArrayEqual,
   )
 }
 
@@ -242,12 +246,6 @@ export function useVisibleNodeIds(store?: UseBoundStore<StoreApi<CanvasStore>>):
       }
       return result
     },
-    (a, b) => {
-      if (a.length !== b.length) return false
-      for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) return false
-      }
-      return true
-    },
+    primitiveArrayEqual,
   )
 }

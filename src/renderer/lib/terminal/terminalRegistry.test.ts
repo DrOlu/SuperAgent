@@ -595,35 +595,3 @@ describe('terminal identity bimap', () => {
     expect(terminalRegistry.isAlive('panel-E')).toBeUndefined()
   })
 })
-
-describe('captureScrollback helper', () => {
-  function fakeTerminal(rows: string[], baseY: number, cursorY: number) {
-    return {
-      buffer: {
-        active: {
-          baseY,
-          cursorY,
-          getLine: (i: number) => ({ translateToString: (_t: boolean) => rows[i] ?? '' }),
-        },
-      },
-    } as any
-  }
-
-  it('joins buffer rows and trims trailing blank lines', async () => {
-    const { terminalRegistry } = await import('./terminalRegistry')
-    const entry = { terminal: fakeTerminal(['line 1', 'line 2', '', ''], 1, 1) }
-    expect(terminalRegistry.captureScrollback(entry)).toBe('line 1\nline 2')
-  })
-
-  it('short-circuits to a precaptured scrollback string', async () => {
-    const { terminalRegistry } = await import('./terminalRegistry')
-    const entry = { terminal: fakeTerminal(['ignored'], 0, 0), scrollback: 'cached' }
-    expect(terminalRegistry.captureScrollback(entry)).toBe('cached')
-  })
-
-  it('returns undefined for an all-blank buffer', async () => {
-    const { terminalRegistry } = await import('./terminalRegistry')
-    const entry = { terminal: fakeTerminal(['', ''], 1, 0) }
-    expect(terminalRegistry.captureScrollback(entry)).toBeUndefined()
-  })
-})

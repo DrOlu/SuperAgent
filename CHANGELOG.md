@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-06-09
+
+### Fixed
+
+- **Terminals keep their exact look across windows and restarts**: a terminal dragged into its own window — or reopened on the next launch — now restores its full buffer with colors and styling intact (not a plain grey dump), resizes to the new window so commands like `ls` use the right width, and prompts a full-screen program (Claude Code, vim, htop) to redraw its whole frame instead of showing a half-drawn one until you resize the window by hand.
+- **No accidental duplicate workspaces**: opening a folder that's already open in another tab now focuses that tab instead of creating a second one that fought it over the same saved state.
+
+## [1.2.6] - 2026-06-09
+
+Bug-fix release for terminals detached into their own window.
+
+### Fixed
+
+- **Detached terminals no longer render blank or grey**: the GPU renderer now rebuilds and repaints once the new window is actually shown, instead of staying empty until the next output.
+- **Detached terminal scrollback keeps its formatting**: replayed history is written with proper line breaks, so multi-column output (like `ls`) lines up again instead of cascading down the screen.
+
 ## [1.1.1] - 2026-06-01
 
 Polish release: grid snapping on the canvas, steadier sidebar and window handling, a big batch of new editor themes, and opt-in usage analytics for agent messages.

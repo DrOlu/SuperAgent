@@ -424,17 +424,17 @@ export function useNodePortalTarget(ref: React.RefObject<Element | null>) {
   return { getTarget, toLocal }
 }
 
-export function ThinkingLevelPicker({
-  level,
-  onChange,
-  disabled,
-}: {
-  level: AgentThinkingLevel | null
-  onChange: (level: AgentThinkingLevel) => void
-  disabled?: boolean
-}) {
+// Shared scaffold for the node-anchored popovers on the chat-input control row
+// (compact button, stats chip, thinking-level picker). Owns the open state, the
+// outside-click-to-close handler, the portal target, and the position. The
+// per-call `layout` maps the trigger's screen rect to a viewport {top,left};
+// the hook runs that through `toLocal` so the popover lands on its anchor at any
+// canvas zoom.
+export function useNodePopover(
+  btnRef: React.RefObject<HTMLButtonElement>,
+  layout: (rect: DOMRect) => { top: number; left: number },
+) {
   const [open, setOpen] = useState(false)
-  const btnRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const { getTarget, toLocal } = useNodePortalTarget(btnRef)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -452,12 +452,61 @@ export function ThinkingLevelPicker({
   }, [open, getTarget])
   useLayoutEffect(() => {
     if (!open || !btnRef.current) return
-    const r = btnRef.current.getBoundingClientRect()
-    const popW = 160
-    let left = r.right - popW
-    if (left < 4) left = 4
-    setPos(toLocal({ top: r.top - 4, left }))
+    setPos(toLocal(layout(btnRef.current.getBoundingClientRect())))
   }, [open, toLocal])
+  return { open, setOpen, popoverRef, pos, portalTarget }
+}
+
+// Shared shell for the node-anchored popovers: a blurred, bordered card portalled
+// into the canvas node and pinned above its trigger (translateY(-100%)). Callers
+// supply the distinct width and any extra body classes; behaviour is identical.
+export function NodePopover({
+  popoverRef,
+  pos,
+  portalTarget,
+  width,
+  bodyClassName,
+  children,
+}: {
+  popoverRef: React.RefObject<HTMLDivElement>
+  pos: { top: number; left: number } | null
+  portalTarget: HTMLElement | null
+  width: number
+  bodyClassName?: string
+  children: React.ReactNode
+}) {
+  if (!pos || !portalTarget) return null
+  return createPortal(
+    <div
+      ref={popoverRef}
+      className={`absolute rounded-lg border border-strong bg-surface-4/98 backdrop-blur-xl shadow-[0_12px_32px_var(--shadow-node)] z-[9999]${bodyClassName ? ` ${bodyClassName}` : ''}`}
+      style={{ top: pos.top, left: pos.left, width, transform: 'translateY(-100%)' }}
+    >
+      {children}
+    </div>,
+    portalTarget,
+  )
+}
+
+export function ThinkingLevelPicker({
+  level,
+  onChange,
+  disabled,
+}: {
+  level: AgentThinkingLevel | null
+  onChange: (level: AgentThinkingLevel) => void
+  disabled?: boolean
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const { open, setOpen, popoverRef, pos, portalTarget } = useNodePopover(
+    btnRef,
+    (r) => {
+      const popW = 160
+      let left = r.right - popW
+      if (left < 4) left = 4
+      return { top: r.top - 4, left }
+    },
+  )
   const current = level ?? 'medium'
   const bars = THINKING_BARS[current]
   return (
@@ -471,11 +520,13 @@ export function ThinkingLevelPicker({
       >
         <ThinkingBars count={bars} />
       </button>
-      {open && pos && portalTarget && createPortal(
-        <div
-          ref={popoverRef}
-          className="absolute w-[160px] rounded-lg border border-strong bg-surface-4/98 backdrop-blur-xl shadow-[0_12px_32px_var(--shadow-node)] z-[9999] overflow-hidden"
-          style={{ top: pos.top, left: pos.left, transform: 'translateY(-100%)' }}
+      {open && (
+        <NodePopover
+          popoverRef={popoverRef}
+          pos={pos}
+          portalTarget={portalTarget}
+          width={160}
+          bodyClassName="overflow-hidden"
         >
           <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-muted/70 border-b border-subtle">Thinking level</div>
           {THINKING_LEVELS.map((lv) => (
@@ -490,8 +541,7 @@ export function ThinkingLevelPicker({
               <ThinkingBars count={THINKING_BARS[lv]} />
             </button>
           ))}
-        </div>,
-        portalTarget,
+        </NodePopover>
       )}
     </>
   )

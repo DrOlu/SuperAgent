@@ -3,6 +3,7 @@
 // =============================================================================
 
 import React, { useCallback, useRef, useEffect } from 'react'
+import { pinDocumentCursor } from '../lib/dom/pinDocumentCursor'
 
 interface DockResizeHandleProps {
   direction: 'horizontal' | 'vertical' // horizontal = left/right drag, vertical = up/down drag
@@ -14,15 +15,15 @@ export default function DockResizeHandle({ direction, onResize, onDoubleClick }:
   const dragging = useRef(false)
   const lastPos = useRef(0)
   const dragAbortRef = useRef<AbortController | null>(null)
-  const cursorStyleRef = useRef<HTMLStyleElement | null>(null)
+  const unpinCursorRef = useRef<(() => void) | null>(null)
 
   // If the handle unmounts mid-drag (e.g. the split collapses), tear down the
   // gesture state we'd otherwise leak onto <body>/<head>.
   useEffect(() => {
     return () => {
       dragAbortRef.current?.abort()
-      cursorStyleRef.current?.remove()
-      cursorStyleRef.current = null
+      unpinCursorRef.current?.()
+      unpinCursorRef.current = null
       if (dragging.current) {
         dragging.current = false
         document.body.classList.remove('canvas-interacting')
@@ -48,11 +49,8 @@ export default function DockResizeHandle({ direction, onResize, onDoubleClick }:
       // runs away from the cursor on a zoomed canvas. The class also force-pins
       // xterm to `grabbing`, so inject a high-specificity cursor override (same
       // trick as useNodeResize) to keep the resize cursor. Cleaned up on mouseup.
-      document.body.classList.add('canvas-interacting')
-      const cursorStyleEl = document.createElement('style')
-      cursorStyleEl.textContent = `*, *::before, *::after { cursor: ${resizeCursor} !important; }`
-      document.head.appendChild(cursorStyleEl)
-      cursorStyleRef.current = cursorStyleEl
+      const unpinCursor = pinDocumentCursor(resizeCursor)
+      unpinCursorRef.current = unpinCursor
 
       const onMouseMove = (ev: MouseEvent) => {
         if (!dragging.current) return
@@ -68,9 +66,8 @@ export default function DockResizeHandle({ direction, onResize, onDoubleClick }:
         dragging.current = false
         dragAbortRef.current?.abort()
         dragAbortRef.current = null
-        document.body.classList.remove('canvas-interacting')
-        cursorStyleEl.remove()
-        cursorStyleRef.current = null
+        unpinCursor()
+        unpinCursorRef.current = null
         document.body.style.cursor = ''
         document.body.style.userSelect = ''
       }

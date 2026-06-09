@@ -275,6 +275,36 @@ function nextMsgId(): string {
   return `m${msgIdCounter}`
 }
 
+/** Build a fresh empty streaming assistant message for the given panel. */
+function makeStreamingAssistant(p: PanelAgentState): AssistantMessage {
+  return { type: 'assistant', id: nextMsgId(), text: '', streaming: true, model: p.model?.model, createdAt: Date.now() }
+}
+
+/**
+ * Append a streaming delta onto the trailing streaming-assistant message's
+ * `text` or `thinking` field, creating a fresh streaming message first if the
+ * last message isn't one. The chosen field defaults to '' so both the
+ * non-optional `text` and the optional `thinking` accumulate correctly.
+ */
+function appendAssistantField(
+  state: AgentStoreState,
+  panelId: string,
+  field: 'text' | 'thinking',
+  delta: string,
+): AgentStoreState {
+  return withPanel(state, panelId, (p) => {
+    const msgs = p.messages.slice()
+    let last = msgs[msgs.length - 1]
+    if (!last || last.type !== 'assistant' || !last.streaming) {
+      last = makeStreamingAssistant(p)
+      msgs.push(last)
+    }
+    const cur = last as AssistantMessage
+    msgs[msgs.length - 1] = { ...cur, [field]: (cur[field] ?? '') + delta }
+    return { ...p, messages: msgs }
+  })
+}
+
 function emptyPanel(): PanelAgentState {
   return {
     messages: [],
@@ -357,10 +387,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
         if (last && last.type === 'assistant' && last.streaming) return p
         return {
           ...p,
-          messages: [
-            ...p.messages,
-            { type: 'assistant', id: nextMsgId(), text: '', streaming: true, model: p.model?.model, createdAt: Date.now() },
-          ],
+          messages: [...p.messages, makeStreamingAssistant(p)],
         }
       }),
     )
@@ -368,36 +395,12 @@ export const useAgentStore = create<AgentStore>((set) => ({
 
   appendAssistantDelta(panelId, delta) {
     if (!delta) return
-    set((state) =>
-      withPanel(state, panelId, (p) => {
-        const msgs = p.messages.slice()
-        let last = msgs[msgs.length - 1]
-        if (!last || last.type !== 'assistant' || !last.streaming) {
-          last = { type: 'assistant', id: nextMsgId(), text: '', streaming: true, model: p.model?.model, createdAt: Date.now() }
-          msgs.push(last)
-        }
-        const cur = last as AssistantMessage
-        msgs[msgs.length - 1] = { ...cur, text: cur.text + delta }
-        return { ...p, messages: msgs }
-      }),
-    )
+    set((state) => appendAssistantField(state, panelId, 'text', delta))
   },
 
   appendAssistantThinking(panelId, delta) {
     if (!delta) return
-    set((state) =>
-      withPanel(state, panelId, (p) => {
-        const msgs = p.messages.slice()
-        let last = msgs[msgs.length - 1]
-        if (!last || last.type !== 'assistant' || !last.streaming) {
-          last = { type: 'assistant', id: nextMsgId(), text: '', streaming: true, model: p.model?.model, createdAt: Date.now() }
-          msgs.push(last)
-        }
-        const cur = last as AssistantMessage
-        msgs[msgs.length - 1] = { ...cur, thinking: (cur.thinking ?? '') + delta }
-        return { ...p, messages: msgs }
-      }),
-    )
+    set((state) => appendAssistantField(state, panelId, 'thinking', delta))
   },
 
   endAssistant(panelId, extras) {

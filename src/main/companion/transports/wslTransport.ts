@@ -16,9 +16,8 @@
 
 import { spawn, execFile, type ChildProcess } from 'child_process'
 import { promisify } from 'util'
-import log from '../../logger'
-import { ensureLocalTarball, localTarballIfPresent, localCompanionBundlePath, isCompanionDevMode, tarballHash, releaseUrl, isCompanionTarget, type CompanionTarget } from '../companionArtifacts'
-import type { CompanionChannel, CompanionTransport } from './transport'
+import { ensureLocalTarball, isCompanionDevMode, isCompanionTarget, type CompanionTarget } from '../companionArtifacts'
+import { shellQuote as shq, bootstrapDevShared, isInstalledShared, bootstrapProdShared, buildExtractCommand, type CompanionChannel, type CompanionTransport } from './transport'
 
 const execFileP = promisify(execFile)
 
@@ -74,19 +73,8 @@ export class WslTransport implements CompanionTransport {
 
   /** Reachable + correct-version bundle present? Does NOT install. */
   async isInstalled(version: string): Promise<boolean> {
-    const installDir = await this.resolveInstallDir(version)
-    const D = shq(installDir)
-    if (isCompanionDevMode()) {
-      return (await this.wslSh(
-        `test -x ${D}/runtime/bin/node && test -x ${D}/runtime/bin/rg && test -f ${D}/pi/dist/cli.js && test -f ${D}/companion.cjs && test -d ${D}/node_modules && echo CATE_PROVISIONED`,
-      )).stdout.includes('CATE_PROVISIONED')
-    }
-    const localTar = localTarballIfPresent(version, this.target as CompanionTarget)
-    const marker = localTar ? `${version}:${await tarballHash(localTar)}` : version
-    const ok = (await this.wslSh(
-      `test -x ${D}/runtime/bin/node && test -f ${D}/companion.cjs && cat ${D}/.ok 2>/dev/null`,
-    )).stdout.trim()
-    return ok === marker || (!localTar && ok.startsWith(version))
+    const D = shq(await this.resolveInstallDir(version))
+    return isInstalledShared(version, D, this.target as CompanionTarget, (cmd) => this.wslSh(cmd))
   }
 
   /** Remove the whole companion install tree inside the distro (all versions). */
@@ -111,75 +99,37 @@ export class WslTransport implements CompanionTransport {
       return
     }
 
-    // See sshTransport: hash-aware marker so a changed daemon re-installs in dev.
-    const localTar = localTarballIfPresent(version, this.target as CompanionTarget)
-    const marker = localTar ? `${version}:${await tarballHash(localTar)}` : version
-
-    // Already installed and current?
-    const installed = await this.wslSh(
-      `test -x ${D}/runtime/bin/node && test -f ${D}/companion.cjs && cat ${D}/.ok 2>/dev/null`,
-    )
-    const ok = installed.stdout.trim()
-    if (ok === marker || (!localTar && ok.startsWith(version))) return
-
-    // 1. In-distro pull.
-    const url = releaseUrl(version, this.target as CompanionTarget)
-    const pull = await this.wslSh(this.pullScript(this.installDir, url, version))
-    if (pull.stdout.includes('CATE_PULL_OK')) {
-      log.info('[companion:wsl] %s pulled tarball from release', this.target)
-      return
-    }
-    log.info('[companion:wsl] in-distro pull unavailable (%s); copying via /mnt', pull.stderr.trim() || `code ${pull.code}`)
-
-    // 2. /mnt fallback — copy the client-side tarball in and extract.
-    await this.copyTarball(version, marker)
+    // PROD: probe the `.ok` marker, then in-distro pull from the release with a
+    // /mnt copy fallback when the distro can't fetch (shared with SSH).
+    await bootstrapProdShared(version, D, {
+      tag: 'wsl',
+      target: this.target as CompanionTarget,
+      installDir: this.installDir,
+      exec: (cmd) => this.wslSh(cmd),
+      pushTarball: (v, marker) => this.copyTarball(v, marker),
+      pullFallbackLabel: '[companion:wsl] in-distro pull unavailable (%s); copying via /mnt',
+    })
   }
 
   /** Dev provisioning (mirrors sshTransport.bootstrapDev): install runtime +
    *  node_modules from the local tarball once via /mnt, then overlay the freshest
    *  local companion.cjs keyed by its hash in `.cjs.ok`. Never in-distro pulls. */
-  private async bootstrapDev(version: string, D: string): Promise<void> {
-    const provisioned = (await this.wslSh(
-      `test -x ${D}/runtime/bin/node && test -x ${D}/runtime/bin/rg && test -f ${D}/pi/dist/cli.js && test -f ${D}/companion.cjs && test -d ${D}/node_modules && echo CATE_PROVISIONED`,
-    )).stdout.includes('CATE_PROVISIONED')
-
-    if (!provisioned) await this.copyTarball(version, version)
-
-    const bundle = localCompanionBundlePath()
-    if (!bundle) {
-      if (!provisioned) return
-      log.warn('[companion:wsl] dev mode but dist-companion/companion.cjs missing; run `npm run build:companion`')
-      return
-    }
-
-    const h = await tarballHash(bundle)
-    const ok = (await this.wslSh(`cat ${D}/.cjs.ok 2>/dev/null`)).stdout.trim()
-    if (provisioned && ok === h) return
-
-    const { stdout: srcMnt } = await this.wsl(['wslpath', bundle])
-    const res = await this.wslSh(
-      `mkdir -p ${D} && cp ${shq(srcMnt.trim())} ${D}/companion.cjs && ` +
-        `printf %s ${shq(h)} > ${D}/.cjs.ok && echo CATE_CJS_OK`,
-    )
-    if (!res.stdout.includes('CATE_CJS_OK')) {
-      throw new Error(`WSL dev companion.cjs push failed: ${res.stderr || res.stdout}`)
-    }
-    log.info('[companion:wsl] dev fast-push companion.cjs (%s)', h)
-  }
-
-  private pullScript(installDir: string, url: string, version: string): string {
-    const D = shq(installDir)
-    const U = shq(url)
-    const V = shq(version)
-    return (
-      `mkdir -p ${D} && cd ${D} && rm -f pkg.tgz && ` +
-      `if command -v curl >/dev/null 2>&1; then curl -fSL ${U} -o pkg.tgz; ` +
-      `elif command -v wget >/dev/null 2>&1; then wget -qO pkg.tgz ${U}; ` +
-      `else echo CATE_NO_FETCHER >&2; exit 3; fi && ` +
-      `tar -xzf pkg.tgz && rm -f pkg.tgz && ` +
-      `test -x runtime/bin/node && test -f companion.cjs && ` +
-      `printf %s ${V} > .ok && echo CATE_PULL_OK`
-    )
+  private bootstrapDev(version: string, D: string): Promise<void> {
+    return bootstrapDevShared(version, D, {
+      tag: 'wsl',
+      exec: (cmd) => this.wslSh(cmd),
+      pushTarball: (v, marker) => this.copyTarball(v, marker),
+      pushBundle: async (bundle, hash, quotedDir) => {
+        const { stdout: srcMnt } = await this.wsl(['wslpath', bundle])
+        const res = await this.wslSh(
+          `mkdir -p ${quotedDir} && cp ${shq(srcMnt.trim())} ${quotedDir}/companion.cjs && ` +
+            `printf %s ${shq(hash)} > ${quotedDir}/.cjs.ok && echo CATE_CJS_OK`,
+        )
+        if (!res.stdout.includes('CATE_CJS_OK')) {
+          throw new Error(`WSL dev companion.cjs push failed: ${res.stderr || res.stdout}`)
+        }
+      },
+    })
   }
 
   private async copyTarball(version: string, marker: string): Promise<void> {
@@ -189,9 +139,7 @@ export class WslTransport implements CompanionTransport {
     const D = shq(this.installDir)
     const extract = await this.wslSh(
       `mkdir -p ${D} && cd ${D} && cp ${shq(srcMnt.trim())} pkg.tgz && ` +
-        `tar -xzf pkg.tgz && rm -f pkg.tgz && ` +
-        `test -x runtime/bin/node && test -f companion.cjs && ` +
-        `printf %s ${shq(marker)} > .ok && echo CATE_EXTRACT_OK`,
+        buildExtractCommand(shq(marker), 'CATE_EXTRACT_OK'),
     )
     if (!extract.stdout.includes('CATE_EXTRACT_OK')) {
       throw new Error(`WSL extract failed: ${extract.stderr || extract.stdout}`)
@@ -217,8 +165,4 @@ export class WslTransport implements CompanionTransport {
     this.child?.kill()
     this.child = null
   }
-}
-
-function shq(s: string): string {
-  return `'${s.replace(/'/g, `'\\''`)}'`
 }

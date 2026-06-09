@@ -14,6 +14,7 @@ import os from 'os'
 import { execFile } from 'child_process'
 import type { ProcessHost, PtyCreateOptions, PtyHandle, PtyActivity } from '../../main/companion/types'
 import type { TerminalActivity } from '../../shared/types'
+import { matchAgentProcess } from '../../shared/agents'
 import {
   type ProcTree,
   snapshotProcessTreeProc,
@@ -83,24 +84,9 @@ function descendantsOf(pid: number, tree: ProcTree): number[] {
   return out
 }
 
-const AGENT_DEFINITIONS: { displayName: string; match: (name: string) => boolean }[] = [
-  { displayName: 'Claude Code', match: (n) => n === 'claude' || n === 'claude-code' || n.startsWith('claude') },
-  { displayName: 'Codex', match: (n) => n === 'codex' },
-  // Antigravity's CLI installs as `agy` (`antigravity` is the GUI IDE).
-  { displayName: 'Antigravity', match: (n) => n === 'agy' },
-  { displayName: 'Cursor', match: (n) => n === 'cursor' || n === 'cursor-agent' },
-  { displayName: 'OpenCode', match: (n) => n === 'opencode' },
-  // @earendil-works/pi-coding-agent — runs as the `pi` binary.
-  { displayName: 'PI Agent', match: (n) => n === 'pi' },
-]
-
-function matchAgentProcess(name: string): string | null {
-  const lower = name.toLowerCase()
-  for (const agent of AGENT_DEFINITIONS) {
-    if (agent.match(lower)) return agent.displayName
-  }
-  return null
-}
+// Agent detection list lives in src/shared/agents.ts (one place, shared with the
+// renderer's logo map) — matchAgentProcess maps a child process name to its
+// display name.
 
 function isShellProcess(name: string): boolean {
   const shells = ['zsh', 'bash', 'fish', 'sh', 'tcsh', 'ksh', 'dash']

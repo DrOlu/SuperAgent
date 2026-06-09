@@ -12,12 +12,15 @@
 import fsp from 'fs/promises'
 import path from 'path'
 
-const CONTENT = `# Cate project-local state. Only workspace.json is shared; everything else
+/** The single ignore-all-but-workspace rule for `.cate/.gitignore`. Exported so
+ *  the remote project-state path can write the same file on the companion. */
+export const CATE_GITIGNORE_CONTENT = `# Cate project-local state. Only workspace.json is shared; everything else
 # (session state, backups, the pi-agent dir, and worktrees) stays local.
 *
 !.gitignore
 !workspace.json
 `
+const CONTENT = CATE_GITIGNORE_CONTENT
 
 /** Ensure <cateDir>/.gitignore exists. Best-effort and write-once: an existing
  *  file (e.g. one the user customised) is left untouched. */

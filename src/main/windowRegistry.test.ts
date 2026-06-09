@@ -13,15 +13,19 @@ const {
   getActiveMainWindow,
   getWindowWorkspaceId,
   setDockWindowState,
-  setPanelWindowMeta,
+  listDockWindows,
+  closeWindowsForWorkspace,
 } = await import('./windowRegistry')
 
 interface FakeWin {
   id: number
   destroyed: boolean
+  bounds: { x: number; y: number; width: number; height: number }
   on(ev: string, cb: () => void): void
   emit(ev: string): void
   isDestroyed(): boolean
+  getBounds(): { x: number; y: number; width: number; height: number }
+  destroy(): void
   webContents: { send: () => void }
 }
 
@@ -33,9 +37,12 @@ function makeWin(): FakeWin {
   const win: FakeWin = {
     id: nextId++,
     destroyed: false,
+    bounds: { x: 0, y: 0, width: 800, height: 600 },
     on(ev, cb) { (listeners[ev] ??= []).push(cb) },
     emit(ev) { (listeners[ev] ?? []).forEach((f) => f()) },
     isDestroyed() { return this.destroyed },
+    getBounds() { return this.bounds },
+    destroy() { this.destroyed = true; this.emit('closed') },
     webContents: { send: () => {} },
   }
   created.push(win)
@@ -110,13 +117,86 @@ describe('getWindowWorkspaceId', () => {
     expect(getWindowWorkspaceId(dock.id)).toBe('synced-ws')
   })
 
-  it('panel-window meta records the workspace id (regression: transferred panels are no longer workspace-less)', () => {
-    const panel = register('panel')
-    setPanelWindowMeta(panel.id, { id: 'p1', type: 'terminal', title: 't' } as never, 'ws-xyz')
-    expect(getWindowWorkspaceId(panel.id)).toBe('ws-xyz')
-  })
-
   it('returns undefined for an unknown window', () => {
     expect(getWindowWorkspaceId(99999)).toBeUndefined()
+  })
+})
+
+describe('closeWindowsForWorkspace', () => {
+  it('destroys dock windows of the given workspace and leaves others', () => {
+    const main = register('main')
+    const dockA = register('dock', 'ws-A')
+    const dockA2 = register('dock', 'ws-A')
+    const dockB = register('dock', 'ws-B')
+
+    closeWindowsForWorkspace('ws-A')
+
+    expect(dockA.destroyed).toBe(true)
+    expect(dockA2.destroyed).toBe(true)
+    expect(dockB.destroyed).toBe(false)
+    expect(main.destroyed).toBe(false)
+  })
+
+  it('is a no-op for a workspace with no detached windows', () => {
+    const dock = register('dock', 'ws-A')
+    closeWindowsForWorkspace('ws-other')
+    expect(dock.destroyed).toBe(false)
+  })
+})
+
+describe('listDockWindows', () => {
+  // FIX: DockWindowShell used to sync {...getSnapshot()} (i.e. {zones, locations})
+  // with NO `dockState` field, so listDockWindows() produced snapshots whose
+  // dockState was undefined and restore threw "Cannot read properties of
+  // undefined (reading 'zones')". This locks in the contract that the shell now
+  // feeds a populated `dockState`.
+  function tabsDockState() {
+    return {
+      zones: {
+        left: { position: 'left', visible: false, size: 0, layout: null },
+        right: { position: 'right', visible: false, size: 0, layout: null },
+        bottom: { position: 'bottom', visible: false, size: 0, layout: null },
+        center: {
+          position: 'center',
+          visible: true,
+          size: 0,
+          layout: { type: 'tabs', id: 'center-stack', panelIds: ['p1'], activeIndex: 0 },
+        },
+      },
+      locations: {},
+    }
+  }
+
+  it('round-trips a populated dockState set via setDockWindowState', () => {
+    const dock = register('dock')
+    dock.bounds = { x: 120, y: 80, width: 900, height: 700 }
+
+    setDockWindowState(dock.id, {
+      dockState: tabsDockState() as never,
+      panels: { p1: { id: 'p1', type: 'terminal', title: 'zsh', isDirty: false } } as never,
+      workspaceId: 'ws-dock',
+      terminalCwds: { p1: '/work/p1' },
+    })
+
+    const listed = listDockWindows()
+    const entry = listed.find((e) => e.windowId === dock.id)
+    expect(entry).toBeDefined()
+    // The bug: dockState was undefined here. Assert it (and its zones) is present.
+    expect(entry!.dockState).toBeDefined()
+    expect(entry!.dockState.zones).toBeDefined()
+    expect(entry!.dockState.zones.center.layout).toEqual({
+      type: 'tabs',
+      id: 'center-stack',
+      panelIds: ['p1'],
+      activeIndex: 0,
+    })
+    expect(entry!.workspaceId).toBe('ws-dock')
+    expect(entry!.bounds).toEqual({ x: 120, y: 80, width: 900, height: 700 })
+    expect(entry!.terminalCwds).toEqual({ p1: '/work/p1' })
+  })
+
+  it('omits dock windows that have not synced any state yet', () => {
+    const dock = register('dock', 'ws-unsynced')
+    expect(listDockWindows().find((e) => e.windowId === dock.id)).toBeUndefined()
   })
 })

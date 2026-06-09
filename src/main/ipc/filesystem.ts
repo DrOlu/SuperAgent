@@ -6,9 +6,11 @@ import { watch, FSWatcher } from 'chokidar'
 import { ipcMain } from 'electron'
 import log from '../logger'
 import { consumeScopedWriteAllowance, validatePathStrict } from './pathValidation'
+import { wrapHandler } from './handlerError'
 import { parseLocator, formatLocator, LOCAL_COMPANION_ID } from '../companion/locator'
 import type { FsChangeType } from '../companion/types'
-import { companions } from '../companion/companionManager'
+import { companions, resolveLocator } from '../companion/companionManager'
+import { createKeyedDispatcher } from './batchedDispatcher'
 import { uploadEntriesToCompanion } from '../companion/uploadEntries'
 import {
   FS_READ_FILE,
@@ -225,34 +227,25 @@ function watchStart(dirPath: string, ownerWindowId: number): void {
   // Per-requester trailing-edge debounce — coalesces a burst (e.g. git status
   // or a multi-file save) into a single IPC dispatch ~16ms after the last
   // event, keeping the renderer-visible payload shape unchanged.
-  let pendingEvents = new Map<string, { type: string; path: string }>()
-  let flushTimer: ReturnType<typeof setTimeout> | null = null
+  const dispatcher = createKeyedDispatcher<{ type: string; path: string }>(
+    DISPATCH_DEBOUNCE_MS,
+    (events) => {
+      try {
+        for (const event of events) {
+          sendToWindow(ownerWindowId, FS_WATCH_EVENT, event)
+        }
+      } catch (err) {
+        log.warn('[fs-watch] flush failed:', err)
+      }
+    },
+  )
 
   const queueEvent = (type: string, filePath: string) => {
-    pendingEvents.set(filePath, { type, path: filePath })
-    if (!flushTimer) {
-      flushTimer = setTimeout(() => {
-        const events = pendingEvents
-        pendingEvents = new Map()
-        flushTimer = null
-        try {
-          for (const event of events.values()) {
-            sendToWindow(ownerWindowId, FS_WATCH_EVENT, event)
-          }
-        } catch (err) {
-          log.warn('[fs-watch] flush failed:', err)
-        }
-      }, DISPATCH_DEBOUNCE_MS)
-    }
+    dispatcher.push([filePath, { type, path: filePath }])
   }
 
-  const cancelFlush = () => {
-    if (flushTimer) {
-      clearTimeout(flushTimer)
-      flushTimer = null
-    }
-    pendingEvents = new Map()
-  }
+  // cancelFlush clears the timer AND drops pending events for this subscriber.
+  const cancelFlush = () => dispatcher.cancel({ resetPending: true })
 
   shared.subscribers.set(key, {
     prefix: dirPath,
@@ -435,25 +428,23 @@ function startRemoteWatch(
 ): void {
   stopRemoteWatch(dirLocator, windowId)
 
-  let pending = new Map<string, { type: string; path: string }>()
-  let flushTimer: ReturnType<typeof setTimeout> | null = null
-  const flush = (): void => {
-    const events = pending
-    pending = new Map()
-    flushTimer = null
-    for (const event of events.values()) {
-      try { sendToWindow(windowId, FS_WATCH_EVENT, event) } catch { /* window gone */ }
-    }
-  }
+  const dispatcher = createKeyedDispatcher<{ type: string; path: string }>(
+    DISPATCH_DEBOUNCE_MS,
+    (events) => {
+      for (const event of events) {
+        try { sendToWindow(windowId, FS_WATCH_EVENT, event) } catch { /* window gone */ }
+      }
+    },
+  )
   const onChange = (changedPath: string, type: FsChangeType): void => {
     const locator = formatLocator({ companionId, path: changedPath })
-    pending.set(locator, { type, path: locator })
-    if (!flushTimer) flushTimer = setTimeout(flush, DISPATCH_DEBOUNCE_MS)
+    dispatcher.push([locator, { type, path: locator }])
   }
   const unsubscribe = companion.file.watch(remotePath, onChange)
   remoteWatches.set(remoteWatchKey(windowId, dirLocator), {
     unsubscribe,
-    cancelFlush: () => { if (flushTimer) clearTimeout(flushTimer) },
+    // Remote cancelFlush only clears the timer (leaves any pending events).
+    cancelFlush: () => dispatcher.cancel(),
   })
 }
 
@@ -466,148 +457,101 @@ function stopRemoteWatch(dirLocator: string, windowId: number): void {
   remoteWatches.delete(key)
 }
 
+/** Resolve the file capability for a locator argument, returning the companion
+ *  plus the decoded path and the companion id (needed to re-encode any path
+ *  returned to the renderer). Mirrors git.ts's `vcsFor`. */
+function fileCompanionFor(locator: string): {
+  companion: ReturnType<typeof companions.resolve>
+  path: string
+  companionId: string
+} {
+  return resolveLocator(locator)
+}
+
 export function registerHandlers(): void {
-  ipcMain.handle(FS_READ_FILE, async (event, filePath: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(filePath)
-      const companion = companions.resolve(companionId)
-      return await companion.file.readFile(await companion.validatePathStrict(p, win?.id, workspaceId))
-    } catch (error) {
-      log.error(`[${FS_READ_FILE}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_READ_FILE, wrapHandler(`[${FS_READ_FILE}]`, async (event, filePath: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: p } = fileCompanionFor(filePath)
+    return await companion.file.readFile(await companion.validatePathStrict(p, win?.id, workspaceId))
+  }))
 
-  ipcMain.handle(FS_READ_BINARY, async (event, filePath: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(filePath)
-      const companion = companions.resolve(companionId)
-      return await companion.file.readBinary(await companion.validatePathStrict(p, win?.id, workspaceId))
-    } catch (error) {
-      log.error(`[${FS_READ_BINARY}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_READ_BINARY, wrapHandler(`[${FS_READ_BINARY}]`, async (event, filePath: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: p } = fileCompanionFor(filePath)
+    return await companion.file.readBinary(await companion.validatePathStrict(p, win?.id, workspaceId))
+  }))
 
-  ipcMain.handle(FS_WRITE_FILE, async (event, filePath: string, content: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(filePath)
-      const companion = companions.resolve(companionId)
-      const safePath = await companion.validatePathForCreation(p, win?.id, workspaceId)
-      await companion.file.writeFile(safePath, content)
-      if (win) consumeScopedWriteAllowance(win.id, safePath)
-    } catch (error) {
-      log.error(`[${FS_WRITE_FILE}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_WRITE_FILE, wrapHandler(`[${FS_WRITE_FILE}]`, async (event, filePath: string, content: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: p } = fileCompanionFor(filePath)
+    const safePath = await companion.validatePathForCreation(p, win?.id, workspaceId)
+    await companion.file.writeFile(safePath, content)
+    if (win) consumeScopedWriteAllowance(win.id, safePath)
+  }))
 
-  ipcMain.handle(FS_READ_DIR, async (event, dirPath: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(dirPath)
-      const companion = companions.resolve(companionId)
-      const nodes = await companion.file.readDir(await companion.validatePathStrict(p, win?.id, workspaceId))
-      return encodeTreeNodes(companionId, nodes)
-    } catch (error) {
-      log.error(`[${FS_READ_DIR}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_READ_DIR, wrapHandler(`[${FS_READ_DIR}]`, async (event, dirPath: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: p, companionId } = fileCompanionFor(dirPath)
+    const nodes = await companion.file.readDir(await companion.validatePathStrict(p, win?.id, workspaceId))
+    return encodeTreeNodes(companionId, nodes)
+  }))
 
-  ipcMain.handle(FS_WATCH_START, async (event, dirPath: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      if (!win) return
-      const { companionId, path: p } = parseLocator(dirPath)
-      if (companionId === LOCAL_COMPANION_ID) {
-        watchStart(await validatePathStrict(p, win.id, workspaceId), win.id)
-      } else {
-        startRemoteWatch(companions.resolve(companionId), companionId, p, dirPath, win.id)
-      }
-    } catch (error) {
-      log.error(`[${FS_WATCH_START}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
+  ipcMain.handle(FS_WATCH_START, wrapHandler(`[${FS_WATCH_START}]`, async (event, dirPath: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    if (!win) return
+    const { companionId, path: p } = parseLocator(dirPath)
+    if (companionId === LOCAL_COMPANION_ID) {
+      watchStart(await validatePathStrict(p, win.id, workspaceId), win.id)
+    } else {
+      startRemoteWatch(companions.resolve(companionId), companionId, p, dirPath, win.id)
     }
-  })
+  }))
 
-  ipcMain.handle(FS_WATCH_STOP, async (event, dirPath: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      if (!win) return
-      const { companionId, path: p } = parseLocator(dirPath)
-      if (companionId === LOCAL_COMPANION_ID) {
-        watchStop(await validatePathStrict(p, win.id, workspaceId), win.id)
-      } else {
-        stopRemoteWatch(dirPath, win.id)
-      }
-    } catch (error) {
-      log.error(`[${FS_WATCH_STOP}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
+  ipcMain.handle(FS_WATCH_STOP, wrapHandler(`[${FS_WATCH_STOP}]`, async (event, dirPath: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    if (!win) return
+    const { companionId, path: p } = parseLocator(dirPath)
+    if (companionId === LOCAL_COMPANION_ID) {
+      watchStop(await validatePathStrict(p, win.id, workspaceId), win.id)
+    } else {
+      stopRemoteWatch(dirPath, win.id)
     }
-  })
+  }))
 
-  ipcMain.handle(FS_STAT, async (event, filePath: string, workspaceId?: string) => {
-    try {
-      // validatePathStrict resolves and authorizes the path; we stat the
-      // resolved path on the owning companion.
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(filePath)
-      const companion = companions.resolve(companionId)
-      return await companion.file.stat(await companion.validatePathStrict(p, win?.id, workspaceId))
-    } catch (error) {
-      log.error(`[${FS_STAT}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_STAT, wrapHandler(`[${FS_STAT}]`, async (event, filePath: string, workspaceId?: string) => {
+    // validatePathStrict resolves and authorizes the path; we stat the
+    // resolved path on the owning companion.
+    const win = windowFromEvent(event)
+    const { companion, path: p } = fileCompanionFor(filePath)
+    return await companion.file.stat(await companion.validatePathStrict(p, win?.id, workspaceId))
+  }))
 
-  ipcMain.handle(FS_DELETE, async (event, filePath: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(filePath)
-      const companion = companions.resolve(companionId)
-      await companion.file.remove(await companion.validatePathStrict(p, win?.id, workspaceId))
-    } catch (error) {
-      log.error(`[${FS_DELETE}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_DELETE, wrapHandler(`[${FS_DELETE}]`, async (event, filePath: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: p } = fileCompanionFor(filePath)
+    await companion.file.remove(await companion.validatePathStrict(p, win?.id, workspaceId))
+  }))
 
-  ipcMain.handle(FS_RENAME, async (event, oldPath: string, newPath: string, workspaceId?: string) => {
-    try {
-      // Phase 1: rename is within a single companion (both bare/local).
-      const win = windowFromEvent(event)
-      const { companionId, path: oldP } = parseLocator(oldPath)
-      const companion = companions.resolve(companionId)
-      const { path: newP } = parseLocator(newPath)
-      await companion.file.rename(
-        await companion.validatePathStrict(oldP, win?.id, workspaceId),
-        await companion.validatePathForCreation(newP, win?.id, workspaceId),
-      )
-    } catch (error) {
-      log.error(`[${FS_RENAME}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_RENAME, wrapHandler(`[${FS_RENAME}]`, async (event, oldPath: string, newPath: string, workspaceId?: string) => {
+    // Phase 1: rename is within a single companion (both bare/local).
+    const win = windowFromEvent(event)
+    const { companion, path: oldP } = fileCompanionFor(oldPath)
+    const { path: newP } = parseLocator(newPath)
+    await companion.file.rename(
+      await companion.validatePathStrict(oldP, win?.id, workspaceId),
+      await companion.validatePathForCreation(newP, win?.id, workspaceId),
+    )
+  }))
 
-  ipcMain.handle(FS_COPY, async (event, srcPath: string, destDir: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: srcP } = parseLocator(srcPath)
-      const companion = companions.resolve(companionId)
-      const { path: destP } = parseLocator(destDir)
-      const safeSrc = await companion.validatePathStrict(srcP, win?.id, workspaceId)
-      const safeDestDir = await companion.validatePathStrict(destP, win?.id, workspaceId)
-      const finalPath = await companion.file.copy(safeSrc, safeDestDir)
-      return encodeResultPath(companionId, finalPath)
-    } catch (error) {
-      log.error(`[${FS_COPY}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_COPY, wrapHandler(`[${FS_COPY}]`, async (event, srcPath: string, destDir: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: srcP, companionId } = fileCompanionFor(srcPath)
+    const { path: destP } = parseLocator(destDir)
+    const safeSrc = await companion.validatePathStrict(srcP, win?.id, workspaceId)
+    const safeDestDir = await companion.validatePathStrict(destP, win?.id, workspaceId)
+    const finalPath = await companion.file.copy(safeSrc, safeDestDir)
+    return encodeResultPath(companionId, finalPath)
+  }))
 
   // Import external files/folders (dragged in from the OS file manager) into a
   // workspace directory. The security boundary is the DESTINATION: `destDir`
@@ -621,8 +565,7 @@ export function registerHandlers(): void {
     FS_IMPORT_ENTRIES,
     async (event, sources: string[], destDir: string, mode: 'copy' | 'move', workspaceId?: string) => {
       const win = windowFromEvent(event)
-      const { companionId, path: destP } = parseLocator(destDir)
-      const companion = companions.resolve(companionId)
+      const { companion, path: destP, companionId } = fileCompanionFor(destDir)
       const safeDestDir = await companion.validatePathStrict(destP, win?.id, workspaceId)
       const result =
         companionId === LOCAL_COMPANION_ID
@@ -635,31 +578,19 @@ export function registerHandlers(): void {
     },
   )
 
-  ipcMain.handle(FS_MKDIR, async (event, dirPath: string, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(dirPath)
-      const companion = companions.resolve(companionId)
-      await companion.file.mkdir(await companion.validatePathForCreation(p, win?.id, workspaceId))
-    } catch (error) {
-      log.error(`[${FS_MKDIR}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_MKDIR, wrapHandler(`[${FS_MKDIR}]`, async (event, dirPath: string, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: p } = fileCompanionFor(dirPath)
+    await companion.file.mkdir(await companion.validatePathForCreation(p, win?.id, workspaceId))
+  }))
 
-  ipcMain.handle(FS_SEARCH, async (event, rootPath: string, query: string, options?: FileSearchOptions, workspaceId?: string) => {
-    try {
-      const win = windowFromEvent(event)
-      const { companionId, path: p } = parseLocator(rootPath)
-      const companion = companions.resolve(companionId)
-      const validRoot = await companion.validatePathStrict(p, win?.id, workspaceId)
-      const trimmed = (query ?? '').trim()
-      if (!trimmed) return []
-      const results = await companion.file.search(validRoot, trimmed, options ?? {})
-      return results.map((r) => ({ ...r, path: encodeResultPath(companionId, r.path) }))
-    } catch (error) {
-      log.error(`[${FS_SEARCH}]`, error)
-      throw error instanceof Error ? error : new Error(String(error))
-    }
-  })
+  ipcMain.handle(FS_SEARCH, wrapHandler(`[${FS_SEARCH}]`, async (event, rootPath: string, query: string, options?: FileSearchOptions, workspaceId?: string) => {
+    const win = windowFromEvent(event)
+    const { companion, path: p, companionId } = fileCompanionFor(rootPath)
+    const validRoot = await companion.validatePathStrict(p, win?.id, workspaceId)
+    const trimmed = (query ?? '').trim()
+    if (!trimmed) return []
+    const results = await companion.file.search(validRoot, trimmed, options ?? {})
+    return results.map((r) => ({ ...r, path: encodeResultPath(companionId, r.path) }))
+  }))
 }

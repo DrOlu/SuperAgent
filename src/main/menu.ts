@@ -3,38 +3,21 @@
 // =============================================================================
 
 import { BrowserWindow, Menu, shell, app } from 'electron'
-import { MENU_OPEN_SETTINGS, MENU_TRIGGER_ACTION, MENU_LOAD_LAYOUT, MENU_CREATE_PANEL, BROWSER_SHORTCUT } from '../shared/ipc-channels'
+import { MENU_OPEN_SETTINGS, MENU_TRIGGER_ACTION, MENU_LOAD_LAYOUT, BROWSER_SHORTCUT } from '../shared/ipc-channels'
 import type { MenuActionId, BrowserShortcutAction } from '../shared/types'
 import { checkForUpdatesManually } from './auto-updater'
-import { listPanelWindows, getWindow, getWindowType, getActiveMainWindow, getWindowWorkspaceId, focusWindow } from './windowRegistry'
-
-/** Panel-creation actions. These add a panel to the workspace's canvas, so they
- *  have nowhere to go in a detached dock/panel window (no canvas there) —
- *  `dispatch` re-routes them to the main window. */
-const PANEL_CREATE_ACTIONS = new Set<MenuActionId>(['newTerminal', 'newEditor', 'newBrowser', 'newFile', 'newAgent', 'newCanvas'])
+import { getActiveMainWindow } from './windowRegistry'
 
 /** Dispatch a renderer-side menu action to the focused window. Items in the
  *  template use this as their click handler — the renderer's useShortcuts hook
  *  listens for MENU_TRIGGER_ACTION and runs the matching action through the
- *  same code path as the keyboard shortcut.
- *
- *  Exception: a panel-creation action fired while a detached dock/panel window
- *  is focused has nowhere to put the new panel. Route it to the workspace's
- *  main window (which owns the canvas) and bring that window forward so the new
- *  panel is visible. Without this, New Terminal/Editor/Browser silently do
- *  nothing whenever focus is outside a main window. */
+ *  same code path as the keyboard shortcut. Dock windows DO have a container,
+ *  so they receive MENU_TRIGGER_ACTION and place the panel locally via the same
+ *  renderer placement path as the keyboard shortcut. */
 function dispatch(action: MenuActionId): () => void {
   return (): void => {
     const win = BrowserWindow.getFocusedWindow()
     if (!win) return
-    if (PANEL_CREATE_ACTIONS.has(action) && getWindowType(win.id) !== 'main') {
-      const mainWin = getActiveMainWindow()
-      if (mainWin) {
-        mainWin.webContents.send(MENU_CREATE_PANEL, { action, workspaceId: getWindowWorkspaceId(win.id) })
-        focusWindow(mainWin)
-        return
-      }
-    }
     win.webContents.send(MENU_TRIGGER_ACTION, action)
   }
 }
@@ -77,27 +60,32 @@ export function rebuildApplicationMenu(): void {
   buildApplicationMenu()
 }
 
-export function buildApplicationMenu(): void {
-  // Collect panel window entries for the Window menu
-  const panelWindowItems: Electron.MenuItemConstructorOptions[] = []
-  try {
-    const panelWindows = listPanelWindows()
-    for (const pw of panelWindows) {
-      panelWindowItems.push({
-        label: `${pw.panel.title || pw.panel.type}`,
-        click: (): void => {
-          const win = getWindow(pw.windowId)
-          if (win) {
-            win.show()
-            win.focus()
-          }
-        },
-      })
-    }
-  } catch {
-    // listPanelWindows may not be available yet during startup
-  }
+// The live application menu, kept so the frameless Windows/Linux title bar can
+// render its top-level labels and pop the matching native submenus. Reassigned
+// on every buildApplicationMenu() so dynamic submenus (layout names, open panel
+// windows) stay current without the renderer re-fetching anything.
+let currentMenu: Electron.Menu | null = null
 
+/** Ordered top-level menu labels (App, File, Edit, …) for the custom menu bar.
+ *  Empty until the first buildApplicationMenu(). */
+export function getMenuBarLabels(): string[] {
+  if (!currentMenu) return []
+  return currentMenu.items.map((item) => item.label)
+}
+
+/** Pop the native submenu of top-level item `index` for `win`, anchored at the
+ *  window-relative point (x, y) — directly below its label in the title bar.
+ *  Always reads the live menu, so dynamic submenus are fresh. */
+export function popupMenuBarItem(index: number, win: BrowserWindow, x: number, y: number): void {
+  const item = currentMenu?.items[index]
+  if (item?.submenu) item.submenu.popup({ window: win, x, y })
+}
+
+export function buildApplicationMenu(): void {
+  const newWindow = (): void => {
+    if (!newMainWindowFn) return
+    newMainWindowFn()
+  }
   const template: Electron.MenuItemConstructorOptions[] = [
     // App menu
     {
@@ -136,10 +124,7 @@ export function buildApplicationMenu(): void {
         {
           label: 'New Window',
           accelerator: 'CmdOrCtrl+Shift+N',
-          click: (): void => {
-            if (!newMainWindowFn) return
-            newMainWindowFn()
-          },
+          click: newWindow,
         },
         { type: 'separator' },
         { label: 'New File', accelerator: 'CmdOrCtrl+N', click: dispatch('newFile') },
@@ -208,8 +193,6 @@ export function buildApplicationMenu(): void {
     {
       label: 'Go',
       submenu: [
-        { label: 'Node Switcher', accelerator: 'Ctrl+Space', click: dispatch('nodeSwitcher') },
-        { type: 'separator' },
         { label: 'Next Panel', accelerator: 'Ctrl+Tab', click: dispatch('focusNext') },
         { label: 'Previous Panel', accelerator: 'Ctrl+Shift+Tab', click: dispatch('focusPrevious') },
       ],
@@ -249,10 +232,7 @@ export function buildApplicationMenu(): void {
       submenu: [
         {
           label: 'New Window',
-          click: (): void => {
-            if (!newMainWindowFn) return
-            newMainWindowFn()
-          },
+          click: newWindow,
         },
         { type: 'separator' },
         { role: 'minimize' },
@@ -261,19 +241,13 @@ export function buildApplicationMenu(): void {
         {
           label: 'Main Window',
           click: (): void => {
-            for (const win of BrowserWindow.getAllWindows()) {
-              if (win.isDestroyed()) continue
-              if (getWindowType(win.id) === 'main') {
-                win.show()
-                win.focus()
-                return
-              }
+            const win = getActiveMainWindow()
+            if (win) {
+              win.show()
+              win.focus()
             }
           },
         },
-        ...(panelWindowItems.length > 0
-          ? [{ type: 'separator' as const }, ...panelWindowItems]
-          : []),
       ],
     },
     // Help menu
@@ -307,4 +281,5 @@ export function buildApplicationMenu(): void {
 
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
+  currentMenu = menu
 }

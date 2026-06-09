@@ -22,6 +22,7 @@ import {
 import { getActiveTheme, subscribeTheme } from '../lib/themeManager'
 import type { Theme } from '../../shared/types'
 import { takePendingReveal } from '../lib/editor/editorReveal'
+import { watchFsRoot } from '../lib/fs/fsWatchManager'
 
 // -----------------------------------------------------------------------------
 // Monaco worker setup for Electron (Vite bundler)
@@ -127,6 +128,13 @@ const MODEL_CACHE_LIMIT = 20
 const modelCache = new Map<string, monaco.editor.ITextModel>()
 // Counts how many mounted EditorPanel instances are actively using a cached model.
 const modelRefCount = new Map<string, number>()
+
+// File paths whose model is mid external-reload (setValue pulled from disk). A
+// shared cached model can back several editors, so the setValue fires
+// onDidChangeModelContent on every one of them — we mark the path here for the
+// synchronous duration of setValue so those change events aren't mistaken for a
+// user edit and flip the panel(s) to dirty.
+const externalReloadPaths = new Set<string>()
 
 function rememberModel(filePath: string, model: monaco.editor.ITextModel): void {
   // Map preserves insertion order — re-insert to mark as most recent.
@@ -405,11 +413,10 @@ export default function EditorPanel({
       // the single source of truth for the editor model when the prop
       // does flip (main window).
       useAppStore.getState().setPanelUnsavedContent(workspaceId, panelId, undefined)
-      // Notify the surrounding shell (DockWindowShell / PanelWindowShell)
-      // so its local `panels` state — which feeds session sync and close
-      // prompts in detached windows — picks up the new filePath, title,
-      // and clean dirty flag. The main window ignores this event because
-      // it reads from appStore directly.
+      // Notify the surrounding detached/dock shell (DockWindowShell) so its
+      // session sync — which feeds persistence and close prompts in detached
+      // windows — flushes the new filePath, title, and clean dirty flag. The
+      // main window ignores this event because it reads from appStore directly.
       window.dispatchEvent(
         new CustomEvent('editor:panel-saved-as', {
           detail: { panelId, filePath: targetPath, title: fileName },
@@ -620,6 +627,9 @@ export default function EditorPanel({
 
     let unsavedSaveTimer: ReturnType<typeof setTimeout> | null = null
     const changeDisposable = editor.onDidChangeModelContent(() => {
+      // A disk-driven reload (see the fs-watch effect below) replaces the model
+      // value; that isn't a user edit, so don't flip the panel to dirty.
+      if (filePathRef.current && externalReloadPaths.has(filePathRef.current)) return
       if (!isDirtyRef.current) {
         isDirtyRef.current = true
         useAppStore.getState().setPanelDirty(workspaceId, panelId, true)
@@ -727,6 +737,60 @@ export default function EditorPanel({
       diffEditorRef.current?.layout()
     }
   }, [markdownPreview, isMarkdown, filePath, workspaceId])
+
+  // ---------------------------------------------------------------------------
+  // Reload the editor model when the file changes on disk externally
+  //
+  // Monaco models are cached at module level and survive panel unmount, and the
+  // markdown preview renders from the model's value — so without this an edit
+  // made by an external tool (another editor, an AI agent, git checkout) never
+  // reaches the open buffer or its preview, and reopening the file reuses the
+  // stale cached model. Watch the workspace root (the watcher is refcounted and
+  // shared with the file explorer, so this adds no new OS watcher) and pull the
+  // fresh content into the model when our file is updated on disk. Skipped while
+  // the buffer is dirty so we never clobber the user's unsaved edits.
+  // ---------------------------------------------------------------------------
+
+  const markdownPreviewRef = useRef(markdownPreview)
+  markdownPreviewRef.current = markdownPreview
+
+  useEffect(() => {
+    if (!filePath || !rootPath || diffMode) return
+    // Remote/companion files live behind a locator the local root watcher can't
+    // match; their changes aren't covered here.
+    if (filePath.startsWith('cate-companion://')) return
+
+    const targetPosix = filePath.replace(/\\/g, '/')
+
+    return watchFsRoot(
+      rootPath,
+      (event) => {
+        if (event.type === 'delete') return
+        if (event.path.replace(/\\/g, '/') !== targetPosix) return
+        // The user's unsaved work wins until they save it themselves.
+        if (isDirtyRef.current) return
+
+        window.electronAPI
+          .fsReadFile(filePath, workspaceId)
+          .then((content) => {
+            const model = editorRef.current?.getModel()
+            if (!model || model.isDisposed()) return
+            // No-op when disk already matches the buffer (e.g. our own save
+            // fired the event) — avoids a needless full-model reset.
+            if (model.getValue() === content) return
+            externalReloadPaths.add(filePath)
+            try {
+              model.setValue(content)
+            } finally {
+              externalReloadPaths.delete(filePath)
+            }
+            if (markdownPreviewRef.current) setMarkdownContent(content)
+          })
+          .catch(() => { /* file vanished or unreadable — leave the buffer as-is */ })
+      },
+      workspaceId,
+    )
+  }, [filePath, rootPath, workspaceId, diffMode])
 
   // ---------------------------------------------------------------------------
   // Watch app theme changes and update Monaco theme

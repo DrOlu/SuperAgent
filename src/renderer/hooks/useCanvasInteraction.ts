@@ -7,9 +7,10 @@ import { useCallback, useRef, useState, useEffect } from 'react'
 import type { StoreApi } from 'zustand'
 import type { CanvasStore } from '../stores/canvasStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { useUIStore, effectiveCanvasTool } from '../stores/uiStore'
+import { useUIStore } from '../stores/uiStore'
 import { useDragStore } from '../drag'
 import { viewToCanvas } from '../lib/canvas/coordinates'
+import { rectsOverlap } from '../canvas/layoutEngine'
 import { isMouseWheel, type WheelLike } from '../lib/wheelIntent'
 import { ZOOM_MIN, ZOOM_MAX } from '../../shared/types'
 import type { Point } from '../../shared/types'
@@ -23,17 +24,9 @@ const RIGHT_CLICK_DRAG_THRESHOLD = 4
 // trackpad pinch uses.
 const MOUSE_WHEEL_ZOOM_FACTOR = 0.15
 
-// AABB overlap test for marquee selection
-function rectsIntersect(
-  ax: number, ay: number, aw: number, ah: number,
-  bx: number, by: number, bw: number, bh: number,
-): boolean {
-  return !(ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay)
-}
-
 // CSS cursor for the canvas when idle (not actively panning), per active tool.
 function idleCursorForTool(): string {
-  return effectiveCanvasTool(useUIStore.getState()) === 'hand' ? 'grab' : ''
+  return useUIStore.getState().activeTool === 'hand' ? 'grab' : ''
 }
 
 export interface CanvasContextMenuState {
@@ -238,6 +231,13 @@ export function useCanvasInteraction(
         e.preventDefault()
         return
       }
+      // While a marquee selection is in progress, swallow wheel input. The
+      // marquee is anchored in canvas-space; letting the wheel pan/zoom the
+      // world mid-drag would shift the box off the cursor.
+      if (useUIStore.getState().marquee) {
+        e.preventDefault()
+        return
+      }
       const target = e.target as HTMLElement
       // `handleWheel` is wired via a native `wheel` listener in Canvas.tsx (cast
       // to React's type), so `e` carries Chromium's `wheelDeltaY` at runtime.
@@ -254,9 +254,13 @@ export function useCanvasInteraction(
       }
 
       // --- Plain scroll over a FOCUSED panel: let it scroll its own content ---
-      // This takes priority over mouse-wheel zoom so a mouse user can still
-      // scroll code in an editor or scrollback in a terminal. Zooming over a
-      // focused panel needs the explicit Cmd/Ctrl modifier handled above.
+      // A scroll over the focused panel scrolls that panel (code in an editor,
+      // scrollback in a terminal, the page in a browser) — for both a trackpad
+      // two-finger scroll and a physical mouse wheel. Only a scroll outside the
+      // focused panel (empty canvas, or an unfocused panel) pans/zooms the
+      // canvas, so the rule is simply: inside focus → scroll, outside focus →
+      // pan (trackpad) / zoom (mouse). Zooming the focused panel's surroundings
+      // still needs the explicit Cmd/Ctrl modifier / pinch handled above.
 
       // Browser panels (webview) route their own wheel via Electron's
       // cross-process input; the passive:false capture listener interferes with
@@ -289,7 +293,7 @@ export function useCanvasInteraction(
         if (nodeId && nodeId === focusedNodeId) {
           const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY)
           if (!isHorizontal) {
-            return // Vertical scroll — panel handles it
+            return // Vertical scroll — focused panel handles it (scroll inside)
           }
           // Check if any element between target and panel boundary can scroll horizontally
           let el: HTMLElement | null = target
@@ -304,19 +308,25 @@ export function useCanvasInteraction(
       }
 
       // --- Scroll over empty canvas / unfocused panel: tool decides ---
-      // In the Select (click) tool, a plain scroll zooms — for both a physical
-      // mouse wheel and a trackpad two-finger scroll (Miro-style). In the Hand
-      // (drag) tool, or while Space is held, it falls through to the pan path
-      // below instead. The `mouse` flag only picks the zoom feel: discrete
-      // notch vs. continuous delta-proportional.
-      if (effectiveCanvasTool(useUIStore.getState()) !== 'hand') {
+      // Select (click) tool: a physical mouse wheel zooms (Miro-style), while a
+      // trackpad two-finger scroll pans — matching the wheelIntent contract and
+      // restoring the v1.1.1 trackpad feel. A trackpad pinch still zooms via the
+      // ctrlKey path handled above. Hand (drag) tool always pans (falls through).
+      if (useUIStore.getState().activeTool !== 'hand' && mouse) {
         applyWheelZoom(e, mouse)
         return
       }
 
-      // --- Hand tool: scroll pans the canvas ---
-      // Apply canvas-interacting class so iframes/webviews/monaco/xterm don't
-      // eat hit-testing while panning. Remove it ~150ms after the wheel goes quiet.
+      // --- Scroll pans the canvas (hand tool, or select-tool trackpad scroll) ---
+      // preventDefault stops the panel under the cursor from also scrolling
+      // natively: in the hand tool every panel is pointer-events:none so it never
+      // mattered, but the select-tool trackpad-pan path leaves panels live, and a
+      // competing native scroll makes the wheel target flap between panel and
+      // canvas — the pan stutters over a panel while it's smooth over empty
+      // canvas. (passive:false on the listener makes preventDefault honored.)
+      // Apply canvas-interacting so iframes/webviews/monaco/xterm don't eat
+      // hit-testing while panning; remove it ~150ms after the wheel goes quiet.
+      e.preventDefault()
       e.stopPropagation()
       if (!wheelPanActive.current) {
         wheelPanActive.current = true
@@ -350,17 +360,31 @@ export function useCanvasInteraction(
   // Mouse: right-click drag for panning, left-click on background to unfocus
   // ---------------------------------------------------------------------------
 
+  // Shared prologue for every pan-drag origin (right/middle button, hand-tool
+  // left button). Cancels inertia and arms the panning refs/cursor; the caller
+  // owns any button-specific bookkeeping (context menu, velocity) and the
+  // preventDefault/return flow.
+  const startPanDrag = useCallback(
+    (button: number, clientX: number, clientY: number) => {
+      if (cancelInertia.current) {
+        cancelInertia.current()
+        cancelInertia.current = null
+      }
+      isPanning.current = true
+      panButton.current = button
+      lastPanPos.current = { x: clientX, y: clientY }
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = 'grabbing'
+      }
+      document.body.classList.add('canvas-interacting')
+    },
+    [canvasRef],
+  )
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.button === 2 || e.button === 1) {
-        // Cancel any running inertia before starting a new drag
-        if (cancelInertia.current) {
-          cancelInertia.current()
-          cancelInertia.current = null
-        }
-        isPanning.current = true
-        panButton.current = e.button
-        lastPanPos.current = { x: e.clientX, y: e.clientY }
+        startPanDrag(e.button, e.clientX, e.clientY)
         // Only track right-click for context menu
         if (e.button === 2) {
           rightClickStart.current = { x: e.clientX, y: e.clientY }
@@ -368,10 +392,6 @@ export function useCanvasInteraction(
           velocityIndex.current = 0
           velocityCount.current = 0
         }
-        if (canvasRef.current) {
-          canvasRef.current.style.cursor = 'grabbing'
-        }
-        document.body.classList.add('canvas-interacting')
         e.preventDefault()
       } else if (e.button === 0) {
         // During deferred ghost placement: a left-click that misses every ghost
@@ -389,21 +409,11 @@ export function useCanvasInteraction(
           }
         }
 
-        // Hand tool (or Space-hold): left-drag pans the canvas, even when the
-        // press lands on a node (nodes let the event bubble here under Hand).
-        // No context menu, no inertia, no marquee — just a straight pan.
-        if (effectiveCanvasTool(useUIStore.getState()) === 'hand') {
-          if (cancelInertia.current) {
-            cancelInertia.current()
-            cancelInertia.current = null
-          }
-          isPanning.current = true
-          panButton.current = 0
-          lastPanPos.current = { x: e.clientX, y: e.clientY }
-          if (canvasRef.current) {
-            canvasRef.current.style.cursor = 'grabbing'
-          }
-          document.body.classList.add('canvas-interacting')
+        // Hand tool: left-drag pans the canvas, even when the press lands on a
+        // node (nodes let the event bubble here under Hand). No context menu, no
+        // inertia, no marquee — just a straight pan.
+        if (useUIStore.getState().activeTool === 'hand') {
+          startPanDrag(0, e.clientX, e.clientY)
           e.preventDefault()
           return
         }
@@ -412,11 +422,24 @@ export function useCanvasInteraction(
         const target = e.target as HTMLElement
         const isOnNode = target.closest('[data-node-id]') !== null
         if (!isOnNode) {
+          // Freeze any in-flight zoom/pan animation (a settling smooth-zoom from
+          // a recent scroll, or leftover pan inertia) before anchoring the
+          // marquee. The marquee corners are canvas-space and rendered inside the
+          // world transform; if the transform keeps animating between mousemoves
+          // the box drifts off the cursor ("the selection jumps"). handleWheel
+          // also swallows wheel input while a marquee is active so nothing moves
+          // the world mid-drag.
+          cancelAllAnimations()
           const rect = canvasRef.current?.getBoundingClientRect()
           if (!rect) return
           const { zoomLevel, viewportOffset } = canvasStoreApi.getState()
-          const startCanvasX = (e.clientX - rect.left - viewportOffset.x) / zoomLevel
-          const startCanvasY = (e.clientY - rect.top - viewportOffset.y) / zoomLevel
+          const startCanvas = viewToCanvas(
+            { x: e.clientX - rect.left, y: e.clientY - rect.top },
+            zoomLevel,
+            viewportOffset,
+          )
+          const startCanvasX = startCanvas.x
+          const startCanvasY = startCanvas.y
 
           const startClientX = e.clientX
           const startClientY = e.clientY
@@ -429,13 +452,23 @@ export function useCanvasInteraction(
             const dy = ev.clientY - startClientY
             if (!didDrag && Math.sqrt(dx * dx + dy * dy) >= 4) {
               didDrag = true
+              // Drop DOM focus from any panel (e.g. a Monaco textarea) so the
+              // window-level keyboard shortcuts — Delete/Backspace over the new
+              // selection — aren't swallowed by the editable that had focus.
+              const active = document.activeElement
+              if (active instanceof HTMLElement) active.blur()
             }
             if (didDrag) {
               const { zoomLevel: z, viewportOffset: vo } = canvasStoreApi.getState()
               const r = canvasRef.current?.getBoundingClientRect()
               if (!r) return
-              const currentCanvasX = (ev.clientX - r.left - vo.x) / z
-              const currentCanvasY = (ev.clientY - r.top - vo.y) / z
+              const currentCanvas = viewToCanvas(
+                { x: ev.clientX - r.left, y: ev.clientY - r.top },
+                z,
+                vo,
+              )
+              const currentCanvasX = currentCanvas.x
+              const currentCanvasY = currentCanvas.y
               useUIStore.getState().setMarquee({
                 startX: startCanvasX,
                 startY: startCanvasY,
@@ -470,8 +503,9 @@ export function useCanvasInteraction(
             const { zoomLevel: z, viewportOffset: vo } = canvasStoreApi.getState()
             const r = canvasRef.current?.getBoundingClientRect()
             if (!r) return
-            const endCanvasX = (ev.clientX - r.left - vo.x) / z
-            const endCanvasY = (ev.clientY - r.top - vo.y) / z
+            const endCanvas = viewToCanvas({ x: ev.clientX - r.left, y: ev.clientY - r.top }, z, vo)
+            const endCanvasX = endCanvas.x
+            const endCanvasY = endCanvas.y
             const mx = Math.min(startCanvasX, endCanvasX)
             const my = Math.min(startCanvasY, endCanvasY)
             const mw = Math.abs(endCanvasX - startCanvasX)
@@ -479,8 +513,9 @@ export function useCanvasInteraction(
 
             const { nodes } = canvasStoreApi.getState()
 
+            const marqueeRect = { origin: { x: mx, y: my }, size: { width: mw, height: mh } }
             const hitNodeIds = Object.values(nodes)
-              .filter((n) => rectsIntersect(mx, my, mw, mh, n.origin.x, n.origin.y, n.size.width, n.size.height))
+              .filter((n) => rectsOverlap(marqueeRect, { origin: n.origin, size: n.size }))
               .map((n) => n.id)
 
             if (!shiftHeld) {
@@ -495,7 +530,7 @@ export function useCanvasInteraction(
         }
       }
     },
-    [canvasRef],
+    [canvasRef, startPanDrag, cancelAllAnimations],
   )
 
   const handleMouseMove = useCallback(
@@ -567,8 +602,7 @@ export function useCanvasInteraction(
         lastPanPos.current = null
         rightClickStart.current = null
         if (canvasRef.current) {
-          // Hand back to React's idle cursor for the now-effective tool (Space
-          // may have been released mid-pan, reverting to the underlying tool).
+          // Hand back to React's idle cursor for the active tool.
           canvasRef.current.style.cursor = idleCursorForTool()
         }
         document.body.classList.remove('canvas-interacting')

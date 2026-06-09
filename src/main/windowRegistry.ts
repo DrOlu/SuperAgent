@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { BrowserWindow } from 'electron'
-import type { CanvasLayoutSnapshot, CateWindowType, DockStateSnapshot, PanelState } from '../shared/types'
+import type { CanvasLayoutSnapshot, CateWindowType, DockStateSnapshot, DockWindowSyncState, PanelState } from '../shared/types'
 import { PERF_ENABLED, countIpc } from './perf/perfMonitor'
 
 /** Cheap approximate byte size of IPC args — only computed under CATE_PERF=1. */
@@ -23,17 +23,12 @@ const windows = new Map<number, BrowserWindow>()
 /** Window type for each tracked window. */
 const windowTypes = new Map<number, CateWindowType>()
 
-/** Panel metadata for panel windows (set after transfer). */
-const panelWindowMeta = new Map<number, { panel: PanelState; terminalPtyId?: string }>()
-
 /** Dock window state — synced periodically from renderer for session persistence. */
-const dockWindowState = new Map<number, { dockState: DockStateSnapshot; panels: Record<string, PanelState>; terminalPtyIds?: Record<string, string>; canvasStates?: Record<string, CanvasLayoutSnapshot> }>()
+const dockWindowState = new Map<number, Omit<DockWindowSyncState, 'workspaceId'>>()
 
 /** Workspace a window was opened for — the SINGLE source of truth. Set at
  *  creation (registerWindow) for every detached path, and refreshed by the
- *  panel/dock sync setters below. (Previously workspaceId was also duplicated
- *  on panelWindowMeta + dockWindowState with a 3-way fallback that let a
- *  PANEL_TRANSFER window with no id be persisted to no workspace and lost.) */
+ *  dock sync setter below. */
 const windowWorkspaceId = new Map<number, string>()
 
 /** The id of the most recently focused main window — the default target for
@@ -70,10 +65,11 @@ export function registerWindow(win: BrowserWindow, type: CateWindowType = 'main'
     }
     windows.delete(win.id)
     windowTypes.delete(win.id)
-    panelWindowMeta.delete(win.id)
     dockWindowState.delete(win.id)
     windowWorkspaceId.delete(win.id)
     if (lastFocusedMainWindowId === win.id) lastFocusedMainWindowId = null
+    // The windowClosedHandlers above include windowPanels, which drops this
+    // window from the cross-window union and rebroadcasts it.
   })
 }
 
@@ -95,32 +91,26 @@ export function getActiveMainWindow(): BrowserWindow | undefined {
 }
 
 /**
- * The workspace a window belongs to. Known at creation for dock/panel windows;
- * falls back to the latest synced dock state / panel metadata.
+ * The workspace a window belongs to. Known at creation for dock windows;
+ * refreshed by the latest synced dock state.
  */
 export function getWindowWorkspaceId(windowId: number): string | undefined {
   return windowWorkspaceId.get(windowId)
 }
 
 /**
- * Store panel metadata for a panel window (called after transfer). When a
- * workspaceId is known (creation, Save-As resync) it updates the single
- * windowWorkspaceId map so the window can never end up workspace-less.
+ * Destroy every detached (dock) window belonging to a workspace. Used when the
+ * workspace is closed or reloaded: a live reload intentionally discards their
+ * state, so we destroy() rather than close() (no save / re-integration).
  */
-export function setPanelWindowMeta(windowId: number, panel: PanelState, workspaceId?: string): void {
-  panelWindowMeta.set(windowId, { panel })
-  if (workspaceId) windowWorkspaceId.set(windowId, workspaceId)
-}
-
-/**
- * Update the terminal ptyId for a panel window. The renderer reports this
- * shortly after the terminal panel is mounted so that session persistence can
- * later replay its scrollback log.
- */
-export function setPanelWindowTerminalPtyId(windowId: number, ptyId: string): void {
-  const meta = panelWindowMeta.get(windowId)
-  if (!meta) return
-  meta.terminalPtyId = ptyId
+export function closeWindowsForWorkspace(workspaceId: string): void {
+  for (const [id, type] of windowTypes.entries()) {
+    if (type !== 'dock') continue
+    if (windowWorkspaceId.get(id) !== workspaceId) continue
+    const win = windows.get(id)
+    if (!win || win.isDestroyed()) continue
+    win.destroy()
+  }
 }
 
 /**
@@ -216,29 +206,6 @@ export function windowFromEvent(event: Electron.IpcMainInvokeEvent | Electron.Ip
   return undefined
 }
 
-/**
- * Get all active panel windows with their metadata and bounds.
- */
-export function listPanelWindows(): Array<{ windowId: number; panel: PanelState; workspaceId?: string; bounds: { x: number; y: number; width: number; height: number }; terminalPtyId?: string }> {
-  const result: Array<{ windowId: number; panel: PanelState; workspaceId?: string; bounds: { x: number; y: number; width: number; height: number }; terminalPtyId?: string }> = []
-  for (const [id, type] of windowTypes.entries()) {
-    if (type !== 'panel') continue
-    const win = windows.get(id)
-    if (!win || win.isDestroyed()) continue
-    const meta = panelWindowMeta.get(id)
-    if (!meta) continue
-    const bounds = win.getBounds()
-    result.push({
-      windowId: id,
-      panel: meta.panel,
-      workspaceId: windowWorkspaceId.get(id),
-      bounds,
-      terminalPtyId: meta.terminalPtyId,
-    })
-  }
-  return result
-}
-
 // =============================================================================
 // Dock window state management
 // =============================================================================
@@ -248,34 +215,32 @@ export function listPanelWindows(): Array<{ windowId: number; panel: PanelState;
  */
 export function setDockWindowState(
   windowId: number,
-  state: { dockState: DockStateSnapshot; panels: Record<string, PanelState>; workspaceId: string; terminalPtyIds?: Record<string, string>; canvasStates?: Record<string, CanvasLayoutSnapshot> },
+  state: DockWindowSyncState,
 ): void {
+  // workspaceId is intentionally optional: the detached shell does NOT echo it
+  // back (its local wsId may be the process-local stub). The real id was set at
+  // window creation (registerWindow), so we keep it unless a real one arrives.
   const { workspaceId, ...rest } = state
   dockWindowState.set(windowId, rest)
   if (workspaceId) windowWorkspaceId.set(windowId, workspaceId)
 }
 
-/**
- * List all dock windows with their state and bounds.
- */
-export function listDockWindows(): Array<{
+/** A dock window's persisted state plus its live window id and bounds. */
+interface DockWindowListEntry {
   windowId: number
   dockState: DockStateSnapshot
   panels: Record<string, PanelState>
   bounds: { x: number; y: number; width: number; height: number }
   workspaceId: string
-  terminalPtyIds?: Record<string, string>
+  terminalCwds?: Record<string, string>
   canvasStates?: Record<string, CanvasLayoutSnapshot>
-}> {
-  const result: Array<{
-    windowId: number
-    dockState: DockStateSnapshot
-    panels: Record<string, PanelState>
-    bounds: { x: number; y: number; width: number; height: number }
-    workspaceId: string
-    terminalPtyIds?: Record<string, string>
-    canvasStates?: Record<string, CanvasLayoutSnapshot>
-  }> = []
+}
+
+/**
+ * List all dock windows with their state and bounds.
+ */
+export function listDockWindows(): Array<DockWindowListEntry> {
+  const result: Array<DockWindowListEntry> = []
   for (const [id, type] of windowTypes.entries()) {
     if (type !== 'dock') continue
     const win = windows.get(id)
@@ -292,3 +257,8 @@ export function listDockWindows(): Array<{
   }
   return result
 }
+
+// The cross-window panel discovery union (flatten/broadcast/reveal) lives in
+// ./windowPanels — windows report their panels to it directly (WINDOW_PANELS_REPORT)
+// and it subscribes to onWindowClosed here, keeping this module free of it. The
+// dock state above is now purely for session persistence.

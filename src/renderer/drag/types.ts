@@ -48,9 +48,8 @@ export type DragSource = {
         sourceCanvasStoreApi?: StoreApi<CanvasStore>
       }
     | {
-        /** The source is a single-panel detached window (PanelWindowShell).
-         *  On a successful cross-window claim the source cleans up by closing
-         *  its own window. */
+        /** The source is a single-panel detached window. On a successful
+         *  cross-window claim the source cleans up by closing its own window. */
         kind: 'panel-window'
       }
     | {
@@ -220,7 +219,13 @@ export type DragEffect =
       target: DropTarget
       panel: { id: string; type: PanelType; title: string }
     }
-  | { kind: 'clear-state' }
+
+/** Apply a 'set-body-class' drag effect — shared by the local and remote
+ *  effect runners (useDragOp, crossWindow) so the add/remove logic lives once. */
+export function applyBodyClassEffect(eff: { cls: string; on: boolean }): void {
+  if (eff.on) document.body.classList.add(eff.cls)
+  else document.body.classList.remove(eff.cls)
+}
 
 export interface RuntimeState {
   /** Mirrors what the store will publish. */

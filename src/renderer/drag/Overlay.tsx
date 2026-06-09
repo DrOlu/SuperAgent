@@ -142,6 +142,8 @@ function GhostWindow({
 // (the ghost itself shows the landing position).
 // -----------------------------------------------------------------------------
 
+type Rect = { left: number; top: number; width: number; height: number }
+
 function DropIndicator({ target }: { target: DropTarget | null }) {
   if (!target) return null
   // dock-tab: DockTabStack itself renders an inline "+ new tab" placeholder at
@@ -152,19 +154,26 @@ function DropIndicator({ target }: { target: DropTarget | null }) {
     return null
   }
 
-  const stackRect = lookupStackRect(target)
-  if (!stackRect) return null
+  const stack = lookupStackRect(target)
+  if (!stack) return null
+  const { rect: stackRect, clip } = stack
 
   if (target.kind === 'dock-zone') {
+    // Clamp to the stack's canvas container (if any) so the indicator never
+    // paints over the sidebar or the canvas tab-bar strip — a per-node mini-dock
+    // rect extends under those when the node sits past the canvas edge (its DOM
+    // rect ignores the canvas's overflow-clip).
+    const r = clampToClip(stackRect, clip)
+    if (!r) return null
     return (
       <div
         data-drag-indicator="zone"
         style={{
           position: 'absolute',
-          left: stackRect.left,
-          top: stackRect.top,
-          width: stackRect.width,
-          height: stackRect.height,
+          left: r.left,
+          top: r.top,
+          width: r.width,
+          height: r.height,
           backgroundColor: 'rgba(74, 158, 255, 0.08)',
           border: '2px dashed rgba(74, 158, 255, 0.4)',
           borderRadius: 6,
@@ -176,7 +185,7 @@ function DropIndicator({ target }: { target: DropTarget | null }) {
 
   // dock-split: half the rect on the edge.
   const edge = target.edge
-  const half = {
+  const half: Rect = {
     left: stackRect.left,
     top: stackRect.top,
     width: stackRect.width,
@@ -192,12 +201,17 @@ function DropIndicator({ target }: { target: DropTarget | null }) {
     half.width = stackRect.width / 2
   }
 
+  const r = clampToClip(half, clip)
+  if (!r) return null
   return (
     <div
       data-drag-indicator={`split-${edge}`}
       style={{
         position: 'absolute',
-        ...half,
+        left: r.left,
+        top: r.top,
+        width: r.width,
+        height: r.height,
         backgroundColor: 'rgba(74, 158, 255, 0.12)',
         border: '2px solid rgba(74, 158, 255, 0.5)',
         borderRadius: 6,
@@ -207,7 +221,19 @@ function DropIndicator({ target }: { target: DropTarget | null }) {
   )
 }
 
-function lookupStackRect(target: DropTarget): { left: number; top: number; width: number; height: number } | null {
+/** Intersect a screen-px rect with its clip rect (the stack's canvas container).
+ *  Returns null when there's no overlap. With no clip, the rect passes through. */
+function clampToClip(rect: Rect, clip: Rect | null): Rect | null {
+  if (!clip) return rect
+  const left = Math.max(rect.left, clip.left)
+  const top = Math.max(rect.top, clip.top)
+  const right = Math.min(rect.left + rect.width, clip.left + clip.width)
+  const bottom = Math.min(rect.top + rect.height, clip.top + clip.height)
+  if (right <= left || bottom <= top) return null
+  return { left, top, width: right - left, height: bottom - top }
+}
+
+function lookupStackRect(target: DropTarget): { rect: Rect; clip: Rect | null } | null {
   if (target.kind !== 'dock-split' && target.kind !== 'dock-tab' && target.kind !== 'dock-zone') return null
   for (const entry of getDropZoneEntries()) {
     const matches =
@@ -218,7 +244,14 @@ function lookupStackRect(target: DropTarget): { left: number; top: number; width
     if (!matches) continue
     const r = entry.getRect()
     if (!r) continue
-    return { left: r.left, top: r.top, width: r.width, height: r.height }
+    // The stack's nearest canvas container clips per-node mini-dock indicators to
+    // the canvas surface. Main-window dock stacks have no canvas ancestor → no clip.
+    const container = entry.getElement?.()?.closest<HTMLElement>('[data-canvas-container]')
+    const cr = container?.getBoundingClientRect() ?? null
+    return {
+      rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+      clip: cr ? { left: cr.left, top: cr.top, width: cr.width, height: cr.height } : null,
+    }
   }
   return null
 }

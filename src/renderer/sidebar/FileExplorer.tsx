@@ -5,9 +5,10 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import log from '../lib/logger'
-import { ArrowClockwise, FilePlus, FolderPlus, MagnifyingGlass, X, Folder, File } from '@phosphor-icons/react'
+import { ArrowClockwise, FilePlus, FolderPlus, MagnifyingGlass, X } from '@phosphor-icons/react'
 import type { FileTreeNode as FileTreeNodeType } from '../../shared/types'
 import { FileTreeNode } from './FileTreeNode'
+import { CreateFileForm } from './CreateFileForm'
 import { isNavKey, resolveTreeNavAction } from './treeKeyboardNav'
 import { watchFsRoot } from '../lib/fs/fsWatchManager'
 import { useGitTreeFor } from '../stores/gitStatusStore'
@@ -789,30 +790,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ rootPath }) => {
 
           {/* Inline create input for root-level creation (from empty space context menu) */}
           {rootCreating && (
-            <div className="h-7 flex items-center gap-1.5 px-2" style={{ paddingLeft: '8px' }}>
-              <span className="flex-shrink-0 w-3" />
-              <span className="flex-shrink-0" style={{ color: rootCreating === 'folder' ? '#E2B855' : '#9CA3AF' }}>
-                {rootCreating === 'folder' ? (
-                  <Folder size={14} />
-                ) : (
-                  <File size={14} />
-                )}
-              </span>
-              <input
-                ref={rootCreateInputRef}
-                className="flex-1 min-w-0 bg-surface-5 text-primary text-sm px-1 rounded border border-blue-500/50 outline-none"
-                value={rootCreateValue}
-                placeholder={rootCreating === 'folder' ? 'folder name' : 'file name'}
-                onChange={(e) => setRootCreateValue(e.target.value)}
-                onBlur={commitRootCreate}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRootCreate()
-                  if (e.key === 'Escape') setRootCreating(null)
-                  e.stopPropagation()
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
+            <CreateFileForm
+              ref={rootCreateInputRef}
+              type={rootCreating}
+              value={rootCreateValue}
+              onChange={setRootCreateValue}
+              onSubmit={commitRootCreate}
+              onCancel={() => setRootCreating(null)}
+              paddingLeft="8px"
+            />
           )}
         </div>
       )}

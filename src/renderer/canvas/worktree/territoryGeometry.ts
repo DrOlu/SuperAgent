@@ -2,10 +2,9 @@
 // territoryGeometry — pure, framework-free helpers shared by the WebGL renderer
 // (territoryGL) and the pocket-mask builder (territoryPocketMask).
 //
-// These mirror the math in territoryRenderer.ts (the CPU fallback) EXACTLY. They
-// are duplicated rather than imported so the proven CPU path stays untouched and
-// can serve as the golden A/B reference. The field is a pure function of WORLD
-// position — there is no screen/zoom dependency here.
+// The SDF/noise math is shared with the CPU fallback (territoryRenderer.ts) via
+// territoryMath.ts, so both paths evaluate the identical field. The field is a
+// pure function of WORLD position — there is no screen/zoom dependency here.
 // =============================================================================
 
 import {
@@ -14,7 +13,12 @@ import {
   INNER_RING_FRAC, WARP_AMP, WARP_FREQ, INTENSITY, OUTER_LEVEL,
   MAX_GROUPS, MAX_PRIMITIVES,
 } from './territoryConfig'
-import type { TerritoryGroup, TerritoryRect } from './territoryRenderer'
+import type { TerritoryGroup } from './territoryRenderer'
+import {
+  fbm, sdRoundRect, smin, sdSegment, rectGap, bridgeCapsule, hexToRgb, type TerritoryRect,
+} from './territoryMath'
+
+export { hexToRgb }
 
 // --- derived constants (same formulas as territoryRenderer.ts) ---------------
 export const OUTER_REACH = REACH * OUTER_REACH_SCALE
@@ -22,88 +26,15 @@ export const INNER_RING = REACH * INNER_RING_FRAC
 export const OUTER_A = INTENSITY * OUTER_LEVEL
 export const INNER_EXTRA = (INTENSITY - OUTER_A) / (1 - OUTER_A)
 
-// --- value noise (static; the organic domain warp) --------------------------
-function hash(x: number, y: number): number {
-  let h = (x | 0) * 374761393 + (y | 0) * 668265263
-  h = (h ^ (h >> 13)) * 1274126177
-  return ((h ^ (h >> 16)) >>> 0) / 4294967295
-}
-function vnoise(x: number, y: number): number {
-  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi
-  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf)
-  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1)
-  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v
-}
-function fbm(x: number, y: number): number {
-  // Large flowing base + a subtle finer octave — keep in sync with territoryRenderer.ts / territoryGL.ts.
-  return vnoise(x, y) * 0.82 + vnoise(x * 2.3 + 11.7, y * 2.3 + 5.1) * 0.18
-}
+// Value noise, SDF primitives, rectGap, bridgeCapsule and hexToRgb live in
+// territoryMath.ts (shared source of truth, also mirrored in the territoryGL.ts
+// GLSL port for the math helpers).
 
-// --- signed distance primitives ---------------------------------------------
-function sdRoundRect(px: number, py: number, x: number, y: number, w: number, h: number, r: number): number {
-  const cx = x + w / 2, cy = y + h / 2, hx = w / 2 - r, hy = h / 2 - r
-  const qx = Math.abs(px - cx) - hx, qy = Math.abs(py - cy) - hy
-  const ax = Math.max(qx, 0), ay = Math.max(qy, 0)
-  return Math.sqrt(ax * ax + ay * ay) + Math.min(Math.max(qx, qy), 0) - r
-}
-function smin(a: number, b: number, k: number): number {
-  if (k <= 0) return Math.min(a, b)
-  const h = Math.max(k - Math.abs(a - b), 0) / k
-  return Math.min(a, b) - h * h * k * 0.25
-}
-function sdSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number, r: number): number {
-  const pax = px - ax, pay = py - ay, bax = bx - ax, bay = by - ay
-  const denom = bax * bax + bay * bay
-  const h = denom > 1e-6 ? Math.max(0, Math.min(1, (pax * bax + pay * bay) / denom)) : 0
-  const dx = pax - bax * h, dy = pay - bay * h
-  return Math.sqrt(dx * dx + dy * dy) - r
-}
-function rectGap(a: TerritoryRect, b: TerritoryRect): number {
-  const dx = Math.max(a.x - (b.x + b.w), b.x - (a.x + a.w), 0)
-  const dy = Math.max(a.y - (b.y + b.h), b.y - (a.y + a.h), 0)
-  return Math.sqrt(dx * dx + dy * dy)
-}
-
-export function hexToRgb(hex: string): [number, number, number] {
-  let h = hex.trim().replace('#', '')
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]
-  const n = parseInt(h, 16)
-  if (Number.isNaN(n)) return [255, 255, 255]
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
-
-// --- connection bridges (same fade logic as territoryRenderer.ts:309-325) ----
-export interface Bridge { a: number; b: number; radius: number; ax: number; ay: number; bx: number; by: number }
-/** Fit a capsule that fuses two same-worktree panels by filling ONLY the gap and
- *  the panels' interiors — never reaching their outer edges, so a connection never
- *  domes the far top/bottom (or left/right) the way a center-to-center capsule did.
- *  Returns [ax, ay, bx, by, radius]:
- *   - endpoints sit at each panel's FACING (inner) edge along the connection axis,
- *     so the capsule spans the gap and its caps bulge inward into the panels;
- *   - radius is capped to the panels' half-extent PERPENDICULAR to the axis (stay
- *     flush with the sides) and to their full extent ALONG the axis (so a cap can't
- *     poke out the far edge of a shallow panel).
- *  Keep in sync with territoryRenderer.ts:bridgeCapsule. */
-export function bridgeCapsule(a: TerritoryRect, b: TerritoryRect, r: number): [number, number, number, number, number] {
-  const acx = a.x + a.w / 2, acy = a.y + a.h / 2
-  const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2
-  const dx = bcx - acx, dy = bcy - acy
-  const dist = Math.sqrt(dx * dx + dy * dy)
-  if (dist < 1e-6) return [acx, acy, bcx, bcy, Math.min(r, a.w / 2, a.h / 2, b.w / 2, b.h / 2)]
-  const ux = dx / dist, uy = dy / dist
-  // Half-extent of each box along the axis and perpendicular to it.
-  const axA = Math.abs(ux) * a.w / 2 + Math.abs(uy) * a.h / 2
-  const axB = Math.abs(ux) * b.w / 2 + Math.abs(uy) * b.h / 2
-  const perpA = Math.abs(uy) * a.w / 2 + Math.abs(ux) * a.h / 2
-  const perpB = Math.abs(uy) * b.w / 2 + Math.abs(ux) * b.h / 2
-  const rr = Math.min(r, perpA, perpB, 2 * axA, 2 * axB)
-  // Endpoints at the FACING edges (centers shifted toward each other by their
-  // along-axis half-extent); collapse to the midpoint if the panels overlap.
-  let sa = axA
-  let sb = dist - axB
-  if (sa > sb) { const mid = (sa + sb) / 2; sa = mid; sb = mid }
-  return [acx + ux * sa, acy + uy * sa, acx + ux * sb, acy + uy * sb, rr]
-}
+// --- connection bridges (same fade logic as territoryRenderer.ts) ------------
+/** `cullR` is the screen-cull reach (rad + OUTER_REACH + SMINK + WARP_AMP) the
+ *  CPU renderer needs to size each bridge's reach box; it is always > 0 for an
+ *  emitted bridge (the skip-if-<=0 cull happens in buildBridges). */
+export interface Bridge { a: number; b: number; radius: number; ax: number; ay: number; bx: number; by: number; cullR: number }
 /** Same-worktree panel pairs near enough to fuse, as fading capsule bridges.
  *  Endpoints are clamped so the cap never overshoots either panel. */
 export function buildBridges(rects: TerritoryRect[]): Bridge[] {
@@ -120,7 +51,7 @@ export function buildBridges(rects: TerritoryRect[]): Bridge[] {
       const cullR = rad + OUTER_REACH + SMINK + WARP_AMP
       if (cullR <= 0) continue
       const [ax, ay, bx, by, rr] = bridgeCapsule(rects[a], rects[b], rad)
-      out.push({ a, b, radius: rr, ax, ay, bx, by })
+      out.push({ a, b, radius: rr, ax, ay, bx, by, cullR })
     }
   }
   return out

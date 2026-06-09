@@ -584,32 +584,22 @@ export default function BrowserPanel({
       <div className="flex-1 relative">
         {/* Error state overlay */}
         {loadError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-4 text-secondary p-4 text-center z-10">
-            <Globe size={32} className="mb-2 text-muted" />
-            <p className="text-sm font-medium mb-1">Failed to load page</p>
-            <p className="text-xs text-muted">{loadError}</p>
-            <button
-              onClick={handleReload}
-              className="mt-3 px-3 py-1 text-xs rounded bg-surface-6 hover:bg-hover text-primary"
-            >
-              Try Again
-            </button>
-          </div>
+          <WebviewErrorOverlay
+            title="Failed to load page"
+            description={loadError}
+            buttonLabel="Try Again"
+            onRetry={handleReload}
+          />
         )}
 
         {/* Crash state overlay — guest renderer process died (OOM/GPU/native). */}
         {crashed && !loadError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-4 text-secondary p-4 text-center z-10">
-            <Globe size={32} className="mb-2 text-muted" />
-            <p className="text-sm font-medium mb-1">This page crashed</p>
-            <p className="text-xs text-muted">The browser process for this panel stopped unexpectedly.</p>
-            <button
-              onClick={handleReload}
-              className="mt-3 px-3 py-1 text-xs rounded bg-surface-6 hover:bg-hover text-primary"
-            >
-              Reload Page
-            </button>
-          </div>
+          <WebviewErrorOverlay
+            title="This page crashed"
+            description="The browser process for this panel stopped unexpectedly."
+            buttonLabel="Reload Page"
+            onRetry={handleReload}
+          />
         )}
 
         {/* Webview — keyed by partition so a proxy change cleanly remounts it,
@@ -661,6 +651,37 @@ export default function BrowserPanel({
           />
         )}
       </div>
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Webview error/crash overlay
+// -----------------------------------------------------------------------------
+
+/** Full-bleed overlay shown when the webview fails to load or its process crashes. */
+function WebviewErrorOverlay({
+  title,
+  description,
+  buttonLabel,
+  onRetry,
+}: {
+  title: string
+  description: React.ReactNode
+  buttonLabel: string
+  onRetry: () => void
+}) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-4 text-secondary p-4 text-center z-10">
+      <Globe size={32} className="mb-2 text-muted" />
+      <p className="text-sm font-medium mb-1">{title}</p>
+      <p className="text-xs text-muted">{description}</p>
+      <button
+        onClick={onRetry}
+        className="mt-3 px-3 py-1 text-xs rounded bg-surface-6 hover:bg-hover text-primary"
+      >
+        {buttonLabel}
+      </button>
     </div>
   )
 }

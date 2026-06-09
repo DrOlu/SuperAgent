@@ -5,8 +5,7 @@
 // the only local state is transient UI (popover open, drag-over, slash index).
 // =============================================================================
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Stop,
   PaperPlaneRight,
@@ -18,7 +17,8 @@ import {
   ImageAttachButton,
   ImageChips,
   ThinkingLevelPicker,
-  useNodePortalTarget,
+  NodePopover,
+  useNodePopover,
 } from './AgentPanelChrome'
 import type {
   AgentImageAttachment,
@@ -288,31 +288,16 @@ function CompactButton({
   autoCompactionEnabled: boolean
   compactionActive: boolean
 }) {
-  const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
-  const popoverRef = useRef<HTMLDivElement>(null)
-  const { getTarget, toLocal } = useNodePortalTarget(btnRef)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
-  useEffect(() => {
-    if (!open) return
-    setPortalTarget(getTarget())
-    const handler = (e: MouseEvent) => {
-      if (btnRef.current?.contains(e.target as Node)) return
-      if (popoverRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open, getTarget])
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return
-    const r = btnRef.current.getBoundingClientRect()
-    const popW = 200
-    let left = r.left
-    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8
-    setPos(toLocal({ top: r.top - 6, left }))
-  }, [open, toLocal])
+  const { open, setOpen, popoverRef, pos, portalTarget } = useNodePopover(
+    btnRef,
+    (r) => {
+      const popW = 200
+      let left = r.left
+      if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8
+      return { top: r.top - 6, left }
+    },
+  )
   return (
     <>
       <button
@@ -326,11 +311,13 @@ function CompactButton({
       >
         <ArrowsClockwise size={12} className={compactionActive ? 'animate-spin' : ''} />
       </button>
-      {open && pos && portalTarget && createPortal(
-        <div
-          ref={popoverRef}
-          className="absolute w-[200px] rounded-lg border border-strong bg-surface-4/98 backdrop-blur-xl shadow-[0_12px_32px_var(--shadow-node)] z-[9999] overflow-hidden"
-          style={{ top: pos.top, left: pos.left, transform: 'translateY(-100%)' }}
+      {open && (
+        <NodePopover
+          popoverRef={popoverRef}
+          pos={pos}
+          portalTarget={portalTarget}
+          width={200}
+          bodyClassName="overflow-hidden"
         >
           <button
             onClick={() => { setOpen(false); onManualCompact() }}
@@ -352,8 +339,7 @@ function CompactButton({
               </span>
             </button>
           </div>
-        </div>,
-        portalTarget,
+        </NodePopover>
       )}
     </>
   )
@@ -381,28 +367,11 @@ function StatsChip({
 }: {
   stats: import('../../shared/types').AgentSessionStats | null
 }) {
-  const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
-  const popoverRef = useRef<HTMLDivElement>(null)
-  const { getTarget, toLocal } = useNodePortalTarget(btnRef)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
-  useEffect(() => {
-    if (!open) return
-    setPortalTarget(getTarget())
-    const handler = (e: MouseEvent) => {
-      if (btnRef.current?.contains(e.target as Node)) return
-      if (popoverRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open, getTarget])
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return
-    const r = btnRef.current.getBoundingClientRect()
-    setPos(toLocal({ top: r.top - 6, left: r.left }))
-  }, [open, toLocal])
+  const { open, setOpen, popoverRef, pos, portalTarget } = useNodePopover(
+    btnRef,
+    (r) => ({ top: r.top - 6, left: r.left }),
+  )
   if (!stats) return null
   const ctx = stats.contextUsage
   const ctxTokens = ctx?.tokens ?? null
@@ -438,11 +407,13 @@ function StatsChip({
       >
         {pctRounded != null ? <ContextRing percent={pctRounded} /> : <span>-</span>}
       </button>
-      {open && pos && portalTarget && createPortal(
-        <div
-          ref={popoverRef}
-          className="absolute w-[260px] rounded-lg border border-strong bg-surface-4/98 backdrop-blur-xl shadow-[0_12px_32px_var(--shadow-node)] z-[9999] text-[11.5px] text-primary font-mono"
-          style={{ top: pos.top, left: pos.left, transform: 'translateY(-100%)' }}
+      {open && (
+        <NodePopover
+          popoverRef={popoverRef}
+          pos={pos}
+          portalTarget={portalTarget}
+          width={260}
+          bodyClassName="text-[11.5px] text-primary font-mono"
         >
           <div className="px-3 pt-3 pb-2 border-b border-subtle">
             <div className="flex justify-between items-baseline mb-1.5">
@@ -479,8 +450,7 @@ function StatsChip({
             <span className="text-muted">Total cost</span>
             <span>{fmtCost(stats.cost)}</span>
           </div>
-        </div>,
-        portalTarget,
+        </NodePopover>
       )}
     </>
   )

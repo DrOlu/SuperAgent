@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import log from '../lib/logger'
 import type { UIState } from '../../shared/types'
 import { DEFAULT_UI_STATE } from '../../shared/types'
+import { getElectronAPI, mergeKnown } from './jsonProjection'
 
 interface ElectronUIStateAPI {
   uiStateGetAll: () => Promise<Partial<UIState>>
@@ -16,8 +17,7 @@ interface ElectronUIStateAPI {
 }
 
 function getAPI(): ElectronUIStateAPI | null {
-  const api = typeof window !== 'undefined' ? (window as unknown as Record<string, unknown>).electronAPI : null
-  return (api as ElectronUIStateAPI) ?? null
+  return getElectronAPI<ElectronUIStateAPI>()
 }
 
 interface UIStateStore extends UIState {
@@ -35,11 +35,7 @@ export const useUIStateStore = create<UIStateStore>((set) => ({
     if (!api) { set({ _loaded: true }); return }
     try {
       const stored = await api.uiStateGetAll()
-      const merged: Partial<UIState> = {}
-      for (const key of Object.keys(DEFAULT_UI_STATE) as (keyof UIState)[]) {
-        if (key in stored && stored[key] !== undefined) (merged as Record<string, unknown>)[key] = stored[key]
-      }
-      set({ ...merged, _loaded: true })
+      set({ ...mergeKnown(DEFAULT_UI_STATE, stored), _loaded: true })
     } catch {
       set({ _loaded: true })
     }

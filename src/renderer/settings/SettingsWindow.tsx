@@ -28,6 +28,7 @@ import { UpdatesSettings } from './UpdatesSettings'
 import { ProvidersSettings } from './ProvidersSettings'
 import { SkillsSettings } from './SkillsSettings'
 import { SettingsSearchContext } from './SettingsSearchContext'
+import { TextInput } from './SettingsComponents'
 
 const SECTIONS = [
   { title: 'General', component: GeneralSettings },
@@ -195,10 +196,9 @@ export function SettingsWindow({ isOpen, onClose, initialTab }: SettingsWindowPr
                   size={13}
                   className="absolute left-2 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                 />
-                <input
-                  type="text"
+                <TextInput
                   value={rawQuery}
-                  onChange={(e) => setRawQuery(e.target.value)}
+                  onChange={setRawQuery}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape' && rawQuery) {
                       e.stopPropagation()
@@ -206,7 +206,7 @@ export function SettingsWindow({ isOpen, onClose, initialTab }: SettingsWindowPr
                     }
                   }}
                   placeholder="Search settings…"
-                  className="w-full bg-surface-5 border border-subtle rounded-md pl-7 pr-2 py-1 text-sm text-primary placeholder:text-muted focus:border-focus-blue focus:outline-none"
+                  layoutClassName="w-full pl-7 pr-2"
                 />
               </div>
             </div>

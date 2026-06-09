@@ -9,6 +9,7 @@
 // panel transfer handlers, since they need access to createWindow().
 // This file exports helper utilities for the drag system.
 import log from '../logger'
+import { toError } from './handlerError'
 // =============================================================================
 
 import { app, nativeImage } from 'electron'
@@ -30,7 +31,7 @@ export function writeDragTempFile(snapshot: PanelTransferSnapshot): string {
     fs.writeFileSync(dragTempFile, JSON.stringify(snapshot), 'utf-8')
   } catch (error) {
     log.error('[writeDragTempFile]', error)
-    throw error instanceof Error ? error : new Error(String(error))
+    throw toError(error)
   }
   return dragTempFile
 }

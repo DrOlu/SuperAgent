@@ -7,6 +7,7 @@
 
 import { ipcMain } from 'electron'
 import { createJsonStateFile } from './jsonStateFile'
+import { isPlainObject } from './jsonUtils'
 import { DEFAULT_UI_STATE } from '../shared/types'
 import type { UIState } from '../shared/types'
 import { UI_STATE_GET_ALL, UI_STATE_SET } from '../shared/ipc-channels'
@@ -17,7 +18,7 @@ const store = createJsonStateFile<UIState>({
   filename: 'ui-state.json',
   defaults: DEFAULT_UI_STATE,
   normalize: (parsed, defaults) => {
-    const o = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {}
+    const o = isPlainObject(parsed) ? parsed : {}
     const size = o.minimapSize as { w?: unknown; h?: unknown } | undefined
     return {
       minimapCorner: CORNERS.has(o.minimapCorner as string) ? (o.minimapCorner as UIState['minimapCorner']) : defaults.minimapCorner,

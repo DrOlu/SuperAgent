@@ -14,6 +14,8 @@ import { useAppStore } from '../stores/appStore'
 import type { DockStore } from '../stores/dockStore'
 import { getPanelDef } from '../panels/registry'
 import { setActivePanel } from '../lib/activePanel'
+import { useMultiNodeSelection } from '../canvas/useMultiNodeSelection'
+import type { NativeContextMenuItem } from '../../shared/electron-api'
 
 export interface DockTabActionsParams {
   stack: DockTabStackType
@@ -26,18 +28,45 @@ export interface DockTabActionsParams {
   onPanelRenamed?: (panelId: string, title: string) => void
   excludePanelTypes?: PanelType[]
   localOnly?: boolean
-  activePanel: PanelState | undefined
 }
 
 export function useDockTabActions(params: DockTabActionsParams) {
   const {
     stack, zone, dockStoreApi, workspaceId, getPanelProp,
-    onClosePanel, onPanelRemoved, onPanelRenamed, excludePanelTypes, localOnly, activePanel,
+    onClosePanel, onPanelRemoved, onPanelRenamed, excludePanelTypes, localOnly,
   } = params
 
   const setActiveTab = useCallback((stackId: string, index: number) => {
     dockStoreApi.getState().setActiveTab(stackId, index)
   }, [dockStoreApi])
+
+  // Canvas-node mini-docks (localOnly) branch their context menus on whether
+  // several nodes are selected at once: hide per-node split / new-tab and show
+  // the bulk "Close All" instead. Side/main dock zones have no node selection,
+  // so they always keep the full menu.
+  const { isMultiSelected, closeSelection } = useMultiNodeSelection()
+  const isMultiNodeSelection = useCallback(
+    () => !!localOnly && isMultiSelected(),
+    [localOnly, isMultiSelected],
+  )
+  // Close All shows for every dock zone, but on a canvas mini-dock only while a
+  // multi-selection is active (where it closes the whole selection).
+  const showCloseAll = useCallback(
+    () => !localOnly || isMultiNodeSelection(),
+    [localOnly, isMultiNodeSelection],
+  )
+  // While several nodes are selected, every node context menu (tab or tab-bar)
+  // collapses to this single bulk menu — the gesture targets the whole
+  // selection, not one tab/node. Returns true when it handled the event.
+  const showMultiSelectionMenu = useCallback(async (): Promise<boolean> => {
+    if (!isMultiNodeSelection()) return false
+    if (!window.electronAPI) return true
+    const id = await window.electronAPI.showContextMenu([
+      { id: 'close-all', label: 'Close All' },
+    ])
+    if (id === 'close-all') closeSelection()
+    return true
+  }, [isMultiNodeSelection, closeSelection])
 
   // --- Inline rename --------------------------------------------------------
   const [renameId, setRenameId] = useState<string | null>(null)
@@ -92,6 +121,7 @@ export function useDockTabActions(params: DockTabActionsParams) {
           // renders them as generic "Panel" stubs (mirrors the drag path).
           resolveChildPanel: (childId: string) => sourceWs?.panels[childId],
           workspaceRootPath: sourceWs?.rootPath || undefined,
+          worktrees: sourceWs?.worktrees,
         },
       )
       // Detach FIRST — only tear down the source once the new window actually
@@ -118,11 +148,9 @@ export function useDockTabActions(params: DockTabActionsParams) {
       const placement: import('../stores/appStore').PanelPlacement = localOnly
         ? { target: 'none' }
         : { target: 'dock', zone }
-      const filePath =
-        activePanel?.type === 'editor' && !activePanel.diffMode ? activePanel.filePath : undefined
-      return getPanelDef(type).create({ workspaceId: wsId, placement, filePath })
+      return getPanelDef(type).create({ workspaceId: wsId, placement })
     },
-    [activePanel, workspaceId, zone, localOnly],
+    [workspaceId, zone, localOnly],
   )
 
   const addTabOfType = useCallback(
@@ -156,21 +184,26 @@ export function useDockTabActions(params: DockTabActionsParams) {
       e.preventDefault()
       e.stopPropagation()
       if (!window.electronAPI) return
+      // Multi-selection: same bulk menu as the tab-bar (Close All).
+      if (await showMultiSelectionMenu()) return
       const idx = stack.panelIds.indexOf(panelId)
       const hasOthers = stack.panelIds.length > 1
       const hasRight = idx >= 0 && idx < stack.panelIds.length - 1
       const panel = getPanelLocal(panelId)
-      const id = await window.electronAPI.showContextMenu([
+      const menu: NativeContextMenuItem[] = [
         { id: 'rename', label: 'Rename' },
-        { type: 'separator' as const },
+        { type: 'separator' },
         { id: 'close', label: 'Close', accelerator: 'Cmd+W' },
         { id: 'close-others', label: 'Close Others', enabled: hasOthers },
         { id: 'close-right', label: 'Close to the Right', enabled: hasRight },
-        { id: 'close-all', label: 'Close All', accelerator: 'Cmd+K Cmd+W' },
-        { type: 'separator' as const },
+        ...(showCloseAll()
+          ? [{ id: 'close-all', label: 'Close All', accelerator: 'Cmd+K Cmd+W' } as NativeContextMenuItem]
+          : []),
+        { type: 'separator' },
         { id: 'split-right', label: 'Split Right' },
         { id: 'move-window', label: 'Move into New Window' },
-      ])
+      ]
+      const id = await window.electronAPI.showContextMenu(menu)
       switch (id) {
         case 'rename':
           if (panel) beginRename(panelId, panel.title)
@@ -189,6 +222,8 @@ export function useDockTabActions(params: DockTabActionsParams) {
           break
         }
         case 'close-all':
+          // Multi-selection is handled by the early bulk menu above, so here
+          // close-all only ever means "close this stack's tabs".
           stack.panelIds.slice().forEach((p) => onClosePanel?.(p))
           break
         case 'split-right': {
@@ -200,7 +235,7 @@ export function useDockTabActions(params: DockTabActionsParams) {
           break
       }
     },
-    [stack.panelIds, onClosePanel, getPanelLocal, moveTabToNewWindow, workspaceId, splitWithType],
+    [stack.panelIds, onClosePanel, getPanelLocal, moveTabToNewWindow, workspaceId, splitWithType, showMultiSelectionMenu, showCloseAll],
   )
 
   // Tab-bar (empty-area) context menu — split/new menus. Returns a handler
@@ -212,21 +247,29 @@ export function useDockTabActions(params: DockTabActionsParams) {
       if (e.target !== e.currentTarget) return
       e.preventDefault()
       if (!window.electronAPI) return
-      const id = await window.electronAPI.showContextMenu([
-        {
+      // Multi-selection: same bulk menu as the tab context menu (Close All).
+      if (await showMultiSelectionMenu()) return
+      // Build as groups so separators only appear between non-empty sections.
+      const groups: NativeContextMenuItem[][] = [
+        [{
           label: 'New Tab',
           submenu: visibleSplitItems.map((m) => ({ id: `new:${m.type}`, label: m.label })),
-        },
-        { type: 'separator' },
-        {
+        }],
+        [{
           label: 'Split With',
           submenu: visibleSplitItems.map((m) => ({ id: `split:${m.type}`, label: m.label })),
-        },
-        { type: 'separator' },
-        { id: 'close-all', label: 'Close All', enabled: stack.panelIds.length > 0 },
-      ])
+        }],
+      ]
+      if (showCloseAll()) {
+        groups.push([{ id: 'close-all', label: 'Close All', enabled: stack.panelIds.length > 0 }])
+      }
+      const menu = groups.flatMap((g, i) =>
+        i === 0 ? g : [{ type: 'separator' } as NativeContextMenuItem, ...g],
+      )
+      const id = await window.electronAPI.showContextMenu(menu)
       if (!id) return
       if (id === 'close-all') {
+        // Multi-selection handled by the early bulk menu; here it's stack tabs.
         stack.panelIds.slice().forEach((p) => onClosePanel?.(p))
         return
       }
@@ -235,7 +278,7 @@ export function useDockTabActions(params: DockTabActionsParams) {
       else if (kind === 'split') splitWithType(type)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stack.panelIds, onClosePanel, excludeKey, addTabOfType, splitWithType],
+    [stack.panelIds, onClosePanel, excludeKey, addTabOfType, splitWithType, showMultiSelectionMenu, showCloseAll],
   )
 
   const handleTabClick = useCallback(

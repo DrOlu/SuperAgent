@@ -3,22 +3,13 @@
 // panel migration.
 // =============================================================================
 
-import type { PanelState, PanelTransferSnapshot, PanelLocation, Point, Size, DockLayoutNode } from '../../shared/types'
+import type { PanelState, PanelTransferSnapshot, PanelLocation, Point, Size, WorktreeMeta } from '../../shared/types'
+import { collectPanelIds } from '../../shared/collectPanelIds'
 import { terminalRegistry } from './terminal/terminalRegistry'
 import { terminalRestoreData } from './terminal/terminalRestoreData'
 import { getOrCreateCanvasStoreForPanel } from '../stores/canvasStore'
 import { getNodeDockLayout } from './workspace/canvasAccess'
 import { applyCanvasChildPanels } from './canvas/applyCanvasChildPanels'
-
-/** Walk a canvas node's mini-dock layout and collect every panelId it hosts. */
-function collectNodePanelIds(layout: DockLayoutNode | null | undefined, out: Set<string>): void {
-  if (!layout) return
-  if (layout.type === 'tabs') {
-    for (const id of layout.panelIds) out.add(id)
-    return
-  }
-  for (const child of layout.children) collectNodePanelIds(child, out)
-}
 
 /**
  * Create a PanelTransferSnapshot from a panel's current state.
@@ -36,6 +27,9 @@ export function createTransferSnapshot(
     /** Source workspace root, threaded so a detached window's stub workspace
      *  can resolve a cwd for new terminals. */
     workspaceRootPath?: string
+    /** Source workspace's worktree registry, threaded so the receiving window can
+     *  resolve worktree accent colors for this panel (and a canvas's children). */
+    worktrees?: WorktreeMeta[]
   } = {},
 ): PanelTransferSnapshot {
   const snapshot: PanelTransferSnapshot = {
@@ -43,6 +37,7 @@ export function createTransferSnapshot(
     geometry,
     sourceLocation,
     rootPath: options.workspaceRootPath,
+    worktrees: options.worktrees && options.worktrees.length > 0 ? options.worktrees : undefined,
   }
 
   // Terminal-specific: capture PTY ID and scrollback
@@ -50,11 +45,9 @@ export function createTransferSnapshot(
     const entry = terminalRegistry.getEntry(panel.id)
     if (entry) {
       snapshot.terminalPtyId = entry.ptyId
-      // Exclude the cursor row: the PTY re-sends the prompt line via
-      // panelTransferAck on the receiving side, so including it here duplicates
-      // the prompt and pushes it below blank viewport rows.
-      snapshot.terminalScrollback =
-        terminalRegistry.captureScrollback(entry, { excludeCursorRow: true }) ?? ''
+      // Serialize the buffer (text + styling + cursor) so the receiving window
+      // reconstructs the terminal verbatim, colors and all.
+      snapshot.terminalScrollback = terminalRegistry.serializeTerminalState(entry) ?? ''
     }
   }
 
@@ -89,7 +82,7 @@ export function createTransferSnapshot(
     const childTerminals: Record<string, { ptyId: string; scrollback?: string }> = {}
     for (const node of Object.values(state.nodes)) {
       const childIds = new Set<string>()
-      collectNodePanelIds(getNodeDockLayout(panel.id, node.id), childIds)
+      collectPanelIds(getNodeDockLayout(panel.id, node.id), childIds)
       if (node.panelId) childIds.add(node.panelId)
       for (const childId of childIds) {
         const childPanel = options.resolveChildPanel?.(childId)
@@ -102,7 +95,7 @@ export function createTransferSnapshot(
         if (entry?.ptyId) {
           childTerminals[childId] = {
             ptyId: entry.ptyId,
-            scrollback: terminalRegistry.captureScrollback(entry, { excludeCursorRow: true }) ?? '',
+            scrollback: terminalRegistry.serializeTerminalState(entry) ?? '',
           }
         }
       }
@@ -126,29 +119,27 @@ export function createTransferSnapshot(
  * in place when getOrCreate() runs. Mirrors the top-level terminal's restore
  * wiring in the shells' PANEL_RECEIVE handlers.
  *
- * Two modes, matching canvasState.childTerminals:
- *   • `ptyId` — LIVE transfer: reconnect to the still-running PTY (setPendingTransfer).
- *   • `replayPtyId` — cold restore: spawn a fresh PTY and replay the dead PTY's
- *     saved scrollback log (terminalRestoreData, same as the main canvas).
+ * LIVE transfer only (`ptyId`): reconnect to the still-running PTY
+ * (setPendingTransfer). Cold session restore does NOT flow through here — the
+ * receiving shell arms scrollback replay for every terminal panel (children
+ * included) by its stable panelId, mirroring the main window.
  */
 export function depositCanvasChildTransfers(
   canvasState: PanelTransferSnapshot['canvasState'] | undefined,
 ): void {
   for (const [panelId, t] of Object.entries(canvasState?.childTerminals ?? {})) {
     if (t.ptyId) terminalRegistry.setPendingTransfer(panelId, t.ptyId, t.scrollback)
-    else if (t.replayPtyId) terminalRestoreData.set(panelId, { replayFromId: t.replayPtyId })
   }
 }
 
 // =============================================================================
 // Receive side — the canonical "a panel arrived in this window" preamble.
 //
-// Every receive site (single-panel window, dock window receive + init,
-// cross-window drop, and the main window's dock-back / cross-window handlers)
-// used to copy-paste the same block: deposit the terminal hand-off, then for a
-// canvas panel hydrate its per-panel store + child PanelStates + child PTYs.
-// The copies had already drifted (PanelWindowShell never armed canvas child
-// terminals). These three helpers are now the single source for that block.
+// Every receive site (dock window receive + init, cross-window drop, and the
+// main window's dock-back / cross-window handlers) used to copy-paste the same
+// block: deposit the terminal hand-off, then for a canvas panel hydrate its
+// per-panel store + child PanelStates + child PTYs. The copies had drifted, so
+// these three helpers are now the single source for that block.
 // =============================================================================
 
 /** Deposit a transferred/restored panel's terminal hand-off BEFORE it mounts, so
@@ -159,8 +150,8 @@ export function depositPanelTerminalTransfer(snapshot: PanelTransferSnapshot): v
     terminalRegistry.setPendingTransfer(snapshot.panel.id, snapshot.terminalPtyId, snapshot.terminalScrollback)
   } else if (snapshot.terminalReplayPtyId && snapshot.panel.type === 'terminal') {
     // Session restore: no live PTY, but a previous run wrote a scrollback log
-    // under this ptyId — replay it into a freshly spawned PTY on mount.
-    terminalRestoreData.set(snapshot.panel.id, { replayFromId: snapshot.terminalReplayPtyId })
+    // keyed by this panel id — replay it into a freshly spawned PTY on mount.
+    terminalRestoreData.set(snapshot.panel.id, { replayFromId: snapshot.panel.id })
   }
 }
 

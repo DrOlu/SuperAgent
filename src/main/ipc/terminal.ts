@@ -32,6 +32,7 @@ import { countTerminalData } from '../perf/perfMonitor'
 import { parseLocator, type CompanionId } from '../companion/locator'
 import { companions } from '../companion/companionManager'
 import type { Companion } from '../companion/types'
+import { createStringDispatcher } from './batchedDispatcher'
 
 // Set true during app shutdown so PTY data/exit callbacks no-op instead of
 // calling into a torn-down JS environment.
@@ -163,12 +164,20 @@ async function spawnTerminal(
   const cwd = options.cwd ? companion.validateCwd(cwdPath, ownerWindowId, options.workspaceId) : ''
 
   // Per-terminal output coalescing (16ms) → owner window. Owner is read at flush
-  // time so a cross-window transfer reroutes in-flight output.
-  let dataBuffer = ''
-  let flushTimer: ReturnType<typeof setTimeout> | null = null
+  // time so a cross-window transfer reroutes in-flight output. The PTY only ever
+  // invokes onData with this terminal's own id, so the id captured on first data
+  // is the one used at flush.
+  let terminalId = ''
+  const dispatcher = createStringDispatcher(16, (dataBuffer) => {
+    const windowId = terminalOwners.get(terminalId)
+    if (windowId != null) {
+      try { sendToWindow(windowId, TERMINAL_DATA, terminalId, dataBuffer) } catch { /* window gone */ }
+    }
+  })
 
   const onData = (id: string, data: string): void => {
     if (shuttingDown) return
+    terminalId = id
     countTerminalData(data.length)
     getOrCreateLogger(id).append(data)
 
@@ -183,19 +192,7 @@ async function spawnTerminal(
       return
     }
 
-    dataBuffer += data
-    if (!flushTimer) {
-      flushTimer = setTimeout(() => {
-        flushTimer = null
-        if (dataBuffer) {
-          const windowId = terminalOwners.get(id)
-          if (windowId != null) {
-            try { sendToWindow(windowId, TERMINAL_DATA, id, dataBuffer) } catch { /* window gone */ }
-          }
-        }
-        dataBuffer = ''
-      }, 16)
-    }
+    dispatcher.push(data)
   }
 
   const onExit = (id: string, exitCode: number): void => {

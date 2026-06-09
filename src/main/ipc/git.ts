@@ -10,7 +10,8 @@
 
 import { ipcMain } from 'electron'
 import { parseLocator, formatLocator } from '../companion/locator'
-import { companions } from '../companion/companionManager'
+import type { VcsHost } from '../companion/types'
+import { resolveLocator } from '../companion/companionManager'
 import { createVcsCapability } from '../../companion/capabilities/vcs'
 import { getShellEnv } from '../shellEnv'
 import {
@@ -67,9 +68,9 @@ export async function createBranch(cwd: string, branchName: string, startPoint?:
 
 /** Resolve the VcsHost for a cwd-bearing locator, returning it plus the decoded
  *  path and the companion id (needed to re-encode any path returned to the UI). */
-function vcsFor(locator: string): { vcs: import('../companion/types').VcsHost; path: string; companionId: string } {
-  const { companionId, path: p } = parseLocator(locator)
-  return { vcs: companions.resolve(companionId).vcs, path: p, companionId }
+function vcsFor(locator: string): { vcs: VcsHost; path: string; companionId: string } {
+  const { companion, path, companionId } = resolveLocator(locator)
+  return { vcs: companion.vcs, path, companionId }
 }
 
 /** Decode a worktree-path argument (a locator built by the renderer from the
@@ -84,107 +85,55 @@ export function worktreeTargetPath(repoCompanionId: string, targetLocator: strin
   return p
 }
 
+/**
+ * Register an exact pass-through git handler: parse the locator off the first
+ * arg, resolve the companion's VcsHost, and delegate to `vcs[op](path, ...rest)`,
+ * forwarding every trailing argument verbatim. `op` is constrained to a
+ * `VcsHost` method name so a typo fails at compile time. Use only for handlers
+ * whose body is exactly `const { vcs, path } = vcsFor(arg); return vcs.op(path, ...rest)`
+ * — handlers that re-encode the locator (worktree add/remove/list) stay
+ * hand-written below.
+ */
+function route<K extends keyof VcsHost>(channel: string, op: K): void {
+  ipcMain.handle(channel, async (_event, locator: string, ...rest: unknown[]) => {
+    const { vcs, path } = vcsFor(locator)
+    // op is a VcsHost method; rest carries this channel's remaining args verbatim.
+    return (vcs[op] as (...args: unknown[]) => unknown)(path, ...rest)
+  })
+}
+
 export function registerHandlers(): void {
-  ipcMain.handle(GIT_IS_REPO, async (_event, dirPath: string) => {
-    const { vcs, path } = vcsFor(dirPath)
-    return vcs.isRepo(path)
-  })
+  // Exact pass-throughs: parse locator, delegate to vcs.<op>(path, ...rest).
+  route(GIT_IS_REPO, 'isRepo')
+  route(GIT_INIT, 'init')
+  route(GIT_LS_FILES, 'lsFiles')
+  route(GIT_STATUS, 'status')
+  route(GIT_DIFF, 'diff')
+  route(GIT_STAGE, 'stage')
+  route(GIT_UNSTAGE, 'unstage')
+  route(GIT_COMMIT, 'commit')
+  route(GIT_PUSH, 'push')
+  route(GIT_PULL, 'pull')
+  route(GIT_FETCH, 'fetch')
+  route(GIT_LOG, 'log')
+  route(GIT_BRANCH_LIST, 'branchList')
+  route(GIT_BRANCH_CREATE, 'branchCreate')
+  route(GIT_BRANCH_DELETE, 'branchDelete')
+  route(GIT_CHECKOUT, 'checkout')
+  route(GIT_DIFF_STAGED, 'diffStaged')
+  route(GIT_STASH, 'stash')
+  route(GIT_STASH_POP, 'stashPop')
+  route(GIT_DISCARD_FILE, 'discardFile')
+  route(GIT_WORKTREE_PRUNE, 'worktreePrune')
+  route(GIT_WORKTREE_STATUS, 'worktreeStatus')
+  route(GIT_WORKTREE_MERGE_TO, 'worktreeMergeTo')
+  route(GIT_WORKTREE_UPDATE_FROM, 'worktreeUpdateFrom')
+  route(GIT_CREATE_PR, 'createPr')
+  route(GIT_PR_STATUS, 'prStatus')
+  route(GIT_PR_LIST, 'prList')
 
-  ipcMain.handle(GIT_INIT, async (_event, dirPath: string) => {
-    const { vcs, path } = vcsFor(dirPath)
-    return vcs.init(path)
-  })
-
-  ipcMain.handle(GIT_LS_FILES, async (_event, dirPath: string) => {
-    const { vcs, path } = vcsFor(dirPath)
-    return vcs.lsFiles(path)
-  })
-
-  ipcMain.handle(GIT_STATUS, async (_event, cwd: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.status(path)
-  })
-
-  ipcMain.handle(GIT_DIFF, async (_event, cwd: string, filePath?: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.diff(path, filePath)
-  })
-
-  ipcMain.handle(GIT_STAGE, async (_event, cwd: string, filePath: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.stage(path, filePath)
-  })
-
-  ipcMain.handle(GIT_UNSTAGE, async (_event, cwd: string, filePath: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.unstage(path, filePath)
-  })
-
-  ipcMain.handle(GIT_COMMIT, async (_event, cwd: string, message: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.commit(path, message)
-  })
-
-  ipcMain.handle(GIT_PUSH, async (_event, cwd: string, remote?: string, branch?: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.push(path, remote, branch)
-  })
-
-  ipcMain.handle(GIT_PULL, async (_event, cwd: string, remote?: string, branch?: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.pull(path, remote, branch)
-  })
-
-  ipcMain.handle(GIT_FETCH, async (_event, cwd: string, remote?: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.fetch(path, remote)
-  })
-
-  ipcMain.handle(GIT_LOG, async (_event, cwd: string, maxCount?: number) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.log(path, maxCount)
-  })
-
-  ipcMain.handle(GIT_BRANCH_LIST, async (_event, cwd: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.branchList(path)
-  })
-
-  ipcMain.handle(GIT_BRANCH_CREATE, async (_event, cwd: string, branchName: string, startPoint?: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.branchCreate(path, branchName, startPoint)
-  })
-
-  ipcMain.handle(GIT_BRANCH_DELETE, async (_event, cwd: string, branchName: string, force?: boolean) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.branchDelete(path, branchName, force)
-  })
-
-  ipcMain.handle(GIT_CHECKOUT, async (_event, cwd: string, branchName: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.checkout(path, branchName)
-  })
-
-  ipcMain.handle(GIT_DIFF_STAGED, async (_event, cwd: string, filePath?: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.diffStaged(path, filePath)
-  })
-
-  ipcMain.handle(GIT_STASH, async (_event, cwd: string, message?: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.stash(path, message)
-  })
-
-  ipcMain.handle(GIT_STASH_POP, async (_event, cwd: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.stashPop(path)
-  })
-
-  ipcMain.handle(GIT_DISCARD_FILE, async (_event, cwd: string, filePath: string) => {
-    const { vcs, path } = vcsFor(cwd)
-    return vcs.discardFile(path, filePath)
-  })
-
+  // Hand-written: these re-encode/decode the locator (companionId + formatLocator
+  // / worktreeTargetPath) and so are NOT exact pass-throughs.
   ipcMain.handle(GIT_WORKTREE_LIST, async (_event, cwd: string) => {
     const { vcs, path, companionId } = vcsFor(cwd)
     const worktrees = await vcs.worktreeList(path)
@@ -224,39 +173,4 @@ export function registerHandlers(): void {
       return vcs.worktreeRemove(path, worktreeTargetPath(companionId, worktreePath), options)
     },
   )
-
-  ipcMain.handle(GIT_WORKTREE_PRUNE, async (_event, repoCwd: string) => {
-    const { vcs, path } = vcsFor(repoCwd)
-    return vcs.worktreePrune(path)
-  })
-
-  ipcMain.handle(GIT_WORKTREE_STATUS, async (_event, worktreePath: string) => {
-    const { vcs, path } = vcsFor(worktreePath)
-    return vcs.worktreeStatus(path)
-  })
-
-  ipcMain.handle(GIT_WORKTREE_MERGE_TO, async (_event, repoCwd: string, fromBranch: string, toBranch: string) => {
-    const { vcs, path } = vcsFor(repoCwd)
-    return vcs.worktreeMergeTo(path, fromBranch, toBranch)
-  })
-
-  ipcMain.handle(GIT_WORKTREE_UPDATE_FROM, async (_event, worktreePath: string, fromBranch: string) => {
-    const { vcs, path } = vcsFor(worktreePath)
-    return vcs.worktreeUpdateFrom(path, fromBranch)
-  })
-
-  ipcMain.handle(GIT_CREATE_PR, async (_event, worktreePath: string, branch: string) => {
-    const { vcs, path } = vcsFor(worktreePath)
-    return vcs.createPr(path, branch)
-  })
-
-  ipcMain.handle(GIT_PR_STATUS, async (_event, worktreePath: string, branch: string) => {
-    const { vcs, path } = vcsFor(worktreePath)
-    return vcs.prStatus(path, branch)
-  })
-
-  ipcMain.handle(GIT_PR_LIST, async (_event, repoCwd: string) => {
-    const { vcs, path } = vcsFor(repoCwd)
-    return vcs.prList(path)
-  })
 }

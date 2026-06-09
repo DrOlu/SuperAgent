@@ -20,7 +20,9 @@ import { resolveDrop } from './resolve'
 import { useSettingsStore } from '../stores/settingsStore'
 import { reduce, initial as runtimeInitial } from './runtime'
 import { remoteDragGrab } from './remoteGrab'
+import { placeNodeOnCanvas } from './commit'
 import type { DragEvent, DragSource, RuntimeState } from './types'
+import { applyBodyClassEffect } from './types'
 
 export type RemoteDropTarget =
   | { kind: 'dock'; target: DockDropTarget; dockStoreApi: StoreApi<DockStore> }
@@ -79,8 +81,7 @@ function runRemoteEffects(active: ActiveRemote, state: RuntimeState): void {
   for (const eff of state.effects) {
     switch (eff.kind) {
       case 'set-body-class':
-        if (eff.on) document.body.classList.add(eff.cls)
-        else document.body.classList.remove(eff.cls)
+        applyBodyClassEffect(eff)
         break
       case 'commit': {
         // Only handle remote-source commits here — local commits go through
@@ -125,8 +126,43 @@ function runRemoteEffects(active: ActiveRemote, state: RuntimeState): void {
       case 'cross-window-start':
       case 'cross-window-cancel':
       case 'push-history':
-      case 'clear-state':
         break
+    }
+  }
+}
+
+/** Build the host's remote-drop callback. The shared logic is identical across
+ *  windows — refuse canvas-on-canvas cross-window drops, then place the panel
+ *  on the resolved dock or canvas target. The ONLY per-window difference is the
+ *  add-panel step (workspace `addPanel` vs dock window `ensurePanelsInAppStore`)
+ *  and the hydrate that precedes it, so callers pass that as `addPanelStep`. */
+export function createRemoteDropHandler(opts: {
+  addPanelStep: (snapshot: PanelTransferSnapshot) => void
+}): RemoteDropHandler {
+  return (snapshot, target) => {
+    // Canvas-on-canvas is unsupported: refuse cross-window drops of a
+    // canvas panel onto a canvas target. The source window stays as-is.
+    if (snapshot.panel.type === 'canvas' && target.kind !== 'dock') return
+
+    // Deposit PTY hand-off + hydrate canvas children + register the panel
+    // before it mounts (per-window: addPanel vs ensurePanelsInAppStore).
+    opts.addPanelStep(snapshot)
+
+    if (target.kind === 'dock') {
+      const dockTarget = target.target
+      target.dockStoreApi.getState().dockPanel(
+        snapshot.panel.id,
+        dockTarget.type === 'zone' ? dockTarget.zone : 'center',
+        dockTarget,
+      )
+    } else {
+      placeNodeOnCanvas(
+        target.canvasStoreApi,
+        snapshot.panel.id,
+        snapshot.panel.type,
+        target.origin,
+        target.size,
+      )
     }
   }
 }

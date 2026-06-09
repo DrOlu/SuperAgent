@@ -145,11 +145,8 @@ export function reduce(prev: RuntimeState, event: DragEvent): RuntimeState {
 }
 
 function cleanupEffects(prev: RuntimeState): DragEffect[] {
-  if (!prev.armed) return [{ kind: 'clear-state' }]
-  return [
-    { kind: 'set-body-class', cls: 'canvas-interacting', on: false },
-    { kind: 'clear-state' },
-  ]
+  if (!prev.armed) return []
+  return [{ kind: 'set-body-class', cls: 'canvas-interacting', on: false }]
 }
 
 function withNoEffects(prev: RuntimeState): RuntimeState {

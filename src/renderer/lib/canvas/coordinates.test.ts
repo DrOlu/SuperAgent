@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canvasToView, viewToCanvas, viewFrame } from './coordinates'
+import { canvasToView, viewToCanvas } from './coordinates'
 
 describe('canvasToView', () => {
   it('applies zoom and offset', () => {
@@ -51,28 +51,5 @@ describe('viewToCanvas', () => {
       x: 10,
       y: 20,
     })
-  })
-})
-
-describe('viewFrame', () => {
-  it('returns view-space origin and zoom-scaled size', () => {
-    const frame = viewFrame(
-      { origin: { x: 10, y: 20 }, size: { width: 100, height: 50 } },
-      2,
-      { x: 5, y: 7 },
-    )
-    expect(frame).toEqual({ x: 25, y: 47, width: 200, height: 100 })
-  })
-
-  it('matches canvasToView for the origin', () => {
-    const node = { origin: { x: 3, y: 4 }, size: { width: 10, height: 10 } }
-    const zoom = 0.5
-    const offset = { x: 1, y: 2 }
-    const view = canvasToView(node.origin, zoom, offset)
-    const frame = viewFrame(node, zoom, offset)
-    expect(frame.x).toBe(view.x)
-    expect(frame.y).toBe(view.y)
-    expect(frame.width).toBe(5)
-    expect(frame.height).toBe(5)
   })
 })

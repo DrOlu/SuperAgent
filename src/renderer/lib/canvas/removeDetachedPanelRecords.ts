@@ -16,20 +16,12 @@
 // alive), so the source holds no stale terminal entry once the panel has moved.
 // =============================================================================
 
-import type { DockLayoutNode, PanelType } from '../../../shared/types'
+import type { PanelType } from '../../../shared/types'
 import { useAppStore } from '../../stores/appStore'
 import { getOrCreateCanvasStoreForPanel, releaseCanvasStoreForPanel } from '../../stores/canvasStore'
 import { getNodeDockLayout } from '../workspace/canvasAccess'
 import { terminalRegistry } from '../terminal/terminalRegistry'
-
-function collectPanelIds(layout: DockLayoutNode | null | undefined, out: Set<string>): void {
-  if (!layout) return
-  if (layout.type === 'tabs') {
-    for (const id of layout.panelIds) out.add(id)
-    return
-  }
-  for (const child of layout.children) collectPanelIds(child, out)
-}
+import { collectPanelIds } from './collectPanelIds'
 
 export function removeDetachedPanelRecords(
   workspaceId: string,

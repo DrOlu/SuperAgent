@@ -19,27 +19,14 @@ import {
   AGENT_CREATE_SKILL,
   AGENT_LIST_SKILL_FILES,
   AGENT_STEER,
-  AGENT_FOLLOW_UP,
   AGENT_SET_THINKING_LEVEL,
   AGENT_COMPACT,
   AGENT_SET_AUTO_COMPACTION,
-  AGENT_SET_AUTO_RETRY,
   AGENT_ABORT_RETRY,
   AGENT_GET_SESSION_STATS,
   AGENT_GET_STATE,
-  AGENT_EXPORT_HTML,
-  AGENT_NEW_SESSION,
-  AGENT_SWITCH_SESSION,
   AGENT_FORK,
-  AGENT_CLONE,
   AGENT_GET_FORK_MESSAGES,
-  AGENT_GET_LAST_ASSISTANT_TEXT,
-  AGENT_SET_SESSION_NAME,
-  AGENT_GET_MESSAGES,
-  AGENT_BASH,
-  AGENT_ABORT_BASH,
-  AGENT_SET_STEERING_MODE,
-  AGENT_SET_FOLLOW_UP_MODE,
   AGENT_LIST_MODELS,
   AGENT_UI_RESPONSE,
   AGENT_LIST_SESSIONS,
@@ -116,14 +103,6 @@ export function registerAgentHandlers(authManager: AuthManager, agentManager: Ag
   )
 
   ipcMain.handle(
-    AGENT_FOLLOW_UP,
-    async (_event, panelId: string, text: string, images?: AgentImageAttachment[]) => {
-      trackMessageSent('follow_up', text, images)
-      await agentManager.followUp(panelId, text, images)
-    },
-  )
-
-  ipcMain.handle(
     AGENT_SET_THINKING_LEVEL,
     async (_event, panelId: string, level: AgentThinkingLevel) => {
       await agentManager.setThinkingLevel(panelId, level)
@@ -141,13 +120,6 @@ export function registerAgentHandlers(authManager: AuthManager, agentManager: Ag
     AGENT_SET_AUTO_COMPACTION,
     async (_event, panelId: string, enabled: boolean) => {
       await agentManager.setAutoCompaction(panelId, enabled)
-    },
-  )
-
-  ipcMain.handle(
-    AGENT_SET_AUTO_RETRY,
-    async (_event, panelId: string, enabled: boolean) => {
-      await agentManager.setAutoRetry(panelId, enabled)
     },
   )
 
@@ -173,33 +145,8 @@ export function registerAgentHandlers(authManager: AuthManager, agentManager: Ag
     }
   })
 
-  ipcMain.handle(
-    AGENT_EXPORT_HTML,
-    async (_event, panelId: string, outputPath?: string) => {
-      return agentManager.exportHtml(panelId, outputPath)
-    },
-  )
-
-  ipcMain.handle(
-    AGENT_NEW_SESSION,
-    async (_event, panelId: string, parentSession?: string) => {
-      return agentManager.newSession(panelId, parentSession)
-    },
-  )
-
-  ipcMain.handle(
-    AGENT_SWITCH_SESSION,
-    async (_event, panelId: string, sessionPath: string) => {
-      return agentManager.switchSession(panelId, sessionPath)
-    },
-  )
-
   ipcMain.handle(AGENT_FORK, async (_event, panelId: string, entryId: string) => {
     return agentManager.fork(panelId, entryId)
-  })
-
-  ipcMain.handle(AGENT_CLONE, async (_event, panelId: string) => {
-    return agentManager.clone(panelId)
   })
 
   ipcMain.handle(AGENT_GET_FORK_MESSAGES, async (_event, panelId: string) => {
@@ -210,50 +157,6 @@ export function registerAgentHandlers(authManager: AuthManager, agentManager: Ag
       return []
     }
   })
-
-  ipcMain.handle(AGENT_GET_LAST_ASSISTANT_TEXT, async (_event, panelId: string) => {
-    try {
-      return await agentManager.getLastAssistantText(panelId)
-    } catch (err) {
-      log.warn('[ipc.agent] getLastAssistantText failed: %O', err)
-      return null
-    }
-  })
-
-  ipcMain.handle(AGENT_SET_SESSION_NAME, async (_event, panelId: string, name: string) => {
-    await agentManager.setSessionName(panelId, name)
-  })
-
-  ipcMain.handle(AGENT_GET_MESSAGES, async (_event, panelId: string) => {
-    try {
-      return await agentManager.getMessages(panelId)
-    } catch (err) {
-      log.warn('[ipc.agent] getMessages failed: %O', err)
-      return []
-    }
-  })
-
-  ipcMain.handle(AGENT_BASH, async (_event, panelId: string, command: string) => {
-    return agentManager.bash(panelId, command)
-  })
-
-  ipcMain.handle(AGENT_ABORT_BASH, async (_event, panelId: string) => {
-    await agentManager.abortBash(panelId)
-  })
-
-  ipcMain.handle(
-    AGENT_SET_STEERING_MODE,
-    async (_event, panelId: string, mode: 'all' | 'one-at-a-time') => {
-      await agentManager.setSteeringMode(panelId, mode)
-    },
-  )
-
-  ipcMain.handle(
-    AGENT_SET_FOLLOW_UP_MODE,
-    async (_event, panelId: string, mode: 'all' | 'one-at-a-time') => {
-      await agentManager.setFollowUpMode(panelId, mode)
-    },
-  )
 
   ipcMain.handle(AGENT_LIST_MODELS, async () => {
     try {

@@ -12,7 +12,7 @@
 
 import { useMemo, useState, useCallback, useEffect } from 'react'
 import { useShallow } from 'zustand/shallow'
-import type { PanelState, DockLayoutNode } from '../../../shared/types'
+import type { PanelState } from '../../../shared/types'
 import { useAppStore } from '../../stores/appStore'
 import { getOrCreateCanvasStoreForPanel } from '../../stores/canvasStore'
 import {
@@ -21,6 +21,7 @@ import {
   getWorkspaceCanvasPanelIds,
   getWorkspaceDockSnapshot,
 } from './canvasAccess'
+import { collectPanelIds } from '../canvas/collectPanelIds'
 import { partitionWorkspacePanels, buildColdStartCanvasChildOwners } from '../../sidebar/partitionWorkspacePanels'
 
 const EMPTY_PANELS: Record<string, PanelState> = {}
@@ -40,18 +41,6 @@ export interface WorkspacePanelTree {
   freePanels: PanelState[]
   /** Flat list in the overview's render order, ghosts/detached excluded. */
   orderedPanels: PanelState[]
-}
-
-function collectPanelIdsFromDockLayout(
-  layout: DockLayoutNode | null | undefined,
-  out: Set<string>,
-): void {
-  if (!layout) return
-  if (layout.type === 'tabs') {
-    for (const id of layout.panelIds) out.add(id)
-    return
-  }
-  for (const child of layout.children) collectPanelIdsFromDockLayout(child, out)
 }
 
 // Subscribe to every canvas store in a workspace and return a map of
@@ -85,7 +74,7 @@ function useWorkspaceCanvasChildOwners(workspaceId: string): Map<string, string>
         // so additional tabs still classify as children of this canvas. Read the
         // LIVE per-node DockStore (the runtime authority).
         const ids = new Set<string>()
-        collectPanelIdsFromDockLayout(getNodeDockLayout(canvasPanelId, node.id), ids)
+        collectPanelIds(getNodeDockLayout(canvasPanelId, node.id), ids)
         if (node.panelId) ids.add(node.panelId)
         for (const id of ids) owners.set(id, canvasPanelId)
       }

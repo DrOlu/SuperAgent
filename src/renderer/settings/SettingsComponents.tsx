@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { useSettingsSearch, matchesQuery } from './SettingsSearchContext'
 
 // -----------------------------------------------------------------------------
@@ -58,6 +58,32 @@ export function SearchableBlock({ keywords, children }: SearchableBlockProps) {
 }
 
 // -----------------------------------------------------------------------------
+// SecondaryButton — small bordered surface button used across settings sections
+// (Add / Save / Import / Restore defaults). Disabled state dims and freezes the
+// hover styles so it reads as inert.
+// -----------------------------------------------------------------------------
+
+interface SecondaryButtonProps {
+  onClick: () => void
+  disabled?: boolean
+  title?: string
+  children: ReactNode
+}
+
+export function SecondaryButton({ onClick, disabled, title, children }: SecondaryButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="flex items-center gap-1.5 px-2 py-1 text-[11px] rounded text-secondary hover:text-primary bg-surface-2 hover:bg-hover border border-subtle disabled:opacity-40 disabled:cursor-default disabled:hover:bg-surface-2 disabled:hover:text-secondary"
+    >
+      {children}
+    </button>
+  )
+}
+
+// -----------------------------------------------------------------------------
 // Toggle switch
 // -----------------------------------------------------------------------------
 
@@ -87,20 +113,50 @@ export function Toggle({ checked, onChange }: ToggleProps) {
 // Text input
 // -----------------------------------------------------------------------------
 
+// Shared appearance for settings text inputs. Width (`w-48`) and horizontal
+// padding (`px-2`) are split out so callers can override just those via
+// `layoutClassName` while keeping the surface/border/focus styling identical.
+const TEXT_INPUT_LAYOUT = 'w-48 px-2'
+const TEXT_INPUT_BASE =
+  'bg-surface-5 border border-subtle rounded-md py-1 text-sm text-primary placeholder:text-muted focus:border-focus-blue focus:outline-none'
+
 interface TextInputProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  /** Defaults to 'text'. Use 'password' for secrets. */
+  type?: 'text' | 'password'
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
+  disabled?: boolean
+  /**
+   * Replaces the default width + horizontal padding (`w-48 px-2`). Use to widen
+   * the field (`flex-1`, `w-full`) or shift padding (`pl-7 pr-2`) while keeping
+   * the rest of the styling.
+   */
+  layoutClassName?: string
+  /** Extra classes appended after the base (e.g. `font-mono`). */
+  className?: string
 }
 
-export function TextInput({ value, onChange, placeholder }: TextInputProps) {
+export function TextInput({
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+  onKeyDown,
+  disabled,
+  layoutClassName = TEXT_INPUT_LAYOUT,
+  className,
+}: TextInputProps) {
   return (
     <input
-      type="text"
+      type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
       placeholder={placeholder}
-      className="w-48 bg-surface-5 border border-subtle rounded-md px-2 py-1 text-sm text-primary placeholder:text-muted focus:border-focus-blue focus:outline-none"
+      disabled={disabled}
+      className={`${layoutClassName} ${TEXT_INPUT_BASE}${className ? ` ${className}` : ''}`}
     />
   )
 }

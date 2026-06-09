@@ -4,14 +4,16 @@
 // split/tab support. No sidebar, canvas, or left/right/bottom zones.
 // =============================================================================
 
-import React, { useEffect, useRef, useState, useCallback, Suspense, useMemo } from 'react'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import log from '../lib/logger'
 import type { CanvasLayoutSnapshot, DockWindowInitPayload, PanelState, PanelTransferSnapshot } from '../../shared/types'
 import { createDockStore } from '../stores/dockStore'
 import { DockStoreProvider } from '../stores/DockStoreContext'
+import { registerWorkspaceDockStore } from '../lib/workspace/dockRegistry'
 import DockZone from '../docking/DockZone'
-import { DragOverlay, setupCrossWindowDragListeners } from '../drag'
-import { terminalRegistry } from '../lib/terminal/terminalRegistry'
+import { setupCrossWindowDragListeners } from '../drag'
+import { createRemoteDropHandler } from '../drag/crossWindow'
+import { captureTerminalScrollbacks } from './dockWindowSyncScrollback'
 import { terminalRestoreData } from '../lib/workspace/session'
 import { getOrCreateCanvasStoreForPanel } from '../stores/canvasStore'
 import { ensurePanelsInAppStore } from '../lib/canvas/applyCanvasChildPanels'
@@ -21,18 +23,14 @@ import { confirmCloseDirtyPanels } from '../lib/confirmCloseDirty'
 import { confirmCloseRunningTerminals } from '../lib/confirmCloseTerminal'
 import { isDockEmpty } from './dockEmpty'
 import { shouldCloseDockWindow } from './shouldCloseDockWindow'
-import { useSettingsStore } from '../stores/settingsStore'
-import { useUIStateStore } from '../stores/uiStateStore'
-import { useUIStore } from '../stores/uiStore'
-import { SettingsWindow } from '../settings/SettingsWindow'
 import WindowControls from './WindowControls'
-import { applyTheme } from '../lib/themeManager'
-import { applyUiScale } from '../lib/uiScale'
+import { useWindowRuntime } from '../lib/hooks/useWindowRuntime'
+import WindowChrome from './WindowChrome'
 
 import { renderPanelComponent, PANEL_REGISTRY } from '../panels/registry'
+import { PanelSuspense } from '../panels/PanelSuspense'
+import { IS_MAC } from '../lib/platform'
 const CanvasPanel = PANEL_REGISTRY.canvas.Component
-
-const IS_MAC = navigator.userAgent.includes('Mac')
 
 interface DockWindowShellProps {
   workspaceId?: string
@@ -62,29 +60,10 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
   const wsIdRef = useRef(wsId)
   wsIdRef.current = wsId
 
-  // Hydrate settings + apply theme so the detached window mirrors the main
-  // app's appearance (theme, minimap, canvas grid, etc.). Without this the
-  // window renders with default settings and ignores the user's preferences.
-  useEffect(() => {
-    useSettingsStore.getState().loadSettings()
-    useUIStateStore.getState().loadUIState()
-  }, [])
-  const activeThemeId = useSettingsStore((s) => s.activeThemeId)
-  const customThemes = useSettingsStore((s) => s.customThemes)
-  const systemLightThemeId = useSettingsStore((s) => s.systemLightThemeId)
-  const systemDarkThemeId = useSettingsStore((s) => s.systemDarkThemeId)
-  // A detached AgentPanel routes provider sign-in to the main Cate Settings
-  // (Providers); render the settings window here so that button works.
-  const showSettings = useUIStore((s) => s.showSettings)
-  const settingsInitialTab = useUIStore((s) => s.settingsInitialTab)
-  const closeSettings = useUIStore((s) => s.closeSettings)
-  useEffect(() => {
-    applyTheme(activeThemeId)
-  }, [activeThemeId, customThemes, systemLightThemeId, systemDarkThemeId])
-  const uiScale = useSettingsStore((s) => s.uiScale)
-  useEffect(() => {
-    applyUiScale(uiScale)
-  }, [uiScale])
+  // Shared window runtime — settings/theme, keyboard shortcuts, command palette,
+  // agent-screen detector, Cmd+, settings, and the external-drop guard. Gives
+  // this detached window the same baseline functionality as the main window.
+  useWindowRuntime()
 
   // Listen for DOCK_WINDOW_INIT from main process
   useEffect(() => {
@@ -95,15 +74,29 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       // no-ops on '' and the window renders blank. The id is internal: it's
       // never sent back to main (dockWindowSyncState carries only zones/panels).
       const effectiveWs = payload.workspaceId || 'detached-dock-window'
-      ensurePanelsInAppStore(effectiveWs, payload.panels, payload.rootPath)
+      ensurePanelsInAppStore(effectiveWs, payload.panels, payload.rootPath, payload.worktrees)
 
-      // Session restore: seed scrollback replay for EVERY top-level terminal tab
-      // and hydrate EVERY top-level canvas tab's children BEFORE the panels
-      // mount. (A fresh live single-panel detach carries no replay/canvas data
-      // here — it arrives via PANEL_RECEIVE instead.)
-      if (payload.terminalReplayPtyIds) {
-        for (const [panelId, ptyId] of Object.entries(payload.terminalReplayPtyIds)) {
-          terminalRestoreData.set(panelId, { replayFromId: ptyId })
+      // Register THIS window's dock store under the effective workspace id so the
+      // shared placement code (placePanel → getOrCreateWorkspaceDockStore) targets
+      // it. Without this, panels created in this window (Cmd+T / palette) would be
+      // docked into an orphan store and never appear.
+      registerWorkspaceDockStore(effectiveWs, dockStore)
+
+      // Session restore: arm scrollback replay for EVERY terminal panel (top-level
+      // tabs AND canvas children — all are in payload.panels) by its stable panel
+      // id, then hydrate each canvas tab's layout/children BEFORE the panels mount.
+      // This mirrors the main window's restore (sessionRestore.ts) exactly: replay
+      // reads `<panelId>.scrollback`, so it never depends on a captured live-ptyId
+      // map that an early sync or a flush-less reload could leave empty.
+      // (A fresh live detach sets no `restore` flag — its terminal arrives live via
+      // PANEL_RECEIVE instead, so we must NOT arm replay for it here.)
+      if (payload.restore) {
+        for (const panel of Object.values(payload.panels)) {
+          if (panel.type !== 'terminal') continue
+          terminalRestoreData.set(panel.id, {
+            cwd: payload.terminalCwds?.[panel.id],
+            replayFromId: panel.id,
+          })
         }
       }
       if (payload.canvasStates) {
@@ -150,7 +143,7 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       // that empty state back to persistence. (ACK is deferred to
       // reconnectTerminal() after listeners are wired.)
       hydrateReceivedPanel(wsId, snapshot)
-      ensurePanelsInAppStore(wsId, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath)
+      ensurePanelsInAppStore(wsId, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath, snapshot.worktrees)
     })
 
     return cleanup
@@ -158,40 +151,26 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
 
   // Set up cross-window drag listeners
   useEffect(() => {
-    return setupCrossWindowDragListeners((snapshot, target) => {
-      // Canvas-on-canvas is unsupported: refuse cross-window drops of a
-      // canvas panel onto a canvas target.
-      if (snapshot.panel.type === 'canvas' && target.kind !== 'dock') return
-
-      // Deposit PTY hand-off + hydrate canvas children BEFORE the panel mounts.
-      hydrateReceivedPanel(wsId, snapshot)
-      ensurePanelsInAppStore(wsId, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath)
-
-      if (target.kind === 'dock') {
-        const dockTarget = target.target
-        target.dockStoreApi.getState().dockPanel(
-          snapshot.panel.id,
-          dockTarget.type === 'zone' ? dockTarget.zone : 'center',
-          dockTarget,
-        )
-      } else {
-        const canvasState = target.canvasStoreApi.getState()
-        const newNodeId = canvasState.addNode(
-          snapshot.panel.id,
-          snapshot.panel.type,
-          target.origin,
-          target.size,
-        )
-        target.canvasStoreApi.getState().resizeNode(newNodeId, target.size)
-        target.canvasStoreApi.getState().focusNode(newNodeId)
-      }
-    })
+    return setupCrossWindowDragListeners(
+      createRemoteDropHandler({
+        addPanelStep: (snapshot) => {
+          // Deposit PTY hand-off + hydrate canvas children BEFORE the panel mounts.
+          hydrateReceivedPanel(wsId, snapshot)
+          ensurePanelsInAppStore(wsId, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath, snapshot.worktrees)
+        },
+      }),
+    )
   }, [dockStore])
 
-  // Periodic state sync to main process for session persistence
-  const syncNowRef = useRef<() => void>(() => {})
+  // Periodic state sync to main process for session persistence.
+  // Returns a promise that resolves once the terminal scrollback writes have
+  // been persisted, so the pre-quit flush can AWAIT them before ACKing main
+  // (otherwise main reallyExit(0)s before the fire-and-forget save lands and a
+  // detached terminal loses its scrollback on restart). Periodic/focus callers
+  // ignore the promise — the next tick re-writes.
+  const syncNowRef = useRef<() => Promise<void>>(async () => {})
   useEffect(() => {
-    const syncNow = () => {
+    const syncNow = async (): Promise<void> => {
       // Read panels straight from appStore at call time (not a closed-over
       // value) so the freshest live edits — url, isDirty, filePath written by
       // panel components — are always captured. wsId is read via a ref so this
@@ -199,22 +178,10 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       const currentPanels =
         useAppStore.getState().workspaces.find((w) => w.id === wsIdRef.current)?.panels ?? {}
 
-      // Capture per-terminal ptyIds + persist their scrollback so the next
-      // launch can replay it into a freshly spawned PTY.
-      const terminalPtyIds: Record<string, string> = {}
-      for (const panel of Object.values(currentPanels)) {
-        if (panel.type !== 'terminal') continue
-        const entry = terminalRegistry.getEntry(panel.id)
-        if (!entry?.ptyId) continue
-        terminalPtyIds[panel.id] = entry.ptyId
-
-        // Exclude the cursor row: scrollback is replayed into a fresh PTY on the
-        // next launch, which re-sends the prompt line.
-        const content = terminalRegistry.captureScrollback(entry, { excludeCursorRow: true })
-        if (content) {
-          window.electronAPI.terminalScrollbackSave(entry.ptyId, content).catch(() => {})
-        }
-      }
+      // Persist every terminal's scrollback (keyed by the stable panel id, same
+      // as the main window) + capture each terminal's cwd. The save promises are
+      // collected so the flush path can await them before ACKing quit.
+      const { terminalCwds, savePromises } = await captureTerminalScrollbacks(currentPanels)
 
       // Capture each canvas panel's layout (nodes + viewport) so a detached
       // canvas window restores its children on the next launch instead of
@@ -231,13 +198,22 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
         }
       }
 
+      // Send the snapshot under `dockState` (the field main caches and persists).
+      // Deliberately do NOT send workspaceId: this window's wsId may be the
+      // process-local stub ('detached-dock-window'), and echoing it back would
+      // overwrite the REAL workspace id main captured at creation — dropping the
+      // window from session.json (its save filter is dw.workspaceId === ws.id).
       const snapshot = dockStore.getState().getSnapshot()
       window.electronAPI.dockWindowSyncState({
-        ...snapshot,
+        dockState: snapshot,
         panels: currentPanels,
-        terminalPtyIds,
+        terminalCwds,
         canvasStates,
       })
+
+      // Resolve once every scrollback write has been persisted so the pre-quit
+      // flush can await it. allSettled: a failed write must not reject the flush.
+      await Promise.allSettled(savePromises)
     }
     // Expose the latest syncNow via a ref so callers outside this effect
     // (the editor:panel-saved-as handler) can trigger an immediate sync
@@ -271,13 +247,27 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
     }
   }, [dockStore])
 
+  // Sync as soon as the window is initialized (panels + dock state in place),
+  // not just on the 1s timer. On session restore this is what lets main list
+  // this window before the first autosave runs, so it isn't dropped from
+  // session.json. Runs after the commit that set `ready`, so wsId/panels and
+  // syncNowRef are current.
+  useEffect(() => {
+    if (ready) syncNowRef.current()
+  }, [ready])
+
   // Pre-quit: main requests a FINAL sync before it reads listDockWindows() for
-  // the session file. Sync synchronously (fire the IPC) then ACK so main's cached
-  // dock state isn't stale from the last 5s tick.
+  // the session file. AWAIT the sync — specifically its terminal scrollback
+  // writes — before ACKing, so main doesn't reallyExit(0) and kill the renderer
+  // before the .scrollback files are persisted. Main bounds the wait with
+  // DOCK_FLUSH_TIMEOUT_MS, so a stuck write can't hang quit. Without the await a
+  // single-terminal detached window loses its scrollback on restart (it ACKs
+  // fastest, so it is killed before its lone fire-and-forget write lands).
   useEffect(() => {
     const cleanup = window.electronAPI.onDockWindowFlushSync(() => {
-      syncNowRef.current()
-      window.electronAPI.dockWindowFlushSyncDone()
+      void syncNowRef.current().finally(() => {
+        window.electronAPI.dockWindowFlushSyncDone()
+      })
     })
     return cleanup
   }, [])
@@ -291,11 +281,7 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       const content = renderPanelComponent(panel, { workspaceId: wsId, nodeId, zoomLevel: zoom })
       if (!content) return null
 
-      return (
-        <Suspense fallback={<div className="w-full h-full bg-surface-4 flex items-center justify-center text-muted text-sm">Loading...</div>}>
-          {content}
-        </Suspense>
-      )
+      return <PanelSuspense>{content}</PanelSuspense>
     },
     [panels, wsId],
   )
@@ -309,14 +295,14 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       // Canvas panels get their own full canvas with renderPanelContent for nodes
       if (panel.type === 'canvas') {
         return (
-          <Suspense fallback={<div className="w-full h-full bg-surface-4 flex items-center justify-center text-muted text-sm">Loading...</div>}>
+          <PanelSuspense>
             <CanvasPanel
               panelId={panelId}
               workspaceId={wsId}
               nodeId=""
               renderPanelContent={renderPanelContent}
             />
-          </Suspense>
+          </PanelSuspense>
         )
       }
 
@@ -440,8 +426,7 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
             onPanelRenamed={handlePanelRenamed}
           />
         </div>
-        <DragOverlay />
-        <SettingsWindow isOpen={showSettings} onClose={closeSettings} initialTab={settingsInitialTab ?? undefined} />
+        <WindowChrome />
       </div>
     </DockStoreProvider>
   )

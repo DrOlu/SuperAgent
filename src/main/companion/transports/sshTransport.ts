@@ -22,10 +22,9 @@
 // build resilient.
 // =============================================================================
 
-import log from '../../logger'
-import { ensureLocalTarball, localTarballIfPresent, localCompanionBundlePath, isCompanionDevMode, tarballHash, releaseUrl, isCompanionTarget, type CompanionTarget } from '../companionArtifacts'
+import { ensureLocalTarball, isCompanionDevMode, isCompanionTarget, type CompanionTarget } from '../companionArtifacts'
 import { verifyAndPinHostKey, hostKeyId } from '../sshKnownHosts'
-import type { CompanionChannel, CompanionTransport } from './transport'
+import { shellQuote as shq, bootstrapDevShared, isInstalledShared, bootstrapProdShared, buildExtractCommand, type CompanionChannel, type CompanionTransport } from './transport'
 
 export interface SshOptions {
   host: string
@@ -150,19 +149,8 @@ export class SshTransport implements CompanionTransport {
    *  missing). In dev the freshness key is the provisioned core (the cjs hot-swap
    *  is part of install, not the probe). */
   async isInstalled(version: string): Promise<boolean> {
-    const installDir = await this.resolveInstallDir(version)
-    const D = shq(installDir)
-    if (isCompanionDevMode()) {
-      return (await this.exec(
-        `test -x ${D}/runtime/bin/node && test -x ${D}/runtime/bin/rg && test -f ${D}/pi/dist/cli.js && test -f ${D}/companion.cjs && test -d ${D}/node_modules && echo CATE_PROVISIONED`,
-      )).stdout.includes('CATE_PROVISIONED')
-    }
-    const localTar = localTarballIfPresent(version, this.target as CompanionTarget)
-    const marker = localTar ? `${version}:${await tarballHash(localTar)}` : version
-    const ok = (await this.exec(
-      `test -x ${D}/runtime/bin/node && test -f ${D}/companion.cjs && cat ${D}/.ok 2>/dev/null`,
-    )).stdout.trim()
-    return ok === marker || (!localTar && ok.startsWith(version))
+    const D = shq(await this.resolveInstallDir(version))
+    return isInstalledShared(version, D, this.target as CompanionTarget, (cmd) => this.exec(cmd))
   }
 
   /** Remove the whole companion install tree on the host (all versions). */
@@ -189,30 +177,16 @@ export class SshTransport implements CompanionTransport {
       return
     }
 
-    // Marker stored in `.ok`. When a local tarball is present (dev build / cache)
-    // it includes its content hash, so a changed daemon at the same version
-    // re-installs automatically; otherwise (production pull) it's just the version.
-    const localTar = localTarballIfPresent(version, this.target as CompanionTarget)
-    const marker = localTar ? `${version}:${await tarballHash(localTar)}` : version
-
-    // Already installed and current?
-    const installed = await this.exec(
-      `test -x ${D}/runtime/bin/node && test -f ${D}/companion.cjs && cat ${D}/.ok 2>/dev/null`,
-    )
-    const ok = installed.stdout.trim()
-    if (ok === marker || (!localTar && ok.startsWith(version))) return
-
-    // 1. Remote pull — let the host fetch its own tarball from the release.
-    const url = releaseUrl(version, this.target as CompanionTarget)
-    const pull = await this.exec(this.remotePullCmd(this.installDir, url, version))
-    if (pull.stdout.includes('CATE_PULL_OK')) {
-      log.info('[companion:ssh] %s pulled tarball from release', this.target)
-      return
-    }
-    log.info('[companion:ssh] remote pull unavailable (%s); falling back to SFTP push', pull.stderr.trim() || `code ${pull.code}`)
-
-    // 2. SFTP fallback — client downloads the tarball and pushes it.
-    await this.pushTarball(version, marker)
+    // PROD: probe the `.ok` marker, then remote-pull from the release with an
+    // SFTP push fallback when the host can't fetch (shared with WSL).
+    await bootstrapProdShared(version, D, {
+      tag: 'ssh',
+      target: this.target as CompanionTarget,
+      installDir: this.installDir,
+      exec: (cmd) => this.exec(cmd),
+      pushTarball: (v, marker) => this.pushTarball(v, marker),
+      pullFallbackLabel: '[companion:ssh] remote pull unavailable (%s); falling back to SFTP push',
+    })
   }
 
   /**
@@ -222,47 +196,17 @@ export class SshTransport implements CompanionTransport {
    * bundle are a single hash check; a changed bundle is a 262KB SFTP push. Never
    * remote-pulls. The host runs whatever `build:companion` last produced.
    */
-  private async bootstrapDev(version: string, D: string): Promise<void> {
-    const provisioned = (await this.exec(
-      `test -x ${D}/runtime/bin/node && test -x ${D}/runtime/bin/rg && test -f ${D}/pi/dist/cli.js && test -f ${D}/companion.cjs && test -d ${D}/node_modules && echo CATE_PROVISIONED`,
-    )).stdout.includes('CATE_PROVISIONED')
-
-    // First connect on this host/version: lay down runtime + node_modules from the
-    // local tarball (marker is just the version; the cjs overlay below is the real
-    // freshness key in dev). No remote-pull.
-    if (!provisioned) await this.pushTarball(version, version)
-
-    const bundle = localCompanionBundlePath()
-    if (!bundle) {
-      if (!provisioned) return // just installed from the tarball; nothing newer to push
-      log.warn('[companion:ssh] dev mode but dist-companion/companion.cjs missing; run `npm run build:companion`')
-      return
-    }
-
-    const h = await tarballHash(bundle)
-    const ok = (await this.exec(`cat ${D}/.cjs.ok 2>/dev/null`)).stdout.trim()
-    if (provisioned && ok === h) return // host already runs this exact bundle
-
-    await this.exec(`mkdir -p ${D}`)
-    await this.sftpPut(bundle, `${this.installDir}/companion.cjs`)
-    await this.exec(`printf %s ${shq(h)} > ${D}/.cjs.ok`)
-    log.info('[companion:ssh] dev fast-push companion.cjs (%s)', h)
-  }
-
-  /** Compound sh command: download (curl|wget) → extract → verify → mark. */
-  private remotePullCmd(installDir: string, url: string, version: string): string {
-    const D = shq(installDir)
-    const U = shq(url)
-    const V = shq(version)
-    return (
-      `mkdir -p ${D} && cd ${D} && rm -f pkg.tgz && ` +
-      `if command -v curl >/dev/null 2>&1; then curl -fSL ${U} -o pkg.tgz; ` +
-      `elif command -v wget >/dev/null 2>&1; then wget -qO pkg.tgz ${U}; ` +
-      `else echo CATE_NO_FETCHER >&2; exit 3; fi && ` +
-      `tar -xzf pkg.tgz && rm -f pkg.tgz && ` +
-      `test -x runtime/bin/node && test -f companion.cjs && ` +
-      `printf %s ${V} > .ok && echo CATE_PULL_OK`
-    )
+  private bootstrapDev(version: string, D: string): Promise<void> {
+    return bootstrapDevShared(version, D, {
+      tag: 'ssh',
+      exec: (cmd) => this.exec(cmd),
+      pushTarball: (v, marker) => this.pushTarball(v, marker),
+      pushBundle: async (bundle, hash, quotedDir) => {
+        await this.exec(`mkdir -p ${quotedDir}`)
+        await this.sftpPut(bundle, `${this.installDir}/companion.cjs`)
+        await this.exec(`printf %s ${shq(hash)} > ${quotedDir}/.cjs.ok`)
+      },
+    })
   }
 
   private async pushTarball(version: string, marker: string): Promise<void> {
@@ -272,11 +216,7 @@ export class SshTransport implements CompanionTransport {
     const remoteTar = `${this.installDir}/pkg.tgz`
     await this.exec(`mkdir -p ${D}`)
     await this.sftpPut(localTar, remoteTar)
-    const extract = await this.exec(
-      `cd ${D} && tar -xzf pkg.tgz && rm -f pkg.tgz && ` +
-        `test -x runtime/bin/node && test -f companion.cjs && ` +
-        `printf %s ${shq(marker)} > .ok && echo CATE_EXTRACT_OK`,
-    )
+    const extract = await this.exec(`cd ${D} && ${buildExtractCommand(shq(marker), 'CATE_EXTRACT_OK')}`)
     if (!extract.stdout.includes('CATE_EXTRACT_OK')) {
       throw new Error(`remote extract failed: ${extract.stderr || extract.stdout}`)
     }
@@ -319,9 +259,4 @@ export class SshTransport implements CompanionTransport {
     try { this.conn?.end() } catch { /* ignore */ }
     this.conn = null
   }
-}
-
-/** Minimal shell-quote for argv interpolated into the remote command string. */
-function shq(s: string): string {
-  return `'${s.replace(/'/g, `'\\''`)}'`
 }

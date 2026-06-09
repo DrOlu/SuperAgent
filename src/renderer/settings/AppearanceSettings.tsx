@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check, Trash, Upload, DownloadSimple, Sparkle } from '@phosphor-icons/react'
 import { useSettingsStore } from '../stores/settingsStore'
-import { SettingRow, Select, NumberInput, SearchableBlock } from './SettingsComponents'
+import { SettingRow, Select, NumberInput, SearchableBlock, SecondaryButton } from './SettingsComponents'
 import type { Theme } from '../../shared/types'
 import { validateTheme } from '../../shared/theme'
 import { BASE_DARK, BASE_LIGHT, BUILT_IN_THEMES } from '../../shared/themes'
@@ -110,14 +110,10 @@ export function AppearanceSettings() {
       {/* Mode + catalog header */}
       <div className="flex items-center justify-between py-2.5">
         <span className="text-sm text-primary">Theme</span>
-        <button
-          onClick={handleImport}
-          className="flex items-center gap-1.5 px-2 py-1 text-[11px] rounded text-secondary hover:text-primary bg-surface-2 hover:bg-hover border border-subtle"
-          title="Import a theme from a JSON file"
-        >
+        <SecondaryButton onClick={handleImport} title="Import a theme from a JSON file">
           <Upload size={11} />
           Import…
-        </button>
+        </SecondaryButton>
       </div>
 
       {importError && <div className="text-[11px] text-red-400 mb-2">{importError}</div>}

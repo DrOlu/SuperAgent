@@ -31,6 +31,14 @@ export function getWorkspaceDockStore(workspaceId: string): StoreApi<DockStore> 
   return dockStoresByWorkspace.get(workspaceId)
 }
 
+/** Adopt an externally-created dock store as the workspace's store. Detached dock
+ *  windows create their own store (createDockStore) and register it here so the
+ *  shared placement code (placePanel → getOrCreateWorkspaceDockStore) targets the
+ *  store this window actually renders, letting newly-created panels land here. */
+export function registerWorkspaceDockStore(workspaceId: string, store: StoreApi<DockStore>): void {
+  dockStoresByWorkspace.set(workspaceId, store)
+}
+
 /** Drop a workspace's dock store (on workspace removal). */
 export function releaseWorkspaceDockStore(workspaceId: string): void {
   dockStoresByWorkspace.delete(workspaceId)

@@ -6,7 +6,9 @@
 // effects.
 // =============================================================================
 
-import type { PanelTransferSnapshot, PanelType, DockDropTarget } from '../../shared/types'
+import type { PanelTransferSnapshot, PanelType, DockDropTarget, Point, Size } from '../../shared/types'
+import type { StoreApi } from 'zustand'
+import type { CanvasStore } from '../stores/canvasStore'
 import type { DragSource, DropTarget } from './types'
 import { findZoneForStack } from '../stores/dockTreeUtils'
 import { getDefaultSession } from './session'
@@ -52,10 +54,7 @@ export async function commitDrop(
       // Remove the panel from its current location first so addNode doesn't
       // race with a stale duplicate (terminal PTY, xterm DOM, etc.).
       removeFromSource(source, panel.type, ctx)
-      const targetState = target.canvasStoreApi.getState()
-      const newNodeId = targetState.addNode(panel.id, panel.type, target.origin, target.size)
-      target.canvasStoreApi.getState().resizeNode(newNodeId, target.size)
-      target.canvasStoreApi.getState().focusNode(newNodeId)
+      placeNodeOnCanvas(target.canvasStoreApi, panel.id, panel.type, target.origin, target.size)
       return
     }
 
@@ -124,6 +123,21 @@ export async function commitDrop(
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+/** Add a panel as a node on a canvas, then size + focus it. Shared by the
+ *  same-window `canvas-add` commit and the cross-window remote-drop handler so
+ *  both place panels identically. */
+export function placeNodeOnCanvas(
+  canvasStoreApi: StoreApi<CanvasStore>,
+  panelId: string,
+  panelType: PanelType,
+  origin: Point,
+  size: Size,
+): void {
+  const newNodeId = canvasStoreApi.getState().addNode(panelId, panelType, origin, size)
+  canvasStoreApi.getState().resizeNode(newNodeId, size)
+  canvasStoreApi.getState().focusNode(newNodeId)
+}
 
 function removeFromSource(
   source: DragSource,

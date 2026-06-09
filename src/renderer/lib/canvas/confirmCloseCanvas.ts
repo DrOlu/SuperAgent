@@ -10,19 +10,10 @@
 // itself before returning true.
 // =============================================================================
 
-import type { DockLayoutNode } from '../../../shared/types'
 import { useAppStore } from '../../stores/appStore'
 import { getOrCreateCanvasStoreForPanel } from '../../stores/canvasStore'
 import { getNodeDockLayout } from '../workspace/canvasAccess'
-
-/** Walk a per-node dock layout tree and collect every panelId inside it. */
-function collectPanelIds(layout: DockLayoutNode | null | undefined): string[] {
-  if (!layout) return []
-  if (layout.type === 'tabs') return [...layout.panelIds]
-  const out: string[] = []
-  for (const child of layout.children) out.push(...collectPanelIds(child))
-  return out
-}
+import { collectPanelIds } from './collectPanelIds'
 
 export async function confirmCloseCanvas(
   workspaceId: string,

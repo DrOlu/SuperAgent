@@ -9,7 +9,7 @@
 
 import type { CanvasNodeId, CanvasNodeState, Point, Size, Rect, PanelType } from '../../shared/types'
 import { PANEL_DEFAULT_SIZES } from '../../shared/types'
-import { CANVAS_GRID_SIZE } from './layoutEngine'
+import { CANVAS_GRID_SIZE, snapScalar, snapToGrid, rectsOverlap } from './layoutEngine'
 import { viewToCanvas as viewToCanvasCoords } from '../lib/canvas/coordinates'
 
 /** A recommended spot for a new node, surfaced as a numbered, clickable "ghost".
@@ -41,7 +41,7 @@ export function findFreePosition(
 
   const gap = 40
   const grid = CANVAS_GRID_SIZE
-  const snap = (v: number) => Math.round(v / grid) * grid
+  const snap = (v: number) => snapScalar(v, grid)
 
   const overlaps = (p: Point) => {
     const rect = { origin: p, size: defaultSize }
@@ -192,7 +192,7 @@ function clampAspect(w: number, h: number, minAR: number, maxAR: number): Size {
 
 /** Grid-snap + clamp a size to the placement min/max + aspect-ratio bounds. */
 function clampPlacementSize(w: number, h: number, grid: number): Size {
-  const snap = (v: number) => Math.max(grid, Math.round(v / grid) * grid)
+  const snap = (v: number) => snapScalar(v, grid, true)
   const s = clampAspect(
     Math.min(Math.max(w, PLACEMENT_MIN_W), PLACEMENT_MAX_W),
     Math.min(Math.max(h, PLACEMENT_MIN_H), PLACEMENT_MAX_H),
@@ -227,7 +227,7 @@ export function recommendPlacements(
   max = 6,
 ): PlacementCandidate[] {
   const grid = CANVAS_GRID_SIZE
-  const snapPt = (p: Point): Point => ({ x: Math.round(p.x / grid) * grid, y: Math.round(p.y / grid) * grid })
+  const snapPt = (p: Point): Point => snapToGrid(p, grid)
   const gap = PLACEMENT_GAP
   const std = PANEL_DEFAULT_SIZES[panelType]
 
@@ -374,7 +374,7 @@ export function nudgeToFree(
   desired: Point,
 ): Point {
   const grid = CANVAS_GRID_SIZE
-  const snap = (v: number) => Math.round(v / grid) * grid
+  const snap = (v: number) => snapScalar(v, grid)
   const start = { x: snap(desired.x), y: snap(desired.y) }
   const nodeList = Object.values(nodes)
   const free = (p: Point) =>
@@ -390,13 +390,4 @@ export function nudgeToFree(
     }
   }
   return start // give up — allow the overlap rather than refuse the placement
-}
-
-function rectsOverlap(a: Rect, b: Rect): boolean {
-  return !(
-    a.origin.x + a.size.width <= b.origin.x ||
-    b.origin.x + b.size.width <= a.origin.x ||
-    a.origin.y + a.size.height <= b.origin.y ||
-    b.origin.y + b.size.height <= a.origin.y
-  )
 }

@@ -9,7 +9,7 @@ import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
 import log from './logger'
-import { writeJsonAtomicSync } from './writeJsonAtomic'
+import { writeJsonAtomicSync, writeTextAtomicSync } from './writeJsonAtomic'
 
 function fullPath(filename: string): string {
   return path.join(app.getPath('userData'), filename)
@@ -53,15 +53,10 @@ export function readTextFile(filename: string): string | null {
 
 /** Atomically write raw text to a file under userData/. */
 export function writeTextFile(filename: string, text: string): void {
-  const p = fullPath(filename)
-  const tmp = p + '.tmp'
   try {
-    fs.mkdirSync(path.dirname(p), { recursive: true })
-    fs.writeFileSync(tmp, text, 'utf-8')
-    fs.renameSync(tmp, p)
+    writeTextAtomicSync(fullPath(filename), text)
   } catch (err) {
     log.warn('[jsonFileStore] writeText %s failed: %s', filename, err instanceof Error ? err.message : String(err))
-    try { fs.unlinkSync(tmp) } catch { /* noop */ }
   }
 }
 

@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import log from '../lib/logger'
 import type { AppSettings } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/types'
+import { getElectronAPI as getAPI, mergeKnown } from './jsonProjection'
 
 // -----------------------------------------------------------------------------
 // Electron API type (exposed via preload)
@@ -23,13 +24,7 @@ interface ElectronSettingsAPI {
 
 // Copy only known AppSettings keys from a source object onto a target patch.
 function pickKnownSettings(source: Partial<AppSettings>): Partial<AppSettings> {
-  const out: Partial<AppSettings> = {}
-  for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
-    if (key in source && source[key] !== undefined) {
-      ;(out as Record<string, unknown>)[key] = source[key]
-    }
-  }
-  return out
+  return mergeKnown(DEFAULT_SETTINGS, source)
 }
 
 // Subscribe once (per window) to SETTINGS_RELOADED. Main broadcasts the full
@@ -41,13 +36,7 @@ function pickKnownSettings(source: Partial<AppSettings>): Partial<AppSettings> {
 let reloadSubscribed = false
 
 function getElectronAPI(): ElectronSettingsAPI | null {
-  if (
-    typeof window !== 'undefined' &&
-    (window as unknown as Record<string, unknown>).electronAPI
-  ) {
-    return (window as unknown as Record<string, unknown>).electronAPI as ElectronSettingsAPI
-  }
-  return null
+  return getAPI<ElectronSettingsAPI>()
 }
 
 // -----------------------------------------------------------------------------
@@ -118,12 +107,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       const stored = await api.settingsGetAll()
       // Merge stored values over defaults (only known keys)
-      const merged: Partial<AppSettings> = {}
-      for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
-        if (key in stored && stored[key] !== undefined) {
-          ;(merged as Record<string, unknown>)[key] = stored[key]
-        }
-      }
+      const merged = mergeKnown(DEFAULT_SETTINGS, stored)
       // Migrate the legacy appearanceMode setting → activeThemeId. The old
       // values map directly to built-in theme ids (with two legacy aliases).
       // terminalCustomThemes / defaultTerminalTheme are intentionally dropped:

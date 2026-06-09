@@ -15,7 +15,19 @@ export function forgetTerminalForProcessMonitor(_terminalId: string): void {
   // no-op
 }
 
-export function useProcessMonitor(workspaceId: string): void {
+/**
+ * Owner-routed terminal telemetry: agent activity/presence/name, listening
+ * ports, and cwd. Main sends each of these only to the terminal's OWNER window
+ * (sendToWindow(ownerWindowId, …) in main/ipc/shell.ts), so this must run in
+ * EVERY window — not just main — or a detached panel/dock window never learns
+ * its own terminals' agent presence. Crucially, the agent-screen detector gates
+ * `running` on presence (resolveAgentState returns notRunning when !present), so
+ * without this a detached terminal's agent never shows the running shimmer even
+ * though its spinner is detected locally. Wired once per window from
+ * useWindowRuntime; only terminals this window owns are ever delivered here, so
+ * there is no cross-window contamination.
+ */
+export function useOwnedTerminalTelemetry(): void {
   useEffect(() => {
     const api = window.electronAPI
     if (!api?.onShellActivityUpdate) return
@@ -33,8 +45,12 @@ export function useProcessMonitor(workspaceId: string): void {
         const agentName = (agentNameRaw as string | null) ?? null
         const agentPresent = agentPresentRaw === true
 
-        // terminal->workspace identity is owned by terminalRegistry's bimap.
-        const actualWorkspaceId = workspaceIdForTerminal(terminalId) ?? workspaceId
+        // terminal->workspace identity is owned by terminalRegistry's bimap. The
+        // terminal is registered in THIS window (it owns it), so the resolve
+        // succeeds; fall back to the selected workspace only as a safety net.
+        const actualWorkspaceId =
+          workspaceIdForTerminal(terminalId) ?? useAppStore.getState().selectedWorkspaceId
+        if (!actualWorkspaceId) return
 
         // statusStore is the single home for (agentName, agentPresent). Read the
         // PRIOR name from there (not a separate module map) so the rising-edge
@@ -55,7 +71,8 @@ export function useProcessMonitor(workspaceId: string): void {
         // for agent terminals — the raw OSC title (cwd / spinner-prefixed name
         // / session label) is suppressed for agents in terminalRegistry's
         // onTitleChange (see applyOscTitleIfNoAgent), so this name sticks.
-        // `updatePanelTitleFromAgent` skips when the user has manually renamed.
+        // Duplicates are numbered ("Claude Code 2") by updatePanelTitleFromAgent.
+        // It also skips the update when the user has manually renamed the tab.
         if (agentName && agentName !== prevAgent) {
           const panelId = terminalRegistry.panelIdForPty(terminalId) ?? terminalId
           useAppStore.getState().updatePanelTitleFromAgent(actualWorkspaceId, panelId, agentName)
@@ -64,7 +81,7 @@ export function useProcessMonitor(workspaceId: string): void {
     )
 
     return () => { unsubscribe() }
-  }, [workspaceId])
+  }, [])
 
   useEffect(() => {
     const api = window.electronAPI
@@ -83,7 +100,9 @@ export function useProcessMonitor(workspaceId: string): void {
     })
     return () => { unsubscribe() }
   }, [])
+}
 
+export function useProcessMonitor(workspaceId: string): void {
   useEffect(() => {
     const api = window.electronAPI
     if (!api?.onGitBranchUpdate) return

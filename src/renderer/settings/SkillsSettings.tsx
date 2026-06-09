@@ -8,16 +8,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { GithubLogo, Plus, Trash } from '@phosphor-icons/react'
-import { SettingRow, SearchableBlock } from './SettingsComponents'
+import { SettingRow, SearchableBlock, SecondaryButton, TextInput } from './SettingsComponents'
 import { errorMessage } from '../lib/errorMessage'
 import type { SkillSource } from '../../shared/skills'
 
 const api = () => window.electronAPI
-
-const SMALL_BTN =
-  'flex items-center gap-1.5 px-2 py-1 text-[11px] rounded text-secondary hover:text-primary bg-surface-2 hover:bg-hover border border-subtle disabled:opacity-40 disabled:cursor-default'
-const INPUT =
-  'w-48 bg-surface-5 border border-subtle rounded-md px-2 py-1 text-sm text-primary placeholder:text-muted focus:border-focus-blue focus:outline-none'
 
 export function SkillsSettings() {
   const [sources, setSources] = useState<SkillSource[]>([])
@@ -81,17 +76,17 @@ export function SkillsSettings() {
         description="GitHub repos of skills, searched alongside the built-in catalog and shared across workspaces."
       >
         <div className="flex items-center gap-2">
-          <input
+          <TextInput
             value={repo}
-            onChange={(e) => setRepo(e.target.value)}
+            onChange={setRepo}
             onKeyDown={(e) => e.key === 'Enter' && void add()}
             placeholder="owner/repo"
-            className={`${INPUT} font-mono`}
+            className="font-mono"
           />
-          <button onClick={() => void add()} disabled={adding || !repo.trim()} className={SMALL_BTN}>
+          <SecondaryButton onClick={() => void add()} disabled={adding || !repo.trim()}>
             <Plus size={11} />
             Add
-          </button>
+          </SecondaryButton>
         </div>
       </SettingRow>
 
@@ -127,16 +122,15 @@ export function SkillsSettings() {
         hint={hasToken ? <span className="text-[10px] text-emerald-400">Token saved</span> : undefined}
       >
         <div className="flex items-center gap-2">
-          <input
+          <TextInput
             type="password"
             value={token}
-            onChange={(e) => setToken(e.target.value)}
+            onChange={setToken}
             placeholder={hasToken ? 'Replace…' : 'ghp_…'}
-            className={INPUT}
           />
-          <button onClick={() => void saveToken()} disabled={!token.trim()} className={SMALL_BTN}>
+          <SecondaryButton onClick={() => void saveToken()} disabled={!token.trim()}>
             Save
-          </button>
+          </SecondaryButton>
           {hasToken && (
             <button onClick={() => void clearToken()} className="px-2 py-1 text-[11px] rounded text-muted hover:text-red-400">
               Clear

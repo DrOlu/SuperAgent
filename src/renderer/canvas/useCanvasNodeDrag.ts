@@ -7,23 +7,13 @@
 import React, { useCallback, useMemo } from 'react'
 import { useStore } from 'zustand'
 import type { StoreApi } from 'zustand'
-import type { DockLayoutNode, PanelType } from '../../shared/types'
+import type { PanelType } from '../../shared/types'
+import { collectPanelIds } from '../../shared/collectPanelIds'
 import { useDragOp } from '../drag'
 import type { DockStore } from '../stores/dockStore'
 import { findStackContainingPanel } from '../stores/dockTreeUtils'
 import { useSelectedWorkspace } from '../stores/appStore'
 import type { useCanvasStoreApi } from '../stores/CanvasStoreContext'
-
-/** Count total leaf panels in a dock layout tree — used to decide whether
- *  a tab drag should move the whole node (1 panel) or detach just the tab
- *  (>1 panels). */
-export function countPanels(n: DockLayoutNode | null): number {
-  if (!n) return 0
-  if (n.type === 'tabs') return n.panelIds.length
-  let total = 0
-  for (const child of n.children) total += countPanels(child)
-  return total
-}
 
 export function useCanvasNodeDrag(
   nodeId: string,
@@ -36,16 +26,7 @@ export function useCanvasNodeDrag(
   const currentWorkspace = useSelectedWorkspace()
 
   const primaryPanel = useMemo(() => {
-    function firstPanelId(n: DockLayoutNode | null): string | null {
-      if (!n) return null
-      if (n.type === 'tabs') return n.panelIds[0] ?? null
-      for (const child of n.children) {
-        const found = firstPanelId(child)
-        if (found) return found
-      }
-      return null
-    }
-    const pid = firstPanelId(layout)
+    const pid = collectPanelIds(layout)[0] ?? null
     if (!pid) return null
     return currentWorkspace?.panels[pid] ?? null
   }, [layout, currentWorkspace])

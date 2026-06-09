@@ -77,7 +77,10 @@ uniform vec2  uMaskSize;   // world span
 
 out vec4 fragColor;
 
-// --- value noise (organic domain warp) — structurally identical to the CPU ---
+// --- value noise + SDF primitives (organic domain warp) ----------------------
+// GLSL port of the math in territoryMath.ts — that TS file is the source of
+// truth. The functions below (uhash/hash, vnoise, fbm, sdRoundRect, smin,
+// sdSegment) MUST stay byte-for-byte equivalent to it; flag any drift there.
 uint uhash(int xi, int yi){
   uint h = uint(xi) * 374761393u + uint(yi) * 668265263u;
   h = (h ^ (h >> 13u)) * 1274126177u;
@@ -97,8 +100,8 @@ float vnoise(float x, float y){
 }
 float fbm(float x, float y){
   // Large flowing base + a subtle finer octave for organic, non-uniform edges
-  // (low weight so it adds life without the old tight wobble). Keep in sync with
-  // territoryRenderer.ts / territoryGeometry.ts.
+  // (low weight so it adds life without the old tight wobble). Mirror of
+  // territoryMath.ts fbm (the source of truth).
   return vnoise(x, y) * 0.82 + vnoise(x * 2.3 + 11.7, y * 2.3 + 5.1) * 0.18;
 }
 

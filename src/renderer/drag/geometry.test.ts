@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   cursorToCanvasOrigin,
   ghostScreenRect,
-  normalizeGrabOffset,
 } from './geometry'
 
 // Helper: build a fake DOMRect at the given top-left with given size.
@@ -127,37 +126,5 @@ describe('ghostScreenRect', () => {
     const r = ghostScreenRect({ x: 500, y: 300 }, { x: 0, y: 0 }, { width: 320, height: 200 }, 0.5)
     expect(r.width).toBe(160)
     expect(r.height).toBe(100)
-  })
-})
-
-describe('normalizeGrabOffset', () => {
-  it('returns delta from source rect top-left at zoom=1', () => {
-    const r = rect(100, 50, 400, 300)
-    const grab = normalizeGrabOffset({ x: 180, y: 110 }, r, 1)
-    expect(grab).toEqual({ x: 80, y: 60 })
-  })
-
-  it('divides by source zoom (zoom=2 → grab is half the screen-px delta)', () => {
-    const r = rect(0, 0, 400, 300)
-    const grab = normalizeGrabOffset({ x: 100, y: 60 }, r, 2)
-    expect(grab.x).toBeCloseTo(50)
-    expect(grab.y).toBeCloseTo(30)
-  })
-
-  it('divides by source zoom (zoom=0.5 → grab is double the screen-px delta)', () => {
-    const r = rect(0, 0, 400, 300)
-    const grab = normalizeGrabOffset({ x: 100, y: 60 }, r, 0.5)
-    expect(grab.x).toBeCloseTo(200)
-    expect(grab.y).toBeCloseTo(120)
-  })
-
-  it('floors non-finite or near-zero zoom to 1', () => {
-    const r = rect(0, 0, 400, 300)
-    const grabNaN = normalizeGrabOffset({ x: 100, y: 60 }, r, Number.NaN)
-    expect(grabNaN).toEqual({ x: 100, y: 60 })
-    const grabZero = normalizeGrabOffset({ x: 100, y: 60 }, r, 0)
-    expect(grabZero).toEqual({ x: 100, y: 60 })
-    const grabNeg = normalizeGrabOffset({ x: 100, y: 60 }, r, -2)
-    expect(grabNeg).toEqual({ x: 100, y: 60 })
   })
 })

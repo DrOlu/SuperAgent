@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, FolderOpen, ArrowsClockwise, Trash } from '@phosphor-icons/react'
 import log from '../../renderer/lib/logger'
+import { errorMessage as toErrorMessage } from '../../renderer/lib/errorMessage'
 import { useAppStore } from '../../renderer/stores/appStore'
 import type { AgentSlashCommand } from '../../shared/types'
 
@@ -95,7 +96,7 @@ export function SettingsView({
       onRefresh()
       useAppStore.getState().createEditor(workspaceId, created)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(toErrorMessage(err))
     }
   }
 
@@ -112,7 +113,7 @@ export function SettingsView({
       await refreshAllFiles()
       onRefresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(toErrorMessage(err))
     }
   }
 
@@ -363,7 +364,7 @@ function ExtensionsTab({ cwd, refreshNonce = 0 }: { cwd: string; refreshNonce?: 
       }
       await refreshInstalled()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(toErrorMessage(err))
     } finally {
       setRowPending(name, undefined)
     }
@@ -380,7 +381,7 @@ function ExtensionsTab({ cwd, refreshNonce = 0 }: { cwd: string; refreshNonce?: 
       }
       await refreshInstalled()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(toErrorMessage(err))
     } finally {
       setRowPending(name, undefined)
     }

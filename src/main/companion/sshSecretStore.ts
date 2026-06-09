@@ -9,6 +9,8 @@ import { app, safeStorage } from 'electron'
 import fsp from 'fs/promises'
 import path from 'path'
 import log from '../logger'
+import { writeJsonAtomic } from '../writeJsonAtomic'
+import { isPlainObject } from '../jsonUtils'
 
 export interface SshSecret {
   passphrase?: string
@@ -26,7 +28,7 @@ async function readRaw(): Promise<OnDisk> {
   try {
     const raw = await fsp.readFile(secretsPath(), 'utf-8')
     const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as OnDisk
+    if (isPlainObject(parsed)) return parsed as OnDisk
   } catch (err) {
     if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
       log.warn('[sshSecretStore] read failed: %O', err)
@@ -36,12 +38,7 @@ async function readRaw(): Promise<OnDisk> {
 }
 
 async function writeRaw(data: OnDisk): Promise<void> {
-  const p = secretsPath()
-  await fsp.mkdir(path.dirname(p), { recursive: true, mode: 0o700 })
-  const tmp = p + '.tmp'
-  await fsp.writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
-  try { await fsp.chmod(tmp, 0o600) } catch { /* platforms without modes */ }
-  await fsp.rename(tmp, p)
+  await writeJsonAtomic(secretsPath(), data, { mode: 0o600 })
 }
 
 export async function saveSshSecret(companionId: string, secret: SshSecret): Promise<void> {

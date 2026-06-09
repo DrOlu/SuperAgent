@@ -22,12 +22,22 @@
 // =============================================================================
 
 import {
-  FIELD_CELL, REACH, OUTER_REACH_SCALE, INTENSITY, OUTER_LEVEL, CORNER, PANEL_CORNER, SMINK,
-  CONNECT_RADIUS, CONNECT_MAX_GAP, CONNECT_FALLOFF, COLOR_BLEND,
-  INNER_RING_FRAC, OUTLINE_WIDTH, OUTLINE_ALPHA, WARP_AMP, WARP_FREQ,
+  FIELD_CELL, CORNER, PANEL_CORNER, SMINK,
+  COLOR_BLEND,
+  OUTLINE_WIDTH, OUTLINE_ALPHA, WARP_AMP, WARP_FREQ,
 } from './territoryConfig'
+import {
+  fbm, sdRoundRect, smin, sdSegment, hexToRgb, type TerritoryRect,
+} from './territoryMath'
+import {
+  buildBridges,
+  INNER_RING as innerRing,
+  OUTER_REACH as outerReach,
+  OUTER_A as outerA,
+  INNER_EXTRA as innerExtra,
+} from './territoryGeometry'
 
-export interface TerritoryRect { x: number; y: number; w: number; h: number }
+export type { TerritoryRect }
 export interface TerritoryGroup {
   color: string
   rects: TerritoryRect[]
@@ -47,83 +57,10 @@ export interface TerritoryView {
 /** Inclusive screen-cell bounds. */
 interface Box { gx0: number; gy0: number; gx1: number; gy1: number }
 
-// --- value noise (static; gives the organic domain warp) -------------------
-function hash(x: number, y: number): number {
-  let h = (x | 0) * 374761393 + (y | 0) * 668265263
-  h = (h ^ (h >> 13)) * 1274126177
-  return ((h ^ (h >> 16)) >>> 0) / 4294967295
-}
-function vnoise(x: number, y: number): number {
-  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi
-  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf)
-  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1)
-  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v
-}
-// Large flowing base + a subtle finer octave for organic, non-uniform edges (low
-// weight so it adds life without the old tight wobble). Keep in sync with
-// territoryGL.ts / territoryGeometry.ts.
-function fbm(x: number, y: number): number {
-  return vnoise(x, y) * 0.82 + vnoise(x * 2.3 + 11.7, y * 2.3 + 5.1) * 0.18
-}
-
-// Signed distance to a rounded rectangle (negative inside).
-function sdRoundRect(px: number, py: number, x: number, y: number, w: number, h: number, r: number): number {
-  const cx = x + w / 2, cy = y + h / 2, hx = w / 2 - r, hy = h / 2 - r
-  const qx = Math.abs(px - cx) - hx, qy = Math.abs(py - cy) - hy
-  const ax = Math.max(qx, 0), ay = Math.max(qy, 0)
-  return Math.sqrt(ax * ax + ay * ay) + Math.min(Math.max(qx, qy), 0) - r
-}
-// Polynomial smooth-min (iq) — merges distances without a kink.
-function smin(a: number, b: number, k: number): number {
-  if (k <= 0) return Math.min(a, b)
-  const h = Math.max(k - Math.abs(a - b), 0) / k
-  return Math.min(a, b) - h * h * k * 0.25
-}
-// Straight-line gap (canvas px) between two rectangles' borders; 0 if they
-// touch/overlap. Used to fade out bridges between far-apart panels.
-function rectGap(a: TerritoryRect, b: TerritoryRect): number {
-  const dx = Math.max(a.x - (b.x + b.w), b.x - (a.x + a.w), 0)
-  const dy = Math.max(a.y - (b.y + b.h), b.y - (a.y + a.h), 0)
-  return Math.sqrt(dx * dx + dy * dy)
-}
-// Fit a capsule that fuses two panels by filling only the gap + their interiors,
-// never reaching the outer edges — so a connection never domes the far top/bottom.
-// Endpoints sit at the panels' FACING edges; radius is capped to the perpendicular
-// half-extent (flush sides) and full along-axis extent (cap can't poke out the far
-// edge). Returns [ax, ay, bx, by, radius]. Sync with territoryGeometry.ts.
-function bridgeCapsule(a: TerritoryRect, b: TerritoryRect, r: number): [number, number, number, number, number] {
-  const acx = a.x + a.w / 2, acy = a.y + a.h / 2
-  const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2
-  const dx = bcx - acx, dy = bcy - acy
-  const dist = Math.sqrt(dx * dx + dy * dy)
-  if (dist < 1e-6) return [acx, acy, bcx, bcy, Math.min(r, a.w / 2, a.h / 2, b.w / 2, b.h / 2)]
-  const ux = dx / dist, uy = dy / dist
-  const axA = Math.abs(ux) * a.w / 2 + Math.abs(uy) * a.h / 2
-  const axB = Math.abs(ux) * b.w / 2 + Math.abs(uy) * b.h / 2
-  const perpA = Math.abs(uy) * a.w / 2 + Math.abs(ux) * a.h / 2
-  const perpB = Math.abs(uy) * b.w / 2 + Math.abs(ux) * b.h / 2
-  const rr = Math.min(r, perpA, perpB, 2 * axA, 2 * axB)
-  let sa = axA
-  let sb = dist - axB
-  if (sa > sb) { const mid = (sa + sb) / 2; sa = mid; sb = mid }
-  return [acx + ux * sa, acy + uy * sa, acx + ux * sb, acy + uy * sb, rr]
-}
-// Signed distance to a capsule (line segment a→b with radius r).
-function sdSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number, r: number): number {
-  const pax = px - ax, pay = py - ay, bax = bx - ax, bay = by - ay
-  const denom = bax * bax + bay * bay
-  const h = denom > 1e-6 ? Math.max(0, Math.min(1, (pax * bax + pay * bay) / denom)) : 0
-  const dx = pax - bax * h, dy = pay - bay * h
-  return Math.sqrt(dx * dx + dy * dy) - r
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  let h = hex.trim().replace('#', '')
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]
-  const n = parseInt(h, 16)
-  if (Number.isNaN(n)) return [255, 255, 255]
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
+// Value noise, SDF primitives, rectGap, bridgeCapsule and hexToRgb live in
+// territoryMath.ts; the bridge fade/cull loop lives in territoryGeometry's
+// buildBridges (shared source of truth, mirrored in the territoryGL.ts GLSL port
+// for the math helpers).
 
 // --- reused scratch (avoid per-frame allocation on the rebuild/drag path) ---
 let _combined = new Float32Array(0)
@@ -292,8 +229,6 @@ export function drawTerritory(
   const rows = Math.ceil(height / cell) + 1
   const N = cols * rows
 
-  const innerRing = REACH * INNER_RING_FRAC
-  const outerReach = REACH * OUTER_REACH_SCALE
   const G = groups.length
   const rgbs = groups.map((g) => hexToRgb(g.color))
 
@@ -336,33 +271,23 @@ export function drawTerritory(
       cx[r] = rc.x + rc.w / 2; cy[r] = rc.y + rc.h / 2
       pbox.push(cellBox(rc.x - Rp, rc.y - Rp, rc.x + rc.w + Rp, rc.y + rc.h + Rp))
     }
+    // Bridges (fade + cull) come from the shared buildBridges; we only map them
+    // into our SoA arrays and screen-cull boxes (cullR carried on each bridge).
     const ea: number[] = [], eb: number[] = [], er: number[] = [], ebox: Box[] = []
     const eax: number[] = [], eay: number[] = [], ebx: number[] = [], eby: number[] = []
-    const fadeStart = CONNECT_MAX_GAP - CONNECT_FALLOFF
-    for (let a = 0; a < m; a++) {
-      for (let b = a + 1; b < m; b++) {
-        const gap = rectGap(g.rects[a], g.rects[b])
-        if (gap >= CONNECT_MAX_GAP) continue
-        let w = 1
-        if (gap > fadeStart) { const t = 1 - (gap - fadeStart) / CONNECT_FALLOFF; w = t * t * (3 - 2 * t) }
-        const rad = CONNECT_RADIUS * w - outerReach * (1 - w)
-        const cullR = rad + outerReach + SMINK + WARP_AMP
-        if (cullR <= 0) continue // bridge so faded it can't reach the terrace
-        const [bax, bay, bbx, bby, brr] = bridgeCapsule(g.rects[a], g.rects[b], rad)
-        ea.push(a); eb.push(b); er.push(brr)
-        eax.push(bax); eay.push(bay); ebx.push(bbx); eby.push(bby)
-        ebox.push(cellBox(
-          Math.min(cx[a], cx[b]) - cullR, Math.min(cy[a], cy[b]) - cullR,
-          Math.max(cx[a], cx[b]) + cullR, Math.max(cy[a], cy[b]) + cullR,
-        ))
-      }
+    for (const br of buildBridges(g.rects)) {
+      const { a, b, cullR } = br
+      ea.push(a); eb.push(b); er.push(br.radius)
+      eax.push(br.ax); eay.push(br.ay); ebx.push(br.bx); eby.push(br.by)
+      ebox.push(cellBox(
+        Math.min(cx[a], cx[b]) - cullR, Math.min(cy[a], cy[b]) - cullR,
+        Math.max(cx[a], cx[b]) + cullR, Math.max(cy[a], cy[b]) + cullR,
+      ))
     }
     return { m, rects: g.rects, cx, cy, pbox, ea, eb, er, eax, eay, ebx, eby, ebox }
   })
 
   const combined = ensureCombined(N)
-  const outerA = INTENSITY * OUTER_LEVEL
-  const innerExtra = (INTENSITY - outerA) / (1 - outerA)
   const line = 'rgb(206,217,236)'
 
   const multi = G > 1

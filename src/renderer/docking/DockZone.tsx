@@ -35,6 +35,7 @@ export default function DockZone({ position, renderPanel, getPanelTitle, onClose
       id: `zone-${position}`,
       zone: position,
       getRect: () => zoneRef.current?.getBoundingClientRect() ?? null,
+      getElement: () => zoneRef.current,
     })
   }, [position])
 

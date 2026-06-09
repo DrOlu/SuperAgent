@@ -17,12 +17,11 @@ import path from 'path'
 import { app } from 'electron'
 import log from '../../main/logger'
 import { writeJsonAtomic } from '../../main/writeJsonAtomic'
-import { hostAgentDir, hostJoin } from './agentDir'
+import { hostAgentDir, hostJoin, PI_AGENT_DIR } from './agentDir'
 import type { Companion } from '../../main/companion/types'
 import type { CustomOpenAIProvider } from '../../shared/types'
 
 const PROVIDER_ID = 'custom-openai'
-const PI_AGENT_DIR = 'pi-agent'
 
 /** The shared models.json — source of truth, mirrored into each workspace. */
 export function sharedModelsPath(): string {

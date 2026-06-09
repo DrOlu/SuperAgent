@@ -129,17 +129,20 @@ export function useShortcuts(): void {
       // be intercepted; everything else belongs to the terminal.
       const terminalHasFocus = computeTerminalHasFocus()
 
-      // --- Spacebar-hold = temporary Hand tool (pan) ---
-      // Hardcoded (a hold, not a tap). Ignored while typing or in a terminal so
-      // Space still types a space. e.repeat guards against key-repeat spam.
+      // --- Bare Space = toggle the Select / Hand tool (canvas convenience) ---
+      // Ignored while typing or in a terminal so Space still types a space, and
+      // skipped when an overlay owns the key. ⇧Space is handled via the matched
+      // `toggleTool` action below so it can also fire over a focused surface, so
+      // exclude Shift here. e.repeat guards against key-repeat spam.
       if (
         e.code === 'Space' &&
-        !e.metaKey && !e.ctrlKey && !e.altKey &&
+        !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey &&
         !terminalHasFocus && !isTextSurfaceFocused()
       ) {
-        if (!e.repeat) {
+        const uiNow = useUIStore.getState()
+        if (!e.repeat && !uiNow.showCommandPalette) {
           e.preventDefault()
-          useUIStore.getState().setSpacePanActive(true)
+          uiNow.setActiveTool(uiNow.activeTool === 'hand' ? 'select' : 'hand')
         }
         return
       }
@@ -174,7 +177,7 @@ export function useShortcuts(): void {
       if (e.key === 'Escape') {
         if (terminalHasFocus) return
         const ui = useUIStore.getState()
-        if (!ui.showCommandPalette && !ui.showNodeSwitcher) {
+        if (!ui.showCommandPalette) {
           canvasStore().clearSelection()
           if (ui.activeTool !== 'select') ui.setActiveTool('select')
           // Don't prevent default — Escape might also close other things
@@ -214,7 +217,7 @@ export function useShortcuts(): void {
         if (terminalHasFocus || isTextSurfaceFocused()) return
         if (isKeyNavFocused() || isSidebarKeyNavFocused()) return
         const uiNow = useUIStore.getState()
-        if (uiNow.showCommandPalette || uiNow.showNodeSwitcher) return
+        if (uiNow.showCommandPalette) return
         const state = canvasStore()
         if (state.selectedNodeIds.size === 1) {
           const id = [...state.selectedNodeIds][0]
@@ -231,18 +234,19 @@ export function useShortcuts(): void {
       const action = shortcutStore().matchEvent(e)
       if (!action) return
 
-      // When panel switcher is open, only handle the toggle shortcut
       const ui = useUIStore.getState()
 
-      // Tool shortcuts (Select/Hand) are ⌘⇧ combos, so they intentionally fire
-      // even while a terminal/editor is focused — we intercept and preventDefault
-      // before the surface sees the chord. No typing-suppression needed: a bare
-      // letter is never consumed for tool switching.
+      // toggleTool (⇧Space) intentionally has no typing-suppression guard: it's
+      // the gesture that switches Select/Hand even while a terminal/editor/input
+      // is focused. The capture-phase preventDefault below stops the surface from
+      // seeing it (so ⇧Space won't insert a space there — plain Space does).
+      // Ignore key-repeat so a held ⇧Space doesn't flicker between tools.
+      if (action === 'toggleTool' && e.repeat) return
 
       // Cmd+Arrow navigation / Shift+Arrow panning.
       if (NAVIGATE_ACTIONS.has(action) || PAN_ACTIONS.has(action)) {
         // Let an open overlay own the arrow keys.
-        if (ui.showNodeSwitcher || ui.showCommandPalette) return
+        if (ui.showCommandPalette) return
         // Let a keyboard-navigable list (e.g. the Search results tree, marked
         // data-keynav) keep its own arrow keys instead of moving the canvas.
         if (isKeyNavFocused()) return
@@ -301,13 +305,6 @@ export function useShortcuts(): void {
       runAction(action, canvasStoreApi).catch(() => { /* noop */ })
     }
 
-    function handleKeyUp(e: KeyboardEvent) {
-      // Release the temporary Hand tool when Space is let go.
-      if (e.code === 'Space') {
-        useUIStore.getState().setSpacePanActive(false)
-      }
-    }
-
     /**
      * Returns true if focus is inside an editable text surface — native
      * input/textarea (Monaco's inputarea and xterm's helper textarea both are
@@ -344,20 +341,9 @@ export function useShortcuts(): void {
     }
 
     document.addEventListener('keydown', handleKeyDown, { capture: true })
-    document.addEventListener('keyup', handleKeyUp, { capture: true })
-
-    // Handle window blur — clear the temporary Hand tool so a held Space can't
-    // stick on Cmd-Tab.
-    function handleBlur() {
-      useUIStore.getState().setSpacePanActive(false)
-    }
-
-    window.addEventListener('blur', handleBlur)
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown, { capture: true })
-      document.removeEventListener('keyup', handleKeyUp, { capture: true })
-      window.removeEventListener('blur', handleBlur)
       unsubscribeMenu()
       unsubscribeCreatePanel()
       unsubscribeLoadLayout()

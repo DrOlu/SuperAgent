@@ -495,6 +495,19 @@ export const companions = new CompanionManager()
  * forwards only when the companion is registered. Best-effort: a rejected RPC
  * never breaks the dialog / restore flow. Mirrors workspaceManager.forwardAllowedRoot.
  */
+/**
+ * Decode a cwd/path-bearing locator and resolve its target companion in one hop.
+ * Shared by the fs/git IPC routers (filesystem.ts's `fileCompanionFor`, git.ts's
+ * `vcsFor`), which both did the identical parse+resolve before building their
+ * host-specific view (`.vcs` vs the whole companion) on top. Returns the resolved
+ * companion plus the decoded path and the companion id (needed to re-encode any
+ * path handed back to the renderer).
+ */
+export function resolveLocator(locator: string): { companion: Companion; path: string; companionId: string } {
+  const { companionId, path } = parseLocator(locator)
+  return { companion: companions.resolve(companionId), path, companionId }
+}
+
 export function forwardFileGrant(rawPath: string, ownerWindowId: number): void {
   const { companionId, path } = parseLocator(rawPath)
   if (!path || !companions.has(companionId)) return
@@ -518,16 +531,20 @@ export function forwardScopedWriteAllowance(rawPath: string, ownerWindowId: numb
  * window teardown. Mirrors pathValidation.clearFileGrantsForWindow.
  */
 export function forwardClearFileGrantsForWindow(windowId: number): void {
-  for (const id of companions.registeredIds()) {
-    companions.resolve(id).clearFileGrantsForWindow(windowId).catch(() => { /* best-effort */ })
-  }
+  forwardToAll((c) => c.clearFileGrantsForWindow(windowId))
 }
 
 /** Forward a per-window scoped-write-allowance clear to all companions. See
  *  forwardClearFileGrantsForWindow for the rationale. Mirrors
  *  pathValidation.clearScopedWriteAllowancesForWindow. */
 export function forwardClearScopedWriteAllowancesForWindow(windowId: number): void {
+  forwardToAll((c) => c.clearScopedWriteAllowancesForWindow(windowId))
+}
+
+/** Run a best-effort RPC against every registered companion. A single
+ *  companion's rejection is swallowed per-call so it never aborts the others. */
+function forwardToAll(fn: (companion: Companion) => Promise<unknown>): void {
   for (const id of companions.registeredIds()) {
-    companions.resolve(id).clearScopedWriteAllowancesForWindow(windowId).catch(() => { /* best-effort */ })
+    fn(companions.resolve(id)).catch(() => { /* best-effort */ })
   }
 }

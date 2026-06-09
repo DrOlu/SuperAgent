@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { createJsonStateFile } from './jsonStateFile'
+import { isPlainObject } from './jsonUtils'
 import type { SidebarSession, RemoteProjectEntry } from '../shared/types'
 
 const MAX_RECENT_PROJECTS = 10
@@ -24,9 +25,7 @@ interface RemoteWorkspacesFile { workspaces: RemoteProjectEntry[] }
 interface LayoutsFile { layouts: Record<string, unknown> }
 
 function asObject(parsed: unknown): Record<string, unknown> {
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-    ? (parsed as Record<string, unknown>)
-    : {}
+  return isPlainObject(parsed) ? parsed : {}
 }
 
 const recentProjectsStore = createJsonStateFile<RecentProjectsFile>({
@@ -72,9 +71,7 @@ const layoutsStore = createJsonStateFile<LayoutsFile>({
   defaults: { layouts: {} },
   normalize: (parsed, defaults) => {
     const o = asObject(parsed)
-    const layouts = o.layouts && typeof o.layouts === 'object' && !Array.isArray(o.layouts)
-      ? (o.layouts as Record<string, unknown>)
-      : defaults.layouts
+    const layouts = isPlainObject(o.layouts) ? o.layouts : defaults.layouts
     return { layouts }
   },
 })

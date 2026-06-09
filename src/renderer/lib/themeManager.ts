@@ -121,10 +121,7 @@ function applyResolved(theme: Theme): void {
     // resolution above — stays bound to the real OS appearance.
     const appearance: 'dark' | 'light' | 'system' =
       currentSelection === 'system' ? 'system' : theme.type
-    const api = (window as unknown as {
-      electronAPI?: { bootSnapshotWrite?: (p: Record<string, unknown>) => Promise<void> }
-    }).electronAPI
-    api?.bootSnapshotWrite?.({ theme: theme.id, backgroundColor: bg, appearance }).catch(() => { /* noop */ })
+    window.electronAPI?.bootSnapshotWrite({ theme: theme.id, backgroundColor: bg, appearance }).catch(() => { /* noop */ })
   } catch { /* noop */ }
 }
 

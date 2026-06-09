@@ -110,6 +110,24 @@ function emptyWorkspaceStatus(): WorkspaceStatusState {
   }
 }
 
+/**
+ * Build the new `workspaces` map with `patch` shallow-merged into the entry for
+ * `workspaceId` (falling back to an empty status). Captures the per-workspace
+ * nested-spread scaffold shared by the single-workspace setters. Resolution and
+ * dedup early-returns stay in the action bodies.
+ */
+function patchWorkspaceMap(
+  workspaces: Record<string, WorkspaceStatusState>,
+  workspaceId: string,
+  patch: Partial<WorkspaceStatusState>,
+): Record<string, WorkspaceStatusState> {
+  const ws = workspaces[workspaceId] ?? emptyWorkspaceStatus()
+  return {
+    ...workspaces,
+    [workspaceId]: { ...ws, ...patch },
+  }
+}
+
 /** Find the "most important" agent state across all terminals in a workspace. */
 function aggregateAgentState(states: Record<string, AgentState>): AgentState {
   const vals = Object.values(states)
@@ -172,13 +190,9 @@ export const useStatusStore = create<StatusStore>((set, get) => ({
         return state
       }
       return {
-        workspaces: {
-          ...state.workspaces,
-          [workspaceId]: {
-            ...ws,
-            terminalActivity: { ...ws.terminalActivity, [terminalId]: activity },
-          },
-        },
+        workspaces: patchWorkspaceMap(state.workspaces, workspaceId, {
+          terminalActivity: { ...ws.terminalActivity, [terminalId]: activity },
+        }),
       }
     })
   },
@@ -188,14 +202,10 @@ export const useStatusStore = create<StatusStore>((set, get) => ({
     set((state) => {
       const ws = state.workspaces[workspaceId] ?? emptyWorkspaceStatus()
       return {
-        workspaces: {
-          ...state.workspaces,
-          [workspaceId]: {
-            ...ws,
-            agentState: { ...ws.agentState, [terminalId]: agentState },
-            agentName: { ...ws.agentName, [terminalId]: agentName },
-          },
-        },
+        workspaces: patchWorkspaceMap(state.workspaces, workspaceId, {
+          agentState: { ...ws.agentState, [terminalId]: agentState },
+          agentName: { ...ws.agentName, [terminalId]: agentName },
+        }),
       }
     })
   },
@@ -206,13 +216,9 @@ export const useStatusStore = create<StatusStore>((set, get) => ({
       const ws = state.workspaces[workspaceId] ?? emptyWorkspaceStatus()
       if (ws.agentName[terminalId] === name) return state
       return {
-        workspaces: {
-          ...state.workspaces,
-          [workspaceId]: {
-            ...ws,
-            agentName: { ...ws.agentName, [terminalId]: name },
-          },
-        },
+        workspaces: patchWorkspaceMap(state.workspaces, workspaceId, {
+          agentName: { ...ws.agentName, [terminalId]: name },
+        }),
       }
     })
   },
@@ -223,13 +229,9 @@ export const useStatusStore = create<StatusStore>((set, get) => ({
       const ws = state.workspaces[workspaceId] ?? emptyWorkspaceStatus()
       if (ws.agentPresent[terminalId] === present) return state
       return {
-        workspaces: {
-          ...state.workspaces,
-          [workspaceId]: {
-            ...ws,
-            agentPresent: { ...ws.agentPresent, [terminalId]: present },
-          },
-        },
+        workspaces: patchWorkspaceMap(state.workspaces, workspaceId, {
+          agentPresent: { ...ws.agentPresent, [terminalId]: present },
+        }),
       }
     })
   },
@@ -427,13 +429,9 @@ export const useStatusStore = create<StatusStore>((set, get) => ({
     set((state) => {
       const ws = state.workspaces[workspaceId] ?? emptyWorkspaceStatus()
       return {
-        workspaces: {
-          ...state.workspaces,
-          [workspaceId]: {
-            ...ws,
-            listeningPorts: { ...ws.listeningPorts, [terminalId]: ports },
-          },
-        },
+        workspaces: patchWorkspaceMap(state.workspaces, workspaceId, {
+          listeningPorts: { ...ws.listeningPorts, [terminalId]: ports },
+        }),
       }
     })
   },
@@ -444,13 +442,9 @@ export const useStatusStore = create<StatusStore>((set, get) => ({
     set((state) => {
       const ws = state.workspaces[workspaceId] ?? emptyWorkspaceStatus()
       return {
-        workspaces: {
-          ...state.workspaces,
-          [workspaceId]: {
-            ...ws,
-            terminalCwd: { ...ws.terminalCwd, [terminalId]: cwd },
-          },
-        },
+        workspaces: patchWorkspaceMap(state.workspaces, workspaceId, {
+          terminalCwd: { ...ws.terminalCwd, [terminalId]: cwd },
+        }),
       }
     })
   },

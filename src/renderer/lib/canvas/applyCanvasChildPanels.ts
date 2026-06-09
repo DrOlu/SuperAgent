@@ -14,18 +14,33 @@
 // capture reads FROM it, so live url/isDirty edits are never lost.
 // =============================================================================
 
-import type { PanelState, WorkspaceState } from '../../../shared/types'
+import type { PanelState, WorkspaceState, WorktreeMeta } from '../../../shared/types'
 import { useAppStore } from '../../stores/appStore'
+
+/** Merge transferred worktree records into an existing registry, keyed by path so
+ *  the carried color/label/id wins over anything a background sync already created
+ *  for the same checkout (mirrors appStore.hydrateWorktrees' precedence). */
+function mergeWorktrees(
+  existing: WorktreeMeta[] | undefined,
+  incoming: WorktreeMeta[] | undefined,
+): WorktreeMeta[] {
+  if (!incoming || incoming.length === 0) return existing ?? []
+  const byPath = new Map((existing ?? []).map((w) => [w.path, w]))
+  for (const w of incoming) byPath.set(w.path, w)
+  return [...byPath.values()]
+}
 
 export function ensurePanelsInAppStore(
   workspaceId: string,
   panels: Record<string, PanelState>,
   rootPath?: string,
+  worktrees?: WorktreeMeta[],
 ): void {
-  // Allow a panel-less call purely to backfill rootPath on an existing stub
-  // (e.g. a canvas whose children arrive separately): only bail when there is
-  // nothing at all to apply.
-  if (!workspaceId || (Object.keys(panels).length === 0 && !rootPath)) return
+  // Allow a panel-less call purely to backfill rootPath/worktrees on an existing
+  // stub (e.g. a canvas whose children arrive separately): only bail when there
+  // is nothing at all to apply.
+  const hasWorktrees = !!worktrees && worktrees.length > 0
+  if (!workspaceId || (Object.keys(panels).length === 0 && !rootPath && !hasWorktrees)) return
   useAppStore.setState((state) => {
     const existing = state.workspaces.find((w) => w.id === workspaceId)
     if (existing) {
@@ -38,6 +53,7 @@ export function ensurePanelsInAppStore(
                 // Backfill a missing root only — never clobber a real one the
                 // workspace already resolved.
                 rootPath: w.rootPath || rootPath || w.rootPath,
+                worktrees: mergeWorktrees(w.worktrees, worktrees),
               }
             : w,
         ),
@@ -55,9 +71,11 @@ export function ensurePanelsInAppStore(
       rootPathError: null,
       isRootPathPending: false,
       panels: { ...panels },
-      // Match createDefaultWorkspace's shape: an empty worktree registry, and
-      // connection/companion/additionalRoots left undefined (the type permits it).
-      worktrees: [],
+      // Seed the worktree registry from the transfer so worktree pills/tab tints
+      // resolve in this detached window; empty when none were carried (matches
+      // createDefaultWorkspace's shape). connection/companion/additionalRoots are
+      // left undefined (the type permits it).
+      worktrees: worktrees ?? [],
     }
     return {
       workspaces: [...state.workspaces, stub],

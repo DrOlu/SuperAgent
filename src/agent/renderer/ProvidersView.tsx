@@ -24,10 +24,11 @@ import {
   CloudArrowUp,
   CaretRight,
   CaretDown,
-  MagnifyingGlass,
 } from '@phosphor-icons/react'
 import { CateLogo } from '../../renderer/ui/CateLogo'
+import { ModelPickerDropdown } from './ModelPicker'
 import log from '../../renderer/lib/logger'
+import { errorMessage as toErrorMessage } from '../../renderer/lib/errorMessage'
 import type {
   AgentModelRef,
   AuthProviderDescriptor,
@@ -239,7 +240,6 @@ function CustomOpenAIForm({
   const [baseUrl, setBaseUrl] = useState(cfg?.baseUrl ?? '')
   const [apiKey, setApiKey] = useState(cfg?.apiKey ?? '')
   const [models, setModels] = useState((cfg?.models ?? []).join(', '))
-  const [reveal, setReveal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
@@ -256,7 +256,7 @@ function CustomOpenAIForm({
       onSaved(next)
       setSavedAt(Date.now())
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(toErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -269,7 +269,7 @@ function CustomOpenAIForm({
       onSaved(null)
       setBaseUrl(''); setApiKey(''); setModels(''); setSavedAt(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(toErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -287,25 +287,11 @@ function CustomOpenAIForm({
         placeholder="Base URL (e.g. http://localhost:11434/v1)"
         className="w-full bg-surface-3 border border-strong rounded-md px-2 py-1.5 text-[13px] text-primary outline-none focus:border-agent/60 font-mono"
       />
-      <div className="relative">
-        <input
-          type={reveal ? 'text' : 'password'}
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="API key (optional for local servers)"
-          className="w-full bg-surface-3 border border-strong rounded-md pl-2 pr-8 py-1.5 text-[13px] text-primary outline-none focus:border-agent/60 font-mono"
-        />
-        <button
-          type="button"
-          onClick={() => setReveal((r) => !r)}
-          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded text-muted hover:text-primary"
-          title={reveal ? 'Hide' : 'Show'}
-        >
-          {reveal ? <EyeSlash size={14} /> : <Eye size={14} />}
-        </button>
-      </div>
+      <SecretInput
+        value={apiKey}
+        onChange={setApiKey}
+        placeholder="API key (optional for local servers)"
+      />
       <input
         type="text"
         value={models}
@@ -338,13 +324,64 @@ function CustomOpenAIForm({
         )}
       </div>
 
+      <SaveFeedback error={error} savedAt={savedAt} />
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Shared form bits — password input with a reveal toggle, and the save-status
+// footer (error / "Saved.") used by both the API-key and custom-endpoint forms.
+// -----------------------------------------------------------------------------
+
+function SecretInput({
+  value,
+  onChange,
+  placeholder,
+  onKeyDown,
+  className = 'relative',
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  className?: string
+}) {
+  const [reveal, setReveal] = useState(false)
+  return (
+    <div className={className}>
+      <input
+        type={reveal ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={placeholder}
+        className="w-full bg-surface-3 border border-strong rounded-md pl-2 pr-8 py-1.5 text-[13px] text-primary outline-none focus:border-agent/60 font-mono"
+      />
+      <button
+        type="button"
+        onClick={() => setReveal((r) => !r)}
+        className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded text-muted hover:text-primary"
+        title={reveal ? 'Hide' : 'Show'}
+      >
+        {reveal ? <EyeSlash size={14} /> : <Eye size={14} />}
+      </button>
+    </div>
+  )
+}
+
+function SaveFeedback({ error, savedAt }: { error: string | null; savedAt: number | null }) {
+  return (
+    <>
       {error && <div className="text-[11px] text-danger">{error}</div>}
       {savedAt && !error && (
         <div className="flex items-center gap-1 text-[11px] text-agent-light">
           <CheckCircle size={12} weight="fill" /> Saved.
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -474,7 +511,7 @@ function OAuthForm({
         setPhase({ type: 'done' })
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = toErrorMessage(err)
       setPhase({ type: 'error', message: msg })
     }
   }, [provider.id, onRefresh])
@@ -702,7 +739,6 @@ function ApiKeyForm({
   onRefresh: () => Promise<void>
 }) {
   const [value, setValue] = useState('')
-  const [reveal, setReveal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
@@ -717,7 +753,7 @@ function ApiKeyForm({
       setSavedAt(Date.now())
       await onRefresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(toErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -736,26 +772,13 @@ function ApiKeyForm({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <div className="relative flex-1 min-w-0">
-          <input
-            type={reveal ? 'text' : 'password'}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={status?.connected ? '••••••••••••' : `Paste your ${provider.name} key`}
-            className="w-full bg-surface-3 border border-strong rounded-md pl-2 pr-8 py-1.5 text-[13px] text-primary outline-none focus:border-agent/60 font-mono"
-          />
-          <button
-            type="button"
-            onClick={() => setReveal((r) => !r)}
-            className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded text-muted hover:text-primary"
-            title={reveal ? 'Hide' : 'Show'}
-          >
-            {reveal ? <EyeSlash size={14} /> : <Eye size={14} />}
-          </button>
-        </div>
+        <SecretInput
+          value={value}
+          onChange={setValue}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+          placeholder={status?.connected ? '••••••••••••' : `Paste your ${provider.name} key`}
+          className="relative flex-1 min-w-0"
+        />
         <button
           disabled={saving || !value.trim()}
           onClick={handleSave}
@@ -765,12 +788,7 @@ function ApiKeyForm({
         </button>
       </div>
 
-      {error && <div className="text-[11px] text-danger">{error}</div>}
-      {savedAt && !error && (
-        <div className="flex items-center gap-1 text-[11px] text-agent-light">
-          <CheckCircle size={12} weight="fill" /> Saved.
-        </div>
-      )}
+      <SaveFeedback error={error} savedAt={savedAt} />
       {status?.connected && (
         <button
           onClick={handleDisconnect}
@@ -824,145 +842,15 @@ function DefaultModelSection({ models }: { models: Array<{ provider: string; mod
           <CaretDown size={10} className="text-muted shrink-0" />
         </button>
         {open && (
-          <DefaultModelPicker
+          <ModelPickerDropdown
             models={models}
             selected={current}
             onPick={handlePick}
             onClose={() => setOpen(false)}
+            className="w-full max-h-[320px]"
+            allowNone
+            noneLabel="First available"
           />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function DefaultModelPicker({
-  models,
-  selected,
-  onPick,
-  onClose,
-}: {
-  models: Array<{ provider: string; model: string; label?: string }>
-  selected: AgentModelRef | null
-  onPick: (m: { provider: string; model: string } | null) => void
-  onClose: () => void
-}) {
-  const wrapRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (!wrapRef.current) return
-      if (!wrapRef.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
-
-  const [search, setSearch] = useState('')
-  const searchRef = useRef<HTMLInputElement>(null)
-  useEffect(() => { searchRef.current?.focus() }, [])
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return models
-    return models.filter((m) =>
-      m.provider.toLowerCase().includes(q) ||
-      m.model.toLowerCase().includes(q) ||
-      (m.label?.toLowerCase().includes(q) ?? false),
-    )
-  }, [models, search])
-
-  const grouped = useMemo(() => {
-    const out = new Map<string, typeof models>()
-    for (const m of filtered) {
-      const arr = out.get(m.provider) ?? []
-      arr.push(m)
-      out.set(m.provider, arr)
-    }
-    return Array.from(out.entries())
-  }, [filtered])
-
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
-    const all = new Set<string>()
-    for (const m of models) all.add(m.provider)
-    if (selected) all.delete(selected.provider)
-    return all
-  })
-  const toggleProvider = (provider: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(provider)) next.delete(provider)
-      else next.add(provider)
-      return next
-    })
-  }
-  const searching = search.trim().length > 0
-
-  return (
-    <div
-      ref={wrapRef}
-      className="absolute top-full left-0 mt-1 w-full max-h-[320px] flex flex-col rounded-lg border border-strong bg-surface-4/98 backdrop-blur-xl shadow-[0_12px_32px_var(--shadow-node)] z-20"
-    >
-      <div className="px-2 py-2 border-b border-strong shrink-0">
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-0 border border-subtle">
-          <MagnifyingGlass size={11} className="text-muted shrink-0" />
-          <input
-            ref={searchRef}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search models"
-            className="flex-1 bg-transparent text-[11px] text-primary placeholder:text-muted outline-none min-w-0"
-          />
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <button
-          onClick={() => onPick(null)}
-          className={`w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 ${
-            !selected ? 'bg-hover-strong text-primary' : 'text-muted hover:bg-hover'
-          }`}
-        >
-          <span className="truncate flex-1">First available</span>
-          {!selected && <CheckCircle size={10} weight="fill" className="text-agent-light" />}
-        </button>
-        {grouped.length === 0 ? (
-          <div className="px-3 py-4 text-[12px] text-muted text-center">
-            {models.length === 0 ? 'No models connected yet.' : 'No matches.'}
-          </div>
-        ) : (
-          grouped.map(([provider, items]) => {
-            const isCollapsed = !searching && collapsed.has(provider)
-            return (
-              <div key={provider}>
-                <button
-                  type="button"
-                  onClick={() => toggleProvider(provider)}
-                  className="w-full flex items-center gap-1 px-3 py-1 text-[10px] uppercase tracking-wider text-muted/70 font-semibold sticky top-0 bg-surface-4/98 hover:text-primary"
-                >
-                  {isCollapsed
-                    ? <CaretRight size={9} className="shrink-0" />
-                    : <CaretDown size={9} className="shrink-0" />}
-                  <span className="flex-1 text-left">{provider}</span>
-                  <span className="text-muted/50 normal-case tracking-normal">{items.length}</span>
-                </button>
-                {!isCollapsed && items.map((m) => {
-                  const isSelected =
-                    selected?.provider === m.provider && selected?.model === m.model
-                  return (
-                    <button
-                      key={`${m.provider}:${m.model}`}
-                      onClick={() => onPick(m)}
-                      className={`w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 ${
-                        isSelected ? 'bg-hover-strong text-primary' : 'text-primary hover:bg-hover'
-                      }`}
-                    >
-                      <span className="truncate flex-1">{m.label ?? m.model}</span>
-                      {isSelected && <CheckCircle size={10} weight="fill" className="text-agent-light" />}
-                    </button>
-                  )
-                })}
-              </div>
-            )
-          })
         )}
       </div>
     </div>

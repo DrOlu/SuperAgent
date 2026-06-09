@@ -263,7 +263,6 @@ describe('reduce(END)', () => {
     expect(commit?.panel).toEqual(panel)
 
     expect(hasEffect(ended.effects, 'set-body-class')?.on).toBe(false)
-    expect(hasEffect(ended.effects, 'clear-state')).toBeDefined()
 
     // State reset.
     expect(ended.armed).toBe(false)
@@ -276,7 +275,6 @@ describe('reduce(END)', () => {
     const ended = reduce(armed, { type: 'END' })
     expect(hasEffect(ended.effects, 'commit')).toBeUndefined()
     expect(hasEffect(ended.effects, 'set-body-class')?.on).toBe(false)
-    expect(hasEffect(ended.effects, 'clear-state')).toBeDefined()
   })
 
   it('emits cross-window-cancel when cross-window-active and no target', () => {
@@ -302,8 +300,7 @@ describe('reduce(END)', () => {
       insideWindow: true,
     })
     expect(moveAfter.effects).toEqual([])
-    // Second END on a teardown state shouldn't fire commit effects again —
-    // but it does fire a single clear-state to keep the dispatcher idempotent.
+    // Second END on a teardown state shouldn't fire commit effects again.
     const endAgain = reduce(ended, { type: 'END' })
     expect(hasEffect(endAgain.effects, 'commit')).toBeUndefined()
   })
@@ -327,7 +324,6 @@ describe('reduce(CANCEL)', () => {
     const cancelled = reduce(withTarget, { type: 'CANCEL' })
     expect(hasEffect(cancelled.effects, 'commit')).toBeUndefined()
     expect(hasEffect(cancelled.effects, 'set-body-class')?.on).toBe(false)
-    expect(hasEffect(cancelled.effects, 'clear-state')).toBeDefined()
     expect(cancelled.armed).toBe(false)
     expect(cancelled.state.isDragging).toBe(false)
   })

@@ -14,6 +14,8 @@ import { app } from 'electron'
 import fsp from 'fs/promises'
 import path from 'path'
 import log from '../logger'
+import { writeJsonAtomic } from '../writeJsonAtomic'
+import { isPlainObject } from '../jsonUtils'
 
 export type HostKeyVerdict = 'trust-on-first-use' | 'match' | 'mismatch'
 
@@ -44,7 +46,7 @@ async function readRaw(): Promise<OnDisk> {
   try {
     const raw = await fsp.readFile(knownHostsPath(), 'utf-8')
     const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as OnDisk
+    if (isPlainObject(parsed)) return parsed as OnDisk
   } catch (err) {
     if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
       log.warn('[sshKnownHosts] read failed: %O', err)
@@ -54,12 +56,7 @@ async function readRaw(): Promise<OnDisk> {
 }
 
 async function writeRaw(data: OnDisk): Promise<void> {
-  const p = knownHostsPath()
-  await fsp.mkdir(path.dirname(p), { recursive: true, mode: 0o700 })
-  const tmp = p + '.tmp'
-  await fsp.writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
-  try { await fsp.chmod(tmp, 0o600) } catch { /* platforms without modes */ }
-  await fsp.rename(tmp, p)
+  await writeJsonAtomic(knownHostsPath(), data, { mode: 0o600 })
 }
 
 export async function getPinnedHostKey(id: string): Promise<string | null> {

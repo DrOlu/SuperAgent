@@ -85,6 +85,8 @@ import {
   MENU_CREATE_PANEL,
   BROWSER_SHORTCUT,
   MENU_SHOW_CONTEXT,
+  MENU_GET_BAR_ITEMS,
+  MENU_POPUP_BAR_ITEM,
   DIALOG_OPEN_FOLDER,
   DIALOG_OPEN_IMAGE,
   CANVAS_READ_BACKGROUND_IMAGE,
@@ -128,10 +130,9 @@ import {
   PANEL_TRANSFER,
   PANEL_RECEIVE,
   PANEL_TRANSFER_ACK,
-  PANEL_WINDOWS_LIST,
   PANEL_WINDOW_DOCK_BACK,
-  PANEL_WINDOW_SYNC_PTY,
-  PANEL_WINDOW_SYNC_META,
+  WINDOW_CLOSE_FOR_WORKSPACE,
+  RUN_ACTION_IN_MAIN,
   DRAG_START,
   DRAG_DETACH,
   WINDOW_FULLSCREEN_STATE,
@@ -142,6 +143,10 @@ import {
   DOCK_WINDOW_FLUSH_SYNC,
   DOCK_WINDOW_FLUSH_SYNC_DONE,
   DOCK_WINDOWS_LIST,
+  WINDOW_PANELS_CHANGED,
+  FOCUS_WINDOW_PANEL,
+  REVEAL_PANEL_IN_WINDOW,
+  WINDOW_PANELS_REPORT,
   CROSS_WINDOW_DRAG_START,
   CROSS_WINDOW_DRAG_UPDATE,
   CROSS_WINDOW_DRAG_DROP,
@@ -165,6 +170,9 @@ import {
   BROWSER_SET_PROXY,
   NATIVE_FILE_DRAG,
   CAPTURE_PAGE,
+  UPDATE_STATUS,
+  UPDATE_QUIT_AND_INSTALL,
+  UPDATE_GET_STATUS,
   ANALYTICS_FEEDBACK_PROMPT,
   ANALYTICS_FEEDBACK_SUBMIT,
   ANALYTICS_FEEDBACK_DISMISS,
@@ -189,27 +197,14 @@ import {
   AGENT_CREATE_SKILL,
   AGENT_LIST_SKILL_FILES,
   AGENT_STEER,
-  AGENT_FOLLOW_UP,
   AGENT_SET_THINKING_LEVEL,
   AGENT_COMPACT,
   AGENT_SET_AUTO_COMPACTION,
-  AGENT_SET_AUTO_RETRY,
   AGENT_ABORT_RETRY,
   AGENT_GET_SESSION_STATS,
   AGENT_GET_STATE,
-  AGENT_EXPORT_HTML,
-  AGENT_NEW_SESSION,
-  AGENT_SWITCH_SESSION,
   AGENT_FORK,
-  AGENT_CLONE,
   AGENT_GET_FORK_MESSAGES,
-  AGENT_GET_LAST_ASSISTANT_TEXT,
-  AGENT_SET_SESSION_NAME,
-  AGENT_GET_MESSAGES,
-  AGENT_BASH,
-  AGENT_ABORT_BASH,
-  AGENT_SET_STEERING_MODE,
-  AGENT_SET_FOLLOW_UP_MODE,
   AGENT_LIST_MODELS,
   AGENT_UI_RESPONSE,
   AGENT_LIST_SESSIONS,
@@ -245,7 +240,8 @@ import {
   AUTH_DELETE,
   PERF_GET,
 } from '../shared/ipc-channels'
-import type { AppSettings, SidebarSession, SearchOptions, SearchResultBatch, SearchDoneEvent } from '../shared/types'
+import type { AppSettings, SearchResultBatch, SearchDoneEvent } from '../shared/types'
+import type { ElectronAPI, UpdateStatus } from '../shared/electron-api'
 
 // Cache native-fullscreen state so renderer drag handlers can synchronously
 // check it without an IPC round-trip on every mousemove. Main BROADCASTS
@@ -283,14 +279,277 @@ function maximizedLiveCheck(): boolean {
   }
 }
 
+// Shared factory for the many `onXyz(callback)` subscription methods below.
+// Registers an ipcRenderer listener that strips the IPC event and forwards the
+// remaining args verbatim to `callback`, and returns an unsubscribe closure.
+function createIpcListener<Args extends unknown[]>(
+  channel: string,
+  callback: (...args: Args) => void,
+): () => void {
+  const listener = (_event: Electron.IpcRendererEvent, ...args: Args): void => {
+    callback(...args)
+  }
+  ipcRenderer.on(channel, listener)
+  return () => {
+    ipcRenderer.removeListener(channel, listener)
+  }
+}
+
+// Shared factory for the many pure pass-through invoke methods below. Builds a
+// forwarder that calls `ipcRenderer.invoke(channel, ...args)` and returns the
+// promise verbatim. The type parameter pins each entry to its `ElectronAPI`
+// method signature, so the `invokeForwarders` table (spread into the exposed
+// object) is enforced by `satisfies ElectronAPI` at typecheck. Only fully pure
+// forwarders live in the table — methods that transform args before invoking
+// (saveFileDialog, promptTerminalLinkOpen, popupAppMenu) stay hand-written.
+function makeInvoker<K extends keyof ElectronAPI>(channel: string): ElectronAPI[K] {
+  return ((...args: unknown[]) => ipcRenderer.invoke(channel, ...args)) as ElectronAPI[K]
+}
+
+const invokeForwarders = {
+  perfGetSnapshot: makeInvoker<'perfGetSnapshot'>(PERF_GET),
+
+  // Terminal
+  terminalCreate: makeInvoker<'terminalCreate'>(TERMINAL_CREATE),
+  terminalWrite: makeInvoker<'terminalWrite'>(TERMINAL_WRITE),
+  terminalResize: makeInvoker<'terminalResize'>(TERMINAL_RESIZE),
+  terminalKill: makeInvoker<'terminalKill'>(TERMINAL_KILL),
+  terminalGetCwd: makeInvoker<'terminalGetCwd'>(TERMINAL_GET_CWD),
+  terminalLogRead: makeInvoker<'terminalLogRead'>(TERMINAL_LOG_READ),
+  terminalScrollbackSave: makeInvoker<'terminalScrollbackSave'>(TERMINAL_SCROLLBACK_SAVE),
+  terminalSetVisibility: makeInvoker<'terminalSetVisibility'>(TERMINAL_SET_VISIBILITY),
+
+  // Filesystem
+  fsReadFile: makeInvoker<'fsReadFile'>(FS_READ_FILE),
+  fsReadBinary: makeInvoker<'fsReadBinary'>(FS_READ_BINARY),
+  fsWriteFile: makeInvoker<'fsWriteFile'>(FS_WRITE_FILE),
+  fsReadDir: makeInvoker<'fsReadDir'>(FS_READ_DIR),
+  fsSearch: makeInvoker<'fsSearch'>(FS_SEARCH),
+  fsWatchStart: makeInvoker<'fsWatchStart'>(FS_WATCH_START),
+  fsWatchStop: makeInvoker<'fsWatchStop'>(FS_WATCH_STOP),
+  fsStat: makeInvoker<'fsStat'>(FS_STAT),
+  fsDelete: makeInvoker<'fsDelete'>(FS_DELETE),
+  fsRename: makeInvoker<'fsRename'>(FS_RENAME),
+  fsMkdir: makeInvoker<'fsMkdir'>(FS_MKDIR),
+  fsCopy: makeInvoker<'fsCopy'>(FS_COPY),
+  fsImportEntries: makeInvoker<'fsImportEntries'>(FS_IMPORT_ENTRIES),
+
+  // Content search
+  searchStart: makeInvoker<'searchStart'>(SEARCH_START),
+  searchCancel: makeInvoker<'searchCancel'>(SEARCH_CANCEL),
+
+  // Git
+  gitIsRepo: makeInvoker<'gitIsRepo'>(GIT_IS_REPO),
+  gitInit: makeInvoker<'gitInit'>(GIT_INIT),
+  gitLsFiles: makeInvoker<'gitLsFiles'>(GIT_LS_FILES),
+  gitStatus: makeInvoker<'gitStatus'>(GIT_STATUS),
+  gitDiff: makeInvoker<'gitDiff'>(GIT_DIFF),
+  gitStage: makeInvoker<'gitStage'>(GIT_STAGE),
+  gitUnstage: makeInvoker<'gitUnstage'>(GIT_UNSTAGE),
+  gitCommit: makeInvoker<'gitCommit'>(GIT_COMMIT),
+  gitWorktreeList: makeInvoker<'gitWorktreeList'>(GIT_WORKTREE_LIST),
+  gitWorktreeAdd: makeInvoker<'gitWorktreeAdd'>(GIT_WORKTREE_ADD),
+  gitWorktreeRemove: makeInvoker<'gitWorktreeRemove'>(GIT_WORKTREE_REMOVE),
+  gitWorktreePrune: makeInvoker<'gitWorktreePrune'>(GIT_WORKTREE_PRUNE),
+  gitWorktreeStatus: makeInvoker<'gitWorktreeStatus'>(GIT_WORKTREE_STATUS),
+  gitWorktreeMergeTo: makeInvoker<'gitWorktreeMergeTo'>(GIT_WORKTREE_MERGE_TO),
+  gitWorktreeUpdateFrom: makeInvoker<'gitWorktreeUpdateFrom'>(GIT_WORKTREE_UPDATE_FROM),
+  gitWorktreeAddFromPr: makeInvoker<'gitWorktreeAddFromPr'>(GIT_WORKTREE_ADD_FROM_PR),
+  gitPrList: makeInvoker<'gitPrList'>(GIT_PR_LIST),
+  gitCreatePR: makeInvoker<'gitCreatePR'>(GIT_CREATE_PR),
+  gitPrStatus: makeInvoker<'gitPrStatus'>(GIT_PR_STATUS),
+  gitPush: makeInvoker<'gitPush'>(GIT_PUSH),
+  gitPull: makeInvoker<'gitPull'>(GIT_PULL),
+  gitFetch: makeInvoker<'gitFetch'>(GIT_FETCH),
+  gitLog: makeInvoker<'gitLog'>(GIT_LOG),
+  gitBranchList: makeInvoker<'gitBranchList'>(GIT_BRANCH_LIST),
+  gitBranchCreate: makeInvoker<'gitBranchCreate'>(GIT_BRANCH_CREATE),
+  gitBranchDelete: makeInvoker<'gitBranchDelete'>(GIT_BRANCH_DELETE),
+  gitCheckout: makeInvoker<'gitCheckout'>(GIT_CHECKOUT),
+  gitDiffStaged: makeInvoker<'gitDiffStaged'>(GIT_DIFF_STAGED),
+  gitStash: makeInvoker<'gitStash'>(GIT_STASH),
+  gitStashPop: makeInvoker<'gitStashPop'>(GIT_STASH_POP),
+  gitDiscardFile: makeInvoker<'gitDiscardFile'>(GIT_DISCARD_FILE),
+
+  // Shell / Process Monitor
+  shellRegisterTerminal: makeInvoker<'shellRegisterTerminal'>(SHELL_REGISTER_TERMINAL),
+  shellUnregisterTerminal: makeInvoker<'shellUnregisterTerminal'>(SHELL_UNREGISTER_TERMINAL),
+
+  // Settings
+  settingsGet: makeInvoker<'settingsGet'>(SETTINGS_GET),
+  settingsSet: makeInvoker<'settingsSet'>(SETTINGS_SET),
+  settingsGetAll: makeInvoker<'settingsGetAll'>(SETTINGS_GET_ALL),
+  settingsReset: makeInvoker<'settingsReset'>(SETTINGS_RESET),
+  uiStateGetAll: makeInvoker<'uiStateGetAll'>(UI_STATE_GET_ALL),
+  uiStateSet: makeInvoker<'uiStateSet'>(UI_STATE_SET),
+  settingsOpenInEditor: makeInvoker<'settingsOpenInEditor'>(SETTINGS_OPEN_IN_EDITOR),
+
+  // Session
+  projectStateSave: makeInvoker<'projectStateSave'>(PROJECT_STATE_SAVE),
+  projectStateLoad: makeInvoker<'projectStateLoad'>(PROJECT_STATE_LOAD),
+
+  // Dialog
+  openFolderDialog: makeInvoker<'openFolderDialog'>(DIALOG_OPEN_FOLDER),
+  openImageDialog: makeInvoker<'openImageDialog'>(DIALOG_OPEN_IMAGE),
+  readCanvasBackgroundImage: makeInvoker<'readCanvasBackgroundImage'>(CANVAS_READ_BACKGROUND_IMAGE),
+  confirmUnsavedChanges: makeInvoker<'confirmUnsavedChanges'>(DIALOG_CONFIRM_UNSAVED),
+  confirmCloseTerminal: makeInvoker<'confirmCloseTerminal'>(DIALOG_CONFIRM_CLOSE_TERMINAL),
+  confirmCloseCanvas: makeInvoker<'confirmCloseCanvas'>(DIALOG_CONFIRM_CLOSE_CANVAS),
+  confirmReloadWorkspace: makeInvoker<'confirmReloadWorkspace'>(DIALOG_CONFIRM_RELOAD_WORKSPACE),
+  confirmImportEntries: makeInvoker<'confirmImportEntries'>(DIALOG_CONFIRM_IMPORT),
+
+  // Recent projects / sidebar / remote projects
+  recentProjectsGet: makeInvoker<'recentProjectsGet'>(RECENT_PROJECTS_GET),
+  recentProjectsAdd: makeInvoker<'recentProjectsAdd'>(RECENT_PROJECTS_ADD),
+  recentProjectsRemove: makeInvoker<'recentProjectsRemove'>(RECENT_PROJECTS_REMOVE),
+  sidebarSessionGet: makeInvoker<'sidebarSessionGet'>(SIDEBAR_SESSION_GET),
+  sidebarSessionSet: makeInvoker<'sidebarSessionSet'>(SIDEBAR_SESSION_SET),
+  remoteProjectsGet: makeInvoker<'remoteProjectsGet'>(REMOTE_PROJECTS_GET),
+  remoteProjectsSet: makeInvoker<'remoteProjectsSet'>(REMOTE_PROJECTS_SET),
+
+  // Layouts
+  layoutSave: makeInvoker<'layoutSave'>(LAYOUT_SAVE),
+  layoutList: makeInvoker<'layoutList'>(LAYOUT_LIST),
+  layoutLoad: makeInvoker<'layoutLoad'>(LAYOUT_LOAD),
+  layoutDelete: makeInvoker<'layoutDelete'>(LAYOUT_DELETE),
+
+  // Capture / browser
+  capturePage: makeInvoker<'capturePage'>(CAPTURE_PAGE),
+  webviewScreenshot: makeInvoker<'webviewScreenshot'>(WEBVIEW_SCREENSHOT),
+  browserSetProxy: makeInvoker<'browserSetProxy'>(BROWSER_SET_PROXY),
+  nativeFileDrag: makeInvoker<'nativeFileDrag'>(NATIVE_FILE_DRAG),
+
+  // Shell utilities
+  shellShowInFolder: makeInvoker<'shellShowInFolder'>(SHELL_SHOW_IN_FOLDER),
+
+  // Notifications
+  notifyOS: makeInvoker<'notifyOS'>(NOTIFY_OS),
+
+  // Window management
+  windowMinimize: makeInvoker<'windowMinimize'>(WINDOW_MINIMIZE),
+  windowToggleMaximize: makeInvoker<'windowToggleMaximize'>(WINDOW_TOGGLE_MAXIMIZE),
+  windowClose: makeInvoker<'windowClose'>(WINDOW_CLOSE),
+  windowsCloseForWorkspace: makeInvoker<'windowsCloseForWorkspace'>(WINDOW_CLOSE_FOR_WORKSPACE),
+  runActionInMain: makeInvoker<'runActionInMain'>(RUN_ACTION_IN_MAIN),
+
+  // Panel transfer (cross-window)
+  panelTransfer: makeInvoker<'panelTransfer'>(PANEL_TRANSFER),
+  panelTransferAck: makeInvoker<'panelTransferAck'>(PANEL_TRANSFER_ACK),
+  panelWindowDockBack: makeInvoker<'panelWindowDockBack'>(PANEL_WINDOW_DOCK_BACK),
+
+  // Cross-window drag-and-drop
+  dragStart: makeInvoker<'dragStart'>(DRAG_START),
+  dragDetach: makeInvoker<'dragDetach'>(DRAG_DETACH),
+
+  // Workspace external edit
+  dismissWorkspaceExternalEdit: makeInvoker<'dismissWorkspaceExternalEdit'>(WORKSPACE_EXTERNAL_EDIT_DISMISS),
+
+  // Dock window management
+  dockWindowSyncState: makeInvoker<'dockWindowSyncState'>(DOCK_WINDOW_SYNC_STATE),
+  dockWindowsList: makeInvoker<'dockWindowsList'>(DOCK_WINDOWS_LIST),
+  dockWindowRestore: makeInvoker<'dockWindowRestore'>(DOCK_WINDOW_RESTORE),
+
+  // Cross-window panel discovery
+  focusWindowPanel: makeInvoker<'focusWindowPanel'>(FOCUS_WINDOW_PANEL),
+  reportWindowPanels: makeInvoker<'reportWindowPanels'>(WINDOW_PANELS_REPORT),
+
+  // Cross-window drag coordination
+  crossWindowDragStart: makeInvoker<'crossWindowDragStart'>(CROSS_WINDOW_DRAG_START),
+  crossWindowDragDrop: makeInvoker<'crossWindowDragDrop'>(CROSS_WINDOW_DRAG_DROP),
+  crossWindowDragCancel: makeInvoker<'crossWindowDragCancel'>(CROSS_WINDOW_DRAG_CANCEL),
+  crossWindowDragResolve: makeInvoker<'crossWindowDragResolve'>(CROSS_WINDOW_DRAG_RESOLVE),
+
+  // Workspace management
+  workspaceCreate: makeInvoker<'workspaceCreate'>(WORKSPACE_CREATE),
+  workspaceUpdate: makeInvoker<'workspaceUpdate'>(WORKSPACE_UPDATE),
+  workspaceRemove: makeInvoker<'workspaceRemove'>(WORKSPACE_REMOVE),
+
+  // Companion connections (remote / WSL)
+  companionConnect: makeInvoker<'companionConnect'>(COMPANION_CONNECT),
+  companionEnsure: makeInvoker<'companionEnsure'>(COMPANION_ENSURE),
+  companionList: makeInvoker<'companionList'>(COMPANION_LIST),
+  companionLocalStatus: makeInvoker<'companionLocalStatus'>(COMPANION_LOCAL_STATUS),
+  companionWslDistros: makeInvoker<'companionWslDistros'>(COMPANION_WSL_DISTROS),
+  companionSshHosts: makeInvoker<'companionSshHosts'>(COMPANION_SSH_HOSTS),
+  companionPickSshKey: makeInvoker<'companionPickSshKey'>(COMPANION_PICK_SSH_KEY),
+  companionInstall: makeInvoker<'companionInstall'>(COMPANION_INSTALL),
+  companionDelete: makeInvoker<'companionDelete'>(COMPANION_DELETE),
+
+  // Menu
+  showContextMenu: makeInvoker<'showContextMenu'>(MENU_SHOW_CONTEXT),
+  getAppMenuBarItems: makeInvoker<'getAppMenuBarItems'>(MENU_GET_BAR_ITEMS),
+
+  // Auto-updater
+  getUpdateStatus: makeInvoker<'getUpdateStatus'>(UPDATE_GET_STATUS),
+  quitAndInstallUpdate: makeInvoker<'quitAndInstallUpdate'>(UPDATE_QUIT_AND_INSTALL),
+
+  // Analytics feedback
+  submitFeedback: makeInvoker<'submitFeedback'>(ANALYTICS_FEEDBACK_SUBMIT),
+  getPendingFeedback: makeInvoker<'getPendingFeedback'>(ANALYTICS_FEEDBACK_GET_PENDING),
+  setTelemetryConsent: makeInvoker<'setTelemetryConsent'>(TELEMETRY_SET_CONSENT),
+
+  // Pi agent
+  agentCreate: makeInvoker<'agentCreate'>(AGENT_CREATE),
+  agentPrompt: makeInvoker<'agentPrompt'>(AGENT_PROMPT),
+  agentSteer: makeInvoker<'agentSteer'>(AGENT_STEER),
+  agentSetThinkingLevel: makeInvoker<'agentSetThinkingLevel'>(AGENT_SET_THINKING_LEVEL),
+  agentCompact: makeInvoker<'agentCompact'>(AGENT_COMPACT),
+  agentSetAutoCompaction: makeInvoker<'agentSetAutoCompaction'>(AGENT_SET_AUTO_COMPACTION),
+  agentAbortRetry: makeInvoker<'agentAbortRetry'>(AGENT_ABORT_RETRY),
+  agentGetSessionStats: makeInvoker<'agentGetSessionStats'>(AGENT_GET_SESSION_STATS),
+  agentGetState: makeInvoker<'agentGetState'>(AGENT_GET_STATE),
+  agentFork: makeInvoker<'agentFork'>(AGENT_FORK),
+  agentGetForkMessages: makeInvoker<'agentGetForkMessages'>(AGENT_GET_FORK_MESSAGES),
+  agentListModels: makeInvoker<'agentListModels'>(AGENT_LIST_MODELS),
+  agentListSessions: makeInvoker<'agentListSessions'>(AGENT_LIST_SESSIONS),
+  agentLoadSessionMessages: makeInvoker<'agentLoadSessionMessages'>(AGENT_LOAD_SESSION_MESSAGES),
+  agentDeleteSession: makeInvoker<'agentDeleteSession'>(AGENT_DELETE_SESSION),
+  agentInterrupt: makeInvoker<'agentInterrupt'>(AGENT_INTERRUPT),
+  agentDispose: makeInvoker<'agentDispose'>(AGENT_DISPOSE),
+  agentSetModel: makeInvoker<'agentSetModel'>(AGENT_SET_MODEL),
+  agentGetCommands: makeInvoker<'agentGetCommands'>(AGENT_GET_COMMANDS),
+  agentToolDecision: makeInvoker<'agentToolDecision'>(AGENT_TOOL_DECISION),
+  agentOpenSkillsFolder: makeInvoker<'agentOpenSkillsFolder'>(AGENT_OPEN_SKILLS_FOLDER),
+  agentOpenSkillFile: makeInvoker<'agentOpenSkillFile'>(AGENT_OPEN_SKILL_FILE),
+  agentDeleteSkillFile: makeInvoker<'agentDeleteSkillFile'>(AGENT_DELETE_SKILL_FILE),
+  agentCreateSkill: makeInvoker<'agentCreateSkill'>(AGENT_CREATE_SKILL),
+  agentListSkillFiles: makeInvoker<'agentListSkillFiles'>(AGENT_LIST_SKILL_FILES),
+  agentMarketplaceList: makeInvoker<'agentMarketplaceList'>(AGENT_MARKETPLACE_LIST),
+  agentMarketplaceListInstalled: makeInvoker<'agentMarketplaceListInstalled'>(AGENT_MARKETPLACE_LIST_INSTALLED),
+  agentMarketplaceInstall: makeInvoker<'agentMarketplaceInstall'>(AGENT_MARKETPLACE_INSTALL),
+  agentMarketplaceUninstall: makeInvoker<'agentMarketplaceUninstall'>(AGENT_MARKETPLACE_UNINSTALL),
+  agentCustomModelsGet: makeInvoker<'agentCustomModelsGet'>(AGENT_CUSTOM_MODELS_GET),
+  agentCustomModelsSave: makeInvoker<'agentCustomModelsSave'>(AGENT_CUSTOM_MODELS_SAVE),
+
+  // Cross-agent skills
+  skillsGetIndex: makeInvoker<'skillsGetIndex'>(SKILLS_GET_INDEX),
+  skillsRefresh: makeInvoker<'skillsRefresh'>(SKILLS_REFRESH),
+  skillsGetPreview: makeInvoker<'skillsGetPreview'>(SKILLS_GET_PREVIEW),
+  skillsInstall: makeInvoker<'skillsInstall'>(SKILLS_INSTALL),
+  skillsUninstall: makeInvoker<'skillsUninstall'>(SKILLS_UNINSTALL),
+  skillsListInstalled: makeInvoker<'skillsListInstalled'>(SKILLS_LIST_INSTALLED),
+  skillsListSaved: makeInvoker<'skillsListSaved'>(SKILLS_LIST_SAVED),
+  skillsSave: makeInvoker<'skillsSave'>(SKILLS_SAVE),
+  skillsUnsave: makeInvoker<'skillsUnsave'>(SKILLS_UNSAVE),
+  skillsListSources: makeInvoker<'skillsListSources'>(SKILLS_LIST_SOURCES),
+  skillsAddSource: makeInvoker<'skillsAddSource'>(SKILLS_ADD_SOURCE),
+  skillsRemoveSource: makeInvoker<'skillsRemoveSource'>(SKILLS_REMOVE_SOURCE),
+  skillsGetToken: makeInvoker<'skillsGetToken'>(SKILLS_GET_TOKEN),
+  skillsSetToken: makeInvoker<'skillsSetToken'>(SKILLS_SET_TOKEN),
+
+  // Pi auth / providers
+  authListProviders: makeInvoker<'authListProviders'>(AUTH_LIST_PROVIDERS),
+  authStatus: makeInvoker<'authStatus'>(AUTH_STATUS),
+  authOAuthStart: makeInvoker<'authOAuthStart'>(AUTH_OAUTH_START),
+  authOAuthPromptReply: makeInvoker<'authOAuthPromptReply'>(AUTH_OAUTH_PROMPT_REPLY),
+  authSaveApiKey: makeInvoker<'authSaveApiKey'>(AUTH_SAVE_API_KEY),
+  authDelete: makeInvoker<'authDelete'>(AUTH_DELETE),
+} satisfies Partial<ElectronAPI>
+
 contextBridge.exposeInMainWorld('electronAPI', {
+  ...invokeForwarders,
   isE2E: process.env.CATE_E2E === '1',
   isPerf: process.env.CATE_PERF === '1',
-
-  /** Pull the latest main-process resource snapshot (null until first sample). */
-  perfGetSnapshot(): Promise<unknown> {
-    return ipcRenderer.invoke(PERF_GET)
-  },
 
   /** Set this window's UI zoom factor (Cate chrome only — webview content keeps
    *  its own zoom). Applied per-renderer; each window calls this on mount and
@@ -303,329 +562,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Terminal
   // ---------------------------------------------------------------------------
 
-  terminalCreate(options: {
-    cols: number
-    rows: number
-    cwd?: string
-    shell?: string
-    workspaceId?: string
-  }): Promise<string> {
-    return ipcRenderer.invoke(TERMINAL_CREATE, options)
-  },
-
-  terminalWrite(terminalId: string, data: string): Promise<void> {
-    return ipcRenderer.invoke(TERMINAL_WRITE, terminalId, data)
-  },
-
-  terminalResize(terminalId: string, cols: number, rows: number): Promise<void> {
-    return ipcRenderer.invoke(TERMINAL_RESIZE, terminalId, cols, rows)
-  },
-
-  terminalKill(terminalId: string): Promise<void> {
-    return ipcRenderer.invoke(TERMINAL_KILL, terminalId)
-  },
-
   onTerminalData(callback: (terminalId: string, data: string) => void): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      terminalId: string,
-      data: string,
-    ): void => {
-      callback(terminalId, data)
-    }
-    ipcRenderer.on(TERMINAL_DATA, listener)
-    return () => {
-      ipcRenderer.removeListener(TERMINAL_DATA, listener)
-    }
-  },
-
-  terminalGetCwd(ptyId: string): Promise<string | null> {
-    return ipcRenderer.invoke(TERMINAL_GET_CWD, ptyId)
-  },
-
-  terminalLogRead(terminalId: string): Promise<string | null> {
-    return ipcRenderer.invoke(TERMINAL_LOG_READ, terminalId)
-  },
-
-  terminalScrollbackSave(ptyId: string, content: string): Promise<void> {
-    return ipcRenderer.invoke(TERMINAL_SCROLLBACK_SAVE, ptyId, content)
-  },
-
-  terminalSetVisibility(terminalId: string, visible: boolean): Promise<void> {
-    return ipcRenderer.invoke(TERMINAL_SET_VISIBILITY, terminalId, visible)
+    return createIpcListener(TERMINAL_DATA, callback)
   },
 
   onTerminalExit(callback: (terminalId: string, exitCode: number) => void): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      terminalId: string,
-      exitCode: number,
-    ): void => {
-      callback(terminalId, exitCode)
-    }
-    ipcRenderer.on(TERMINAL_EXIT, listener)
-    return () => {
-      ipcRenderer.removeListener(TERMINAL_EXIT, listener)
-    }
+    return createIpcListener(TERMINAL_EXIT, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Filesystem
   // ---------------------------------------------------------------------------
 
-  fsReadFile(filePath: string, workspaceId?: string): Promise<string> {
-    return ipcRenderer.invoke(FS_READ_FILE, filePath, workspaceId)
-  },
-
-  fsReadBinary(filePath: string, workspaceId?: string): Promise<ArrayBuffer> {
-    return ipcRenderer.invoke(FS_READ_BINARY, filePath, workspaceId)
-  },
-
-  fsWriteFile(filePath: string, content: string, workspaceId?: string): Promise<void> {
-    return ipcRenderer.invoke(FS_WRITE_FILE, filePath, content, workspaceId)
-  },
-
-  fsReadDir(dirPath: string, workspaceId?: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(FS_READ_DIR, dirPath, workspaceId)
-  },
-
-  fsSearch(rootPath: string, query: string, options?: unknown, workspaceId?: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(FS_SEARCH, rootPath, query, options, workspaceId)
-  },
-
-  fsWatchStart(dirPath: string, workspaceId?: string): Promise<void> {
-    return ipcRenderer.invoke(FS_WATCH_START, dirPath, workspaceId)
-  },
-
-  fsWatchStop(dirPath: string, workspaceId?: string): Promise<void> {
-    return ipcRenderer.invoke(FS_WATCH_STOP, dirPath, workspaceId)
-  },
-
-  fsStat(filePath: string, workspaceId?: string): Promise<{ isDirectory: boolean; isFile: boolean }> {
-    return ipcRenderer.invoke(FS_STAT, filePath, workspaceId)
-  },
-
   onFsWatchEvent(
     callback: (event: { type: 'create' | 'update' | 'delete'; path: string }) => void,
   ): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      watchEvent: { type: 'create' | 'update' | 'delete'; path: string },
-    ): void => {
-      callback(watchEvent)
-    }
-    ipcRenderer.on(FS_WATCH_EVENT, listener)
-    return () => {
-      ipcRenderer.removeListener(FS_WATCH_EVENT, listener)
-    }
+    return createIpcListener(FS_WATCH_EVENT, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Content search (ripgrep-backed Search view)
   // ---------------------------------------------------------------------------
 
-  searchStart(rootPath: string, searchId: string, options: SearchOptions, workspaceId?: string): Promise<string> {
-    return ipcRenderer.invoke(SEARCH_START, rootPath, searchId, options, workspaceId)
-  },
-
-  searchCancel(): Promise<void> {
-    return ipcRenderer.invoke(SEARCH_CANCEL)
-  },
-
   onSearchResult(callback: (batch: SearchResultBatch) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, batch: SearchResultBatch): void => {
-      callback(batch)
-    }
-    ipcRenderer.on(SEARCH_RESULT, listener)
-    return () => {
-      ipcRenderer.removeListener(SEARCH_RESULT, listener)
-    }
+    return createIpcListener(SEARCH_RESULT, callback)
   },
 
   onSearchDone(callback: (event: SearchDoneEvent) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, done: SearchDoneEvent): void => {
-      callback(done)
-    }
-    ipcRenderer.on(SEARCH_DONE, listener)
-    return () => {
-      ipcRenderer.removeListener(SEARCH_DONE, listener)
-    }
+    return createIpcListener(SEARCH_DONE, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Git
   // ---------------------------------------------------------------------------
 
-  gitIsRepo(dirPath: string): Promise<boolean> {
-    return ipcRenderer.invoke(GIT_IS_REPO, dirPath)
-  },
-
-  gitInit(dirPath: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_INIT, dirPath)
-  },
-
-  gitLsFiles(dirPath: string): Promise<string[]> {
-    return ipcRenderer.invoke(GIT_LS_FILES, dirPath)
-  },
-
-  gitStatus(cwd: string): Promise<unknown> {
-    return ipcRenderer.invoke(GIT_STATUS, cwd)
-  },
-
-  gitDiff(cwd: string, filePath?: string): Promise<string> {
-    return ipcRenderer.invoke(GIT_DIFF, cwd, filePath)
-  },
-
-  gitStage(cwd: string, filePath: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_STAGE, cwd, filePath)
-  },
-
-  gitUnstage(cwd: string, filePath: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_UNSTAGE, cwd, filePath)
-  },
-
-  gitCommit(cwd: string, message: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_COMMIT, cwd, message)
-  },
-
-  gitWorktreeList(cwd: string): Promise<Array<{ path: string; branch: string; isBare: boolean; isCurrent: boolean }>> {
-    return ipcRenderer.invoke(GIT_WORKTREE_LIST, cwd)
-  },
-
-  gitWorktreeAdd(
-    repoCwd: string,
-    branch: string,
-    targetPath: string,
-    options?: { createBranch?: boolean; baseRef?: string },
-  ): Promise<{ path: string; branch: string }> {
-    return ipcRenderer.invoke(GIT_WORKTREE_ADD, repoCwd, branch, targetPath, options)
-  },
-
-  gitWorktreeRemove(repoCwd: string, worktreePath: string, options?: { force?: boolean }): Promise<void> {
-    return ipcRenderer.invoke(GIT_WORKTREE_REMOVE, repoCwd, worktreePath, options)
-  },
-
-  gitWorktreePrune(repoCwd: string): Promise<{ output: string }> {
-    return ipcRenderer.invoke(GIT_WORKTREE_PRUNE, repoCwd)
-  },
-
-  gitWorktreeStatus(worktreePath: string): Promise<{
-    branch: string
-    dirty: boolean
-    ahead: number
-    behind: number
-    staged: number
-    unstaged: number
-    untracked: number
-  } | null> {
-    return ipcRenderer.invoke(GIT_WORKTREE_STATUS, worktreePath)
-  },
-
-  gitWorktreeMergeTo(
-    repoCwd: string,
-    fromBranch: string,
-    toBranch: string,
-  ): Promise<{ ok: true; result: unknown } | { ok: false; conflict: boolean; message: string }> {
-    return ipcRenderer.invoke(GIT_WORKTREE_MERGE_TO, repoCwd, fromBranch, toBranch)
-  },
-
-  gitWorktreeUpdateFrom(
-    worktreePath: string,
-    fromBranch: string,
-  ): Promise<{ ok: true; result: unknown } | { ok: false; conflict: boolean; message: string }> {
-    return ipcRenderer.invoke(GIT_WORKTREE_UPDATE_FROM, worktreePath, fromBranch)
-  },
-
-  gitWorktreeAddFromPr(
-    repoCwd: string,
-    prNumber: number,
-    targetPath: string,
-  ): Promise<{ path: string; branch: string }> {
-    return ipcRenderer.invoke(GIT_WORKTREE_ADD_FROM_PR, repoCwd, prNumber, targetPath)
-  },
-
-  gitPrList(
-    repoCwd: string,
-  ): Promise<Array<{ number: number; title: string; headRefName: string; author: string; isFork: boolean }>> {
-    return ipcRenderer.invoke(GIT_PR_LIST, repoCwd)
-  },
-
-  gitCreatePR(
-    worktreePath: string,
-    branch: string,
-  ): Promise<
-    | { ok: true; created: boolean; url: string; fallback?: boolean }
-    | { ok: false; message: string }
-  > {
-    return ipcRenderer.invoke(GIT_CREATE_PR, worktreePath, branch)
-  },
-
-  gitPrStatus(
-    worktreePath: string,
-    branch: string,
-  ): Promise<{ number: number; state: string; url: string; isDraft: boolean } | null> {
-    return ipcRenderer.invoke(GIT_PR_STATUS, worktreePath, branch)
-  },
-
-  gitPush(cwd: string, remote?: string, branch?: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_PUSH, cwd, remote, branch)
-  },
-
-  gitPull(cwd: string, remote?: string, branch?: string): Promise<unknown> {
-    return ipcRenderer.invoke(GIT_PULL, cwd, remote, branch)
-  },
-
-  gitFetch(cwd: string, remote?: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_FETCH, cwd, remote)
-  },
-
-  gitLog(cwd: string, maxCount?: number): Promise<Array<{ hash: string; message: string; author_name: string; author_email: string; date: string }>> {
-    return ipcRenderer.invoke(GIT_LOG, cwd, maxCount)
-  },
-
-  gitBranchList(cwd: string): Promise<{ current: string; branches: Array<{ name: string; current: boolean; commit: string; label: string; isRemote: boolean }> }> {
-    return ipcRenderer.invoke(GIT_BRANCH_LIST, cwd)
-  },
-
-  gitBranchCreate(cwd: string, branchName: string, startPoint?: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_BRANCH_CREATE, cwd, branchName, startPoint)
-  },
-
-  gitBranchDelete(cwd: string, branchName: string, force?: boolean): Promise<void> {
-    return ipcRenderer.invoke(GIT_BRANCH_DELETE, cwd, branchName, force)
-  },
-
-  gitCheckout(cwd: string, branchName: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_CHECKOUT, cwd, branchName)
-  },
-
-  gitDiffStaged(cwd: string, filePath?: string): Promise<string> {
-    return ipcRenderer.invoke(GIT_DIFF_STAGED, cwd, filePath)
-  },
-
-  gitStash(cwd: string, message?: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_STASH, cwd, message)
-  },
-
-  gitStashPop(cwd: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_STASH_POP, cwd)
-  },
-
-  gitDiscardFile(cwd: string, filePath: string): Promise<void> {
-    return ipcRenderer.invoke(GIT_DISCARD_FILE, cwd, filePath)
-  },
-
   // ---------------------------------------------------------------------------
   // Shell / Process Monitor
   // ---------------------------------------------------------------------------
-
-  shellRegisterTerminal(terminalId: string, pid?: number): Promise<void> {
-    return ipcRenderer.invoke(SHELL_REGISTER_TERMINAL, terminalId, pid)
-  },
-
-  shellUnregisterTerminal(terminalId: string): Promise<void> {
-    return ipcRenderer.invoke(SHELL_UNREGISTER_TERMINAL, terminalId)
-  },
 
   onShellActivityUpdate(
     callback: (
@@ -635,33 +608,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       agentPresent: unknown,
     ) => void,
   ): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      terminalId: string,
-      activity: unknown,
-      agentName: unknown,
-      agentPresent: unknown,
-    ): void => {
-      callback(terminalId, activity, agentName, agentPresent)
-    }
-    ipcRenderer.on(SHELL_ACTIVITY_UPDATE, listener)
-    return () => {
-      ipcRenderer.removeListener(SHELL_ACTIVITY_UPDATE, listener)
-    }
+    return createIpcListener(SHELL_ACTIVITY_UPDATE, callback)
   },
 
   onShellPortsUpdate(callback: (terminalId: string, ports: number[]) => void): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      terminalId: string,
-      ports: number[],
-    ): void => {
-      callback(terminalId, ports)
-    }
-    ipcRenderer.on(SHELL_PORTS_UPDATE, listener)
-    return () => {
-      ipcRenderer.removeListener(SHELL_PORTS_UPDATE, listener)
-    }
+    return createIpcListener(SHELL_PORTS_UPDATE, callback)
   },
 
   shellReportAgentScreenState(terminalId: string, state: string): void {
@@ -671,48 +622,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onAgentScreenStateUpdate(
     callback: (terminalId: string, state: string) => void,
   ): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      terminalId: string,
-      state: string,
-    ): void => {
-      callback(terminalId, state)
-    }
-    ipcRenderer.on(SHELL_AGENT_SCREEN_STATE, listener)
-    return () => {
-      ipcRenderer.removeListener(SHELL_AGENT_SCREEN_STATE, listener)
-    }
+    return createIpcListener(SHELL_AGENT_SCREEN_STATE, callback)
   },
 
   onShellCwdUpdate(callback: (terminalId: string, cwd: string) => void): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      terminalId: string,
-      cwd: string,
-    ): void => {
-      callback(terminalId, cwd)
-    }
-    ipcRenderer.on(SHELL_CWD_UPDATE, listener)
-    return () => {
-      ipcRenderer.removeListener(SHELL_CWD_UPDATE, listener)
-    }
+    return createIpcListener(SHELL_CWD_UPDATE, callback)
   },
 
   onGitBranchUpdate(
     callback: (workspaceId: string, branch: string, isDirty: boolean) => void,
   ): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      workspaceId: string,
-      branch: string,
-      isDirty: boolean,
-    ): void => {
-      callback(workspaceId, branch, isDirty)
-    }
-    ipcRenderer.on(GIT_BRANCH_UPDATE, listener)
-    return () => {
-      ipcRenderer.removeListener(GIT_BRANCH_UPDATE, listener)
-    }
+    return createIpcListener(GIT_BRANCH_UPDATE, callback)
   },
 
   gitMonitorStart(workspaceId: string, rootPath: string): void {
@@ -727,52 +647,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   // ---------------------------------------------------------------------------
 
-  settingsGet(key: string): Promise<unknown> {
-    return ipcRenderer.invoke(SETTINGS_GET, key)
-  },
-
-  settingsSet(key: string, value: unknown): Promise<void> {
-    return ipcRenderer.invoke(SETTINGS_SET, key, value)
-  },
-
-  settingsGetAll(): Promise<unknown> {
-    return ipcRenderer.invoke(SETTINGS_GET_ALL)
-  },
-
-  settingsReset(key?: string): Promise<void> {
-    return ipcRenderer.invoke(SETTINGS_RESET, key)
-  },
-
-  uiStateGetAll(): Promise<unknown> {
-    return ipcRenderer.invoke(UI_STATE_GET_ALL)
-  },
-
-  uiStateSet(key: string, value: unknown): Promise<void> {
-    return ipcRenderer.invoke(UI_STATE_SET, key, value)
-  },
-
   onSettingsChanged(callback: (key: keyof AppSettings, value: unknown) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, key: keyof AppSettings, value: unknown): void => {
-      callback(key, value)
-    }
-    ipcRenderer.on(SETTINGS_CHANGED, listener)
-    return () => {
-      ipcRenderer.removeListener(SETTINGS_CHANGED, listener)
-    }
-  },
-
-  settingsOpenInEditor(): Promise<string> {
-    return ipcRenderer.invoke(SETTINGS_OPEN_IN_EDITOR)
+    return createIpcListener(SETTINGS_CHANGED, callback)
   },
 
   onSettingsReloaded(callback: (settings: AppSettings) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, settings: AppSettings): void => {
-      callback(settings)
-    }
-    ipcRenderer.on(SETTINGS_RELOADED, listener)
-    return () => {
-      ipcRenderer.removeListener(SETTINGS_RELOADED, listener)
-    }
+    return createIpcListener(SETTINGS_RELOADED, callback)
   },
 
   // ---------------------------------------------------------------------------
@@ -781,26 +661,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 
   onSessionFlushSave(callback: () => void): () => void {
-    const handler = () => callback()
-    ipcRenderer.on(SESSION_FLUSH_SAVE, handler)
-    return () => ipcRenderer.removeListener(SESSION_FLUSH_SAVE, handler)
+    return createIpcListener(SESSION_FLUSH_SAVE, callback)
   },
 
   sessionFlushSaveDone(): void {
     ipcRenderer.send(SESSION_FLUSH_SAVE_DONE)
   },
 
-  projectStateSave(rootPath: string, workspace: unknown, session: unknown): Promise<void> {
-    return ipcRenderer.invoke(PROJECT_STATE_SAVE, rootPath, workspace, session)
-  },
-
-  projectStateLoad(rootPath: string): Promise<unknown> {
-    return ipcRenderer.invoke(PROJECT_STATE_LOAD, rootPath)
-  },
-
-
   /** Push a partial boot snapshot to main (geometry, theme, etc.). Main
-   *  debounces and writes `<userData>/boot.json` for the next cold launch. */
+   *  debounces and writes `<userData>/boot.json` for the next cold launch.
+   *  Not in the ElectronAPI interface yet, so hand-written rather than folded
+   *  into the invokeForwarders table. */
   bootSnapshotWrite(partial: Record<string, unknown>): Promise<void> {
     return ipcRenderer.invoke(BOOT_SNAPSHOT_WRITE, partial)
   },
@@ -810,51 +681,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ---------------------------------------------------------------------------
 
   onOpenPath(callback: (filePath: string) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, filePath: string): void => {
-      callback(filePath)
-    }
-    ipcRenderer.on(APP_OPEN_PATH, listener)
-    return () => { ipcRenderer.removeListener(APP_OPEN_PATH, listener) }
+    return createIpcListener(APP_OPEN_PATH, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Dialog
   // ---------------------------------------------------------------------------
 
-  openFolderDialog(): Promise<string | null> {
-    return ipcRenderer.invoke(DIALOG_OPEN_FOLDER)
-  },
-
-  openImageDialog(): Promise<string | null> {
-    return ipcRenderer.invoke(DIALOG_OPEN_IMAGE)
-  },
-
-  readCanvasBackgroundImage(filePath: string): Promise<string | null> {
-    return ipcRenderer.invoke(CANVAS_READ_BACKGROUND_IMAGE, filePath)
-  },
-
   saveFileDialog(payload?: { defaultName?: string; defaultPath?: string }): Promise<string | null> {
     return ipcRenderer.invoke(DIALOG_SAVE_FILE, payload ?? {})
-  },
-
-  confirmUnsavedChanges(payload: { fileName?: string; multiple?: boolean; filePath?: string }): Promise<'save' | 'discard' | 'cancel'> {
-    return ipcRenderer.invoke(DIALOG_CONFIRM_UNSAVED, payload)
-  },
-
-  confirmCloseTerminal(payload: { count: number; processName?: string | null }): Promise<'close' | 'cancel'> {
-    return ipcRenderer.invoke(DIALOG_CONFIRM_CLOSE_TERMINAL, payload)
-  },
-
-  confirmCloseCanvas(payload: { panelCount: number; isLast: boolean }): Promise<'move' | 'delete' | 'close' | 'cancel'> {
-    return ipcRenderer.invoke(DIALOG_CONFIRM_CLOSE_CANVAS, payload)
-  },
-
-  confirmReloadWorkspace(payload: { name?: string }): Promise<'reload' | 'cancel'> {
-    return ipcRenderer.invoke(DIALOG_CONFIRM_RELOAD_WORKSPACE, payload)
-  },
-
-  confirmImportEntries(payload: { count: number; destName: string }): Promise<'copy' | 'move' | 'cancel'> {
-    return ipcRenderer.invoke(DIALOG_CONFIRM_IMPORT, payload)
   },
 
   promptTerminalLinkOpen(url: string): Promise<'canvas' | 'external' | 'cancel'> {
@@ -865,122 +700,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Recent Projects
   // ---------------------------------------------------------------------------
 
-  recentProjectsGet(): Promise<string[]> {
-    return ipcRenderer.invoke(RECENT_PROJECTS_GET)
-  },
-
-  recentProjectsAdd(projectPath: string): Promise<void> {
-    return ipcRenderer.invoke(RECENT_PROJECTS_ADD, projectPath)
-  },
-  recentProjectsRemove(projectPath: string): Promise<void> {
-    return ipcRenderer.invoke(RECENT_PROJECTS_REMOVE, projectPath)
-  },
-
-  sidebarSessionGet(): Promise<SidebarSession | null> {
-    return ipcRenderer.invoke(SIDEBAR_SESSION_GET)
-  },
-
-  sidebarSessionSet(session: SidebarSession): Promise<void> {
-    return ipcRenderer.invoke(SIDEBAR_SESSION_SET, session)
-  },
-
-  remoteProjectsGet(): Promise<unknown> {
-    return ipcRenderer.invoke(REMOTE_PROJECTS_GET)
-  },
-
-  remoteProjectsSet(entries: unknown): Promise<void> {
-    return ipcRenderer.invoke(REMOTE_PROJECTS_SET, entries)
-  },
-
-  // ---------------------------------------------------------------------------
-  // Layouts
-  // ---------------------------------------------------------------------------
-
-  layoutSave(name: string, layout: unknown): Promise<void> {
-    return ipcRenderer.invoke(LAYOUT_SAVE, name, layout)
-  },
-
-  layoutList(): Promise<string[]> {
-    return ipcRenderer.invoke(LAYOUT_LIST)
-  },
-
-  layoutLoad(name: string): Promise<unknown> {
-    return ipcRenderer.invoke(LAYOUT_LOAD, name)
-  },
-
-  layoutDelete(name: string): Promise<void> {
-    return ipcRenderer.invoke(LAYOUT_DELETE, name)
-  },
-
-  capturePage(): Promise<string | null> {
-    return ipcRenderer.invoke(CAPTURE_PAGE)
-  },
-
-  webviewScreenshot(webContentsId: number): Promise<{ filePath: string; dataUrl: string } | null> {
-    return ipcRenderer.invoke(WEBVIEW_SCREENSHOT, webContentsId)
-  },
-
-  browserSetProxy(partition: string, proxyUrl?: string): Promise<void> {
-    return ipcRenderer.invoke(BROWSER_SET_PROXY, partition, proxyUrl)
-  },
-
-  nativeFileDrag(filePath: string): Promise<void> {
-    return ipcRenderer.invoke(NATIVE_FILE_DRAG, filePath)
-  },
-
-  // ---------------------------------------------------------------------------
-  // Shell utilities
-  // ---------------------------------------------------------------------------
-
-  fsDelete(filePath: string, workspaceId?: string): Promise<void> {
-    return ipcRenderer.invoke(FS_DELETE, filePath, workspaceId)
-  },
-
-  fsRename(oldPath: string, newPath: string, workspaceId?: string): Promise<void> {
-    return ipcRenderer.invoke(FS_RENAME, oldPath, newPath, workspaceId)
-  },
-
-  fsMkdir(dirPath: string, workspaceId?: string): Promise<void> {
-    return ipcRenderer.invoke(FS_MKDIR, dirPath, workspaceId)
-  },
-
-  fsCopy(srcPath: string, destDir: string, workspaceId?: string): Promise<string> {
-    return ipcRenderer.invoke(FS_COPY, srcPath, destDir, workspaceId)
-  },
-
-  fsImportEntries(
-    sources: string[],
-    destDir: string,
-    mode: 'copy' | 'move',
-    workspaceId?: string,
-  ): Promise<{ created: string[]; failed: number }> {
-    return ipcRenderer.invoke(FS_IMPORT_ENTRIES, sources, destDir, mode, workspaceId)
-  },
-
-  shellShowInFolder(filePath: string): Promise<void> {
-    return ipcRenderer.invoke(SHELL_SHOW_IN_FOLDER, filePath)
-  },
-
-  // ---------------------------------------------------------------------------
-  // Notifications
-  // ---------------------------------------------------------------------------
-
-  notifyOS(payload: { title: string; body: string; action?: unknown }): Promise<void> {
-    return ipcRenderer.invoke(NOTIFY_OS, payload)
-  },
-
   onNotifyAction(callback: (action: unknown) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, action: unknown): void => {
-      callback(action)
-    }
-    ipcRenderer.on(NOTIFY_ACTION, listener)
-    return () => { ipcRenderer.removeListener(NOTIFY_ACTION, listener) }
+    return createIpcListener(NOTIFY_ACTION, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Window management
   // ---------------------------------------------------------------------------
 
+  /** Not in the ElectronAPI interface yet, so hand-written rather than folded
+   *  into the invokeForwarders table. */
   windowSetTitle(title: string): Promise<void> {
     return ipcRenderer.invoke(WINDOW_SET_TITLE, title)
   },
@@ -989,57 +718,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Panel transfer (cross-window)
   // ---------------------------------------------------------------------------
 
-  panelTransfer(snapshot: unknown, targetWindowId?: number, workspaceId?: string): Promise<number | void> {
-    return ipcRenderer.invoke(PANEL_TRANSFER, snapshot, targetWindowId, workspaceId)
-  },
-
-  panelTransferAck(ptyId?: string): Promise<void> {
-    return ipcRenderer.invoke(PANEL_TRANSFER_ACK, ptyId)
-  },
-
   onPanelReceive(callback: (snapshot: unknown) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, snapshot: unknown): void => {
-      callback(snapshot)
-    }
-    ipcRenderer.on(PANEL_RECEIVE, listener)
-    return () => { ipcRenderer.removeListener(PANEL_RECEIVE, listener) }
-  },
-
-  panelWindowsList(): Promise<unknown[]> {
-    return ipcRenderer.invoke(PANEL_WINDOWS_LIST)
-  },
-
-  panelWindowSyncPty(ptyId: string): Promise<void> {
-    return ipcRenderer.invoke(PANEL_WINDOW_SYNC_PTY, ptyId)
-  },
-
-  panelWindowSyncMeta(payload: { panel: unknown; workspaceId?: string }): Promise<void> {
-    return ipcRenderer.invoke(PANEL_WINDOW_SYNC_META, payload)
-  },
-
-  panelWindowDockBack(snapshot?: unknown): Promise<void> {
-    return ipcRenderer.invoke(PANEL_WINDOW_DOCK_BACK, snapshot)
+    return createIpcListener(PANEL_RECEIVE, callback)
   },
 
   onPanelWindowDockBack(callback: (payload: { panelWindowId: number; snapshot?: unknown }) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, payload: { panelWindowId: number; snapshot?: unknown }): void => {
-      callback(payload)
-    }
-    ipcRenderer.on(PANEL_WINDOW_DOCK_BACK, listener)
-    return () => { ipcRenderer.removeListener(PANEL_WINDOW_DOCK_BACK, listener) }
+    return createIpcListener(PANEL_WINDOW_DOCK_BACK, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Cross-window drag-and-drop
   // ---------------------------------------------------------------------------
-
-  dragStart(snapshot: unknown): Promise<void> {
-    return ipcRenderer.invoke(DRAG_START, snapshot)
-  },
-
-  dragDetach(snapshot: unknown, workspaceId?: string): Promise<number | null> {
-    return ipcRenderer.invoke(DRAG_DETACH, snapshot, workspaceId)
-  },
 
   /** Synchronous check: is any Cate BrowserWindow currently in macOS
    *  native fullscreen? Uses the cached push value when available and
@@ -1049,17 +738,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return fullscreenLiveCheck()
   },
 
-  // Custom window controls (frameless Windows/Linux chrome). Each acts on the
-  // calling window. No-ops visually on macOS, where native chrome is used.
-  windowMinimize(): Promise<void> {
-    return ipcRenderer.invoke(WINDOW_MINIMIZE)
-  },
-  windowToggleMaximize(): Promise<void> {
-    return ipcRenderer.invoke(WINDOW_TOGGLE_MAXIMIZE)
-  },
-  windowClose(): Promise<void> {
-    return ipcRenderer.invoke(WINDOW_CLOSE)
-  },
   /** Is the calling window currently maximized? Uses the cached push value and
    *  falls back to a sync IPC for the authoritative answer. */
   isWindowMaximized(): boolean {
@@ -1076,9 +754,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   onDragEnd(callback: (dragId?: string) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, dragId?: string): void => { callback(dragId) }
-    ipcRenderer.on(DRAG_END, listener)
-    return () => { ipcRenderer.removeListener(DRAG_END, listener) }
+    return createIpcListener(DRAG_END, callback)
   },
 
   /** Subscribe to native-fullscreen state changes. Fires with the new boolean
@@ -1095,17 +771,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    *  on-disk workspace file diverges from what Cate last wrote (edited
    *  externally) or comes back in sync after a reload. */
   onWorkspaceExternalEdit(callback: (payload: { rootPath: string }) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, payload: { rootPath: string }): void => {
-      callback(payload)
-    }
-    ipcRenderer.on(WORKSPACE_EXTERNAL_EDIT, listener)
-    return () => { ipcRenderer.removeListener(WORKSPACE_EXTERNAL_EDIT, listener) }
-  },
-
-  /** Tell main the user declined the reload prompt — resume saving so the
-   *  current in-app layout overwrites the external edit. */
-  dismissWorkspaceExternalEdit(rootPath: string): Promise<void> {
-    return ipcRenderer.invoke(WORKSPACE_EXTERNAL_EDIT_DISMISS, rootPath)
+    return createIpcListener(WORKSPACE_EXTERNAL_EDIT, callback)
   },
 
   // ---------------------------------------------------------------------------
@@ -1113,29 +779,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ---------------------------------------------------------------------------
 
   onDockWindowInit(callback: (payload: unknown) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
-      callback(payload)
-    }
-    ipcRenderer.on(DOCK_WINDOW_INIT, listener)
-    return () => { ipcRenderer.removeListener(DOCK_WINDOW_INIT, listener) }
-  },
-
-  dockWindowSyncState(state: unknown): Promise<void> {
-    return ipcRenderer.invoke(DOCK_WINDOW_SYNC_STATE, state)
-  },
-
-  dockWindowsList(): Promise<unknown[]> {
-    return ipcRenderer.invoke(DOCK_WINDOWS_LIST)
-  },
-
-  dockWindowRestore(payload: unknown): Promise<number | null> {
-    return ipcRenderer.invoke(DOCK_WINDOW_RESTORE, payload)
+    return createIpcListener(DOCK_WINDOW_INIT, callback)
   },
 
   onDockWindowFlushSync(callback: () => void): () => void {
-    const listener = (): void => { callback() }
-    ipcRenderer.on(DOCK_WINDOW_FLUSH_SYNC, listener)
-    return () => { ipcRenderer.removeListener(DOCK_WINDOW_FLUSH_SYNC, listener) }
+    return createIpcListener(DOCK_WINDOW_FLUSH_SYNC, callback)
   },
 
   dockWindowFlushSyncDone(): void {
@@ -1143,99 +791,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ---------------------------------------------------------------------------
+  // Cross-window panel discovery
+  // ---------------------------------------------------------------------------
+
+  onWindowPanelsChanged(callback: (panels: unknown[]) => void): () => void {
+    return createIpcListener(WINDOW_PANELS_CHANGED, callback)
+  },
+
+  onRevealPanelInWindow(callback: (panelId: string) => void): () => void {
+    return createIpcListener(REVEAL_PANEL_IN_WINDOW, callback)
+  },
+
+  // ---------------------------------------------------------------------------
   // Cross-window drag coordination
   // ---------------------------------------------------------------------------
 
-  crossWindowDragStart(snapshot: unknown, screenPos: unknown): Promise<void> {
-    return ipcRenderer.invoke(CROSS_WINDOW_DRAG_START, snapshot, screenPos)
-  },
-
   onCrossWindowDragUpdate(callback: (screenPos: unknown, snapshot: unknown, dragId?: unknown) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, screenPos: unknown, snapshot: unknown, dragId?: unknown): void => {
-      callback(screenPos, snapshot, dragId)
-    }
-    ipcRenderer.on(CROSS_WINDOW_DRAG_UPDATE, listener)
-    return () => { ipcRenderer.removeListener(CROSS_WINDOW_DRAG_UPDATE, listener) }
-  },
-
-  crossWindowDragDrop(panelId: string): Promise<void> {
-    return ipcRenderer.invoke(CROSS_WINDOW_DRAG_DROP, panelId)
-  },
-
-  crossWindowDragCancel(): Promise<void> {
-    return ipcRenderer.invoke(CROSS_WINDOW_DRAG_CANCEL)
-  },
-
-  crossWindowDragResolve(): Promise<{ claimed: boolean }> {
-    return ipcRenderer.invoke(CROSS_WINDOW_DRAG_RESOLVE)
+    return createIpcListener(CROSS_WINDOW_DRAG_UPDATE, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Workspace management (main process is source of truth)
   // ---------------------------------------------------------------------------
 
-  workspaceCreate(options?: { name?: string; rootPath?: string; id?: string; connection?: unknown }): Promise<unknown> {
-    return ipcRenderer.invoke(WORKSPACE_CREATE, options)
-  },
-
-  // --- Companion connections (remote / WSL) ---
-  companionConnect(spec: unknown): Promise<unknown> {
-    return ipcRenderer.invoke(COMPANION_CONNECT, spec)
-  },
-  companionEnsure(connection: unknown): Promise<unknown> {
-    return ipcRenderer.invoke(COMPANION_ENSURE, connection)
-  },
-  companionList(): Promise<string[]> {
-    return ipcRenderer.invoke(COMPANION_LIST)
-  },
-  companionLocalStatus(): Promise<{ phase: string; message?: string }> {
-    return ipcRenderer.invoke(COMPANION_LOCAL_STATUS)
-  },
-  companionWslDistros(): Promise<string[]> {
-    return ipcRenderer.invoke(COMPANION_WSL_DISTROS)
-  },
-  companionSshHosts(): Promise<unknown[]> {
-    return ipcRenderer.invoke(COMPANION_SSH_HOSTS)
-  },
-  companionPickSshKey(): Promise<string | null> {
-    return ipcRenderer.invoke(COMPANION_PICK_SSH_KEY)
-  },
-  companionInstall(connection: unknown): Promise<unknown> {
-    return ipcRenderer.invoke(COMPANION_INSTALL, connection)
-  },
-  companionDelete(connection: unknown): Promise<{ ok: boolean; error?: string }> {
-    return ipcRenderer.invoke(COMPANION_DELETE, connection)
-  },
   onCompanionStatus(callback: (event: unknown) => void): () => void {
-    const listener = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
-      callback(payload)
-    }
-    ipcRenderer.on(COMPANION_STATUS, listener)
-    return () => {
-      ipcRenderer.removeListener(COMPANION_STATUS, listener)
-    }
-  },
-
-  workspaceUpdate(id: string, changes: Record<string, unknown>): Promise<unknown> {
-    return ipcRenderer.invoke(WORKSPACE_UPDATE, id, changes)
-  },
-
-  workspaceRemove(id: string): Promise<boolean> {
-    return ipcRenderer.invoke(WORKSPACE_REMOVE, id)
+    return createIpcListener(COMPANION_STATUS, callback)
   },
 
   onWorkspaceChanged(callback: (workspaces: unknown[], originWindowId: number | null) => void): () => void {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      workspaces: unknown[],
-      originWindowId: number | null,
-    ): void => {
-      callback(workspaces, originWindowId)
-    }
-    ipcRenderer.on(WORKSPACE_CHANGED, listener)
-    return () => {
-      ipcRenderer.removeListener(WORKSPACE_CHANGED, listener)
-    }
+    return createIpcListener(WORKSPACE_CHANGED, callback)
   },
 
   // ---------------------------------------------------------------------------
@@ -1251,52 +835,42 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Menu actions (main -> renderer)
   // ---------------------------------------------------------------------------
 
-  showContextMenu(items: unknown): Promise<string | null> {
-    return ipcRenderer.invoke(MENU_SHOW_CONTEXT, items)
+  /** Pop the native submenu of top-level item `index` at window-relative (x, y)
+   *  — directly below its label in the title bar. */
+  popupAppMenu(index: number, x: number, y: number): Promise<void> {
+    return ipcRenderer.invoke(MENU_POPUP_BAR_ITEM, { index, x, y })
   },
 
   onMenuOpenSettings(callback: () => void): () => void {
-    const listener = (): void => { callback() }
-    ipcRenderer.on(MENU_OPEN_SETTINGS, listener)
-    return () => { ipcRenderer.removeListener(MENU_OPEN_SETTINGS, listener) }
+    return createIpcListener(MENU_OPEN_SETTINGS, callback)
   },
 
   onMenuTriggerAction(callback: (action: string) => void): () => void {
-    const listener = (_e: unknown, action: string): void => { callback(action) }
-    ipcRenderer.on(MENU_TRIGGER_ACTION, listener)
-    return () => { ipcRenderer.removeListener(MENU_TRIGGER_ACTION, listener) }
+    return createIpcListener(MENU_TRIGGER_ACTION, callback)
   },
 
   onMenuLoadLayout(callback: (name: string) => void): () => void {
-    const listener = (_e: unknown, name: string): void => { callback(name) }
-    ipcRenderer.on(MENU_LOAD_LAYOUT, listener)
-    return () => { ipcRenderer.removeListener(MENU_LOAD_LAYOUT, listener) }
+    return createIpcListener(MENU_LOAD_LAYOUT, callback)
   },
 
   onMenuCreatePanel(callback: (payload: { action: string; workspaceId?: string }) => void): () => void {
-    const listener = (_e: unknown, payload: { action: string; workspaceId?: string }): void => { callback(payload) }
-    ipcRenderer.on(MENU_CREATE_PANEL, listener)
-    return () => { ipcRenderer.removeListener(MENU_CREATE_PANEL, listener) }
+    return createIpcListener(MENU_CREATE_PANEL, callback)
   },
 
   onBrowserShortcut(callback: (action: string) => void): () => void {
-    const listener = (_e: unknown, action: string): void => { callback(action) }
-    ipcRenderer.on(BROWSER_SHORTCUT, listener)
-    return () => { ipcRenderer.removeListener(BROWSER_SHORTCUT, listener) }
+    return createIpcListener(BROWSER_SHORTCUT, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Analytics — post-update feedback prompt
   // ---------------------------------------------------------------------------
 
-  onFeedbackPrompt(callback: (payload: { fromVersion: string; toVersion: string }) => void): () => void {
-    const listener = (_e: Electron.IpcRendererEvent, payload: { fromVersion: string; toVersion: string }): void => callback(payload)
-    ipcRenderer.on(ANALYTICS_FEEDBACK_PROMPT, listener)
-    return () => { ipcRenderer.removeListener(ANALYTICS_FEEDBACK_PROMPT, listener) }
+  onUpdateStatus(callback: (status: UpdateStatus) => void): () => void {
+    return createIpcListener(UPDATE_STATUS, callback)
   },
 
-  submitFeedback(payload: { rating: number; comment?: string }): Promise<{ ok: boolean; buffered?: boolean }> {
-    return ipcRenderer.invoke(ANALYTICS_FEEDBACK_SUBMIT, payload)
+  onFeedbackPrompt(callback: (payload: { fromVersion: string; toVersion: string }) => void): () => void {
+    return createIpcListener(ANALYTICS_FEEDBACK_PROMPT, callback)
   },
 
   dismissFeedback(method: string): void {
@@ -1307,16 +881,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send(ANALYTICS_FEEDBACK_ENGAGED)
   },
 
-  getPendingFeedback(): Promise<{ fromVersion: string; toVersion: string } | null> {
-    return ipcRenderer.invoke(ANALYTICS_FEEDBACK_GET_PENDING)
-  },
-
   trackLinkClick(link: string): void {
     ipcRenderer.send(ANALYTICS_LINK_CLICK, link)
-  },
-
-  setTelemetryConsent(choice: { crashReporting: boolean; usageAnalytics: boolean }): Promise<void> {
-    return ipcRenderer.invoke(TELEMETRY_SET_CONSENT, choice)
   },
 
   trackFeatureUsed(feature: string, props?: Record<string, string | number | boolean>): void {
@@ -1331,287 +897,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Pi agent
   // ---------------------------------------------------------------------------
 
-  agentCreate(options: unknown): Promise<unknown> {
-    return ipcRenderer.invoke(AGENT_CREATE, options)
-  },
-
-  agentPrompt(panelId: string, text: string, images?: unknown[]): Promise<void> {
-    return ipcRenderer.invoke(AGENT_PROMPT, panelId, text, images)
-  },
-
-  agentSteer(panelId: string, text: string, images?: unknown[]): Promise<void> {
-    return ipcRenderer.invoke(AGENT_STEER, panelId, text, images)
-  },
-
-  agentFollowUp(panelId: string, text: string, images?: unknown[]): Promise<void> {
-    return ipcRenderer.invoke(AGENT_FOLLOW_UP, panelId, text, images)
-  },
-
-  agentSetThinkingLevel(panelId: string, level: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_SET_THINKING_LEVEL, panelId, level)
-  },
-
-  agentCompact(panelId: string, customInstructions?: string): Promise<unknown> {
-    return ipcRenderer.invoke(AGENT_COMPACT, panelId, customInstructions)
-  },
-
-  agentSetAutoCompaction(panelId: string, enabled: boolean): Promise<void> {
-    return ipcRenderer.invoke(AGENT_SET_AUTO_COMPACTION, panelId, enabled)
-  },
-
-  agentSetAutoRetry(panelId: string, enabled: boolean): Promise<void> {
-    return ipcRenderer.invoke(AGENT_SET_AUTO_RETRY, panelId, enabled)
-  },
-
-  agentAbortRetry(panelId: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_ABORT_RETRY, panelId)
-  },
-
-  agentGetSessionStats(panelId: string): Promise<unknown> {
-    return ipcRenderer.invoke(AGENT_GET_SESSION_STATS, panelId)
-  },
-
-  agentGetState(panelId: string): Promise<unknown> {
-    return ipcRenderer.invoke(AGENT_GET_STATE, panelId)
-  },
-
-  agentExportHtml(panelId: string, outputPath?: string): Promise<{ path: string }> {
-    return ipcRenderer.invoke(AGENT_EXPORT_HTML, panelId, outputPath)
-  },
-
-  agentNewSession(panelId: string, parentSession?: string): Promise<{ cancelled: boolean }> {
-    return ipcRenderer.invoke(AGENT_NEW_SESSION, panelId, parentSession)
-  },
-
-  agentSwitchSession(panelId: string, sessionPath: string): Promise<{ cancelled: boolean }> {
-    return ipcRenderer.invoke(AGENT_SWITCH_SESSION, panelId, sessionPath)
-  },
-
-  agentFork(panelId: string, entryId: string): Promise<{ text: string; cancelled: boolean }> {
-    return ipcRenderer.invoke(AGENT_FORK, panelId, entryId)
-  },
-
-  agentClone(panelId: string): Promise<{ cancelled: boolean }> {
-    return ipcRenderer.invoke(AGENT_CLONE, panelId)
-  },
-
-  agentGetForkMessages(panelId: string): Promise<Array<{ entryId: string; text: string }>> {
-    return ipcRenderer.invoke(AGENT_GET_FORK_MESSAGES, panelId)
-  },
-
-  agentGetLastAssistantText(panelId: string): Promise<string | null> {
-    return ipcRenderer.invoke(AGENT_GET_LAST_ASSISTANT_TEXT, panelId)
-  },
-
-  agentSetSessionName(panelId: string, name: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_SET_SESSION_NAME, panelId, name)
-  },
-
-  agentGetMessages(panelId: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(AGENT_GET_MESSAGES, panelId)
-  },
-
-  agentBash(panelId: string, command: string): Promise<unknown> {
-    return ipcRenderer.invoke(AGENT_BASH, panelId, command)
-  },
-
-  agentAbortBash(panelId: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_ABORT_BASH, panelId)
-  },
-
-  agentSetSteeringMode(panelId: string, mode: 'all' | 'one-at-a-time'): Promise<void> {
-    return ipcRenderer.invoke(AGENT_SET_STEERING_MODE, panelId, mode)
-  },
-
-  agentSetFollowUpMode(panelId: string, mode: 'all' | 'one-at-a-time'): Promise<void> {
-    return ipcRenderer.invoke(AGENT_SET_FOLLOW_UP_MODE, panelId, mode)
-  },
-
-  agentListModels(): Promise<unknown[]> {
-    return ipcRenderer.invoke(AGENT_LIST_MODELS)
-  },
-
   agentUiResponse(panelId: string, response: unknown): void {
     ipcRenderer.send(AGENT_UI_RESPONSE, panelId, response)
   },
 
-  agentListSessions(cwd: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(AGENT_LIST_SESSIONS, cwd)
-  },
-
-  agentLoadSessionMessages(sessionFile: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(AGENT_LOAD_SESSION_MESSAGES, sessionFile)
-  },
-
-  agentDeleteSession(sessionFile: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_DELETE_SESSION, sessionFile)
-  },
-
-  agentInterrupt(panelId: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_INTERRUPT, panelId)
-  },
-
-  agentDispose(panelId: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_DISPOSE, panelId)
-  },
-
-  agentSetModel(panelId: string, model: unknown): Promise<void> {
-    return ipcRenderer.invoke(AGENT_SET_MODEL, panelId, model)
-  },
-
-  agentGetCommands(panelId: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(AGENT_GET_COMMANDS, panelId)
-  },
-
-  agentToolDecision(panelId: string, toolCallId: string, decision: 'allow' | 'deny', reason?: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_TOOL_DECISION, panelId, toolCallId, decision, reason)
-  },
-
-  agentOpenSkillsFolder(cwd: string, kind: 'agents' | 'prompts' | 'skills'): Promise<void> {
-    return ipcRenderer.invoke(AGENT_OPEN_SKILLS_FOLDER, cwd, kind)
-  },
-
-  agentOpenSkillFile(filePath: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_OPEN_SKILL_FILE, filePath)
-  },
-
-  agentDeleteSkillFile(cwd: string, filePath: string): Promise<void> {
-    return ipcRenderer.invoke(AGENT_DELETE_SKILL_FILE, cwd, filePath)
-  },
-
-  agentCreateSkill(cwd: string, kind: 'agents' | 'prompts' | 'skills', name: string): Promise<string> {
-    return ipcRenderer.invoke(AGENT_CREATE_SKILL, cwd, kind, name)
-  },
-
-  agentListSkillFiles(cwd: string, kind: 'agents' | 'prompts' | 'skills'): Promise<Array<{ name: string; description?: string; path: string }>> {
-    return ipcRenderer.invoke(AGENT_LIST_SKILL_FILES, cwd, kind)
-  },
-
-  agentMarketplaceList(
-    params?: { page?: number; query?: string; sort?: 'downloads' | 'recent' | 'name' },
-  ): Promise<unknown> {
-    return ipcRenderer.invoke(AGENT_MARKETPLACE_LIST, params)
-  },
-
-  agentMarketplaceListInstalled(cwd: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(AGENT_MARKETPLACE_LIST_INSTALLED, cwd)
-  },
-
-  agentMarketplaceInstall(cwd: string, name: string): Promise<{ ok: boolean; error?: string }> {
-    return ipcRenderer.invoke(AGENT_MARKETPLACE_INSTALL, cwd, name)
-  },
-
-  agentMarketplaceUninstall(cwd: string, name: string): Promise<{ ok: boolean; error?: string }> {
-    return ipcRenderer.invoke(AGENT_MARKETPLACE_UNINSTALL, cwd, name)
-  },
-
-  // ---------------------------------------------------------------------------
-  // Cross-agent skills
-  // ---------------------------------------------------------------------------
-
-  skillsGetIndex(): Promise<unknown[]> {
-    return ipcRenderer.invoke(SKILLS_GET_INDEX)
-  },
-  skillsRefresh(): Promise<unknown[]> {
-    return ipcRenderer.invoke(SKILLS_REFRESH)
-  },
-  skillsGetPreview(entry: unknown): Promise<string> {
-    return ipcRenderer.invoke(SKILLS_GET_PREVIEW, entry)
-  },
-  skillsInstall(entry: unknown, targetId: string, cwd: string): Promise<{ ok: boolean; error?: string; warnings?: string[]; installed?: unknown }> {
-    return ipcRenderer.invoke(SKILLS_INSTALL, entry, targetId, cwd)
-  },
-  skillsUninstall(skillId: string, name: string, targetId: string, cwd: string): Promise<{ ok: boolean; error?: string }> {
-    return ipcRenderer.invoke(SKILLS_UNINSTALL, skillId, name, targetId, cwd)
-  },
-  skillsListInstalled(cwd: string): Promise<unknown[]> {
-    return ipcRenderer.invoke(SKILLS_LIST_INSTALLED, cwd)
-  },
-  skillsListSaved(): Promise<unknown[]> {
-    return ipcRenderer.invoke(SKILLS_LIST_SAVED)
-  },
-  skillsSave(entry: unknown): Promise<{ ok: boolean; error?: string }> {
-    return ipcRenderer.invoke(SKILLS_SAVE, entry)
-  },
-  skillsUnsave(skillId: string): Promise<{ ok: boolean; error?: string }> {
-    return ipcRenderer.invoke(SKILLS_UNSAVE, skillId)
-  },
-  skillsListSources(): Promise<unknown[]> {
-    return ipcRenderer.invoke(SKILLS_LIST_SOURCES)
-  },
-  skillsAddSource(repo: string, opts?: { ref?: string; path?: string }): Promise<{ ok: boolean; error?: string; source?: unknown }> {
-    return ipcRenderer.invoke(SKILLS_ADD_SOURCE, repo, opts)
-  },
-  skillsRemoveSource(id: string): Promise<{ ok: boolean }> {
-    return ipcRenderer.invoke(SKILLS_REMOVE_SOURCE, id)
-  },
-  skillsGetToken(): Promise<{ hasToken: boolean }> {
-    return ipcRenderer.invoke(SKILLS_GET_TOKEN)
-  },
-  skillsSetToken(token: string | null): Promise<{ ok: boolean }> {
-    return ipcRenderer.invoke(SKILLS_SET_TOKEN, token)
-  },
-
   onAgentEvent(callback: (envelope: unknown) => void): () => void {
-    const listener = (_e: Electron.IpcRendererEvent, envelope: unknown): void => { callback(envelope) }
-    ipcRenderer.on(AGENT_EVENT, listener)
-    return () => { ipcRenderer.removeListener(AGENT_EVENT, listener) }
+    return createIpcListener(AGENT_EVENT, callback)
   },
 
   onAgentToolRequest(callback: (req: unknown) => void): () => void {
-    const listener = (_e: Electron.IpcRendererEvent, req: unknown): void => { callback(req) }
-    ipcRenderer.on(AGENT_TOOL_REQUEST, listener)
-    return () => { ipcRenderer.removeListener(AGENT_TOOL_REQUEST, listener) }
-  },
-
-  agentCustomModelsGet(): Promise<unknown> {
-    return ipcRenderer.invoke(AGENT_CUSTOM_MODELS_GET)
-  },
-
-  agentCustomModelsSave(cfg: unknown): Promise<void> {
-    return ipcRenderer.invoke(AGENT_CUSTOM_MODELS_SAVE, cfg)
+    return createIpcListener(AGENT_TOOL_REQUEST, callback)
   },
 
   // ---------------------------------------------------------------------------
   // Pi auth / providers
   // ---------------------------------------------------------------------------
 
-  authListProviders(): Promise<unknown[]> {
-    return ipcRenderer.invoke(AUTH_LIST_PROVIDERS)
-  },
-
-  authStatus(): Promise<unknown[]> {
-    return ipcRenderer.invoke(AUTH_STATUS)
-  },
-
-  authOAuthStart(providerId: string): Promise<unknown> {
-    return ipcRenderer.invoke(AUTH_OAUTH_START, providerId)
-  },
-
-  authOAuthPromptReply(promptId: string, value: string | null): Promise<void> {
-    return ipcRenderer.invoke(AUTH_OAUTH_PROMPT_REPLY, promptId, value)
-  },
-
   onAuthOAuthEvent(callback: (providerId: string, event: unknown) => void): () => void {
-    const listener = (_e: Electron.IpcRendererEvent, providerId: string, event: unknown): void => {
-      callback(providerId, event)
-    }
-    ipcRenderer.on(AUTH_OAUTH_EVENT, listener)
-    return () => { ipcRenderer.removeListener(AUTH_OAUTH_EVENT, listener) }
+    return createIpcListener(AUTH_OAUTH_EVENT, callback)
   },
 
   onAuthChanged(callback: () => void): () => void {
-    const listener = (): void => { callback() }
-    ipcRenderer.on(AUTH_CHANGED, listener)
-    return () => { ipcRenderer.removeListener(AUTH_CHANGED, listener) }
-  },
-
-  authSaveApiKey(providerId: string, apiKey: string): Promise<void> {
-    return ipcRenderer.invoke(AUTH_SAVE_API_KEY, providerId, apiKey)
-  },
-
-  authDelete(providerId: string): Promise<void> {
-    return ipcRenderer.invoke(AUTH_DELETE, providerId)
+    return createIpcListener(AUTH_CHANGED, callback)
   },
 
 })

@@ -18,6 +18,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import log from './logger'
+import { writeTextAtomic } from './writeJsonAtomic'
 
 const DIR_NAME = 'canvas-backgrounds'
 const MAX_BYTES = 40 * 1024 * 1024 // 40 MB — matches the reader's data-URL ceiling.
@@ -43,7 +44,6 @@ export async function importCanvasBackgroundImage(sourcePath: string): Promise<s
     const buf = await fs.promises.readFile(sourcePath)
     const hash = crypto.createHash('sha256').update(buf).digest('hex').slice(0, 16)
     const dir = backgroundsDir()
-    await fs.promises.mkdir(dir, { recursive: true })
     const dest = path.join(dir, `${hash}${ext}`)
 
     // Idempotent: identical contents reuse the same managed file.
@@ -52,9 +52,7 @@ export async function importCanvasBackgroundImage(sourcePath: string): Promise<s
       return dest
     } catch { /* not present — write it below */ }
 
-    const tmp = dest + '.tmp'
-    await fs.promises.writeFile(tmp, buf)
-    await fs.promises.rename(tmp, dest)
+    await writeTextAtomic(dest, buf)
     return dest
   } catch (err) {
     log.warn('[canvasBackgroundStore] import of %s failed, keeping original path: %O', sourcePath, err)

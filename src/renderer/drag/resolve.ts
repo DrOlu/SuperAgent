@@ -11,7 +11,7 @@
 import type { StoreApi } from 'zustand'
 import type { PanelType, Point, Size } from '../../shared/types'
 import type { CanvasStore } from '../stores/canvasStore'
-import type { DragSource, DropTarget } from './types'
+import type { DragSource, DropTarget, GhostRect } from './types'
 import {
   getDropZoneEntries,
   resolveDropEdge,
@@ -249,7 +249,7 @@ function snappedGhostScreenRect(
   zoom: number,
   viewportOffset: Point,
   ghostSize: Size,
-): { left: number; top: number; width: number; height: number } {
+): GhostRect {
   const view = canvasToView(origin, zoom, viewportOffset)
   return {
     left: containerRect.left + view.x,

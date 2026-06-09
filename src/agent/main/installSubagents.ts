@@ -29,6 +29,7 @@ import { app } from 'electron'
 import log from '../../main/logger'
 import { addAllowedRoot } from '../../main/ipc/pathValidation'
 import { hostAgentDir, hostJoin } from './agentDir'
+import { copyFileToHost, createIdempotencyTracker, findSourceDir } from './extensionInstall'
 import { LOCAL_COMPANION_ID } from '../../main/companion/locator'
 import type { Companion } from '../../main/companion/types'
 
@@ -36,24 +37,10 @@ import type { Companion } from '../../main/companion/types'
  *  (src/ on disk), then the production extraResources copy. Mirrors
  *  installPlanMode.sourceDir(). */
 function subagentSourceDir(): string | null {
-  const candidates = [
+  return findSourceDir([
     path.join(app.getAppPath(), 'src', 'agent', 'extensions', 'subagent'),
     path.join(process.resourcesPath ?? '', 'cate-extensions', 'subagent'),
-  ]
-  for (const c of candidates) {
-    if (c && fs.existsSync(c)) return c
-  }
-  return null
-}
-
-/** True when the host already has a file/dir at `hostPath`. */
-async function hostExists(companion: Companion, hostPath: string): Promise<boolean> {
-  try {
-    await companion.file.stat(hostPath)
-    return true
-  } catch {
-    return false
-  }
+  ])
 }
 
 /** Copy a single source file (read locally) to a host destination, skipping
@@ -64,14 +51,7 @@ async function copyIfMissing(
   destDir: string,
   destName: string,
 ): Promise<void> {
-  const dest = hostJoin(companion.id, destDir, destName)
-  if (await hostExists(companion, dest)) return // leave the user's copy alone
-  let contents: string
-  try { contents = await fsp.readFile(src, 'utf-8') }
-  catch { return } // source missing — nothing to copy
-  await companion.file.mkdir(destDir)
-  await companion.file.writeFile(dest, contents)
-  log.info('[installSubagents] installed %s', dest)
+  await copyFileToHost(companion, src, destDir, destName, 'if-missing', '[installSubagents]')
 }
 
 /** Copy every regular file under `srcDir` (local) into `destDir` (host). */
@@ -125,7 +105,7 @@ async function stripPinnedModels(companion: Companion, agentsDir: string): Promi
 
 // Keyed on companionId + host path so the same host path on different companions
 // (or the same path locally and remotely) doesn't collide.
-const installed = new Set<string>()
+const installed = createIdempotencyTracker()
 
 /** Idempotent — safe to call from AgentManager.create() on every session.
  *  `cwd` is the HOST path on whichever machine pi runs (local fs path for the
@@ -139,8 +119,8 @@ export async function installSubagentExtension(companion: Companion, cwd: string
     try { addAllowedRoot(home) } catch { /* */ }
   }
   const key = companion.id + '\0' + home
-  if (installed.has(key)) return
-  installed.add(key)
+  if (!installed.shouldInstall(key)) return
+  installed.markInstalled(key)
   try {
     const examples = subagentSourceDir()
     if (!examples) {

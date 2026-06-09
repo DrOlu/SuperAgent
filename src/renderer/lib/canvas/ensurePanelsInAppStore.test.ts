@@ -23,7 +23,7 @@ vi.mock('../logger', () => ({
 
 import { ensurePanelsInAppStore, applyCanvasChildPanels } from './applyCanvasChildPanels'
 import { useAppStore } from '../../stores/appStore'
-import type { PanelState } from '../../../shared/types'
+import type { PanelState, WorktreeMeta } from '../../../shared/types'
 
 const WS = 'detached-ws-1'
 
@@ -94,6 +94,47 @@ describe('ensurePanelsInAppStore — rootPath threading', () => {
     ensurePanelsInAppStore(WS, { c1: { id: 'c1', type: 'canvas', title: 'Canvas', isDirty: false } })
     ensurePanelsInAppStore(WS, {}, '/repo')
     expect(ws()?.rootPath).toBe('/repo')
+  })
+})
+
+// Regression: a detached window's stub workspace had an empty worktree registry,
+// so worktree pills (terminal/agent tab tints + canvas-node badges) rendered
+// colorless there — every panel's worktreeId failed to resolve against `[]`. The
+// transfer now carries the source worktree records and seeds/merges them here.
+describe('ensurePanelsInAppStore — worktree threading', () => {
+  const ws = () => useAppStore.getState().workspaces.find((w) => w.id === WS)
+  const WT_A: WorktreeMeta = { id: 'wt-a', path: '/repo', color: '#111111', label: 'main' }
+  const WT_B: WorktreeMeta = { id: 'wt-b', path: '/repo/.cate/worktrees/b', color: '#22aa55', label: 'feature' }
+
+  it('seeds the stub workspace worktrees from the transfer', () => {
+    ensurePanelsInAppStore(
+      WS,
+      { t1: { id: 't1', type: 'terminal', title: 'zsh', isDirty: false, worktreeId: 'wt-b' } },
+      '/repo',
+      [WT_A, WT_B],
+    )
+    expect(ws()?.worktrees).toEqual([WT_A, WT_B])
+  })
+
+  it('backfills worktrees onto an existing stub with no panels (canvas children deferred)', () => {
+    ensurePanelsInAppStore(WS, { c1: { id: 'c1', type: 'canvas', title: 'Canvas', isDirty: false } })
+    expect(ws()?.worktrees).toEqual([])
+    ensurePanelsInAppStore(WS, {}, undefined, [WT_A, WT_B])
+    expect(ws()?.worktrees).toEqual([WT_A, WT_B])
+  })
+
+  it('merges by path so the carried color/id wins over an existing record', () => {
+    ensurePanelsInAppStore(WS, {}, '/repo', [{ id: 'old', path: '/repo', color: '#000000' }])
+    ensurePanelsInAppStore(WS, {}, undefined, [WT_A])
+    const wts = ws()?.worktrees ?? []
+    expect(wts).toHaveLength(1)
+    expect(wts[0]).toEqual(WT_A)
+  })
+
+  it('leaves an existing registry untouched when the transfer carries none', () => {
+    ensurePanelsInAppStore(WS, {}, '/repo', [WT_A])
+    ensurePanelsInAppStore(WS, { t1: { id: 't1', type: 'terminal', title: 'zsh', isDirty: false } })
+    expect(ws()?.worktrees).toEqual([WT_A])
   })
 })
 

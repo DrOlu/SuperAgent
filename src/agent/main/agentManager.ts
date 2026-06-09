@@ -254,11 +254,6 @@ export class AgentManager {
     await session.client.steer(text, toImageContent(images))
   }
 
-  async followUp(panelId: string, text: string, images?: AgentImageAttachment[]): Promise<void> {
-    const session = this.requireSession(panelId)
-    await session.client.followUp(text, toImageContent(images))
-  }
-
   async interrupt(panelId: string): Promise<void> {
     const session = this.sessions.get(panelId)
     if (!session) return
@@ -320,11 +315,6 @@ export class AgentManager {
     await session.client.setAutoCompaction(enabled)
   }
 
-  async setAutoRetry(panelId: string, enabled: boolean): Promise<void> {
-    const session = this.requireSession(panelId)
-    await session.client.setAutoRetry(enabled)
-  }
-
   async abortRetry(panelId: string): Promise<void> {
     const session = this.requireSession(panelId)
     await session.client.abortRetry()
@@ -356,29 +346,9 @@ export class AgentManager {
     }
   }
 
-  async exportHtml(panelId: string, outputPath?: string): Promise<{ path: string }> {
-    const session = this.requireSession(panelId)
-    return session.client.exportHtml(outputPath)
-  }
-
-  async newSession(panelId: string, parentSession?: string): Promise<{ cancelled: boolean }> {
-    const session = this.requireSession(panelId)
-    return session.client.newSession(parentSession)
-  }
-
-  async switchSession(panelId: string, sessionPath: string): Promise<{ cancelled: boolean }> {
-    const session = this.requireSession(panelId)
-    return session.client.switchSession(sessionPath)
-  }
-
   async fork(panelId: string, entryId: string): Promise<{ text: string; cancelled: boolean }> {
     const session = this.requireSession(panelId)
     return session.client.fork(entryId)
-  }
-
-  async clone(panelId: string): Promise<{ cancelled: boolean }> {
-    const session = this.requireSession(panelId)
-    return session.client.clone()
   }
 
   async getForkMessages(panelId: string): Promise<Array<{ entryId: string; text: string }>> {
@@ -392,60 +362,6 @@ export class AgentManager {
     }
   }
 
-  async getLastAssistantText(panelId: string): Promise<string | null> {
-    const session = this.sessions.get(panelId)
-    if (!session) return null
-    try {
-      return await session.client.getLastAssistantText()
-    } catch (err) {
-      log.warn('[agentManager] getLastAssistantText failed for %s: %O', panelId, err)
-      return null
-    }
-  }
-
-  async setSessionName(panelId: string, name: string): Promise<void> {
-    const session = this.requireSession(panelId)
-    await session.client.setSessionName(name)
-  }
-
-  async getMessages(panelId: string): Promise<unknown[]> {
-    const session = this.sessions.get(panelId)
-    if (!session) return []
-    try {
-      return (await session.client.getMessages()) as unknown as unknown[]
-    } catch (err) {
-      log.warn('[agentManager] getMessages failed for %s: %O', panelId, err)
-      return []
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Queue modes
-  // ---------------------------------------------------------------------------
-
-  async setSteeringMode(panelId: string, mode: 'all' | 'one-at-a-time'): Promise<void> {
-    const session = this.requireSession(panelId)
-    await session.client.setSteeringMode(mode)
-  }
-
-  async setFollowUpMode(panelId: string, mode: 'all' | 'one-at-a-time'): Promise<void> {
-    const session = this.requireSession(panelId)
-    await session.client.setFollowUpMode(mode)
-  }
-
-  // ---------------------------------------------------------------------------
-  // Bash
-  // ---------------------------------------------------------------------------
-
-  async bash(panelId: string, command: string): Promise<unknown> {
-    const session = this.requireSession(panelId)
-    return session.client.bash(command)
-  }
-
-  async abortBash(panelId: string): Promise<void> {
-    const session = this.requireSession(panelId)
-    await session.client.abortBash()
-  }
 
   // ---------------------------------------------------------------------------
   // Commands (skills / prompts / extensions)

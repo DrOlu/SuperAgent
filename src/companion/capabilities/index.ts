@@ -143,6 +143,8 @@ export function buildDaemonCompanion(config: DaemonCompanionConfig): DaemonCompa
   }
 
   const env = config.env ?? (() => process.env)
+  const cleanEnv = () =>
+    Object.fromEntries(Object.entries(env()).filter(([, v]) => v !== undefined)) as Record<string, string>
   const vcs = createVcsCapability({ env })
 
   // Daemon shell resolution: first existing of [requested, $SHELL, bash, sh]
@@ -151,29 +153,33 @@ export function buildDaemonCompanion(config: DaemonCompanionConfig): DaemonCompa
   // forwarded from a different-OS client) — we fall back with a notice.
   const innerProc = createProcessCapability({
     resolveShell: (requested) => {
+      const fromCandidates = (candidates: string[]) => {
+        const found = candidates.filter(Boolean).find((p) => existsSync(p))
+        if (!found) return undefined
+        const notice = requested && found !== requested ? `Shell "${requested}" not found; using ${found}\r\n` : undefined
+        return { path: found, args: [], notice }
+      }
       if (process.platform === 'win32') {
-        const candidates = [requested, process.env.COMSPEC, 'powershell.exe', 'cmd.exe'].filter(Boolean) as string[]
         // COMSPEC/cmd.exe are absolute (existsSync works); powershell.exe is on
         // PATH (existsSync on a bare name is false), so it's a sensible default
         // rather than something we can stat — fall back to cmd.exe if nothing
         // absolute exists, letting CreateProcess resolve it via PATH.
-        const found = candidates.find((p) => existsSync(p))
-        if (found) {
-          const notice = requested && found !== requested ? `Shell "${requested}" not found; using ${found}\r\n` : undefined
-          return { path: found, args: [], notice }
-        }
-        return { path: 'cmd.exe', args: [] }
-      }
-      const candidates = [requested, process.env.SHELL, '/bin/bash', '/bin/sh'].filter(Boolean) as string[]
-      const found = candidates.find((p) => existsSync(p))
-      if (found) {
-        const notice = requested && found !== requested ? `Shell "${requested}" not found; using ${found}\r\n` : undefined
-        return { path: found, args: [], notice }
+        return (
+          fromCandidates([requested, process.env.COMSPEC, 'powershell.exe', 'cmd.exe'].filter(Boolean) as string[]) ?? {
+            path: 'cmd.exe',
+            args: [],
+          }
+        )
       }
       // Last resort: let execvp try /bin/sh by name (PATH lookup).
-      return { path: 'sh', args: [] }
+      return (
+        fromCandidates([requested, process.env.SHELL, '/bin/bash', '/bin/sh'].filter(Boolean) as string[]) ?? {
+          path: 'sh',
+          args: [],
+        }
+      )
     },
-    getEnv: () => Object.fromEntries(Object.entries(env()).filter(([, v]) => v !== undefined)) as Record<string, string>,
+    getEnv: cleanEnv,
     idleSuspend: config.idleSuspend,
   })
 
@@ -196,7 +202,7 @@ export function buildDaemonCompanion(config: DaemonCompanionConfig): DaemonCompa
     ensurePi: ensurePiOnHost,
     piCliPath,
     nodeBin: () => process.execPath,
-    baseEnv: () => Object.fromEntries(Object.entries(env()).filter(([, v]) => v !== undefined)) as Record<string, string>,
+    baseEnv: cleanEnv,
   })
 
   const companion: Companion = {

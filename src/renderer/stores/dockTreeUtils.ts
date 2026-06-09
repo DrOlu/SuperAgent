@@ -65,3 +65,15 @@ export function findTabStackAcrossZones(
   }
   return null
 }
+
+/** Find the first tab stack containing a given panelId across all zones. */
+export function findStackContainingPanelAcrossZones(
+  zones: WindowDockState,
+  panelId: string,
+): DockTabStack | null {
+  for (const pos of ALL_ZONES) {
+    const found = findStackContainingPanel(zones[pos].layout, panelId)
+    if (found) return found
+  }
+  return null
+}

@@ -5,6 +5,7 @@
 // =============================================================================
 
 import type { Point, Size } from '../../shared/types'
+import type { GhostRect } from './types'
 import { viewToCanvas } from '../lib/canvas/coordinates'
 
 /**
@@ -44,7 +45,7 @@ export function ghostScreenRect(
   grab: Point,
   ghostSize: Size,
   zoom: number,
-): { left: number; top: number; width: number; height: number } {
+): GhostRect {
   const width = ghostSize.width * zoom
   const height = ghostSize.height * zoom
   return {
@@ -52,22 +53,5 @@ export function ghostScreenRect(
     top: cursor.y - grab.y * zoom,
     width,
     height,
-  }
-}
-
-/**
- * Normalize a grab offset captured from a screen-px cursor inside a source
- * element's bounding rect into canvas-space (using the source's canvas zoom).
- * Used at drag start.
- */
-export function normalizeGrabOffset(
-  cursorClient: Point,
-  sourceRect: DOMRect,
-  sourceZoom: number,
-): Point {
-  const safeZoom = Number.isFinite(sourceZoom) && sourceZoom > 0.01 ? sourceZoom : 1
-  return {
-    x: (cursorClient.x - sourceRect.left) / safeZoom,
-    y: (cursorClient.y - sourceRect.top) / safeZoom,
   }
 }

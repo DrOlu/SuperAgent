@@ -62,6 +62,16 @@ export async function runAction(
     return
   }
   if (action === 'reloadWorkspace') {
+    // Reload-from-disk is a workspace/main-level operation: it tears down panels,
+    // re-reads .cate/, and closes+recreates the workspace's detached windows. A
+    // detached window's per-window store doesn't own the real workspace, so
+    // running it here would just destroy this window. Route it to the main
+    // window, which owns the workspace + session.
+    const windowType = new URLSearchParams(window.location.search).get('type')
+    if (windowType && windowType !== 'main') {
+      await window.electronAPI.runActionInMain('reloadWorkspace')
+      return
+    }
     const { reloadActiveWorkspaceFromDisk } = await import('./workspace/session')
     await reloadActiveWorkspaceFromDisk()
     return
@@ -139,9 +149,6 @@ export async function runAction(
     case 'toggleMinimap':
       useUIStore.getState().toggleMinimapOpen()
       break
-    case 'nodeSwitcher':
-      useUIStore.getState().setShowNodeSwitcher(true)
-      break
     case 'commandPalette':
       useUIStore.getState().setShowCommandPalette(true)
       break
@@ -173,12 +180,11 @@ export async function runAction(
     case 'zoomToSelection':
       canvasStore().zoomToSelection()
       break
-    case 'toolSelect':
-      useUIStore.getState().setActiveTool('select')
+    case 'toggleTool': {
+      const ui = useUIStore.getState()
+      ui.setActiveTool(ui.activeTool === 'hand' ? 'select' : 'hand')
       break
-    case 'toolHand':
-      useUIStore.getState().setActiveTool('hand')
-      break
+    }
     case 'navigateUp':
       canvasStore().navigateSelect('up')
       break

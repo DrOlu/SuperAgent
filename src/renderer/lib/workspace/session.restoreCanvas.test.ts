@@ -2,12 +2,12 @@
 // =============================================================================
 // Cold-restart restore of a detached CANVAS window: buildRestoredCanvasState
 // must reconstruct the canvas's layout + children from a DetachedDockWindowSnapshot
-// so the window restores populated (not empty) and its child terminals replay
-// their saved scrollback into freshly-spawned PTYs.
+// so the window restores populated (not empty). Child terminal scrollback replay
+// is NOT wired here — the shell arms every terminal panel (children included) by
+// its stable panelId on restore, identical to the main window.
 //
 // Identifies the canvas as the TOP-LEVEL dock panel (the one in dockState.zones)
-// and treats every OTHER dw.panels entry as a child; child terminals become
-// `replayPtyId` restore hints keyed off the persisted ptyId.
+// and treats every OTHER dw.panels entry as a child.
 // =============================================================================
 
 import { describe, expect, it } from 'vitest'
@@ -35,7 +35,7 @@ function makeSnapshot(): DetachedDockWindowSnapshot {
     panels,
     bounds: { x: 0, y: 0, width: 800, height: 600 },
     workspaceId: 'ws-1',
-    terminalPtyIds: { 'child-term': 'pty-77' },
+    terminalCwds: { 'child-term': '/work/child' },
     canvasStates: {
       [canvasId]: {
         nodes: {
@@ -54,7 +54,7 @@ function makeSnapshot(): DetachedDockWindowSnapshot {
 }
 
 describe('buildRestoredCanvasState', () => {
-  it('reconstructs nodes/viewport and builds replay childTerminals for the canvas', () => {
+  it('reconstructs nodes/viewport + child panels for the canvas (no replay hints here)', () => {
     const dw = makeSnapshot()
     const topLevelIds = new Set(['canvas-1'])
     const result = buildRestoredCanvasState(dw, dw.panels['canvas-1'], topLevelIds)
@@ -68,10 +68,8 @@ describe('buildRestoredCanvasState', () => {
     expect(Object.keys(result!.childPanels).sort()).toEqual(['child-editor', 'child-term'])
     expect(result!.childPanels['canvas-1' as string]).toBeUndefined()
 
-    // The terminal child gets a replay hint off its persisted ptyId; the editor
-    // child (no pty) gets none.
-    expect(result!.childTerminals?.['child-term']).toEqual({ replayPtyId: 'pty-77' })
-    expect(result!.childTerminals?.['child-editor']).toBeUndefined()
+    // Scrollback replay is armed by the shell (by panelId), not encoded here.
+    expect(result!.childTerminals).toBeUndefined()
   })
 
   it('returns undefined when the top-level panel is not a canvas', () => {
@@ -89,15 +87,7 @@ describe('buildRestoredCanvasState', () => {
     expect(result!.nodes).toEqual({})
     expect(result!.viewportOffset).toEqual({ x: 0, y: 0 })
     expect(result!.zoomLevel).toBe(1)
-    // Children still recovered + terminal still gets its replay hint.
+    // Children still recovered (replay armed by panelId in the shell).
     expect(Object.keys(result!.childPanels).sort()).toEqual(['child-editor', 'child-term'])
-    expect(result!.childTerminals?.['child-term']).toEqual({ replayPtyId: 'pty-77' })
-  })
-
-  it('omits a replay hint for a child terminal with no persisted ptyId', () => {
-    const dw = makeSnapshot()
-    delete dw.terminalPtyIds
-    const result = buildRestoredCanvasState(dw, dw.panels['canvas-1'], new Set(['canvas-1']))
-    expect(result!.childTerminals?.['child-term']).toBeUndefined()
   })
 })

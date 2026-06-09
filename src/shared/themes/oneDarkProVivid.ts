@@ -1,5 +1,6 @@
 import type { Theme } from '../theme'
 import { THEME_SCHEMA_VERSION } from '../theme'
+import { ONE_DARK_VIVID_TOKENS } from './oneDarkShared'
 
 /** One Dark Pro Vivid — a more saturated, vibrant One Dark Pro variant. */
 export const oneDarkProVivid: Theme = {
@@ -70,26 +71,6 @@ export const oneDarkProVivid: Theme = {
       'editorLineNumber.foreground': '#495162',
       'editorLineNumber.activeForeground': '#abb2bf',
     },
-    tokens: [
-      { token: 'comment', foreground: '7f848e', fontStyle: 'italic' },
-      { token: 'keyword', foreground: 'd55fde' },
-      { token: 'keyword.control', foreground: 'd55fde' },
-      { token: 'storage', foreground: 'd55fde' },
-      { token: 'storage.type', foreground: 'd55fde' },
-      { token: 'string', foreground: '89ca78' },
-      { token: 'constant.numeric', foreground: 'd19a66' },
-      { token: 'constant.language', foreground: 'd19a66' },
-      { token: 'constant', foreground: '2bbac5' },
-      { token: 'variable', foreground: 'ef596f' },
-      { token: 'variable.parameter', foreground: 'abb2bf' },
-      { token: 'type', foreground: 'e5c07b' },
-      { token: 'entity.name.type', foreground: 'e5c07b' },
-      { token: 'entity.name.class', foreground: 'e5c07b' },
-      { token: 'entity.name.function', foreground: '61afef' },
-      { token: 'support.function', foreground: '61afef' },
-      { token: 'entity.name.tag', foreground: 'ef596f' },
-      { token: 'entity.other.attribute-name', foreground: 'd19a66' },
-      { token: 'operator', foreground: '2bbac5' },
-    ],
+    tokens: ONE_DARK_VIVID_TOKENS,
   },
 }

@@ -28,8 +28,8 @@ export interface ActiveDispatch {
   ghostZoom: number
   runtime: RuntimeState
   /** Workspace id that owns the dragged panel. Set by useDragOp from the host's
-   *  effective workspace id — in a detached PANEL window this is the shell's
-   *  `workspaceId || 'detached-panel-window'`, not the (possibly '') store
+   *  effective workspace id — in a detached/dock window this is the shell's
+   *  `workspaceId || 'detached-dock-window'`, not the (possibly '') store
    *  selection, so source cleanup targets the right workspace. */
   ownerWorkspaceId?: string
 }
@@ -134,10 +134,6 @@ export class DragSession {
     this.canvasStoreEntries.delete(panelId)
   }
 
-  getCanvasStoreForPanel(panelId: string): StoreApi<CanvasStore> | undefined {
-    return this.canvasStoreEntries.get(panelId)?.api
-  }
-
   getPanelIdForCanvasStore(api: StoreApi<CanvasStore>): string | null {
     for (const [panelId, entry] of this.canvasStoreEntries) {
       if (entry.api === api) return panelId
@@ -174,10 +170,6 @@ export class DragSession {
       )
     }
     return sessionStore ?? callerStore ?? null
-  }
-
-  getAllCanvasStores(): StoreApi<CanvasStore>[] {
-    return Array.from(this.canvasStoreEntries.values(), (e) => e.api)
   }
 
   // ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import log from './logger'
 import fsSync from 'fs'
 import path from 'path'
 import { writeJsonAtomic } from './writeJsonAtomic'
+import { isPlainObject } from './jsonUtils'
 import {
   SETTINGS_GET,
   SETTINGS_SET,
@@ -228,7 +229,7 @@ export function readBootSnapshot(): BootSnapshot | null {
     if (!fsSync.existsSync(p)) return null
     const raw = fsSync.readFileSync(p, 'utf-8')
     const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    if (isPlainObject(parsed)) {
       return parsed as BootSnapshot
     }
     return null

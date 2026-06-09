@@ -17,6 +17,11 @@ export interface DropZoneEntry {
   zone: DockZonePosition
   stackId?: string
   getRect: () => DOMRect | null
+  /** The drop zone's backing element. Lets the drag overlay find the zone's
+   *  nearest clip container (a canvas container, for per-node mini-docks) so the
+   *  drop indicator can be clamped to it instead of bleeding over the sidebar or
+   *  the canvas tab-bar strip. */
+  getElement?: () => HTMLElement | null
   /** Owning DockStore for this drop zone. When omitted, drops use the global
    *  singleton. Per-canvas-node DockStores supply their own here so cross-store
    *  drag-and-drop can route the drop to the correct store. */

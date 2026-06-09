@@ -1,0 +1,135 @@
+// =============================================================================
+// useWindowRuntime — the shared "app shell runtime" every Cate window mounts.
+//
+// Each renderer window (main, detached dock, detached panel) is a separate JS
+// context, so the stores and module state the behaviors below touch are already
+// per-window. This hook is the single place those window-agnostic behaviors are
+// wired, so a new window type gains them for free by calling it once — instead of
+// every shell hand-wiring shortcuts, the agent detector, the settings-open
+// listener, and the drop guard (which is how detached windows fell behind the
+// main window in the first place).
+//
+// Genuinely main-only behavior (session init, process monitor, sidebars, OS
+// title sync, "Open With Cate", dock-back receiver, perf/E2E) stays in App.tsx's
+// MainApp and is intentionally NOT moved here.
+// =============================================================================
+
+import { useEffect } from 'react'
+import { useShortcuts } from '../../hooks/useShortcuts'
+import { useThemeAndScaleHydration } from './useThemeAndScaleHydration'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { useUIStateStore } from '../../stores/uiStateStore'
+import { useUIStore } from '../../stores/uiStore'
+import { useAppStore } from '../../stores/appStore'
+import { useWindowPanelStore } from '../../stores/windowPanelStore'
+import {
+  startAgentScreenDetector,
+  stopAgentScreenDetector,
+  applyRemoteAgentScreenState,
+} from '../agent/agentScreenDetector'
+import { isExternalFileDrag } from '../fs/importExternalEntries'
+import { revealPanel } from '../workspace/panelReveal'
+import { setupWindowPanelSync } from '../workspace/windowPanelSync'
+import { useOwnedTerminalTelemetry } from '../../hooks/useProcessMonitor'
+import type { AgentState } from '../../../shared/types'
+
+export function useWindowRuntime(): void {
+  // Appearance: hydrate settings + UI state, then apply theme + scale on change.
+  // The main App loads these inside its awaited init effect; calling them here
+  // too is idempotent (the stores no-op a redundant load), so every window mounts
+  // the same way.
+  useEffect(() => {
+    useSettingsStore.getState().loadSettings()
+    useUIStateStore.getState().loadUIState()
+  }, [])
+  useThemeAndScaleHydration()
+
+  // Keyboard shortcuts + native-menu dispatch (MENU_TRIGGER_ACTION etc.). All of
+  // its canvas/active-panel resolution is per-window, so it acts on the in-window
+  // canvas and panels.
+  useShortcuts()
+
+  // Owner-routed terminal telemetry (agent presence/name, ports, cwd). Main
+  // sends these only to each terminal's owning window, so every window must
+  // listen for its OWN terminals — otherwise a detached terminal never learns
+  // its agent presence and the detector can't flip it to `running` (the screen
+  // spinner alone isn't enough; resolveAgentState gates running on presence).
+  useOwnedTerminalTelemetry()
+
+  // Agent-screen detector: scans this window's terminals for prompt markers and
+  // reports "needs input"/running state via IPC. The unsubscribe also applies
+  // state broadcast from other windows, so any window keeps the others in sync.
+  // Without starting it here, detached terminals never report agent state.
+  useEffect(() => {
+    startAgentScreenDetector()
+    const off = window.electronAPI?.onAgentScreenStateUpdate?.(
+      (terminalId: string, state: AgentState) => {
+        applyRemoteAgentScreenState(terminalId, state)
+      },
+    )
+    return () => {
+      stopAgentScreenDetector()
+      off?.()
+    }
+  }, [])
+
+  // Cmd+, / Settings menu item → toggle the (already-mounted) SettingsWindow.
+  useEffect(() => {
+    return window.electronAPI.onMenuOpenSettings?.(() => {
+      const ui = useUIStore.getState()
+      if (ui.showSettings) ui.closeSettings()
+      else ui.openSettings()
+    })
+  }, [])
+
+  // Swallow stray EXTERNAL (OS) file drops on the window background so Chromium
+  // doesn't navigate to the file:// URL. Inner drop targets (file explorer, dock,
+  // agent) call stopPropagation, so those never reach this capture-phase listener.
+  // A window-level listener (vs a React root handler) covers every window's chrome
+  // uniformly, including the detached shells.
+  useEffect(() => {
+    const onDragOver = (e: DragEvent): void => {
+      if (!e.dataTransfer || !isExternalFileDrag(e as unknown as React.DragEvent)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'none'
+    }
+    const onDrop = (e: DragEvent): void => {
+      if (!e.dataTransfer || !isExternalFileDrag(e as unknown as React.DragEvent)) return
+      e.preventDefault()
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [])
+
+  // Cross-window panel union: every window subscribes so its overview + command
+  // palette can list panels that live in OTHER windows, AND reports its own panels
+  // (setupWindowPanelSync) so other windows can discover them — one symmetric path
+  // for every window type.
+  useEffect(() => {
+    const stopReporting = setupWindowPanelSync()
+    const unsubscribe = window.electronAPI.onWindowPanelsChanged?.((panels) => {
+      useWindowPanelStore.getState().setPanels(panels)
+    })
+    return () => {
+      stopReporting()
+      unsubscribe?.()
+    }
+  }, [])
+
+  // Cross-window reveal: main asks the window that owns a panel to bring it
+  // forward (see focusWindowPanel). The panel may belong to a workspace other
+  // than the active one (a main window hosts many), so resolve its real workspace
+  // before revealing — revealPanel switches to it if needed.
+  useEffect(() => {
+    return window.electronAPI.onRevealPanelInWindow?.((panelId: string) => {
+      const app = useAppStore.getState()
+      const owner = app.workspaces.find((w) => panelId in w.panels)
+      const wsId = owner?.id ?? app.selectedWorkspaceId
+      void revealPanel(wsId, panelId, { retry: true })
+    })
+  }, [])
+}

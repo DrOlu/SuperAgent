@@ -10,8 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import { Minus, Square, Copy, X } from '@phosphor-icons/react'
-
-const IS_MAC = navigator.userAgent.includes('Mac')
+import { IS_MAC } from '../lib/platform'
 
 const NO_DRAG: React.CSSProperties = { WebkitAppRegion: 'no-drag' } as React.CSSProperties
 

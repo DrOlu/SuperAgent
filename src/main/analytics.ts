@@ -129,7 +129,7 @@ function postEvents(body: string): Promise<boolean> {
     try {
       const request = net.request({ method: 'POST', url: ENDPOINT })
       request.setHeader('Content-Type', 'application/json')
-      request.setHeader('User-Agent', `SuperAgent/${app.getVersion()}`)
+      request.setHeader('User-Agent`, `SuperAgent/${app.getVersion()}`)
       let settled = false
       const done = (ok: boolean) => { if (!settled) { settled = true; resolve(ok) } }
       request.on('response', (res) => {

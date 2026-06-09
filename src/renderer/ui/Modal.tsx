@@ -17,7 +17,7 @@
 // exported so even hand-rolled overlays match without a component per element.
 // =============================================================================
 
-import { useEffect, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from '@phosphor-icons/react'
 
@@ -56,6 +56,39 @@ export const SEGMENT = {
     `px-3 h-7 rounded text-[12px] font-medium transition-colors ${
       active ? 'bg-surface-5 text-primary shadow-sm' : 'text-muted hover:text-secondary'
     }`,
+}
+
+interface PaletteDialogShellProps {
+  /** Dismiss when the backdrop (outside the card) is clicked. */
+  onClose: () => void
+  /** Classes on the inner card (sizing/positioning). CARD_SURFACE is applied. */
+  cardClassName: string
+  /** Extra props forwarded to the inner card (e.g. data-onboarding). */
+  cardProps?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>
+  children: ReactNode
+}
+
+/** Top-anchored palette shell: full-screen dimmed backdrop that closes on an
+ *  outside click, wrapping a centered card that stops propagation so clicks
+ *  inside don't dismiss. Shared by the Cmd+K palette and palette-style dialogs;
+ *  Escape handling stays with each caller. */
+export function PaletteDialogShell({
+  onClose,
+  cardClassName,
+  cardProps,
+  children,
+}: PaletteDialogShellProps) {
+  return (
+    <div className={`fixed inset-0 flex justify-center z-50 ${BACKDROP}`} onClick={onClose}>
+      <div
+        {...cardProps}
+        className={`${cardClassName} ${CARD_SURFACE}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  )
 }
 
 interface ModalCardProps {

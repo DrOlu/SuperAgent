@@ -11,13 +11,13 @@
 // for the write logic.
 // =============================================================================
 
-import { hostJoin } from '../../agent/main/agentDir'
+import { hostJoin, PI_AGENT_DIR } from '../../agent/main/agentDir'
 import { getSkillTarget, type SkillTargetId, type SkillTargetInfo } from '../../shared/skills'
 
 /** Workspace-relative segments for each target's skills root. */
 const BASE_SEGMENTS: Record<SkillTargetId, string[]> = {
   'claude-code': ['.claude', 'skills'],
-  'cate-agent': ['.cate', 'pi-agent', 'skills'],
+  'cate-agent': ['.cate', PI_AGENT_DIR, 'skills'],
   // `.agents/skills` is the cross-tool shared location pi (and others) read.
   'pi-native': ['.agents', 'skills'],
   'opencode': ['.opencode', 'skills'],

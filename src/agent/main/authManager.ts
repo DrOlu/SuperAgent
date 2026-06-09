@@ -26,8 +26,10 @@ import {
 } from '@earendil-works/pi-ai'
 import { getOAuthProvider, getOAuthProviders } from '@earendil-works/pi-ai/oauth'
 import { sharedAuthPath } from './agentDir'
+import { sharedAuthWriteQueue } from './writeQueue'
 import { readCustomOpenAI } from './customModels'
 import log from '../../main/logger'
+import { isPlainObject } from '../../main/jsonUtils'
 import type {
   AgentModelDescriptor,
   AuthProviderDescriptor,
@@ -56,7 +58,7 @@ async function readAuthJson(): Promise<AuthStorageData> {
   try {
     const raw = await fsp.readFile(authJsonPath(), 'utf-8')
     const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    if (isPlainObject(parsed)) {
       return parsed as AuthStorageData
     }
   } catch (err) {
@@ -67,18 +69,12 @@ async function readAuthJson(): Promise<AuthStorageData> {
   return {}
 }
 
-let writeQueue: Promise<void> = Promise.resolve()
-function serializeWrite(fn: () => Promise<void>): Promise<void> {
-  writeQueue = writeQueue.then(fn, fn)
-  return writeQueue
-}
-
 // Fired after every successful write so AgentManager can mirror the shared
 // auth.json into open workspaces' pi-agent dirs.
 let onAuthChange: (() => void) | null = null
 
 async function writeAuthJson(data: AuthStorageData): Promise<void> {
-  await serializeWrite(async () => {
+  await sharedAuthWriteQueue(async () => {
     const p = authJsonPath()
     await fsp.mkdir(path.dirname(p), { recursive: true, mode: 0o700 })
     const tmp = p + '.tmp'

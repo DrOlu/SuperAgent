@@ -1,12 +1,12 @@
 <p align="center">
-  <a href="https://www.producthunt.com/products/superagent?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-superagent" target="_blank" rel="noopener noreferrer"><img alt="SuperAgent - Infinite Canvas IDE" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1150094&theme=neutral&t=1779630669260"></a>
+  <a href="https://www.producthunt.com/products/cate?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-cate" target="_blank" rel="noopener noreferrer"><img alt="CATE - Figma like open canvas for development | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1150094&theme=neutral&t=1779630669260"></a>
 </p>
 
 <p align="center">
-  <img src="assets/superagent-logo.svg" alt="SuperAgent" width="240" />
+  <img src="assets/cate-logo.svg" alt="Cate" width="240" />
 </p>
 
-<h1 align="center">SuperAgent</h1>
+<h1 align="center">Cate</h1>
 
 <p align="center">
   <a href="README.md">English</a> | <a href="README.fr.md">Français</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.de.md">Deutsch</a>
@@ -19,29 +19,29 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DrOlu/SuperAgent/releases"><img src="https://img.shields.io/github/v/release/DrOlu/SuperAgent?style=flat-square" alt="Release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/DrOlu/SuperAgent?style=flat-square" alt="MIT License" /></a>
-  <a href="https://github.com/DrOlu/SuperAgent/actions"><img src="https://img.shields.io/github/actions/workflow/status/DrOlu/SuperAgent/ci.yml?style=flat-square" alt="CI" /></a>
-  <a href="https://github.com/DrOlu/SuperAgent/releases"><img src="https://img.shields.io/github/downloads/DrOlu/SuperAgent/total?style=flat-square" alt="Downloads" /></a>
+  <a href="https://github.com/0-AI-UG/cate/releases"><img src="https://img.shields.io/github/v/release/0-AI-UG/cate?style=flat-square" alt="Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/0-AI-UG/cate?style=flat-square" alt="MIT License" /></a>
+  <a href="https://github.com/0-AI-UG/cate/actions"><img src="https://img.shields.io/github/actions/workflow/status/0-AI-UG/cate/ci.yml?style=flat-square" alt="CI" /></a>
+  <a href="https://github.com/0-AI-UG/cate/releases"><img src="https://img.shields.io/github/downloads/0-AI-UG/cate/total?style=flat-square" alt="Downloads" /></a>
 </p>
 
 ---
 
 <p align="center">
-  <img src="assets/demo.gif" alt="SuperAgent demo" width="900" />
+  <img src="assets/demo.gif" alt="Cate demo" width="900" />
 </p>
 
-SuperAgent est un IDE de bureau construit sur un canevas infini. Au lieu d'empiler des fenêtres et des onglets, vous répartissez éditeurs, terminaux, navigateurs, documents et agents IA dans un espace libre et les disposez comme vous pensez le projet. Faites flotter les panneaux sur le canevas, ancrez-les en onglets et en divisions, ou détachez-les dans leurs propres fenêtres. SuperAgent restaure tout à la réouverture du dossier.
+Cate est un IDE de bureau construit sur un canevas infini. Au lieu d'empiler des fenêtres et des onglets, vous répartissez éditeurs, terminaux, navigateurs, documents et agents IA dans un espace libre et les disposez comme vous pensez le projet. Faites flotter les panneaux sur le canevas, ancrez-les en onglets et en divisions, ou détachez-les dans leurs propres fenêtres. Cate restaure tout à la réouverture du dossier.
 
 ## Démarrage
 
-Ouvrez un dossier. SuperAgent en fait un espace de travail et rétablit votre disposition, la position des panneaux et les terminaux à chaque retour. Cliquez droit sur le canevas pour ajouter des panneaux, appuyez sur `Cmd+K` pour la palette de commandes, et glissez des panneaux sur le dock pour créer onglets et divisions. Aucun fichier de configuration à préparer.
+Ouvrez un dossier. Cate en fait un espace de travail et rétablit votre disposition, la position des panneaux et les terminaux à chaque retour. Cliquez droit sur le canevas pour ajouter des panneaux, appuyez sur `Cmd+K` pour la palette de commandes, et glissez des panneaux sur le dock pour créer onglets et divisions. Aucun fichier de configuration à préparer.
 
 ## Pourquoi un canevas ?
 
 Alt-tab suffit jusqu'à ce que vous ayez une douzaine de terminaux, six fichiers ouverts, de la documentation dans une autre fenêtre et des notes éparpillées sur plusieurs bureaux. Passé ce point, retrouver la bonne fenêtre devient le goulot d'étranglement.
 
-SuperAgent donne à chaque projet un canevas qui se souvient de l'endroit où vous avez laissé les choses. Ce n'est pas un gestionnaire de fenêtres. Les WM en tuiles comme Hyprland, Niri et GlazeWM organisent les fenêtres de tout ce que vous lancez ; SuperAgent organise les outils d'un seul projet, plus proche de Figma que d'un WM.
+Cate donne à chaque projet un canevas qui se souvient de l'endroit où vous avez laissé les choses. Ce n'est pas un gestionnaire de fenêtres. Les WM en tuiles comme Hyprland, Niri et GlazeWM organisent les fenêtres de tout ce que vous lancez ; Cate organise les outils d'un seul projet, plus proche de Figma que d'un WM.
 
 ## Ce qu'il contient
 
@@ -61,13 +61,13 @@ Téléchargez une version précompilée. Ne compilez pas depuis les sources pour
 
 | Plateforme | Formats | Lien |
 |----------|---------|------|
-| macOS | DMG, ZIP (`arm64`, `x64`) | [Dernière version](https://github.com/DrOlu/SuperAgent/releases/latest) |
-| Windows | Installeur NSIS, ZIP (`x64`) | [Dernière version](https://github.com/DrOlu/SuperAgent/releases/latest) |
-| Linux | AppImage, DEB, `tar.gz` (`x64`) | [Dernière version](https://github.com/DrOlu/SuperAgent/releases/latest) |
+| macOS | DMG, ZIP (`arm64`, `x64`) | [Dernière version](https://github.com/0-AI-UG/cate/releases/latest) |
+| Windows | Installeur NSIS, ZIP (`x64`) | [Dernière version](https://github.com/0-AI-UG/cate/releases/latest) |
+| Linux | AppImage, DEB, `tar.gz` (`x64`) | [Dernière version](https://github.com/0-AI-UG/cate/releases/latest) |
 
-> **macOS :** les versions publiées sont notariées. Les builds locaux non signés peuvent nécessiter `xattr -cr /Applications/SuperAgent.app`.
+> **macOS :** les versions publiées sont notariées. Les builds locaux non signés peuvent nécessiter `xattr -cr /Applications/Cate.app`.
 
-> **Linux :** sur Steam Deck ou les distributions à racine en lecture seule, utilisez le build `tar.gz`. Si l'AppImage ne démarre pas, essayez `./SuperAgent.AppImage --no-sandbox`.
+> **Linux :** sur Steam Deck ou les distributions à racine en lecture seule, utilisez le build `tar.gz`. Si l'AppImage ne démarre pas, essayez `./Cate.AppImage --no-sandbox`.
 
 ## Compiler depuis les sources
 
@@ -84,8 +84,8 @@ Pour les contributeurs. Sinon, utilisez la version ci-dessus.
   - Windows : [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) avec la charge de travail « Développement Desktop en C++ »
 
 ```bash
-git clone https://github.com/DrOlu/SuperAgent.git
-cd superagent
+git clone https://github.com/0-AI-UG/cate.git
+cd cate
 npm install
 
 npm run dev          # serveur de dev avec rechargement à chaud
@@ -109,7 +109,7 @@ src/
 └── shared/     # Canaux IPC et types partagés
 ```
 
-SuperAgent fait passer toute l'IPC par un pont preload à isolation de contexte. L'accès au système de fichiers est limité aux racines d'espace de travail enregistrées, les panneaux navigateur désactivent l'intégration Node, et les terminaux ne peuvent pas s'ouvrir hors des répertoires approuvés.
+Cate fait passer toute l'IPC par un pont preload à isolation de contexte. L'accès au système de fichiers est limité aux racines d'espace de travail enregistrées, les panneaux navigateur désactivent l'intégration Node, et les terminaux ne peuvent pas s'ouvrir hors des répertoires approuvés.
 
 **Stack :** Electron 41, React 18, Zustand 5, Monaco 0.52, xterm.js 5.5 + node-pty 1.0, Tailwind 3.4, electron-vite, electron-builder, electron-updater, Sentry. PDF et DOCX via pdf.js et mammoth, git via simple-git, surveillance des fichiers via chokidar. Le runtime de l'agent est `@earendil-works/pi`.
 
@@ -119,11 +119,11 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md). L'historique version par version se tro
 
 ## Historique des étoiles
 
-<a href="https://www.star-history.com/#DrOlu/SuperAgent&Date">
+<a href="https://www.star-history.com/#0-AI-UG/cate&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=0-AI-UG/cate&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=0-AI-UG/cate&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=0-AI-UG/cate&type=Date" />
   </picture>
 </a>
 

@@ -6,6 +6,7 @@
 import type {
   Point,
   Size,
+  Rect,
   PanelType,
   CanvasNodeState,
 } from '../../shared/types'
@@ -20,12 +21,30 @@ import { PANEL_MINIMUM_SIZES } from '../../shared/types'
  *  snapped panels line up with the dots/lines the user actually sees. */
 export const CANVAS_GRID_SIZE = 20
 
+/** Round a scalar to the nearest grid multiple, optionally floored at one grid
+ *  step (`floorAtGrid` — used where a snapped size must stay positive). */
+export function snapScalar(v: number, grid: number, floorAtGrid = false): number {
+  const snapped = Math.round(v / grid) * grid
+  return floorAtGrid ? Math.max(grid, snapped) : snapped
+}
+
 /** Round a point to the nearest grid intersection. */
 export function snapToGrid(point: Point, gridSize = CANVAS_GRID_SIZE): Point {
   return {
     x: Math.round(point.x / gridSize) * gridSize,
     y: Math.round(point.y / gridSize) * gridSize,
   }
+}
+
+/** Axis-aligned bounding-box overlap test for two rects (touching edges do not
+ *  count as overlap). Shared by placement and marquee selection. */
+export function rectsOverlap(a: Rect, b: Rect): boolean {
+  return !(
+    a.origin.x + a.size.width <= b.origin.x ||
+    b.origin.x + b.size.width <= a.origin.x ||
+    a.origin.y + a.size.height <= b.origin.y ||
+    b.origin.y + b.size.height <= a.origin.y
+  )
 }
 
 /** Which edges a resize gesture is moving. Cardinal edges set one flag; corners

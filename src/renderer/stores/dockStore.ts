@@ -16,7 +16,11 @@ import type {
   Point,
 } from '../../shared/types'
 import { SIDE_ZONES, ALL_ZONES } from '../../shared/types'
-import { findTabStack, findZoneForStack, findStackContainingPanel } from './dockTreeUtils'
+import {
+  findTabStack,
+  findZoneForStack,
+  findStackContainingPanelAcrossZones,
+} from './dockTreeUtils'
 import { clearActivePanelIfMatches } from '../lib/activePanel'
 import { generateId } from './canvas/helpers'
 
@@ -24,8 +28,8 @@ import { generateId } from './canvas/helpers'
 // Constants
 // -----------------------------------------------------------------------------
 
-const DEFAULT_SIDE_ZONE_SIZE = 260
-const DEFAULT_BOTTOM_ZONE_SIZE = 240
+export const DEFAULT_SIDE_ZONE_SIZE = 260
+export const DEFAULT_BOTTOM_ZONE_SIZE = 240
 const MIN_ZONE_SIZE = 120
 
 // -----------------------------------------------------------------------------
@@ -42,7 +46,7 @@ function createEmptyZone(position: DockZonePosition): DockZoneState {
   }
 }
 
-function createDefaultDockState(): WindowDockState {
+export function createDefaultDockState(): WindowDockState {
   return {
     left: createEmptyZone('left'),
     right: createEmptyZone('right'),
@@ -342,11 +346,7 @@ export function createDockStore(initialState?: { zones: WindowDockState; locatio
       // Derive the panel's zone from the tree (no stored reverse-index).
       const zone = findZoneForStack(
         state.zones,
-        findStackContainingPanel(state.zones.left.layout, panelId)?.id
-          ?? findStackContainingPanel(state.zones.right.layout, panelId)?.id
-          ?? findStackContainingPanel(state.zones.bottom.layout, panelId)?.id
-          ?? findStackContainingPanel(state.zones.center.layout, panelId)?.id
-          ?? '',
+        findStackContainingPanelAcrossZones(state.zones, panelId)?.id ?? '',
       )
       if (!zone) return state
 
@@ -513,10 +513,7 @@ export function createDockStore(initialState?: { zones: WindowDockState; locatio
 
   getPanelLocation(panelId) {
     const zones = get().zones
-    const stack = findStackContainingPanel(zones.left.layout, panelId)
-      ?? findStackContainingPanel(zones.right.layout, panelId)
-      ?? findStackContainingPanel(zones.bottom.layout, panelId)
-      ?? findStackContainingPanel(zones.center.layout, panelId)
+    const stack = findStackContainingPanelAcrossZones(zones, panelId)
     if (!stack) return undefined
     const zone = findZoneForStack(zones, stack.id)
     if (!zone) return undefined

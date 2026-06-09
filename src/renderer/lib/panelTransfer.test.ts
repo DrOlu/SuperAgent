@@ -8,14 +8,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Controllable terminal registry: getEntry drives which children look like live
-// terminals; captureScrollback / setPendingTransfer are spied.
+// terminals; serializeTerminalState / setPendingTransfer are spied.
 const entries: Record<string, { ptyId: string }> = {}
-const captureScrollback = vi.fn(() => 'SCROLLBACK')
+const serializeTerminalState = vi.fn<() => string | undefined>(() => 'SCROLLBACK')
 const setPendingTransfer = vi.fn()
 vi.mock('./terminal/terminalRegistry', () => ({
   terminalRegistry: {
     getEntry: (id: string) => entries[id],
-    captureScrollback: (...a: unknown[]) => captureScrollback(...(a as [])),
+    serializeTerminalState: (...a: unknown[]) => serializeTerminalState(...(a as [])),
     setPendingTransfer: (...a: unknown[]) => setPendingTransfer(...(a as [])),
   },
 }))
@@ -33,7 +33,8 @@ import type { PanelState } from '../../shared/types'
 
 beforeEach(() => {
   for (const k of Object.keys(entries)) delete entries[k]
-  captureScrollback.mockClear()
+  serializeTerminalState.mockClear()
+  serializeTerminalState.mockReturnValue('SCROLLBACK')
   setPendingTransfer.mockClear()
   getNodeDockLayout.mockReturnValue(null)
 })
@@ -53,6 +54,35 @@ describe('createTransferSnapshot — editor content survival', () => {
     })
 
     expect(snapshot.editorState?.unsavedContent).toBe('function hello() { return 42 }')
+  })
+})
+
+describe('createTransferSnapshot — worktree registry threading', () => {
+  it('stamps the carried worktrees onto the snapshot so the receiver can tint pills', () => {
+    const panel: PanelState = { id: 'p-1', type: 'terminal', title: 'zsh', isDirty: false, worktreeId: 'wt-b' }
+    const wts = [
+      { id: 'wt-a', path: '/repo', color: '#111111' },
+      { id: 'wt-b', path: '/repo/.cate/worktrees/b', color: '#22aa55' },
+    ]
+    const snapshot = createTransferSnapshot(
+      panel,
+      { type: 'dock', zone: 'center', stackId: 's-1' },
+      { origin: { x: 0, y: 0 }, size: { width: 600, height: 400 } },
+      { worktrees: wts },
+    )
+    expect(snapshot.worktrees).toEqual(wts)
+  })
+
+  it('leaves worktrees undefined when none (or an empty list) are carried', () => {
+    const panel: PanelState = { id: 'p-2', type: 'terminal', title: 'zsh', isDirty: false }
+    const base = createTransferSnapshot(panel, { type: 'dock', zone: 'center', stackId: 's-1' }, {
+      origin: { x: 0, y: 0 }, size: { width: 600, height: 400 },
+    })
+    expect(base.worktrees).toBeUndefined()
+    const empty = createTransferSnapshot(panel, { type: 'dock', zone: 'center', stackId: 's-1' }, {
+      origin: { x: 0, y: 0 }, size: { width: 600, height: 400 },
+    }, { worktrees: [] })
+    expect(empty.worktrees).toBeUndefined()
   })
 })
 
@@ -96,6 +126,24 @@ describe('createTransferSnapshot — canvas children survival', () => {
       ptyId: 'pty-99',
       scrollback: 'SCROLLBACK',
     })
+  })
+
+  // The serialized buffer (styling included) rides along as the child scrollback.
+  it('captures the serialized child buffer into childTerminals.scrollback', () => {
+    serializeTerminalState.mockReturnValue('SERIALIZED\x1b[0m')
+    const panel: PanelState = { id: 'canvas-z', type: 'canvas', title: 'C', isDirty: false }
+    const store = getOrCreateCanvasStoreForPanel(panel.id)
+    store.getState().addNode('term-child', 'terminal', { x: 0, y: 0 }, { width: 300, height: 200 })
+    entries['term-child'] = { ptyId: 'pty-1' }
+
+    const snapshot = createTransferSnapshot(
+      panel,
+      { type: 'canvas', canvasId: 'c', canvasNodeId: 'n' },
+      { origin: { x: 0, y: 0 }, size: { width: 800, height: 600 } },
+      { resolveChildPanel: (id) => ({ id, type: 'terminal', title: 't', isDirty: false }) },
+    )
+
+    expect(snapshot.canvasState?.childTerminals?.['term-child']?.scrollback).toBe('SERIALIZED\x1b[0m')
   })
 
   // Tabbed children (non-seed panels in a node's mini-dock) must transfer too.
@@ -149,10 +197,11 @@ describe('depositCanvasChildTransfers — receiver reconnect', () => {
     expect(setPendingTransfer).not.toHaveBeenCalled()
   })
 
-  // Cold restore: a child terminal carries `replayPtyId` (its dead PTY) instead
-  // of a live `ptyId`, so the receiver must seed terminalRestoreData to spawn a
-  // fresh PTY and replay that log — NOT reconnect via setPendingTransfer.
-  it('seeds terminalRestoreData for replayPtyId children and reconnects ptyId ones', () => {
+  // depositCanvasChildTransfers handles LIVE transfers only: a child terminal
+  // with a live `ptyId` reconnects via setPendingTransfer. Cold restore does NOT
+  // flow through here — the shell arms replay for every terminal panel by its
+  // stable panelId, so depositCanvasChildTransfers must not touch terminalRestoreData.
+  it('reconnects live ptyId children and leaves terminalRestoreData alone', () => {
     terminalRestoreData.clear()
     depositCanvasChildTransfers({
       nodes: {},
@@ -161,14 +210,10 @@ describe('depositCanvasChildTransfers — receiver reconnect', () => {
       childPanels: {},
       childTerminals: {
         live: { ptyId: 'pty-live', scrollback: 'LL' },
-        dead: { replayPtyId: 'pty-dead' },
       },
     })
 
-    // Live entry reconnects; restore entry replays.
     expect(setPendingTransfer).toHaveBeenCalledWith('live', 'pty-live', 'LL')
-    expect(setPendingTransfer).not.toHaveBeenCalledWith('dead', expect.anything(), expect.anything())
-    expect(terminalRestoreData.get('dead')).toEqual({ replayFromId: 'pty-dead' })
     expect(terminalRestoreData.has('live')).toBe(false)
     terminalRestoreData.clear()
   })

@@ -32,12 +32,14 @@ function serialize(value: unknown, pretty: boolean): string {
   return pretty ? JSON.stringify(value, null, 2) + '\n' : JSON.stringify(value)
 }
 
-/** Atomically write raw text to `filePath` (tmp + rename). Async. The JSON
- *  helpers below serialize and delegate here; agentDir writes pre-serialized
- *  credential text through this directly. */
+/** Atomically write raw text (or raw bytes) to `filePath` (tmp + rename). Async.
+ *  The JSON helpers below serialize and delegate here; agentDir writes
+ *  pre-serialized credential text through this directly, and the canvas
+ *  background store writes image bytes through it as a Buffer. The 'utf-8'
+ *  encoding hint is ignored by Node when `text` is a Buffer. */
 export async function writeTextAtomic(
   filePath: string,
-  text: string,
+  text: string | Buffer,
   options: Pick<WriteJsonAtomicOptions, 'mode'> = {},
 ): Promise<void> {
   const { mode } = options

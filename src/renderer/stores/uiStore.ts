@@ -41,7 +41,6 @@ export function getSidebarLayout(): SidebarLayout {
 }
 
 interface UIStoreState {
-  showNodeSwitcher: boolean
   showCommandPalette: boolean
   showLayoutsDialog: boolean
   showSkillsDialog: boolean
@@ -56,10 +55,8 @@ interface UIStoreState {
   fileExplorerVisible: boolean
   /** Active marquee selection rectangle in canvas-space coordinates, or null when idle. */
   marquee: { startX: number; startY: number; currentX: number; currentY: number } | null
-  /** Active canvas tool. Sticky: changed via toolbar or V/H shortcuts. */
+  /** Active canvas tool. Sticky: toggled via the toolbar or the Space key. */
   activeTool: CanvasTool
-  /** True while Spacebar is held — temporarily overrides `activeTool` with Hand. */
-  spacePanActive: boolean
   /** Active view on the left sidebar, null = collapsed */
   activeLeftSidebarView: SidebarView | null
   /** Active view on the right sidebar, null = collapsed */
@@ -75,7 +72,6 @@ interface UIStoreState {
 }
 
 interface UIStoreActions {
-  setShowNodeSwitcher: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowLayoutsDialog: (show: boolean) => void
   setShowSkillsDialog: (show: boolean) => void
@@ -89,7 +85,6 @@ interface UIStoreActions {
   setFileExplorerVisible: (visible: boolean) => void
   setMarquee: (marquee: { startX: number; startY: number; currentX: number; currentY: number } | null) => void
   setActiveTool: (tool: CanvasTool) => void
-  setSpacePanActive: (active: boolean) => void
   setActiveLeftSidebarView: (view: SidebarView | null) => void
   setActiveRightSidebarView: (view: SidebarView | null) => void
   moveSidebarView: (view: SidebarView, targetSide: SidebarSide, targetIndex: number) => void
@@ -110,7 +105,6 @@ export type UIStore = UIStoreState & UIStoreActions
 
 export const useUIStore = create<UIStore>((set, get) => ({
   // --- State ---
-  showNodeSwitcher: false,
   showCommandPalette: false,
   showLayoutsDialog: false,
   showSkillsDialog: false,
@@ -121,7 +115,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   fileExplorerVisible: false,
   marquee: null,
   activeTool: 'select',
-  spacePanActive: false,
   activeLeftSidebarView: 'workspaces',
   activeRightSidebarView: null,
   draggingView: null,
@@ -129,10 +122,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   focusedWorktreeId: null,
 
   // --- Actions ---
-
-  setShowNodeSwitcher(show) {
-    set({ showNodeSwitcher: show })
-  },
 
   setShowCommandPalette(show) {
     set({ showCommandPalette: show })
@@ -191,10 +180,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
   setActiveTool(tool) {
     set({ activeTool: tool })
-  },
-
-  setSpacePanActive(active) {
-    set({ spacePanActive: active })
   },
 
   setActiveLeftSidebarView(view) {
@@ -282,14 +267,4 @@ export function useSidebarLayout(): SidebarLayout {
   // check, spin useSyncExternalStore into "Maximum update depth exceeded".
   const raw = useSettingsStore((s) => s.sidebarLayout)
   return useMemo(() => normalizeSidebarLayout(raw), [raw])
-}
-
-/**
- * Resolve the tool currently in effect. Space-hold temporarily forces Hand
- * without disturbing the sticky `activeTool`, so releasing Space reverts cleanly.
- */
-export function effectiveCanvasTool(
-  s: Pick<UIStoreState, 'activeTool' | 'spacePanActive'>,
-): CanvasTool {
-  return s.spacePanActive ? 'hand' : s.activeTool
 }

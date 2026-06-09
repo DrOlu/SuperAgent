@@ -103,19 +103,17 @@ export default function MainWindowShell({
     [setZoneSize],
   )
 
-  // Determine if each zone edge is the active drop target
-  const isLeftEdgeActive =
-    isDragging &&
-    activeDropTarget?.kind === 'dock-zone' &&
-    activeDropTarget.zone === 'left'
-  const isRightEdgeActive =
-    isDragging &&
-    activeDropTarget?.kind === 'dock-zone' &&
-    activeDropTarget.zone === 'right'
-  const isBottomEdgeActive =
-    isDragging &&
-    activeDropTarget?.kind === 'dock-zone' &&
-    activeDropTarget.zone === 'bottom'
+  // Edge drop indicators — shown when the matching side dock zone is hidden.
+  // Each entry maps an edge zone to its visibility gate and indicator position.
+  const edgeIndicators: {
+    zone: 'left' | 'right' | 'bottom'
+    hidden: boolean
+    style: React.CSSProperties
+  }[] = [
+    { zone: 'left', hidden: !leftVisible, style: { top: 0, left: 0, bottom: 0, width: EDGE_ZONE_SIZE } },
+    { zone: 'right', hidden: !rightVisible, style: { top: 0, right: 0, bottom: 0, width: EDGE_ZONE_SIZE } },
+    { zone: 'bottom', hidden: !bottomVisible, style: { left: 0, right: 0, bottom: 0, height: EDGE_ZONE_SIZE } },
+  ]
 
   const workspaceAccent = useSelectedWorkspace()?.color || undefined
 
@@ -187,51 +185,29 @@ export default function MainWindowShell({
       )}
 
       {/* Dock zone edge drop indicators — shown when side dock zones are hidden */}
-      {isDragging && !leftVisible && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: 60,
-            zIndex: 9998,
-            pointerEvents: 'none',
-          }}
-        >
-          <DockZoneDropIndicator position="left" isActive={isLeftEdgeActive} />
-        </div>
-      )}
-      {isDragging && !rightVisible && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: 60,
-            zIndex: 9998,
-            pointerEvents: 'none',
-          }}
-        >
-          <DockZoneDropIndicator position="right" isActive={isRightEdgeActive} />
-        </div>
-      )}
-      {isDragging && !bottomVisible && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 60,
-            zIndex: 9998,
-            pointerEvents: 'none',
-          }}
-        >
-          <DockZoneDropIndicator position="bottom" isActive={isBottomEdgeActive} />
-        </div>
-      )}
+      {isDragging &&
+        edgeIndicators.map(({ zone, hidden, style }) =>
+          hidden ? (
+            <div
+              key={zone}
+              style={{
+                position: 'absolute',
+                ...style,
+                zIndex: 9998,
+                pointerEvents: 'none',
+              }}
+            >
+              <DockZoneDropIndicator
+                position={zone}
+                isActive={
+                  isDragging &&
+                  activeDropTarget?.kind === 'dock-zone' &&
+                  activeDropTarget.zone === zone
+                }
+              />
+            </div>
+          ) : null,
+        )}
       <DragOverlay />
     </div>
   )

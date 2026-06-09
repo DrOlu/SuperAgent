@@ -60,7 +60,7 @@ export default function DockSplitContainer({
     >
       {node.children.map((child, i) => {
         return (
-        <React.Fragment key={child.type === 'tabs' ? child.id : child.id}>
+        <React.Fragment key={child.id}>
           <div
             style={{
               [isHorizontal ? 'width' : 'height']: `${node.ratios[i] * 100}%`,

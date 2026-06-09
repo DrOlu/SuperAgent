@@ -15,7 +15,7 @@ import {
   WORKSPACE_CHANGED,
 } from '../shared/ipc-channels'
 import type { WorkspaceInfo, WorkspaceMutationResult } from '../shared/types'
-import { broadcastToAll, windowFromEvent } from './windowRegistry'
+import { broadcastToAll, windowFromEvent, closeWindowsForWorkspace } from './windowRegistry'
 import { addAllowedRoot, removeAllowedRoot } from './ipc/pathValidation'
 import { resolveTrustedWorkspaceRoot } from './workspaceRoots'
 import { acquireProjectLock, releaseProjectLock } from './projectLock'
@@ -192,6 +192,22 @@ async function updateWorkspace(id: string, changes: Partial<Omit<WorkspaceInfo, 
     }
   }
 
+  // Refuse to point a second workspace at a folder already open here. Two
+  // workspaces sharing one root would share its .cate/ state and clobber each
+  // other's autosave; the per-pid project lock can't catch a same-instance
+  // duplicate. The renderer redirects to the existing tab before reaching this,
+  // but the resolved path is the authority — it catches symlink/trailing-slash
+  // aliases the renderer's raw string compare misses.
+  if (nextRootPath && existing.rootPath !== nextRootPath && rootInUse(nextRootPath, id)) {
+    return {
+      ok: false,
+      error: {
+        code: 'DUPLICATE_ROOT',
+        message: `This folder is already open in another workspace: ${nextRootPath}`,
+      },
+    }
+  }
+
   const rootChanged = existing.rootPath !== nextRootPath
   const existingLocal = !!existing.rootPath && isLocalLocator(existing.rootPath)
   const nextLocal = !!nextRootPath && isLocalLocator(nextRootPath)
@@ -271,6 +287,9 @@ export function registerWorkspaceHandlers(): void {
 
   // Remove a workspace
   ipcMain.handle(WORKSPACE_REMOVE, async (event, id: string) => {
+    // Closing a workspace tab also closes its detached (dock) windows — they
+    // belong to the workspace and have no home once it's gone.
+    closeWindowsForWorkspace(id)
     const removed = removeWorkspace(id)
     if (removed) {
       const win = windowFromEvent(event)

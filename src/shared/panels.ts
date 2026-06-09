@@ -27,8 +27,6 @@ export interface SharedPanelDefinition {
   label: string
   /** Brand color used in panel chrome and the drag ghost window. */
   brandColor: string
-  /** More saturated variant used in the full-screen panel switcher overlay. */
-  switcherColor: string
   /** Dim variant used in the minimap dot. */
   mutedColor: string
   /** Tailwind class for tab-bar tint when the tab is active. */
@@ -61,7 +59,6 @@ export const PANEL_DEFINITIONS: Record<PanelType, SharedPanelDefinition> = {
     type: 'terminal',
     label: 'Terminal',
     brandColor: '#4DD964',
-    switcherColor: '#34C759',
     mutedColor: '#4a9960',
     tintClass: 'text-emerald-400',
     defaultSize: { width: 640, height: 400 },
@@ -73,7 +70,6 @@ export const PANEL_DEFINITIONS: Record<PanelType, SharedPanelDefinition> = {
     type: 'browser',
     label: 'Browser',
     brandColor: '#4A9EFF',
-    switcherColor: '#007AFF',
     mutedColor: '#4a7ab0',
     tintClass: 'text-sky-400',
     defaultSize: { width: 800, height: 600 },
@@ -85,7 +81,6 @@ export const PANEL_DEFINITIONS: Record<PanelType, SharedPanelDefinition> = {
     type: 'editor',
     label: 'Editor',
     brandColor: '#FF9F0A',
-    switcherColor: '#FF9500',
     mutedColor: '#b07440',
     tintClass: 'text-orange-400',
     defaultSize: { width: 600, height: 500 },
@@ -97,7 +92,6 @@ export const PANEL_DEFINITIONS: Record<PanelType, SharedPanelDefinition> = {
     type: 'agent',
     label: 'SuperAgent Agent',
     brandColor: '#4A9EFF',
-    switcherColor: '#4A9EFF',
     mutedColor: '#3a7acc',
     tintClass: 'text-blue-400',
     defaultSize: { width: 760, height: 480 },
@@ -109,7 +103,6 @@ export const PANEL_DEFINITIONS: Record<PanelType, SharedPanelDefinition> = {
     type: 'document',
     label: 'Document',
     brandColor: '#AF52DE',
-    switcherColor: '#AF52DE',
     mutedColor: '#7a4a9a',
     tintClass: 'text-purple-400',
     defaultSize: { width: 700, height: 500 },
@@ -121,7 +114,6 @@ export const PANEL_DEFINITIONS: Record<PanelType, SharedPanelDefinition> = {
     type: 'canvas',
     label: 'Canvas',
     brandColor: '#BF5AF2',
-    switcherColor: '#BF5AF2',
     mutedColor: '#7a4a9a',
     tintClass: 'text-violet-400',
     defaultSize: { width: 800, height: 600 },

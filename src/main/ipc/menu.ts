@@ -3,8 +3,10 @@
 // process pops up a native Electron Menu and resolves with the clicked item id.
 // =============================================================================
 
-import { BrowserWindow, Menu, ipcMain, type MenuItemConstructorOptions } from 'electron'
-import { MENU_SHOW_CONTEXT } from '../../shared/ipc-channels'
+import { Menu, ipcMain, type MenuItemConstructorOptions } from 'electron'
+import { MENU_SHOW_CONTEXT, MENU_GET_BAR_ITEMS, MENU_POPUP_BAR_ITEM } from '../../shared/ipc-channels'
+import { getMenuBarLabels, popupMenuBarItem } from '../menu'
+import { windowFromEvent } from '../windowRegistry'
 
 interface ContextMenuTemplateItem {
   id?: string
@@ -41,7 +43,7 @@ export function registerHandlers(): void {
     MENU_SHOW_CONTEXT,
     (event, items: ContextMenuTemplateItem[]) => {
       return new Promise<string | null>((resolve) => {
-        const win = BrowserWindow.fromWebContents(event.sender)
+        const win = windowFromEvent(event)
         if (!win) {
           resolve(null)
           return
@@ -57,6 +59,20 @@ export function registerHandlers(): void {
           callback: () => resolve(chosen),
         })
       })
+    },
+  )
+
+  // Custom menu bar (frameless Windows/Linux title bar). The renderer draws the
+  // top-level labels; clicking one pops the live application menu's matching
+  // native submenu — so menu.ts stays the single source of truth.
+  ipcMain.handle(MENU_GET_BAR_ITEMS, () => getMenuBarLabels())
+
+  ipcMain.handle(
+    MENU_POPUP_BAR_ITEM,
+    (event, payload: { index: number; x: number; y: number }) => {
+      const win = windowFromEvent(event)
+      if (!win) return
+      popupMenuBarItem(payload.index, win, Math.round(payload.x), Math.round(payload.y))
     },
   )
 }

@@ -32,21 +32,11 @@ const store = createJsonStateFile<SavedSkillsState>({
   },
 })
 
-let loaded = false
-function ensureLoaded(): void {
-  if (!loaded) {
-    store.load()
-    loaded = true
-  }
-}
-
 export function listSaved(): SavedSkill[] {
-  ensureLoaded()
   return store.get().skills
 }
 
 export function addSaved(skill: SavedSkill): void {
-  ensureLoaded()
   store.update((cur) =>
     cur.skills.some((s) => s.skillId === skill.skillId)
       ? { skills: cur.skills.map((s) => (s.skillId === skill.skillId ? skill : s)) }
@@ -55,7 +45,6 @@ export function addSaved(skill: SavedSkill): void {
 }
 
 export function removeSaved(skillId: string): void {
-  ensureLoaded()
   store.update((cur) => ({ skills: cur.skills.filter((s) => s.skillId !== skillId) }))
 }
 

@@ -94,7 +94,7 @@ async function getTree(repo: string, ref: string, token?: string): Promise<TreeE
   return data.tree ?? []
 }
 
-export async function rawText(repo: string, ref: string, path: string, token?: string): Promise<string> {
+async function rawFetch(repo: string, ref: string, path: string, token: string | undefined): Promise<Response> {
   const { owner, name } = parseRepo(repo)
   const segs = path.split('/').map(encodeURIComponent).join('/')
   const res = await fetchWithTimeout(
@@ -102,17 +102,16 @@ export async function rawText(repo: string, ref: string, path: string, token?: s
     token ? { 'Authorization': `Bearer ${token}`, 'User-Agent': 'SuperAgent-skills' } : { 'User-Agent': 'SuperAgent-skills' },
   )
   if (!res.ok) throw new Error(`raw ${res.status} for ${path}`)
+  return res
+}
+
+export async function rawText(repo: string, ref: string, path: string, token?: string): Promise<string> {
+  const res = await rawFetch(repo, ref, path, token)
   return res.text()
 }
 
 async function rawBytes(repo: string, ref: string, path: string, token?: string): Promise<Buffer> {
-  const { owner, name } = parseRepo(repo)
-  const segs = path.split('/').map(encodeURIComponent).join('/')
-  const res = await fetchWithTimeout(
-    `https://raw.githubusercontent.com/${owner}/${name}/${encodeURIComponent(ref)}/${segs}`,
-    token ? { 'Authorization': `Bearer ${token}`, 'User-Agent': 'SuperAgent-skills' } : { 'User-Agent': 'SuperAgent-skills' },
-  )
-  if (!res.ok) throw new Error(`raw ${res.status} for ${path}`)
+  const res = await rawFetch(repo, ref, path, token)
   return Buffer.from(await res.arrayBuffer())
 }
 

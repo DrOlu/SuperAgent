@@ -14,7 +14,7 @@ const BUILD_DIR = path.join(__dirname, '..', 'build')
 const BG_COLOR = { r: 30, g: 30, b: 36, alpha: 1 } // #1E1E24
 
 async function createIcon(size) {
-  // SuperAgent logo is 512x512 with built-in background — scale to fit the icon, centered
+  // SuperAgent logo is 512x512 — scale to fit ~60% of the icon width, centered
   const logoWidth = Math.round(size * 0.85)
   const logoHeight = Math.round(logoWidth)
 

@@ -603,6 +603,14 @@ export interface ElectronAPI {
    *  snapshot carries the panel + canvas/terminal state to re-integrate. */
   onPanelWindowDockBack(callback: (payload: { panelWindowId: number; snapshot?: PanelTransferSnapshot }) => void): () => void
 
+  /** Push the live panel record from a detached panel window back to main so
+   *  the window-registry metadata stays current (e.g. after a Save-As). */
+  panelWindowSyncMeta?(payload: { panel: PanelState; workspaceId?: string }): Promise<void>
+
+  /** Report the PTY id that a detached terminal panel window is using so main
+   *  can route terminal data to the correct PTY on dock-back. */
+  panelWindowSyncPty(ptyId: string): Promise<void>
+
   // ---------------------------------------------------------------------------
   // Cross-window drag-and-drop
   // ---------------------------------------------------------------------------

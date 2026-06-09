@@ -69,6 +69,8 @@ interface UIStoreState {
   /** Worktree the focus lens is locked onto — dims non-members, rings members,
    *  and (on entry) frames the camera. Null when the lens is off. */
   focusedWorktreeId: string | null
+  /** Whether the node-switcher overlay is visible. */
+  showNodeSwitcher: boolean
 }
 
 interface UIStoreActions {
@@ -95,6 +97,8 @@ interface UIStoreActions {
   focusWorktree: (id: string | null) => void
   /** Clear both hover highlight and the focus lens. */
   clearWorktreeLens: () => void
+  /** Show or hide the node-switcher overlay. */
+  setShowNodeSwitcher: (show: boolean) => void
 }
 
 export type UIStore = UIStoreState & UIStoreActions
@@ -120,6 +124,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   draggingView: null,
   hoveredWorktreeId: null,
   focusedWorktreeId: null,
+  showNodeSwitcher: false,
 
   // --- Actions ---
 
@@ -251,6 +256,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
     const { hoveredWorktreeId, focusedWorktreeId } = get()
     if (hoveredWorktreeId === null && focusedWorktreeId === null) return
     set({ hoveredWorktreeId: null, focusedWorktreeId: null })
+  },
+  setShowNodeSwitcher(show) {
+    set({ showNodeSwitcher: show })
   },
 
 }))

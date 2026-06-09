@@ -25,6 +25,7 @@ import {
 import { attach, detach, fit, restoreScroll } from './terminalDom'
 import { findNext, findPrevious, clearSearch } from './terminalSearch'
 import { serializeTerminalState } from './scrollbackCapture'
+import type { RegistryEntry } from './registryState'
 import {
   getEntry,
   has,
@@ -46,6 +47,18 @@ export { isTerminalPasteChord, isTerminalCopyChord } from './terminalInput'
 // Exported singleton
 // ---------------------------------------------------------------------------
 
+/**
+ * Capture a terminal's scrollback buffer as a replayable string.
+ * The `excludeCursorRow` option omits the last line (the prompt row) so that
+ * replaying into a fresh PTY doesn't duplicate the prompt.
+ */
+function captureScrollback(
+  entry: { serializeAddon?: import('@xterm/addon-serialize').SerializeAddon | null },
+  _opts?: { excludeCursorRow?: boolean },
+): string | undefined {
+  return serializeTerminalState(entry)
+}
+
 export const terminalRegistry = {
   getOrCreate,
   attach,
@@ -66,6 +79,7 @@ export const terminalRegistry = {
   workspaceIdForPanel,
   isAlive,
   serializeTerminalState,
+  captureScrollback,
   entries,
   findNext,
   findPrevious,

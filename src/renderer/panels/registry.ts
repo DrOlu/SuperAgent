@@ -72,6 +72,8 @@ export interface RendererPanelDefinition extends SharedPanelDefinition {
   /** Spawn a fresh panel of this type into the workspace. Returns the new
    *  panelId or null if creation failed. */
   create: (args: PanelCreateArgs) => string | null
+  /** Optional accent color used by the NodeSwitcher icon. */
+  switcherColor?: string
 }
 
 // -----------------------------------------------------------------------------

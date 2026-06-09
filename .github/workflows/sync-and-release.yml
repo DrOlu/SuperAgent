@@ -145,20 +145,11 @@ jobs:
             git add -A
             git commit --no-edit || true
           }
-          # Remove upstream workflow files that aren't ours (GitHub token lacks permission to push them)
-          for wf in .github/workflows/*.yml; do
-            case "$wf" in
-              .github/workflows/sync-and-release.yml)
-                # keep our sync workflow
-                ;;
-              *)
-                echo "Removing upstream workflow: $wf"
-                git rm -f "$wf" 2>/dev/null || rm -f "$wf"
-                ;;
-            esac
-          done
+          # Restore all workflow files from main to avoid needing workflows permission on GITHUB_TOKEN.
+          # Then delete unwanted upstream workflows via GitHub API after the push succeeds.
+          git checkout main -- .github/workflows/ 2>/dev/null || true
           git add -A
-          git diff --cached --quiet || git commit -m "chore: remove upstream workflow files" || true
+          git diff --cached --quiet || git commit -m "chore: restore workflow files from main" || true
 
           git push origin main
 
@@ -168,6 +159,26 @@ jobs:
           git branch -D sync-upstream 2>/dev/null || true
 
           echo "Sync complete. Version v${UPSTREAM_VERSION} pushed to main."
+
+      - name: Remove upstream workflow files via API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Delete workflow files that came from upstream and aren't ours.
+          # Using GitHub API because GITHUB_TOKEN lacks 'workflows' permission for git push.
+          KEEP="sync-and-release.yml"
+          gh api "repos/${{ github.repository }}/contents/.github/workflows" \
+            --jq '.[].name' | while read -r wf; do
+            if echo "$KEEP" | grep -qw "$wf"; then
+              echo "Keeping workflow: $wf"
+            else
+              echo "Deleting upstream workflow: $wf"
+              SHA=$(gh api "repos/${{ github.repository }}/contents/.github/workflows/$wf" --jq '.sha')
+              gh api -X DELETE "repos/${{ github.repository }}/contents/.github/workflows/$wf" \
+                -f message="chore: remove upstream workflow $wf" \
+                -f sha="$SHA" || echo "  (could not delete $wf, skipping)"
+            fi
+          done
 
   build-and-release:
     needs: [check-and-sync, sync-and-rebrand]

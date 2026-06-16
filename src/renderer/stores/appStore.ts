@@ -50,7 +50,7 @@ import {
 } from '../lib/workspace/canvasAccess'
 import { setActivePanel, clearActivePanelIfMatches } from '../lib/activePanel'
 import { recordRecentFile } from '../lib/fs/recentFiles'
-import { LOCAL_COMPANION_ID } from '../../main/companion/locator'
+import { LOCAL_RUNTIME_ID } from '../../main/runtime/locator'
 import { useWindowPanelStore } from './windowPanelStore'
 
 export type { CanvasOperations }
@@ -1522,7 +1522,7 @@ export function setupWorkspaceSync(): () => void {
   const unsubscribeStatus = window.electronAPI.onCompanionStatus((evt) => {
     const store = useAppStore.getState()
     // The LOCAL daemon is a singleton; its phase is global, not per-workspace.
-    if (evt.companionId === LOCAL_COMPANION_ID) {
+    if (evt.companionId === LOCAL_RUNTIME_ID) {
       store.setLocalCompanionPhase(evt.phase)
       return
     }

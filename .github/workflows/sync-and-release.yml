@@ -133,10 +133,15 @@ jobs:
               [ -z "$f" ] && continue
               if echo "$OURS_FILES" | grep -qw "$f"; then
                 echo "  Keeping ours: $f"
-                git checkout --ours "$f"
+                git checkout --ours "$f" 2>/dev/null || true
               else
                 echo "  Taking upstream: $f"
-                git checkout --theirs "$f"
+                # Handle modify/delete conflicts: if upstream deleted the file, --theirs fails
+                if ! git checkout --theirs "$f" 2>/dev/null; then
+                  echo "  Upstream deleted: removing $f"
+                  git rm -f "$f" 2>/dev/null || true
+                  continue
+                fi
               fi
               git add "$f"
             done

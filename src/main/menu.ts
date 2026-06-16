@@ -131,7 +131,7 @@ export function buildApplicationMenu(): void {
         { label: 'New Editor', accelerator: 'CmdOrCtrl+Shift+E', click: dispatch('newEditor') },
         { label: 'New Terminal', accelerator: 'CmdOrCtrl+T', click: dispatch('newTerminal') },
         { label: 'New Browser', accelerator: 'CmdOrCtrl+Shift+B', click: dispatch('newBrowser') },
-        { label: 'New Cate Agent', accelerator: 'CmdOrCtrl+Shift+A', click: dispatch('newAgent') },
+        { label: 'New SuperAgent Agent', accelerator: 'CmdOrCtrl+Shift+A', click: dispatch('newAgent') },
         { label: 'New Canvas', accelerator: 'CmdOrCtrl+Shift+C', click: dispatch('newCanvas') },
         { type: 'separator' },
         { label: 'Open Folder...', accelerator: 'CmdOrCtrl+O', click: dispatch('openFolder') },
@@ -256,15 +256,15 @@ export function buildApplicationMenu(): void {
       role: 'help',
       submenu: [
         {
-          label: 'Cate Documentation',
+          label: 'SuperAgent Documentation',
           click: (): void => {
-            shell.openExternal('https://github.com/0-AI-UG/cate')
+            shell.openExternal('https://github.com/DrOlu/SuperAgent')
           },
         },
         {
           label: 'Report Issue...',
           click: (): void => {
-            shell.openExternal('https://github.com/0-AI-UG/cate/issues')
+            shell.openExternal('https://github.com/DrOlu/SuperAgent/issues')
           },
         },
         { type: 'separator' },

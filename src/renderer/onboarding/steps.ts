@@ -43,7 +43,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     // (which only appears once the canvas has panels, e.g. on replay).
     target: '[data-onboarding="welcome-actions"], [data-onboarding="toolbar"]',
     title: 'Add anything',
-    body: 'Spin up a terminal, editor, browser, or Cate agent from here or the bottom toolbar. Drag one straight onto the canvas to place it exactly where you want.',
+    body: 'Spin up a terminal, editor, browser, or SuperAgent agent from here or the bottom toolbar. Drag one straight onto the canvas to place it exactly where you want.',
   },
   {
     id: 'sidebar',
@@ -57,7 +57,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="command-palette"]',
     openCommandPalette: true,
     title: 'One shortcut for everything',
-    body: 'Press ⌘K to search files, jump between panels, and run any command. The fastest way to get around Cate.',
+    body: 'Press ⌘K to search files, jump between panels, and run any command. The fastest way to get around SuperAgent.',
     keys: ['⌘', 'K'],
   },
   {

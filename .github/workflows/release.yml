@@ -71,18 +71,18 @@ jobs:
       - name: Generate icons
         run: npm run icons
 
-      # Regenerate the embedded companion + pi version strings (src/companion/
+      # Regenerate the embedded runtime + pi version strings (src/runtime/
       # version.ts, piVersion.ts) from package.json / the installed pi BEFORE
       # building the app. `npm run build` bakes COMPANION_VERSION/PI_VERSION into
       # the app, and the daemon resolves its tarball by that version
-      # (cate-companion-<COMPANION_VERSION>-<target>.tgz). A release whose version
+      # (cate-runtime-<version>-<target>.tgz). A release whose version
       # bump only touched package.json (e.g. a beta tag) otherwise leaves the
       # committed version.ts stale, so the app looks for the wrong tarball name —
       # in dev/e2e that means no ripgrep and 0-result content search (which gates
       # the macOS release), and in the shipped app a missing companion/pi pull.
-      - name: Sync companion + pi versions to package.json
+      - name: Sync runtime + pi versions
         run: |
-          npm run build:companion
+          npm run runtime:tarball
           npm run pi:tarball
 
       - name: Build app
@@ -103,8 +103,8 @@ jobs:
       # Import the Developer ID cert into a scoped keychain and export the signing
       # identity, so the next step can codesign the companion's bundled native
       # binaries. Without this, notarytool rejects the unsigned node-pty/rg Mach-O
-      # inside companion-host.tgz and the macOS release fails to notarize.
-      - name: Set up macOS signing for companion natives
+      # inside runtime-host.tgz and the macOS release fails to notarize.
+      - name: Set up macOS signing for runtime natives
         if: matrix.platform == 'mac'
         env:
           CSC_LINK: ${{ secrets.MAC_CERTS }}
@@ -117,16 +117,16 @@ jobs:
           bash scripts/ci-mac-signing-keychain.sh
 
       # The local workspace runs the companion daemon tarball, shipped inside the
-      # installer (electron-builder.yml extraResources → companion-host.tgz). Build
+      # installer (electron-builder.yml extraResources → runtime-host.tgz). Build
       # this runner's host-target tarball and stage it under the fixed name so the
       # extraResource exists. Each runner builds only its own host target. On macOS
       # the build script signs the bundled natives via CATE_MAC_SIGN_IDENTITY
       # (exported above) before packing, so the tarball notarizes inside the app.
-      - name: Build + stage host companion tarball
+      - name: Build + stage host runtime tarball
         shell: bash
         run: |
-          node scripts/build-companion-tarball.mjs
-          cp dist-companion/cate-companion-*.tgz dist-companion/companion-host.tgz
+          node scripts/build-runtime-tarball.mjs
+          cp dist-runtime/cate-runtime-*.tgz dist-runtime/runtime-host.tgz
 
       # Note: the functional + content-search e2e suite used to gate the macOS
       # release here, but the hosted mac runner flaked on the synthetic-mouse
@@ -203,11 +203,11 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
-  # Per-target cate-companion daemon tarballs. Built on the matching runner so
+  # Per-target cate-runtime daemon tarballs. Built on the matching runner so
   # node-pty's native binary is correct for the target; linux-arm64 is cross-
   # built in a QEMU-emulated container (--docker). Uploaded to the same release
   # so a connecting host can pull its tarball straight from the release URL
-  # (see src/main/companion/companionArtifacts.ts).
+  # (see src/main/runtime/runtimeArtifacts.ts).
   companion:
     needs: create-release
     strategy:
@@ -262,7 +262,7 @@ jobs:
       # Sign the bundled darwin natives so a mac host that pulls this per-target
       # tarball from the release runs Developer ID-signed binaries (no Gatekeeper
       # quarantine block), mirroring the host tarball staged in the app.
-      - name: Set up macOS signing for companion natives
+      - name: Set up macOS signing for runtime natives
         if: startsWith(matrix.target, 'darwin-')
         env:
           CSC_LINK: ${{ secrets.MAC_CERTS }}
@@ -274,16 +274,16 @@ jobs:
           fi
           bash scripts/ci-mac-signing-keychain.sh
 
-      - name: Build companion tarball (${{ matrix.target }})
-        run: node scripts/build-companion-tarball.mjs --target ${{ matrix.target }} ${{ matrix.docker && '--docker' || '' }}
+      - name: Build runtime tarball (${{ matrix.target }})
+        run: node scripts/build-runtime-tarball.mjs --target ${{ matrix.target }} ${{ matrix.docker && '--docker' || '' }}
 
-      - name: Upload companion tarball
+      - name: Upload runtime tarball
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          gh release upload "$TAG_NAME" dist-companion/cate-companion-*-${{ matrix.target }}.tgz \
+          gh release upload "$TAG_NAME" dist-runtime/cate-runtime-*-${{ matrix.target }}.tgz \
             --repo "${{ github.repository }}" \
             --clobber
 
@@ -310,7 +310,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          gh release upload "$TAG_NAME" dist-companion/cate-pi-*.tgz \
+          gh release upload "$TAG_NAME" dist-runtime/cate-pi-*.tgz \
             --repo "${{ github.repository }}" \
             --clobber
 

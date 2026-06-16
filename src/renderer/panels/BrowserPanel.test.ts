@@ -8,6 +8,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { isUrl, normalizeUrl } from './browserUrl'
+import { pageLoadErrorFrom } from './browserLoadError'
 
 describe('isUrl', () => {
   it('recognises absolute http(s) URLs', () => {
@@ -83,5 +84,35 @@ describe('normalizeUrl', () => {
   it('prepends https:// for bare domains', () => {
     expect(normalizeUrl('example.com')).toBe('https://example.com')
     expect(normalizeUrl('example.com/path')).toBe('https://example.com/path')
+  })
+})
+
+describe('pageLoadErrorFrom', () => {
+  it('reports main-frame failures with their description', () => {
+    expect(
+      pageLoadErrorFrom({ errorCode: -105, errorDescription: 'ERR_NAME_NOT_RESOLVED', isMainFrame: true }),
+    ).toBe('ERR_NAME_NOT_RESOLVED')
+  })
+
+  it('falls back to a generic message when the main-frame error has no description', () => {
+    expect(pageLoadErrorFrom({ errorCode: -2, isMainFrame: true })).toBe('Failed to load page')
+  })
+
+  it('ignores subframe failures so a blocked tracker does not hide the page', () => {
+    expect(
+      pageLoadErrorFrom({ errorCode: -118, errorDescription: 'ERR_CONNECTION_TIMED_OUT', isMainFrame: false }),
+    ).toBeNull()
+  })
+
+  it('ignores aborted loads (ERR_ABORTED) even on the main frame', () => {
+    expect(
+      pageLoadErrorFrom({ errorCode: -3, errorDescription: 'ERR_ABORTED', isMainFrame: true }),
+    ).toBeNull()
+  })
+
+  it('treats a missing isMainFrame flag as a main-frame failure', () => {
+    expect(pageLoadErrorFrom({ errorCode: -105, errorDescription: 'ERR_NAME_NOT_RESOLVED' })).toBe(
+      'ERR_NAME_NOT_RESOLVED',
+    )
   })
 })

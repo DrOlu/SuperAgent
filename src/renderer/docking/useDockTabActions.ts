@@ -8,8 +8,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StoreApi } from 'zustand'
 import type { DockTabStack as DockTabStackType, PanelState, PanelType } from '../../shared/types'
 import { createTransferSnapshot } from '../lib/panelTransfer'
-import { removeDetachedPanelRecords } from '../lib/canvas/removeDetachedPanelRecords'
-import { terminalRegistry } from '../lib/terminal/terminalRegistry'
+import { removePanelFromWindow } from '../lib/panels/removePanelFromWindow'
 import { useAppStore } from '../stores/appStore'
 import type { DockStore } from '../stores/dockStore'
 import { getPanelDef } from '../panels/registry'
@@ -131,12 +130,12 @@ export function useDockTabActions(params: DockTabActionsParams) {
       const winId = await window.electronAPI.dragDetach(snapshot, wsId)
       if (winId == null) return
       dockStoreApi.getState().undockPanel(panelId)
-      if (panel.type === 'terminal') terminalRegistry.release(panelId)
       onPanelRemoved?.(panelId)
-      // Drop its record (and a canvas's children) from this workspace so every
-      // system — overview, command palette, session, counts — agrees it's no
-      // longer here. The receive side re-adds it on drop-back.
-      removeDetachedPanelRecords(wsId, panelId, panel.type)
+      // Release its content (PTYs keep running, mid-transfer) and drop its
+      // record (and a canvas's children) from this workspace so every system —
+      // overview, command palette, session, counts — agrees it's no longer
+      // here. The receive side re-adds it on drop-back.
+      removePanelFromWindow(wsId, panelId, panel.type, 'transfer')
     },
     [getPanelLocal, zone, stack.id, dockStoreApi, onPanelRemoved, workspaceId],
   )

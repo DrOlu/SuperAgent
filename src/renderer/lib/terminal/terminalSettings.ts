@@ -10,6 +10,29 @@ import { getActiveTheme, subscribeTheme } from '../themeManager'
 import type { Theme } from '../../../shared/types'
 import { registry } from './registryState'
 
+export const DEFAULT_TERMINAL_FONT_FAMILY = 'Menlo, Monaco, "Courier New", monospace'
+export const DEFAULT_TERMINAL_FONT_SIZE = 13
+
+/** Read the configured terminal font family, falling back to xterm defaults. */
+export function getTerminalFontFamily(): string {
+  return resolveTerminalFontFamily(useSettingsStore.getState().terminalFontFamily)
+}
+
+export function resolveTerminalFontFamily(raw: string): string {
+  const value = typeof raw === 'string' ? raw.trim() : ''
+  return value || DEFAULT_TERMINAL_FONT_FAMILY
+}
+
+/** Read the base xterm font size before canvas zoom render scaling is applied. */
+export function getTerminalBaseFontSize(): number {
+  return resolveTerminalFontSize(useSettingsStore.getState().terminalFontSize)
+}
+
+export function resolveTerminalFontSize(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_TERMINAL_FONT_SIZE
+  return Math.max(1, Math.min(raw, 32))
+}
+
 /** Read the configured scrollback limit, clamped to a sane range. */
 export function getScrollback(): number {
   const raw = useSettingsStore.getState().terminalScrollback
@@ -83,6 +106,18 @@ export function applyCursorBlinkToAll(blink: boolean): void {
   }
 }
 
+/** Apply terminal font settings to every live terminal. */
+export function applyFontSettingsToAll(fontFamily: string, fontSize: number): void {
+  for (const entry of registry.values()) {
+    try {
+      entry.terminal.options.fontFamily = fontFamily
+      entry.terminal.options.fontSize = fontSize
+    } catch {
+      /* terminal mid-dispose — ignore */
+    }
+  }
+}
+
 /** Apply a scroll-speed multiplier (xterm `scrollSensitivity`) to every live terminal. */
 export function applyScrollSensitivityToAll(value: number): void {
   for (const entry of registry.values()) {
@@ -128,11 +163,20 @@ subscribeTheme((theme) => {
 
 // Live-apply terminal settings (cursor-blink toggle, scroll speed, Option-as-Meta)
 // so changes are visible without a reload.
+let lastFontFamily = getTerminalFontFamily()
+let lastFontSize = getTerminalBaseFontSize()
 let lastCursorBlink = getCursorBlink()
 let lastScrollSensitivity = getScrollSensitivity()
 let lastContrastRatio = getContrastRatio()
 let lastOptionIsMeta = getOptionIsMeta()
 useSettingsStore.subscribe((state) => {
+  const fontFamily = resolveTerminalFontFamily(state.terminalFontFamily)
+  const fontSize = resolveTerminalFontSize(state.terminalFontSize)
+  if (fontFamily !== lastFontFamily || fontSize !== lastFontSize) {
+    lastFontFamily = fontFamily
+    lastFontSize = fontSize
+    applyFontSettingsToAll(fontFamily, fontSize)
+  }
   const cursorBlink = state.terminalCursorBlink === true
   if (cursorBlink !== lastCursorBlink) {
     lastCursorBlink = cursorBlink

@@ -24,6 +24,7 @@ export interface CanvasOperations {
     panelId: string,
     panelType: PanelType,
     onCancelled: (panelId: string) => void,
+    size?: Size,
   ) => boolean
   removeNodeForPanel: (panelId: string) => void
   loadWorkspaceCanvas: (
@@ -50,8 +51,9 @@ export function createCanvasOps(storeApi: StoreApi<CanvasStore>): CanvasOperatio
       panelId: string,
       panelType: PanelType,
       onCancelled: (panelId: string) => void,
+      size?: Size,
     ) {
-      return storeApi.getState().beginPlacement(panelId, panelType, onCancelled)
+      return storeApi.getState().beginPlacement(panelId, panelType, onCancelled, size)
     },
 
     removeNodeForPanel(panelId: string) {

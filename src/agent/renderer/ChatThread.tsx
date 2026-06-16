@@ -17,8 +17,8 @@ import {
 } from '@phosphor-icons/react'
 import type { AgentMessage, RetryState } from './agentStore'
 import { MessageRow } from './ChatMessageRow'
-import { ApprovalCard } from './ChatApprovalCard'
 import { LoadingIndicator } from './ChatMarkdown'
+import { Tooltip } from '../../renderer/ui/Tooltip'
 
 // Per-conversation scroll memory — survives the dock-tab unmount/remount cycle.
 // Transient UI state, intentionally module-level (not persisted to disk/store).
@@ -26,8 +26,6 @@ const scrollMemory = new Map<string, { top: number; atBottom: boolean }>()
 
 interface ChatThreadProps {
   messages: AgentMessage[]
-  pendingApprovals: { toolCallId: string; toolName: string; args: unknown }[]
-  onApproval: (toolCallId: string, decision: 'allow' | 'deny') => void
   /** Agent is busy. Used to show a "thinking" indicator in the gap between the
    *  user's send and the first assistant token. */
   running: boolean
@@ -48,7 +46,7 @@ interface ChatThreadProps {
   scrollKey: string
 }
 
-export function ChatThread({ messages, pendingApprovals, onApproval, running, forkMap, onFork, onEditResend, onImplementPlan, onRefinePlan, onClearAndImplement, retry, onAbortRetry, scrollKey }: ChatThreadProps) {
+export function ChatThread({ messages, running, forkMap, onFork, onEditResend, onImplementPlan, onRefinePlan, onClearAndImplement, retry, onAbortRetry, scrollKey }: ChatThreadProps) {
   useRenderCount('ChatThread')
   const scrollRef = useRef<HTMLDivElement>(null)
   // Button visibility — init true so it never flashes before the first measure.
@@ -207,27 +205,21 @@ export function ChatThread({ messages, pendingApprovals, onApproval, running, fo
           />
         )
       })}
-      {pendingApprovals.map((req) => (
-        <ApprovalCard
-          key={req.toolCallId}
-          req={req}
-          onDecide={(decision) => onApproval(req.toolCallId, decision)}
-        />
-      ))}
       {showLoading && <LoadingIndicator />}
       {retry && (retry.active || retry.finalError) && (
         <RetryIndicator state={retry} onAbort={onAbortRetry} />
       )}
     </div>
     {!atBottom && (
-      <button
-        onClick={() => { scrollToBottom(true); setAtBottom(true) }}
-        title="Scroll to bottom"
-        aria-label="Scroll to bottom"
-        className="absolute bottom-3 right-3 z-10 p-2 rounded-full bg-surface-2 border border-strong text-muted hover:text-primary shadow-lg cate-fade-in"
-      >
-        <ArrowDown size={14} weight="bold" />
-      </button>
+      <Tooltip label="Scroll to bottom" placement="top">
+        <button
+          onClick={() => { scrollToBottom(true); setAtBottom(true) }}
+          aria-label="Scroll to bottom"
+          className="absolute bottom-3 right-3 z-10 p-2 rounded-full bg-surface-2 border border-strong text-muted hover:text-primary shadow-lg cate-fade-in"
+        >
+          <ArrowDown size={14} weight="bold" />
+        </button>
+      </Tooltip>
     )}
     </div>
   )

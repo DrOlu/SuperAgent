@@ -20,14 +20,15 @@ import { getAgentLogo } from '../lib/agent/agentLogos'
 import { workspaceDisplayName } from '../lib/fs/displayPath'
 import { workspaceRuntime } from '../lib/workspace/workspaceRuntime'
 import { InlineEditInput } from './InlineEditInput'
+import { Tooltip } from '../ui/Tooltip'
 
 // -----------------------------------------------------------------------------
-// Companion status dot — surfaces a remote workspace's connection state in the
+// Runtime status dot — surfaces a remote workspace's connection state in the
 // sidebar and offers the matching one-click recovery. Driven by the canonical
 // workspaceRuntime status (shared with the canvas lock overlay).
 // -----------------------------------------------------------------------------
 
-function CompanionDot({ workspace }: { workspace: WorkspaceState }): JSX.Element | null {
+function RuntimeDot({ workspace }: { workspace: WorkspaceState }): JSX.Element | null {
   const { status, error } = workspaceRuntime(workspace)
   // Only remote, non-connected states get a dot.
   if (status === 'local' || status === 'connected') return null
@@ -35,18 +36,18 @@ function CompanionDot({ workspace }: { workspace: WorkspaceState }): JSX.Element
   const busy = status === 'installing' || status === 'connecting'
   const color = busy ? 'bg-amber-400 animate-pulse' : 'bg-red-500 hover:ring-2 hover:ring-red-500/40'
   const title =
-    status === 'installing' ? 'Installing companion…'
-    : status === 'connecting' ? 'Connecting to companion…'
-    : status === 'disconnected' ? `Companion disconnected${error ? `: ${error}` : ''}. Click to reconnect.`
-    : status === 'missing' ? `Companion not installed${error ? `: ${error}` : ''}. Click to install.`
-    : `Companion not reachable${error ? `: ${error}` : ''}. Click to retry.`
+    status === 'installing' ? 'Installing runtime…'
+    : status === 'connecting' ? 'Connecting to runtime…'
+    : status === 'disconnected' ? `Runtime disconnected${error ? `: ${error}` : ''}. Click to reconnect.`
+    : status === 'missing' ? `Runtime not installed${error ? `: ${error}` : ''}. Click to install.`
+    : `Runtime not reachable${error ? `: ${error}` : ''}. Click to retry.`
 
   const onClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
     if (busy) return
     const app = useAppStore.getState()
-    if (status === 'missing') void app.installCompanion(workspace.id)
-    else void app.retryCompanion(workspace.id)
+    if (status === 'missing') void app.installRuntime(workspace.id)
+    else void app.retryRuntime(workspace.id)
   }
 
   return (
@@ -208,6 +209,9 @@ interface WorkspaceTabProps {
   workspace: WorkspaceState
   isSelected: boolean
   isMultiSelected?: boolean
+  /** Expansion is owned by ProjectList so its header can expand/collapse all. */
+  isExpanded: boolean
+  onToggleExpand: () => void
   onClick: (e?: React.MouseEvent) => void
   onClose: () => void
   onBulkContextMenu?: (e: React.MouseEvent) => Promise<boolean>
@@ -217,6 +221,8 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
   workspace,
   isSelected,
   isMultiSelected = false,
+  isExpanded,
+  onToggleExpand,
   onClick,
   onClose,
   onBulkContextMenu,
@@ -280,7 +286,6 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
     return out
   }, [portsByPty])
 
-  const [isExpanded, setIsExpanded] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const [isContextActive, setIsContextActive] = useState(false)
@@ -628,7 +633,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
           className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted hover:text-primary focus:outline-none"
           onClick={(e) => {
             e.stopPropagation()
-            if (treeCount > 0) setIsExpanded((v) => !v)
+            if (treeCount > 0) onToggleExpand()
           }}
           title={treeCount > 0 ? (isExpanded ? 'Collapse' : 'Expand') : undefined}
           disabled={treeCount === 0}
@@ -670,10 +675,10 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
           </span>
         )}
 
-        {/* Companion connection indicator (remote workspaces only). Reads the
+        {/* Runtime connection indicator (remote workspaces only). Reads the
             same canonical runtime status as the canvas lock, so the dot and the
             overlay never disagree. */}
-        <CompanionDot workspace={workspace} />
+        <RuntimeDot workspace={workspace} />
 
         {/* Panel count badge (only when collapsed and has panels) */}
         {treeCount > 0 && !isExpanded && (
@@ -683,13 +688,15 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
         )}
 
         {/* Hover actions: dots menu (rename happens via clicking the title) */}
-        <button
-          className="flex-shrink-0 w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-80 hover:!opacity-100 text-secondary hover:text-primary transition-opacity focus:outline-none"
-          onClick={(e) => { e.stopPropagation(); handleContextMenu(e) }}
-          title="More actions"
-        >
-          <DotsThree size={14} weight="bold" />
-        </button>
+        <Tooltip label="More actions">
+          <button
+            className="flex-shrink-0 w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-80 hover:!opacity-100 text-secondary hover:text-primary transition-opacity focus:outline-none"
+            onClick={(e) => { e.stopPropagation(); handleContextMenu(e) }}
+            aria-label="More actions"
+          >
+            <DotsThree size={14} weight="bold" />
+          </button>
+        </Tooltip>
       </div>
 
       {/* Tree of canvases + panels (when expanded) */}

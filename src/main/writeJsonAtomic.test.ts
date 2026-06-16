@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -75,5 +75,62 @@ describe('writeJsonAtomic', () => {
     const p = path.join(dir, 'raw.txt')
     writeTextAtomicSync(p, 'hello world')
     expect(fs.readFileSync(p, 'utf-8')).toBe('hello world')
+  })
+
+  it('concurrent writes to the same path do not corrupt via a shared tmp', async () => {
+    const p = path.join(dir, 'concurrent.json')
+    // A fixed `<file>.tmp` would let one write consume the tmp while another's
+    // rename races it, ending in ENOENT or an interleaved/corrupt file. With
+    // per-write unique tmp names every rename is independent.
+    await Promise.all(Array.from({ length: 20 }, (_, i) => writeJsonAtomic(p, { i })))
+    // Exactly one valid final file, parseable, and no orphaned tmp files remain.
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf-8'))
+    expect(typeof parsed.i).toBe('number')
+    expect(parsed.i).toBeGreaterThanOrEqual(0)
+    expect(parsed.i).toBeLessThan(20)
+    const leftovers = fs.readdirSync(dir).filter((f) => f.includes('.tmp'))
+    expect(leftovers).toEqual([])
+  })
+
+  it('each write uses a distinct tmp name (no fixed <file>.tmp collision)', async () => {
+    const p = path.join(dir, 'unique.json')
+    const seen = new Set<string>()
+    // Spy on rename to capture the tmp filename each write hands off.
+    const realRename = fs.promises.rename.bind(fs.promises)
+    const spy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      seen.add(String(from))
+      return realRename(from, to)
+    })
+    try {
+      await Promise.all(Array.from({ length: 5 }, (_, i) => writeJsonAtomic(p, { i })))
+    } finally {
+      spy.mockRestore()
+    }
+    expect(seen.size).toBe(5) // five distinct tmp paths, none equal to <file>.tmp
+    expect([...seen].some((f) => f === p + '.tmp')).toBe(false)
+  })
+
+  it('retries transient EPERM renames on win32 (concurrent replace race)', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const realRename = fs.promises.rename.bind(fs.promises)
+    let failuresLeft = 2
+    const spy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if (failuresLeft-- > 0) {
+        const err = new Error('EPERM: operation not permitted, rename') as NodeJS.ErrnoException
+        err.code = 'EPERM'
+        throw err
+      }
+      return realRename(from, to)
+    })
+    try {
+      const p = path.join(dir, 'retry.json')
+      await writeJsonAtomic(p, { ok: 1 })
+      expect(JSON.parse(fs.readFileSync(p, 'utf-8'))).toEqual({ ok: 1 })
+      expect(spy).toHaveBeenCalledTimes(3)
+    } finally {
+      spy.mockRestore()
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+    }
   })
 })

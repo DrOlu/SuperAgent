@@ -32,6 +32,13 @@ export interface CommitContext {
   /** Same-window move hook — arms the terminal registry so a remounted
    *  TerminalPanel reconnects to the live PTY instead of spawning a fresh one. */
   prepareLocalRemount?: (panelId: string, panelType: PanelType) => void
+  /** Hold the drag source hidden while the detach commit's IPC round-trips are
+   *  in flight — the drag state is already reset by then, so without this the
+   *  source flashes at its pre-drag position until removal lands. Called
+   *  synchronously before the commit's first await; `end` is guaranteed via
+   *  finally (source removed, or detach refused and the source reappears). */
+  beginPendingDetach?: (panelId: string, nodeId: string | null) => void
+  endPendingDetach?: (panelId: string) => void
 }
 
 export async function commitDrop(
@@ -89,33 +96,44 @@ export async function commitDrop(
     }
 
     case 'detach': {
-      // Ask the main process whether any other window claimed the cross-window
-      // drag. If so, just clean up the source.
-      const { claimed } = await ctx.crossWindowResolve()
-      if (claimed) {
-        removeFromSource(source, panel.type, ctx)
-        ctx.onRemovedFromCanvas?.(source.panelId, panel.type)
+      // The awaits below are real IPC round-trips, and the drag state has
+      // already been reset — keep the source hidden until removal (or refusal)
+      // so it doesn't flash at its pre-drag position in between.
+      ctx.beginPendingDetach?.(
+        source.panelId,
+        source.origin.kind === 'canvas-node' ? source.origin.nodeId : null,
+      )
+      try {
+        // Ask the main process whether any other window claimed the
+        // cross-window drag. If so, just clean up the source.
+        const { claimed } = await ctx.crossWindowResolve()
+        if (claimed) {
+          removeFromSource(source, panel.type, ctx)
+          ctx.onRemovedFromCanvas?.(source.panelId, panel.type)
+          return
+        }
+        // No window claimed. Panel-window sources are already in their own
+        // detached window — spawning ANOTHER detached window would be
+        // surprising, so just cancel the drag and leave the source as-is.
+        if (source.origin.kind === 'panel-window') {
+          ctx.crossWindowCancel()
+          return
+        }
+        // Otherwise: spawn a new dock window holding the panel.
+        const snapshot = ctx.buildSnapshot()
+        if (!snapshot) {
+          ctx.crossWindowCancel()
+          return
+        }
+        const winId = await ctx.dragDetach(snapshot, ctx.workspaceId)
+        if (winId != null) {
+          removeFromSource(source, panel.type, ctx)
+          ctx.onRemovedFromCanvas?.(source.panelId, panel.type)
+        }
         return
+      } finally {
+        ctx.endPendingDetach?.(source.panelId)
       }
-      // No window claimed. Panel-window sources are already in their own
-      // detached window — spawning ANOTHER detached window would be
-      // surprising, so just cancel the drag and leave the source as-is.
-      if (source.origin.kind === 'panel-window') {
-        ctx.crossWindowCancel()
-        return
-      }
-      // Otherwise: spawn a new dock window holding the panel.
-      const snapshot = ctx.buildSnapshot()
-      if (!snapshot) {
-        ctx.crossWindowCancel()
-        return
-      }
-      const winId = await ctx.dragDetach(snapshot, ctx.workspaceId)
-      if (winId != null) {
-        removeFromSource(source, panel.type, ctx)
-        ctx.onRemovedFromCanvas?.(source.panelId, panel.type)
-      }
-      return
     }
   }
 }

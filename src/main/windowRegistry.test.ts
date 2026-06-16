@@ -107,14 +107,16 @@ describe('getWindowWorkspaceId', () => {
     expect(getWindowWorkspaceId(dock.id)).toBe('workspace-abc')
   })
 
-  it('dock-state sync sets the window workspace id (single source of truth)', () => {
-    const dock = register('dock')
+  it('dock-state sync can NOT change the window workspace id (creation is the single source of truth)', () => {
+    const dock = register('dock', 'ws-created')
+    // A stale renderer might still echo a workspaceId (e.g. its process-local
+    // stub) — it must be ignored, or the window would drop out of session.json.
     setDockWindowState(dock.id, {
       dockState: { zones: {} } as never,
       panels: {},
       workspaceId: 'synced-ws',
-    })
-    expect(getWindowWorkspaceId(dock.id)).toBe('synced-ws')
+    } as never)
+    expect(getWindowWorkspaceId(dock.id)).toBe('ws-created')
   })
 
   it('returns undefined for an unknown window', () => {
@@ -168,13 +170,12 @@ describe('listDockWindows', () => {
   }
 
   it('round-trips a populated dockState set via setDockWindowState', () => {
-    const dock = register('dock')
+    const dock = register('dock', 'ws-dock')
     dock.bounds = { x: 120, y: 80, width: 900, height: 700 }
 
     setDockWindowState(dock.id, {
       dockState: tabsDockState() as never,
       panels: { p1: { id: 'p1', type: 'terminal', title: 'zsh', isDirty: false } } as never,
-      workspaceId: 'ws-dock',
       terminalCwds: { p1: '/work/p1' },
     })
 

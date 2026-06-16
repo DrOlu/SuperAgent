@@ -2,14 +2,14 @@ appId: ng.hyperspace.superagent
 productName: SuperAgent
 directories:
   output: release
-# The cate-companion daemon is NOT bundled in the app. One self-contained
+# The cate-runtime daemon is NOT bundled in the app. One self-contained
 # tarball per target is built in CI and uploaded to the GitHub release
 # `v<version>`; on connect the remote pulls its own tarball (with a client-side
-# fallback). See companionArtifacts.ts + .github/workflows/release.yml.
+# fallback). See runtimeArtifacts.ts + .github/workflows/release.yml.
 #
 # @earendil-works/pi-coding-agent (the agent runtime, ~271MB) is NO LONGER
 # bundled — it's a devDependency, shipped on demand as the cate-pi tarball and
-# run by the companion (local or remote). See build-pi-tarball.mjs + ensurePi.ts.
+# run by the runtime (local or remote). See build-pi-tarball.mjs + ensurePi.ts.
 # @earendil-works/pi-ai stays a production dependency (authManager uses /oauth
 # for cate's own login flow) and is unpacked here. The @earendil-works glob now
 # only matches pi-ai + pi-agent-core. Its pure-JS SDK closure (AWS/Google/Mistral/
@@ -54,13 +54,19 @@ extraResources:
     to: skills
     filter:
       - "**/*"
-  # Ship the host-target companion tarball under a fixed name so the packaged
-  # LOCAL workspace can run the same daemon tarball as remote hosts (resolved at
-  # runtime via shippedCompanionTarball() → resources/companion-host.tgz).
-  # scripts/package.mjs always produces this file before electron-builder runs
-  # (copying cate-companion-<version>-<target>.tgz → companion-host.tgz).
-  - from: dist-companion/companion-host.tgz
-    to: companion-host.tgz
+  # Ship the runtime daemon tarball(s) so the packaged LOCAL workspace runs the
+  # same daemon as remote hosts. Linux/Windows stage one host-arch
+  # runtime-host.tgz; macOS stages BOTH runtime-host-x64.tgz (Intel) and
+  # runtime-host-arm64.tgz, because one .app can run on either CPU and the
+  # daemon's bundled node + node-pty are arch-specific (an arm64 daemon can't
+  # exec on Intel → terminal never opens). Resolved at runtime by
+  # shippedRuntimeTarball() → resources/runtime-host-<arch>.tgz (legacy
+  # resources/runtime-host.tgz fallback). The glob copies whatever this runner
+  # staged without erroring on the arches it didn't build (see release.yml).
+  - from: dist-runtime
+    to: .
+    filter:
+      - runtime-host*.tgz
 publish:
   provider: github
   owner: DrOlu

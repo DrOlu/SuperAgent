@@ -112,15 +112,18 @@ export function getActiveCanvasOps(): CanvasOperations | null {
 /** Placement for a keyboard-created panel (Cmd+T / Cmd+N / …) based on the
  *  canonical active panel. A docked active panel → tab into its exact stack (so
  *  a split lands in the focused pane, not the zone's first stack). A canvas
- *  active panel (or none) → undefined, the default canvas placement. */
+ *  active panel → pinned to THAT canvas; none → undefined, the default
+ *  (primary) canvas placement. */
 export function placementForActivePanel(): PanelPlacement | undefined {
   const activeId = getActivePanelId()
   if (!activeId) return undefined
   // A canvas is itself a center-zone dock tab, so it HAS a dock location — but a
   // create while a canvas is active must land ON the canvas, not as a sibling
   // tab beside it. Canvas panels register ops, so the registry distinguishes
-  // them; treat them as the default (canvas) placement.
-  if (canvasOpsRegistry.has(activeId)) return undefined
+  // them. Pin to the active canvas explicitly: the unpinned default routes to
+  // the workspace's PRIMARY canvas, which is the wrong (hidden) one whenever a
+  // secondary canvas tab is active.
+  if (canvasOpsRegistry.has(activeId)) return { target: 'canvas', canvasPanelId: activeId }
   const workspaceId = useAppStore.getState().selectedWorkspaceId
   const location = getWorkspaceDockStore(workspaceId)?.getState().getPanelLocation(activeId)
   if (location?.type === 'dock') {

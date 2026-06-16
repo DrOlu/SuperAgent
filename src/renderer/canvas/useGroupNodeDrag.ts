@@ -9,6 +9,7 @@
 import React, { useCallback } from 'react'
 import type { Point } from '../../shared/types'
 import type { useCanvasStoreApi } from '../stores/CanvasStoreContext'
+import { acquireBodyClass, releaseBodyClass } from '../lib/dom/bodyClassRefcount'
 
 const DEAD_ZONE_PX = 4
 
@@ -49,7 +50,7 @@ export function useGroupNodeDrag(
           if (Math.hypot(dxClient, dyClient) < DEAD_ZONE_PX) return
           moved = true
           wasDragged.current = true
-          document.body.classList.add('canvas-interacting')
+          acquireBodyClass('canvas-interacting')
         }
         // History once, on the first real movement.
         if (!pushed) {
@@ -64,17 +65,41 @@ export function useGroupNodeDrag(
         }
       }
 
-      const onUp = () => {
+      // The selection translate is anchored to a single zoom snapshotted at
+      // mousedown; letting a wheel zoom/pan the world mid-drag would slide the
+      // selection off the cursor. Swallow wheel input for the gesture's life.
+      const onWheel = (ev: WheelEvent) => {
+        ev.preventDefault()
+        ev.stopPropagation()
+      }
+
+      const teardown = () => {
         window.removeEventListener('mousemove', onMove, true)
         window.removeEventListener('mouseup', onUp, true)
-        document.body.classList.remove('canvas-interacting')
+        window.removeEventListener('blur', onBlur)
+        window.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
+        if (moved) releaseBodyClass('canvas-interacting')
+      }
+
+      const onUp = () => {
+        teardown()
         // Keep wasDragged true through the click that fires after mouseup, then
         // clear it so a later plain click can select again.
         if (moved) setTimeout(() => { wasDragged.current = false }, 0)
       }
 
+      // Cmd+Tab (or any window blur) mid-drag fires no mouseup. Without this the
+      // capture listeners stay attached and keep translating the selection on
+      // every buttonless mousemove once the user returns. Tear down and clear.
+      const onBlur = () => {
+        teardown()
+        if (moved) wasDragged.current = false
+      }
+
       window.addEventListener('mousemove', onMove, true)
       window.addEventListener('mouseup', onUp, true)
+      window.addEventListener('blur', onBlur)
+      window.addEventListener('wheel', onWheel, { capture: true, passive: false })
       // Prevent the press from kicking off the single-node drag/focus path; the
       // following click still fires (so a no-drag press collapses to one node).
       e.preventDefault()

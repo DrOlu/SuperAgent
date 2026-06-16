@@ -11,12 +11,14 @@ import {
   WORKSPACE_EXTERNAL_EDIT_DISMISS,
 } from '../shared/ipc-channels'
 import { holdsProjectLock, acquireProjectLock } from './projectLock'
+import { isPlainObject } from './jsonUtils'
+import { quarantineCorruptFile } from './quarantineCorruptFile'
 import type { ProjectWorkspaceFile, ProjectSessionFile } from '../shared/types'
 import { toRelativePath } from '../shared/pathUtils'
 import { broadcastToAll } from './windowRegistry'
 import { ensureCateGitignore, CATE_GITIGNORE_CONTENT } from './cateGitignore'
-import { parseLocator, isLocalLocator } from './companion/locator'
-import { companions } from './companion/companionManager'
+import { parseLocator, isLocalLocator } from './runtime/locator'
+import { runtimes } from './runtime/runtimeManager'
 
 const CATE_DIR = '.cate'
 const WORKSPACE_FILE = 'workspace.json'
@@ -126,10 +128,19 @@ function atomicWriteSync(filePath: string, json: string): void {
 }
 
 async function tryReadJson<T>(filePath: string): Promise<T | null> {
+  let data: string
   try {
-    const data = await fs.readFile(filePath, 'utf-8')
+    data = await fs.readFile(filePath, 'utf-8')
+  } catch {
+    return null
+  }
+  try {
     return JSON.parse(data) as T
   } catch {
+    // The file exists but is unparseable: quarantine it so the broken content
+    // survives for recovery (the .bak tier handles the actual load fallback).
+    const backup = quarantineCorruptFile(filePath)
+    log.warn('Corrupt JSON at %s%s; ignoring', filePath, backup ? `, backed up to ${backup}` : '')
     return null
   }
 }
@@ -152,34 +163,74 @@ function workspaceNodeCount(data: unknown): number {
 
 // True when writing `incomingNodeCount` nodes over the workspace.json at
 // `rootPath` would replace a non-empty saved canvas with an empty one — the
-// issue #220 data-loss footgun. The sync read keeps the quit-time fallback
-// (saveProjectStateSync) honest without an await.
+// issue #220 data-loss footgun. The async variant reads the richest of
+// primary/.bak so a momentarily-empty primary still counts the .bak's nodes;
+// the sync variant keeps the quit-time fallback (saveProjectStateSync) honest
+// without an await.
+async function wouldEmptyOverwriteWorkspace(rootPath: string, incomingNodeCount: number): Promise<boolean> {
+  if (incomingNodeCount > 0) return false
+  const existing = await readWorkspaceWithFallback(workspacePath(rootPath))
+  return workspaceNodeCount(existing) > 0
+}
+
 function wouldEmptyOverwriteWorkspaceSync(rootPath: string, incomingNodeCount: number): boolean {
   if (incomingNodeCount > 0) return false
   try {
     const existing = JSON.parse(fsSync.readFileSync(workspacePath(rootPath), 'utf-8'))
-    return workspaceNodeCount(existing) > 0
+    if (workspaceNodeCount(existing) > 0) return true
+  } catch {
+    /* primary missing/corrupt — fall through to the .bak check */
+  }
+  // The primary may already have been emptied by an earlier live write; the
+  // rich canvas survives in .bak. Consult it so the quit-time flush never
+  // copies an empty primary over a good .bak.
+  try {
+    const bak = JSON.parse(fsSync.readFileSync(workspacePath(rootPath) + '.bak', 'utf-8'))
+    return workspaceNodeCount(bak) > 0
   } catch {
     return false
   }
 }
 
-async function tryReadWithFallback<T>(filePath: string): Promise<T | null> {
+// Recovery tiers are primary then .bak. The writers (atomicWrite/atomicWriteSync)
+// no longer leave a fixed `<file>.tmp` behind — they uniquify each tmp as
+// `<file>.<pid>.<seq>.tmp` — so reading that stale name only ever found nothing.
+// When a validator is given, a parseable-but-invalid primary also falls through
+// to the .bak tier instead of masking a still-good backup.
+async function tryReadWithFallback<T>(filePath: string, isValid?: (v: unknown) => boolean): Promise<T | null> {
   const result = await tryReadJson<T>(filePath)
-  if (result) return result
-  const tmp = await tryReadJson<T>(filePath + '.tmp')
-  if (tmp) return tmp
-  return tryReadJson<T>(filePath + '.bak')
+  if (result && (!isValid || isValid(result))) return result
+  const bak = await tryReadJson<T>(filePath + '.bak')
+  if (bak && (!isValid || isValid(bak))) return bak
+  return null
+}
+
+// Sweep orphaned `<file>.<pid>.<seq>.tmp` files next to `filePath`. A crash
+// between writeFile and rename can leave these behind; they're never re-read
+// (recovery is primary/.bak), so left alone they'd accumulate forever.
+async function cleanOrphanedTmpFiles(filePath: string): Promise<void> {
+  const dir = path.dirname(filePath)
+  const base = path.basename(filePath)
+  const tmpPattern = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.\\d+\\.\\d+\\.tmp$`)
+  try {
+    const entries = await fs.readdir(dir)
+    await Promise.all(
+      entries
+        .filter((name) => tmpPattern.test(name))
+        .map((name) => fs.unlink(path.join(dir, name)).catch(() => {})),
+    )
+  } catch {
+    /* dir gone or unreadable — nothing to sweep */
+  }
 }
 
 // Workspace-aware read (issue #220): the plain primary file can be a valid but
 // *empty* canvas left behind by a wipe. When that happens, prefer the richer of
-// primary / .tmp / .bak so a previously-wiped workspace still recovers its
-// panels on the next load instead of perpetuating the empty state.
+// primary / .bak so a previously-wiped workspace still recovers its panels on
+// the next load instead of perpetuating the empty state.
 async function readWorkspaceWithFallback(filePath: string): Promise<ProjectWorkspaceFile | null> {
   const candidates = await Promise.all([
     tryReadJson<ProjectWorkspaceFile>(filePath),
-    tryReadJson<ProjectWorkspaceFile>(filePath + '.tmp'),
     tryReadJson<ProjectWorkspaceFile>(filePath + '.bak'),
   ])
   let best: ProjectWorkspaceFile | null = null
@@ -195,52 +246,86 @@ async function readWorkspaceWithFallback(filePath: string): Promise<ProjectWorks
 }
 
 function isValidWorkspace(data: unknown): data is ProjectWorkspaceFile {
-  if (!data || typeof data !== 'object') return false
-  const obj = data as Record<string, unknown>
+  if (!isPlainObject(data)) return false
   // workspace.json carries the shareable name/color; session.json does not —
   // that's what tells the two version-1 files apart.
-  return obj.version === 1 && typeof obj.name === 'string' && typeof obj.color === 'string'
+  if (data.version !== 1 || typeof data.name !== 'string' || typeof data.color !== 'string') return false
+  // workspace.json is committable and hand-editable, so also check the container
+  // shapes the restore code dereferences. A structurally broken file degrades to
+  // the .bak tier instead of flowing malformed entries into the renderer (or
+  // crashing workspaceNodeCount on e.g. a null canvases entry).
+  if (data.dockState !== undefined) {
+    if (!isPlainObject(data.dockState) || !isPlainObject(data.dockState.zones)) return false
+  }
+  if (data.panels !== undefined) {
+    if (!isPlainObject(data.panels)) return false
+    for (const ref of Object.values(data.panels)) {
+      if (!isPlainObject(ref) || typeof ref.type !== 'string') return false
+    }
+  }
+  if (data.canvases !== undefined) {
+    if (!isPlainObject(data.canvases)) return false
+    for (const canvas of Object.values(data.canvases)) {
+      if (!isPlainObject(canvas)) return false
+      if (canvas.canvasNodes !== undefined && !isPlainObject(canvas.canvasNodes)) return false
+    }
+  }
+  return true
 }
 
 function isValidSession(data: unknown): data is ProjectSessionFile {
-  if (!data || typeof data !== 'object') return false
-  const obj = data as Record<string, unknown>
-  return obj.version === 1 && obj.panels != null
+  if (!isPlainObject(data)) return false
+  if (data.version !== 1 || !isPlainObject(data.panels)) return false
+  for (const panel of Object.values(data.panels)) {
+    if (!isPlainObject(panel)) return false
+  }
+  if (data.dockWindows !== undefined) {
+    if (!Array.isArray(data.dockWindows)) return false
+    for (const dw of data.dockWindows) {
+      if (!isPlainObject(dw) || !isPlainObject(dw.panels)) return false
+    }
+  }
+  if (data.worktrees !== undefined && !Array.isArray(data.worktrees)) return false
+  return true
 }
 
-export async function saveProjectState(
+// Core local save: serializes the per-root write and applies both disk-boundary
+// guards (external-edit + issue #220 empty-overwrite) before touching
+// workspace.json. The live PROJECT_STATE_SAVE handler is the only caller; it
+// records `lastSavedProjectStates` / acquires the project lock first, then
+// hands the queued write here. Exposed for the production-path tests.
+export async function saveProjectStateLocal(
   rootPath: string,
   workspace: ProjectWorkspaceFile,
   session: ProjectSessionFile,
 ): Promise<void> {
-  // Data-loss backstop (issue #220): never overwrite a non-empty saved canvas
-  // with an empty one. A renderer-side race while activating a deferred
-  // (non-selected) workspace can momentarily serialize an empty canvas; without
-  // this guard that empty snapshot clobbers the good workspace.json/session.json
-  // and the loss is permanent — the empty file is still structurally "valid", so
-  // the .bak fallback is never consulted on the next load. The renderer reads
-  // canvas state straight from the live store (the source of truth), so this
-  // disk-boundary guard is the backstop that also covers deferred/non-selected
-  // workspaces serializing a momentarily-empty canvas.
-  if (workspaceNodeCount(workspace) <= 0) {
-    const existingCount = workspaceNodeCount(await tryReadJson(workspacePath(rootPath)))
-    if (existingCount > 0) {
-      log.warn(
-        'Refusing to overwrite %d-node canvas with an empty one for %s (issue #220 guard)',
-        existingCount,
-        cateDir(rootPath),
-      )
-      return
-    }
-  }
   const wsJson = JSON.stringify(workspace, null, 2)
   const sessJson = JSON.stringify(session, null, 2)
-  await ensureCateGitignore(cateDir(rootPath))
-  await Promise.all([
-    atomicWrite(workspacePath(rootPath), wsJson),
-    atomicWrite(sessionPath(rootPath), sessJson),
-  ])
-  log.debug('Project state saved to %s', cateDir(rootPath))
+  await enqueueSave(rootPath, async () => {
+    await ensureCateGitignore(cateDir(rootPath))
+    // session.json is machine-local and never hand-edited, so always write it.
+    const writes: Promise<void>[] = [atomicWrite(sessionPath(rootPath), sessJson)]
+    if (await workspaceEditedExternallyAsync(rootPath)) {
+      // Hold the overwrite and ask the renderer to prompt for a reload. The
+      // file stays steady until the user reloads or dismisses the prompt.
+      log.info('Skipping workspace.json overwrite for %s — edited externally; prompting reload', cateDir(rootPath))
+      broadcastToAll(WORKSPACE_EXTERNAL_EDIT, { rootPath })
+    } else if (await wouldEmptyOverwriteWorkspace(rootPath, workspaceNodeCount(workspace))) {
+      // Data-loss backstop (issue #220): never overwrite a non-empty saved
+      // canvas with an empty one. A renderer-side race while activating a
+      // deferred (non-selected) workspace can momentarily serialize an empty
+      // canvas; without this guard that empty snapshot clobbers the good
+      // workspace.json and the loss is permanent — the empty file is still
+      // structurally "valid", so the .bak fallback is never consulted on the
+      // next load. This disk-boundary guard is the backstop that also covers
+      // deferred/non-selected workspaces serializing a momentarily-empty canvas.
+      log.warn('Refusing to overwrite a non-empty canvas with an empty one for %s (issue #220 guard)', cateDir(rootPath))
+    } else {
+      writes.push(atomicWrite(workspacePath(rootPath), wsJson).then(() => rememberWorkspaceContent(rootPath, wsJson)))
+    }
+    await Promise.all(writes)
+    log.debug('Project state saved to %s', cateDir(rootPath))
+  })
 }
 
 export async function loadProjectState(rootPath: string): Promise<{
@@ -256,10 +341,15 @@ export async function loadProjectState(rootPath: string): Promise<{
     .readFile(workspacePath(rootPath), 'utf-8')
     .then((raw) => rememberWorkspaceContent(rootPath, raw))
     .catch(() => {})
-  const sess = await tryReadWithFallback<ProjectSessionFile>(sessionPath(rootPath))
+  const sess = await tryReadWithFallback<ProjectSessionFile>(sessionPath(rootPath), isValidSession)
+  // Sweep any orphaned tmp files a crashed write may have left behind.
+  await Promise.all([
+    cleanOrphanedTmpFiles(workspacePath(rootPath)),
+    cleanOrphanedTmpFiles(sessionPath(rootPath)),
+  ])
   return {
     workspace: ws,
-    session: sess && isValidSession(sess) ? sess : null,
+    session: sess,
   }
 }
 
@@ -274,7 +364,7 @@ export function saveProjectStateSync(): void {
         log.info('Skipping workspace.json sync overwrite for %s — edited externally', cateDir(rootPath))
       } else if (wouldEmptyOverwriteWorkspaceSync(rootPath, workspaceNodeCount(JSON.parse(workspace)))) {
         // issue #220 guard: don't let the quit-time fallback flush an empty
-        // canvas over a good one (mirrors the async saveProjectState guard).
+        // canvas over a good one (mirrors the async saveProjectStateLocal guard).
         log.warn('Refusing empty workspace.json sync overwrite for %s (issue #220 guard)', cateDir(rootPath))
       } else {
         atomicWriteSync(workspacePath(rootPath), workspace)
@@ -304,10 +394,10 @@ function enqueueSave(rootPath: string, task: () => Promise<void>): Promise<void>
 }
 
 // ---------------------------------------------------------------------------
-// Remote (cate-companion://) project state.
+// Remote (cate-runtime://) project state.
 //
-// A remote workspace's tree lives on a companion, so its `.cate/` files are
-// written next to the remote repo THROUGH the companion file API — the same
+// A remote workspace's tree lives on a runtime, so its `.cate/` files are
+// written next to the remote repo THROUGH the runtime file API — the same
 // `.cate/workspace.json` + `session.json` layout as local, just over RPC. This
 // is what lets remote and local round-trip identically (open/close/reopen).
 //
@@ -319,10 +409,10 @@ function enqueueSave(rootPath: string, task: () => Promise<void>): Promise<void>
 // ---------------------------------------------------------------------------
 
 function remoteCateTargets(rootPath: string) {
-  const { companionId, path: base } = parseLocator(rootPath)
+  const { runtimeId, path: base } = parseLocator(rootPath)
   const dir = path.posix.join(base, CATE_DIR)
   return {
-    companion: companions.resolve(companionId),
+    runtime: runtimes.resolve(runtimeId),
     cateDir: dir,
     workspaceFile: path.posix.join(dir, WORKSPACE_FILE),
     sessionFile: path.posix.join(dir, SESSION_FILE),
@@ -335,12 +425,12 @@ async function saveProjectStateRemote(
   workspace: ProjectWorkspaceFile,
   session: ProjectSessionFile,
 ): Promise<void> {
-  const { companion, workspaceFile, sessionFile, gitignoreFile } = remoteCateTargets(rootPath)
+  const { runtime, workspaceFile, sessionFile, gitignoreFile } = remoteCateTargets(rootPath)
 
   // Data-loss backstop (issue #220), mirrored for remote: never overwrite a
   // non-empty saved canvas with an empty one.
   if (workspaceNodeCount(workspace) <= 0) {
-    const existing = await companion.file
+    const existing = await runtime.file
       .readFile(workspaceFile)
       .then((raw) => JSON.parse(raw) as unknown)
       .catch(() => null)
@@ -351,13 +441,13 @@ async function saveProjectStateRemote(
   }
 
   // Write-once .gitignore so committable workspace.json is the only shared file.
-  await companion.file
+  await runtime.file
     .stat(gitignoreFile)
-    .catch(() => companion.file.writeFile(gitignoreFile, CATE_GITIGNORE_CONTENT))
+    .catch(() => runtime.file.writeFile(gitignoreFile, CATE_GITIGNORE_CONTENT))
 
   await Promise.all([
-    companion.file.writeFile(workspaceFile, JSON.stringify(workspace, null, 2)),
-    companion.file.writeFile(sessionFile, JSON.stringify(session, null, 2)),
+    runtime.file.writeFile(workspaceFile, JSON.stringify(workspace, null, 2)),
+    runtime.file.writeFile(sessionFile, JSON.stringify(session, null, 2)),
   ])
   log.debug('Remote project state saved to %s', rootPath)
 }
@@ -366,8 +456,8 @@ async function loadProjectStateRemote(rootPath: string): Promise<{
   workspace: ProjectWorkspaceFile
   session: ProjectSessionFile | null
 } | null> {
-  const { companion, workspaceFile, sessionFile } = remoteCateTargets(rootPath)
-  const wsRaw = await companion.file.readFile(workspaceFile).catch(() => null)
+  const { runtime, workspaceFile, sessionFile } = remoteCateTargets(rootPath)
+  const wsRaw = await runtime.file.readFile(workspaceFile).catch(() => null)
   if (!wsRaw) return null
   let ws: unknown
   try {
@@ -377,7 +467,7 @@ async function loadProjectStateRemote(rootPath: string): Promise<{
   }
   if (!isValidWorkspace(ws)) return null
 
-  const sessRaw = await companion.file.readFile(sessionFile).catch(() => null)
+  const sessRaw = await runtime.file.readFile(sessionFile).catch(() => null)
   let sess: ProjectSessionFile | null = null
   if (sessRaw) {
     try {
@@ -394,7 +484,7 @@ export function registerProjectStateHandlers(): void {
   ipcMain.handle(
     PROJECT_STATE_SAVE,
     async (_event, rootPath: string, workspace: ProjectWorkspaceFile, session: ProjectSessionFile) => {
-      // Remote workspaces save `.cate/` on their companion. No local lock,
+      // Remote workspaces save `.cate/` on their runtime. No local lock,
       // sync-fallback, or external-edit guard applies; just serialize per root.
       if (!isLocalLocator(rootPath)) {
         return enqueueSave(rootPath, () =>
@@ -414,21 +504,7 @@ export function registerProjectStateHandlers(): void {
         lastSavedProjectStates.delete(rootPath) // keep the quit-time sync fallback out too
         return
       }
-      await enqueueSave(rootPath, async () => {
-        await ensureCateGitignore(cateDir(rootPath))
-        // session.json is machine-local and never hand-edited, so always write it.
-        const writes: Promise<void>[] = [atomicWrite(sessionPath(rootPath), sessJson)]
-        if (await workspaceEditedExternallyAsync(rootPath)) {
-          // Hold the overwrite and ask the renderer to prompt for a reload. The
-          // file stays steady until the user reloads or dismisses the prompt.
-          log.info('Skipping workspace.json overwrite for %s — edited externally; prompting reload', cateDir(rootPath))
-          broadcastToAll(WORKSPACE_EXTERNAL_EDIT, { rootPath })
-        } else {
-          writes.push(atomicWrite(workspacePath(rootPath), wsJson).then(() => rememberWorkspaceContent(rootPath, wsJson)))
-        }
-        await Promise.all(writes)
-        log.debug('Project state saved to %s', cateDir(rootPath))
-      })
+      await saveProjectStateLocal(rootPath, workspace, session)
     },
   )
 

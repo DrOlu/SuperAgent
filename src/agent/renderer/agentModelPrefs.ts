@@ -18,3 +18,9 @@ export function loadDefaultModel(): AgentModelRef | null {
 export function saveDefaultModel(model: AgentModelRef | null): void {
   useSettingsStore.getState().setSetting('agentDefaultModel', model)
 }
+
+/** Drop every saved model preference that points at a provider the user just
+ *  disconnected, so a stale pick doesn't resurface as a "reconnect" prompt. */
+export function clearModelPrefsForProvider(providerId: string): void {
+  if (loadDefaultModel()?.provider === providerId) saveDefaultModel(null)
+}

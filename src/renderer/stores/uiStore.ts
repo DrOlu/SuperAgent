@@ -263,6 +263,28 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
 }))
 
+// "Show file explorer on launch": the active sidebar view is transient uiStore
+// state (not restored from session), so it starts at the static default above.
+// Settings load asynchronously via IPC after this store is created, so we apply
+// the launch preference once — when settings first finish loading — and only if
+// the user hasn't already opened a view in the meantime. Idempotent across the
+// repeat loadSettings() calls every window makes.
+let launchSidebarViewApplied = false
+function applyLaunchSidebarView(loaded: boolean): void {
+  if (launchSidebarViewApplied || !loaded) return
+  launchSidebarViewApplied = true
+  const { showFileExplorerOnLaunch, sidebarLayout } = useSettingsStore.getState()
+  if (!showFileExplorerOnLaunch) return
+  // Only honor it when 'explorer' actually lives in the left rail and the user
+  // hasn't navigated away from the initial default yet.
+  const left = normalizeSidebarLayout(sidebarLayout).left
+  if (!left.includes('explorer')) return
+  if (useUIStore.getState().activeLeftSidebarView !== 'workspaces') return
+  useUIStore.setState({ activeLeftSidebarView: 'explorer' })
+}
+applyLaunchSidebarView(useSettingsStore.getState()._loaded)
+useSettingsStore.subscribe((s) => applyLaunchSidebarView(s._loaded))
+
 /**
  * Subscribe to the sidebar layout (its single home is settingsStore). Components
  * use this instead of reading a uiStore copy, so there's no hand-sync and no

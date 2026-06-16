@@ -1,7 +1,7 @@
 // =============================================================================
 // AgentSidebar — chat-list rail for AgentPanel: search box, recents grouped by
-// recency, per-row open/delete, and the settings entry. Pure presentation;
-// all state and IPC live in AgentPanel.
+// recency, per-row open/delete, and the settings entry. Pure presentation; all
+// state and IPC live in AgentPanel.
 // =============================================================================
 
 import { useMemo } from 'react'
@@ -12,8 +12,10 @@ import {
   Trash,
   ChatCircleDots,
   MagnifyingGlass,
+  X,
 } from '@phosphor-icons/react'
 import type { AgentSessionListEntry } from '../../shared/types'
+import { Tooltip } from '../../renderer/ui/Tooltip'
 
 export function AgentSidebar({
   chats,
@@ -47,21 +49,25 @@ export function AgentSidebar({
   return (
     <div className="w-[200px] shrink-0 flex flex-col border-r border-subtle bg-surface-0 min-h-0">
       <div className="flex items-center gap-1 px-2 h-10 border-b border-subtle shrink-0">
-        <button
-          onClick={onCollapse}
-          className="p-1.5 rounded-md text-muted hover:text-primary hover:bg-hover"
-          title="Collapse sidebar"
-        >
-          <SidebarIcon size={14} />
-        </button>
+        <Tooltip label="Collapse sidebar">
+          <button
+            onClick={onCollapse}
+            className="p-1.5 rounded-md text-muted hover:text-primary hover:bg-hover"
+            aria-label="Collapse sidebar"
+          >
+            <SidebarIcon size={14} />
+          </button>
+        </Tooltip>
         <div className="flex-1" />
-        <button
-          onClick={onNewChat}
-          className="p-1.5 rounded-md text-agent-light hover:text-primary hover:bg-agent/20"
-          title="New chat"
-        >
-          <Plus size={14} />
-        </button>
+        <Tooltip label="New chat">
+          <button
+            onClick={onNewChat}
+            className="p-1.5 rounded-md text-agent-light hover:text-primary hover:bg-agent/20"
+            aria-label="New chat"
+          >
+            <Plus size={14} />
+          </button>
+        </Tooltip>
       </div>
 
       <div className="px-2 pt-2 pb-2 shrink-0">
@@ -92,8 +98,10 @@ export function AgentSidebar({
                   key={c.path}
                   chat={c}
                   active={c.path === currentSessionFile}
+                  live={openSessionFiles.has(c.path)}
                   onOpen={() => onOpenChat(c.path)}
                   onDelete={() => onDeleteChat(c.path)}
+                  onClose={() => onCloseChat(c.path)}
                 />
               ))}
             </div>
@@ -121,13 +129,17 @@ export function AgentSidebar({
 function ChatRow({
   chat,
   active,
+  live,
   onOpen,
   onDelete,
+  onClose,
 }: {
   chat: AgentSessionListEntry
   active: boolean
+  live: boolean
   onOpen: () => void
   onDelete: () => void
+  onClose: () => void
 }) {
   return (
     <div
@@ -142,14 +154,33 @@ function ChatRow({
       >
         <ChatCircleDots size={11} className={chat.named ? 'text-agent-light shrink-0' : 'text-muted shrink-0'} />
         <span className="truncate text-[11.5px] text-primary">{chat.title}</span>
+        {live && (
+          <span
+            className="ml-auto w-1.5 h-1.5 rounded-full bg-agent-light shrink-0"
+            title="Running in this panel"
+          />
+        )}
       </button>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete() }}
-        className="p-1 rounded-md text-muted hover:text-primary hover:bg-hover-strong opacity-0 group-hover:opacity-100"
-        title="Delete chat"
-      >
-        <Trash size={10} />
-      </button>
+      {live && (
+        <Tooltip label="Close chat (keep on disk)">
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose() }}
+            className="p-1 rounded-md text-muted hover:text-primary hover:bg-hover-strong opacity-0 group-hover:opacity-100"
+            aria-label="Close chat (keep on disk)"
+          >
+            <X size={10} />
+          </button>
+        </Tooltip>
+      )}
+      <Tooltip label="Delete chat">
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          className="p-1 rounded-md text-muted hover:text-primary hover:bg-hover-strong opacity-0 group-hover:opacity-100"
+          aria-label="Delete chat"
+        >
+          <Trash size={10} />
+        </button>
+      </Tooltip>
     </div>
   )
 }

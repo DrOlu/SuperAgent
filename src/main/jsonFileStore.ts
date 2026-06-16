@@ -10,22 +10,32 @@ import path from 'path'
 import { app } from 'electron'
 import log from './logger'
 import { writeJsonAtomicSync, writeTextAtomicSync } from './writeJsonAtomic'
+import { quarantineCorruptFile } from './quarantineCorruptFile'
 
 function fullPath(filename: string): string {
   return path.join(app.getPath('userData'), filename)
 }
 
-/** Read and JSON.parse a file under userData/. Returns the fallback on any failure. */
+/** Read and JSON.parse a file under userData/. Returns the fallback on any
+ *  failure; an unparseable file is quarantined (copied aside as
+ *  `<file>.corrupt-<ts>`) first so the broken content stays recoverable. */
 export function readJsonFile<T>(filename: string, fallback: T): T {
   const p = fullPath(filename)
+  let raw: string
   try {
     if (!fs.existsSync(p)) return fallback
-    const raw = fs.readFileSync(p, 'utf-8')
+    raw = fs.readFileSync(p, 'utf-8')
+  } catch (err) {
+    log.warn('[jsonFileStore] read %s failed: %s', filename, err instanceof Error ? err.message : String(err))
+    return fallback
+  }
+  try {
     const parsed = JSON.parse(raw)
     if (parsed && typeof parsed === 'object') return parsed as T
     return fallback
-  } catch (err) {
-    log.warn('[jsonFileStore] read %s failed: %s', filename, err instanceof Error ? err.message : String(err))
+  } catch {
+    const backup = quarantineCorruptFile(p)
+    log.warn('[jsonFileStore] %s is corrupt%s; using fallback', filename, backup ? `, backed up to ${backup}` : '')
     return fallback
   }
 }

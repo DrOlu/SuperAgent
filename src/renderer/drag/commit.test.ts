@@ -496,3 +496,170 @@ describe('commitDrop — terminal PTY preservation on same-window drags', () => 
     expect(ctx.onRemovedFromCanvas).toHaveBeenCalledWith('p-term', 'terminal')
   })
 })
+
+// -----------------------------------------------------------------------------
+// Edge cases: stale state mid-drag — sources/targets that vanished or broke
+// between resolve and commit must never lose the panel or leak a pending-detach.
+// -----------------------------------------------------------------------------
+
+describe('commitDrop — canvas-on-canvas refusal', () => {
+  it('refuses the drop without touching the source (would silently delete a canvas tab)', async () => {
+    const dock = createMockDockStore()
+    const tgt = createMockCanvasStore()
+    const source: DragSource = {
+      panelId: 'cv-1',
+      origin: { kind: 'dock-tab', dockStoreApi: dock.store, zone: 'center' as never, stackId: 'stack-1' },
+    }
+    const target: DropTarget = {
+      kind: 'canvas-add',
+      canvasStoreApi: tgt.store,
+      origin: { x: 0, y: 0 },
+      size: { width: 400, height: 300 },
+    }
+    await commitDrop(source, target, { id: 'cv-1', type: 'canvas', title: 'Board' }, defaultCtx())
+    expect(dock.state.undockPanel).not.toHaveBeenCalled()
+    expect(tgt.state.addNode).not.toHaveBeenCalled()
+  })
+})
+
+describe('commitDrop — panel-window source onto dock targets', () => {
+  it('dock-tab and dock-split targets are no-ops (own-window dock is impossible)', async () => {
+    const tgtDock = createMockDockStore()
+    const source: DragSource = { panelId: 'panel-1', origin: { kind: 'panel-window' } }
+
+    await commitDrop(
+      source,
+      { kind: 'dock-tab', dockStoreApi: tgtDock.store, stackId: 'stack-T' },
+      panel,
+      defaultCtx(),
+    )
+    await commitDrop(
+      source,
+      { kind: 'dock-split', dockStoreApi: tgtDock.store, stackId: 'stack-T', edge: 'right' },
+      panel,
+      defaultCtx(),
+    )
+
+    expect(tgtDock.state.dockPanel).not.toHaveBeenCalled()
+  })
+})
+
+describe('commitDrop — source vanished mid-drag', () => {
+  it('source dock unmounted (undockPanel throws): swallowed, panel still docks into the target', async () => {
+    const srcDock = createMockDockStore()
+    srcDock.state.undockPanel = vi.fn(() => {
+      throw new Error('source dock unmounted')
+    })
+    const tgtDock = createMockDockStore()
+    const source: DragSource = {
+      panelId: 'panel-1',
+      origin: { kind: 'dock-tab', dockStoreApi: srcDock.store, zone: 'left' as never, stackId: 'stack-S' },
+    }
+    const target: DropTarget = {
+      kind: 'dock-zone',
+      dockStoreApi: tgtDock.store,
+      zone: 'bottom' as never,
+    }
+
+    await commitDrop(source, target, panel, defaultCtx())
+
+    expect(tgtDock.state.dockPanel).toHaveBeenCalledWith('panel-1', 'bottom')
+  })
+
+  it('source canvas store released (reconcile yields null): no crash, target placement still lands', async () => {
+    findCanvasStoreForNodeMock.mockReturnValue(null)
+    const tgtCanvas = createMockCanvasStore()
+    const source: DragSource = {
+      panelId: 'panel-1',
+      // The store was released mid-drag; the session has no store for the node
+      // and the caller-provided handle is gone too.
+      origin: { kind: 'canvas-node', canvasStoreApi: null as never, nodeId: 'node-gone' },
+    }
+    const target: DropTarget = {
+      kind: 'canvas-add',
+      canvasStoreApi: tgtCanvas.store,
+      origin: { x: 0, y: 0 },
+      size: { width: 320, height: 200 },
+    }
+
+    await commitDrop(source, target, panel, defaultCtx())
+
+    expect(tgtCanvas.state.addNode).toHaveBeenCalledWith(
+      'panel-1',
+      'editor',
+      { x: 0, y: 0 },
+      { width: 320, height: 200 },
+    )
+  })
+})
+
+describe('commitDrop — pending-detach pairing under IPC failure', () => {
+  function detachSetup() {
+    const srcCanvas = createMockCanvasStore()
+    findCanvasStoreForNodeMock.mockReturnValue(srcCanvas.store)
+    const source: DragSource = {
+      panelId: 'panel-1',
+      origin: { kind: 'canvas-node', canvasStoreApi: srcCanvas.store, nodeId: 'node-S' },
+    }
+    const target: DropTarget = { kind: 'detach', screen: { x: 999, y: 100 } }
+    const beginPendingDetach = vi.fn()
+    const endPendingDetach = vi.fn()
+    return { srcCanvas, source, target, beginPendingDetach, endPendingDetach }
+  }
+
+  it('crossWindowResolve rejects: endPendingDetach still runs, source untouched', async () => {
+    const { srcCanvas, source, target, beginPendingDetach, endPendingDetach } = detachSetup()
+    const ctx = defaultCtx({
+      crossWindowResolve: vi.fn(async () => {
+        throw new Error('ipc dead')
+      }),
+      beginPendingDetach,
+      endPendingDetach,
+    })
+
+    await expect(commitDrop(source, target, panel, ctx)).rejects.toThrow('ipc dead')
+
+    expect(beginPendingDetach).toHaveBeenCalledWith('panel-1', 'node-S')
+    expect(endPendingDetach).toHaveBeenCalledWith('panel-1')
+    expect(srcCanvas.state.finalizeRemoveNode).not.toHaveBeenCalled()
+  })
+
+  it('dragDetach rejects: endPendingDetach still runs, source untouched', async () => {
+    const { srcCanvas, source, target, beginPendingDetach, endPendingDetach } = detachSetup()
+    const ctx = defaultCtx({
+      crossWindowResolve: vi.fn(async () => ({ claimed: false })),
+      dragDetach: vi.fn(async () => {
+        throw new Error('window spawn failed')
+      }),
+      beginPendingDetach,
+      endPendingDetach,
+    })
+
+    await expect(commitDrop(source, target, panel, ctx)).rejects.toThrow('window spawn failed')
+
+    expect(endPendingDetach).toHaveBeenCalledWith('panel-1')
+    expect(srcCanvas.state.finalizeRemoveNode).not.toHaveBeenCalled()
+  })
+
+  it('dock-tab source passes a null nodeId to beginPendingDetach', async () => {
+    const srcDock = createMockDockStore()
+    const source: DragSource = {
+      panelId: 'panel-1',
+      origin: { kind: 'dock-tab', dockStoreApi: srcDock.store, zone: 'left' as never, stackId: 'stack-S' },
+    }
+    const target: DropTarget = { kind: 'detach', screen: { x: 999, y: 100 } }
+    const beginPendingDetach = vi.fn()
+    const endPendingDetach = vi.fn()
+    const ctx = defaultCtx({
+      crossWindowResolve: vi.fn(async () => ({ claimed: true })),
+      beginPendingDetach,
+      endPendingDetach,
+    })
+
+    await commitDrop(source, target, panel, ctx)
+
+    expect(beginPendingDetach).toHaveBeenCalledWith('panel-1', null)
+    expect(endPendingDetach).toHaveBeenCalledWith('panel-1')
+    expect(srcDock.state.undockPanel).toHaveBeenCalledWith('panel-1')
+  })
+})

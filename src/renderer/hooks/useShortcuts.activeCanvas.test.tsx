@@ -77,7 +77,6 @@ beforeEach(() => {
   ;(window as unknown as { electronAPI: unknown }).electronAPI = {
     onMenuTriggerAction: () => () => {},
     onMenuLoadLayout: () => () => {},
-    onMenuCreatePanel: () => () => {},
   }
 
   // First panel inherits the legacy singleton; the second gets a fresh store.

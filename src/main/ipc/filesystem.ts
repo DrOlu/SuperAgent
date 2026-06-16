@@ -7,11 +7,11 @@ import { ipcMain } from 'electron'
 import log from '../logger'
 import { consumeScopedWriteAllowance, validatePathStrict } from './pathValidation'
 import { wrapHandler } from './handlerError'
-import { parseLocator, formatLocator, LOCAL_COMPANION_ID } from '../companion/locator'
-import type { FsChangeType } from '../companion/types'
-import { companions, resolveLocator } from '../companion/companionManager'
+import { parseLocator, formatLocator, LOCAL_RUNTIME_ID } from '../runtime/locator'
+import type { FsChangeType } from '../runtime/types'
+import { runtimes, resolveLocator } from '../runtime/runtimeManager'
 import { createKeyedDispatcher } from './batchedDispatcher'
-import { uploadEntriesToCompanion } from '../companion/uploadEntries'
+import { uploadEntriesToRuntime } from '../runtime/uploadEntries'
 import {
   FS_READ_FILE,
   FS_WRITE_FILE,
@@ -89,8 +89,8 @@ function pathHasPrefix(filePath: string, prefix: string): boolean {
 
 // -----------------------------------------------------------------------------
 // Leaf filesystem operations live in the electron-free capability module
-// (src/companion/capabilities/file.ts) so the local process and the standalone
-// companion daemon share ONE implementation. Path-only ops are re-exported
+// (src/runtime/capabilities/file.ts) so the local process and the standalone
+// runtime daemon share ONE implementation. Path-only ops are re-exported
 // verbatim; the two ops that need the live `fileExclusions` setting (readDir,
 // searchFiles) and import-entry logging are wrapped below to inject it.
 // -----------------------------------------------------------------------------
@@ -105,13 +105,14 @@ export {
   renameEntry,
   mkdirEntry,
   copyInto,
-} from '../../companion/capabilities/file'
+} from '../../runtime/capabilities/file'
 
 import {
   readDir as capReadDir,
   searchFiles as capSearchFiles,
   importEntriesInto as capImportEntriesInto,
-} from '../../companion/capabilities/file'
+  createFsIgnoreMatcher,
+} from '../../runtime/capabilities/file'
 export function readDir(dirPath: string): Promise<FileTreeNode[]> {
   return capReadDir(dirPath, currentExclusionSet())
 }
@@ -138,37 +139,21 @@ export function importEntriesInto(
 // ---------------------------------------------------------------------------
 // Locator re-encoding — any host path RETURNED to the renderer must be wrapped
 // back into a locator so the renderer's next op on that path routes to the same
-// companion. `formatLocator` is a no-op for the local companion, so these are
+// runtime. `formatLocator` is a no-op for the local runtime, so these are
 // safe (and identity-preserving) for local workspaces.
 // ---------------------------------------------------------------------------
 
-function encodeResultPath(companionId: string, p: string): string {
-  return formatLocator({ companionId, path: p })
+function encodeResultPath(runtimeId: string, p: string): string {
+  return formatLocator({ runtimeId, path: p })
 }
 
 /** Re-encode every absolute `path` in a file tree (recursively, for safety). */
-function encodeTreeNodes(companionId: string, nodes: FileTreeNode[]): FileTreeNode[] {
+function encodeTreeNodes(runtimeId: string, nodes: FileTreeNode[]): FileTreeNode[] {
   return nodes.map((node) => ({
     ...node,
-    path: encodeResultPath(companionId, node.path),
-    children: node.children?.length ? encodeTreeNodes(companionId, node.children) : node.children,
+    path: encodeResultPath(runtimeId, node.path),
+    children: node.children?.length ? encodeTreeNodes(runtimeId, node.children) : node.children,
   }))
-}
-
-// Chokidar ignore list: always-hidden dotfiles plus the user's exclusions.
-//
-// Each exclusion emits two globs so the watcher's notion of "excluded" matches
-// readDir/searchFiles, which drop any entry whose basename is in the set — a
-// folder, the files inside it, or a same-named file. The first glob (`**/<name>`)
-// matches the entry itself at any depth (picomatch lets a leading `**/` match
-// zero dirs); the second (`**/<name>/**`) matches everything beneath an excluded
-// folder. Glob metacharacters in `name` are rejected at the settings input, so
-// these patterns only ever match a literal path segment.
-function buildIgnoreList(): Array<RegExp | string> {
-  return [
-    /(^|[/\\])\../, // hidden files
-    ...getSettingSync('fileExclusions').flatMap((name) => [`**/${name}`, `**/${name}/**`]),
-  ]
 }
 
 /**
@@ -177,10 +162,14 @@ function buildIgnoreList(): Array<RegExp | string> {
  * after creation (and across watcher recreation) are honored.
  */
 function createWatcher(dirPath: string, subscribers: Map<string, SubscriberEntry>): FSWatcher {
+  // Watch the full tree (no `depth` cap): every consumer of a root watch — the
+  // editor's external-reload, the explorer tree refresh, the git status store —
+  // assumes events arrive for nested paths too. Hidden dirs and the user's
+  // exclusions (node_modules, caches, …) are pruned by the ignore matcher, so
+  // recursion stays affordable.
   const watcher = watch(dirPath, {
     ignoreInitial: true,
-    depth: 1,
-    ignored: buildIgnoreList(),
+    ignored: createFsIgnoreMatcher(dirPath, currentExclusionSet()),
   })
   const fanOut = (type: string, fp: string) => {
     for (const sub of subscribers.values()) {
@@ -319,6 +308,7 @@ export function refreshWatcherIgnores(): void {
 type InProcListener = (filePath: string, type: FsChangeType) => void
 
 interface InProcSub {
+  id: number
   prefix: string
   listener: InProcListener
   // Reverse-lookup of (watcherRoot, key) we've attached to so we can detach
@@ -330,7 +320,7 @@ let inProcSeq = 0
 const inProcSubs: Map<number, InProcSub> = new Map()
 
 function attachInProcToWatcher(sub: InProcSub, root: string, shared: SharedWatcher): void {
-  const key = `inproc:${inProcSeq}-${root}`
+  const key = `inproc:${sub.id}-${root}`
   shared.subscribers.set(key, {
     prefix: sub.prefix,
     // No coalescing here — in-process consumers are expected to debounce
@@ -352,7 +342,7 @@ function attachInProcToWatcher(sub: InProcSub, root: string, shared: SharedWatch
  */
 export function subscribeFsChanges(prefix: string, listener: InProcListener): () => void {
   const id = ++inProcSeq
-  const sub: InProcSub = { prefix, listener, attachments: [] }
+  const sub: InProcSub = { id, prefix, listener, attachments: [] }
   inProcSubs.set(id, sub)
 
   for (const [root, shared] of sharedWatchers) {
@@ -403,8 +393,8 @@ export function stopWatchersForWindow(windowId: number): void {
 }
 
 // ---------------------------------------------------------------------------
-// Remote fs-watch — for non-local companions the renderer's watch is served by
-// the daemon's watch stream (companion.file.watch). Events are debounced per
+// Remote fs-watch — for non-local runtimes the renderer's watch is served by
+// the daemon's watch stream (runtime.file.watch). Events are debounced per
 // window (matching the local pool) and re-encoded as locator paths so the
 // renderer sees the same representation it subscribed with. Keyed by
 // `${windowId}:${dirLocator}`.
@@ -420,8 +410,8 @@ function remoteWatchKey(windowId: number, dirLocator: string): string {
 }
 
 function startRemoteWatch(
-  companion: ReturnType<typeof companions.resolve>,
-  companionId: string,
+  runtime: ReturnType<typeof runtimes.resolve>,
+  runtimeId: string,
   remotePath: string,
   dirLocator: string,
   windowId: number,
@@ -437,10 +427,10 @@ function startRemoteWatch(
     },
   )
   const onChange = (changedPath: string, type: FsChangeType): void => {
-    const locator = formatLocator({ companionId, path: changedPath })
+    const locator = formatLocator({ runtimeId, path: changedPath })
     dispatcher.push([locator, { type, path: locator }])
   }
-  const unsubscribe = companion.file.watch(remotePath, onChange)
+  const unsubscribe = runtime.file.watch(remotePath, onChange)
   remoteWatches.set(remoteWatchKey(windowId, dirLocator), {
     unsubscribe,
     // Remote cancelFlush only clears the timer (leaves any pending events).
@@ -457,13 +447,13 @@ function stopRemoteWatch(dirLocator: string, windowId: number): void {
   remoteWatches.delete(key)
 }
 
-/** Resolve the file capability for a locator argument, returning the companion
- *  plus the decoded path and the companion id (needed to re-encode any path
+/** Resolve the file capability for a locator argument, returning the runtime
+ *  plus the decoded path and the runtime id (needed to re-encode any path
  *  returned to the renderer). Mirrors git.ts's `vcsFor`. */
-function fileCompanionFor(locator: string): {
-  companion: ReturnType<typeof companions.resolve>
+function fileRuntimeFor(locator: string): {
+  runtime: ReturnType<typeof runtimes.resolve>
   path: string
-  companionId: string
+  runtimeId: string
 } {
   return resolveLocator(locator)
 }
@@ -471,47 +461,47 @@ function fileCompanionFor(locator: string): {
 export function registerHandlers(): void {
   ipcMain.handle(FS_READ_FILE, wrapHandler(`[${FS_READ_FILE}]`, async (event, filePath: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: p } = fileCompanionFor(filePath)
-    return await companion.file.readFile(await companion.validatePathStrict(p, win?.id, workspaceId))
+    const { runtime, path: p } = fileRuntimeFor(filePath)
+    return await runtime.file.readFile(await runtime.validatePathStrict(p, win?.id, workspaceId))
   }))
 
   ipcMain.handle(FS_READ_BINARY, wrapHandler(`[${FS_READ_BINARY}]`, async (event, filePath: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: p } = fileCompanionFor(filePath)
-    return await companion.file.readBinary(await companion.validatePathStrict(p, win?.id, workspaceId))
+    const { runtime, path: p } = fileRuntimeFor(filePath)
+    return await runtime.file.readBinary(await runtime.validatePathStrict(p, win?.id, workspaceId))
   }))
 
   ipcMain.handle(FS_WRITE_FILE, wrapHandler(`[${FS_WRITE_FILE}]`, async (event, filePath: string, content: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: p } = fileCompanionFor(filePath)
-    const safePath = await companion.validatePathForCreation(p, win?.id, workspaceId)
-    await companion.file.writeFile(safePath, content)
+    const { runtime, path: p } = fileRuntimeFor(filePath)
+    const safePath = await runtime.validatePathForCreation(p, win?.id, workspaceId)
+    await runtime.file.writeFile(safePath, content)
     if (win) consumeScopedWriteAllowance(win.id, safePath)
   }))
 
   ipcMain.handle(FS_READ_DIR, wrapHandler(`[${FS_READ_DIR}]`, async (event, dirPath: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: p, companionId } = fileCompanionFor(dirPath)
-    const nodes = await companion.file.readDir(await companion.validatePathStrict(p, win?.id, workspaceId))
-    return encodeTreeNodes(companionId, nodes)
+    const { runtime, path: p, runtimeId } = fileRuntimeFor(dirPath)
+    const nodes = await runtime.file.readDir(await runtime.validatePathStrict(p, win?.id, workspaceId))
+    return encodeTreeNodes(runtimeId, nodes)
   }))
 
   ipcMain.handle(FS_WATCH_START, wrapHandler(`[${FS_WATCH_START}]`, async (event, dirPath: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
     if (!win) return
-    const { companionId, path: p } = parseLocator(dirPath)
-    if (companionId === LOCAL_COMPANION_ID) {
+    const { runtimeId, path: p } = parseLocator(dirPath)
+    if (runtimeId === LOCAL_RUNTIME_ID) {
       watchStart(await validatePathStrict(p, win.id, workspaceId), win.id)
     } else {
-      startRemoteWatch(companions.resolve(companionId), companionId, p, dirPath, win.id)
+      startRemoteWatch(runtimes.resolve(runtimeId), runtimeId, p, dirPath, win.id)
     }
   }))
 
   ipcMain.handle(FS_WATCH_STOP, wrapHandler(`[${FS_WATCH_STOP}]`, async (event, dirPath: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
     if (!win) return
-    const { companionId, path: p } = parseLocator(dirPath)
-    if (companionId === LOCAL_COMPANION_ID) {
+    const { runtimeId, path: p } = parseLocator(dirPath)
+    if (runtimeId === LOCAL_RUNTIME_ID) {
       watchStop(await validatePathStrict(p, win.id, workspaceId), win.id)
     } else {
       stopRemoteWatch(dirPath, win.id)
@@ -520,37 +510,37 @@ export function registerHandlers(): void {
 
   ipcMain.handle(FS_STAT, wrapHandler(`[${FS_STAT}]`, async (event, filePath: string, workspaceId?: string) => {
     // validatePathStrict resolves and authorizes the path; we stat the
-    // resolved path on the owning companion.
+    // resolved path on the owning runtime.
     const win = windowFromEvent(event)
-    const { companion, path: p } = fileCompanionFor(filePath)
-    return await companion.file.stat(await companion.validatePathStrict(p, win?.id, workspaceId))
+    const { runtime, path: p } = fileRuntimeFor(filePath)
+    return await runtime.file.stat(await runtime.validatePathStrict(p, win?.id, workspaceId))
   }))
 
   ipcMain.handle(FS_DELETE, wrapHandler(`[${FS_DELETE}]`, async (event, filePath: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: p } = fileCompanionFor(filePath)
-    await companion.file.remove(await companion.validatePathStrict(p, win?.id, workspaceId))
+    const { runtime, path: p } = fileRuntimeFor(filePath)
+    await runtime.file.remove(await runtime.validatePathStrict(p, win?.id, workspaceId))
   }))
 
   ipcMain.handle(FS_RENAME, wrapHandler(`[${FS_RENAME}]`, async (event, oldPath: string, newPath: string, workspaceId?: string) => {
-    // Phase 1: rename is within a single companion (both bare/local).
+    // Phase 1: rename is within a single runtime (both bare/local).
     const win = windowFromEvent(event)
-    const { companion, path: oldP } = fileCompanionFor(oldPath)
+    const { runtime, path: oldP } = fileRuntimeFor(oldPath)
     const { path: newP } = parseLocator(newPath)
-    await companion.file.rename(
-      await companion.validatePathStrict(oldP, win?.id, workspaceId),
-      await companion.validatePathForCreation(newP, win?.id, workspaceId),
+    await runtime.file.rename(
+      await runtime.validatePathStrict(oldP, win?.id, workspaceId),
+      await runtime.validatePathForCreation(newP, win?.id, workspaceId),
     )
   }))
 
   ipcMain.handle(FS_COPY, wrapHandler(`[${FS_COPY}]`, async (event, srcPath: string, destDir: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: srcP, companionId } = fileCompanionFor(srcPath)
+    const { runtime, path: srcP, runtimeId } = fileRuntimeFor(srcPath)
     const { path: destP } = parseLocator(destDir)
-    const safeSrc = await companion.validatePathStrict(srcP, win?.id, workspaceId)
-    const safeDestDir = await companion.validatePathStrict(destP, win?.id, workspaceId)
-    const finalPath = await companion.file.copy(safeSrc, safeDestDir)
-    return encodeResultPath(companionId, finalPath)
+    const safeSrc = await runtime.validatePathStrict(srcP, win?.id, workspaceId)
+    const safeDestDir = await runtime.validatePathStrict(destP, win?.id, workspaceId)
+    const finalPath = await runtime.file.copy(safeSrc, safeDestDir)
+    return encodeResultPath(runtimeId, finalPath)
   }))
 
   // Import external files/folders (dragged in from the OS file manager) into a
@@ -559,38 +549,38 @@ export function registerHandlers(): void {
   // from a user-initiated OS drag (webUtils.getPathForFile) and are LOCAL OS
   // paths. For a local workspace they are copied/moved in place on the daemon.
   // For a REMOTE workspace the daemon can't see them, so we read each entry here
-  // and stream its bytes to the host via uploadEntriesToCompanion (an upload).
+  // and stream its bytes to the host via uploadEntriesToRuntime (an upload).
   // Source contents are never returned to the renderer either way.
   ipcMain.handle(
     FS_IMPORT_ENTRIES,
     async (event, sources: string[], destDir: string, mode: 'copy' | 'move', workspaceId?: string) => {
       const win = windowFromEvent(event)
-      const { companion, path: destP, companionId } = fileCompanionFor(destDir)
-      const safeDestDir = await companion.validatePathStrict(destP, win?.id, workspaceId)
+      const { runtime, path: destP, runtimeId } = fileRuntimeFor(destDir)
+      const safeDestDir = await runtime.validatePathStrict(destP, win?.id, workspaceId)
       const result =
-        companionId === LOCAL_COMPANION_ID
-          ? await companion.file.importEntries(sources, safeDestDir, mode, win?.id)
-          : await uploadEntriesToCompanion(companion, sources, safeDestDir, mode)
+        runtimeId === LOCAL_RUNTIME_ID
+          ? await runtime.file.importEntries(sources, safeDestDir, mode, win?.id)
+          : await uploadEntriesToRuntime(runtime, sources, safeDestDir, mode)
       return {
         ...result,
-        created: result.created.map((p) => encodeResultPath(companionId, p)),
+        created: result.created.map((p) => encodeResultPath(runtimeId, p)),
       }
     },
   )
 
   ipcMain.handle(FS_MKDIR, wrapHandler(`[${FS_MKDIR}]`, async (event, dirPath: string, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: p } = fileCompanionFor(dirPath)
-    await companion.file.mkdir(await companion.validatePathForCreation(p, win?.id, workspaceId))
+    const { runtime, path: p } = fileRuntimeFor(dirPath)
+    await runtime.file.mkdir(await runtime.validatePathForCreation(p, win?.id, workspaceId))
   }))
 
   ipcMain.handle(FS_SEARCH, wrapHandler(`[${FS_SEARCH}]`, async (event, rootPath: string, query: string, options?: FileSearchOptions, workspaceId?: string) => {
     const win = windowFromEvent(event)
-    const { companion, path: p, companionId } = fileCompanionFor(rootPath)
-    const validRoot = await companion.validatePathStrict(p, win?.id, workspaceId)
+    const { runtime, path: p, runtimeId } = fileRuntimeFor(rootPath)
+    const validRoot = await runtime.validatePathStrict(p, win?.id, workspaceId)
     const trimmed = (query ?? '').trim()
     if (!trimmed) return []
-    const results = await companion.file.search(validRoot, trimmed, options ?? {})
-    return results.map((r) => ({ ...r, path: encodeResultPath(companionId, r.path) }))
+    const results = await runtime.file.search(validRoot, trimmed, options ?? {})
+    return results.map((r) => ({ ...r, path: encodeResultPath(runtimeId, r.path) }))
   }))
 }

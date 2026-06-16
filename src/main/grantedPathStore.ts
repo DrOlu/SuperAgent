@@ -16,6 +16,7 @@ import { app } from 'electron'
 import fs from 'fs/promises'
 import log from './logger'
 import { writeJsonAtomic } from './writeJsonAtomic'
+import { quarantineCorruptFile } from './quarantineCorruptFile'
 
 const STORE_FILENAME = 'granted-paths.json'
 
@@ -27,15 +28,25 @@ let cache: Set<string> | null = null
 
 async function load(): Promise<Set<string>> {
   if (cache) return cache
+  let raw: string | null = null
   try {
-    const raw = await fs.readFile(storePath(), 'utf-8')
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      cache = new Set(parsed.filter((x): x is string => typeof x === 'string'))
-      return cache
-    }
+    raw = await fs.readFile(storePath(), 'utf-8')
   } catch {
     // File missing or unreadable — treat as empty.
+  }
+  if (raw !== null) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        cache = new Set(parsed.filter((x): x is string => typeof x === 'string'))
+        return cache
+      }
+    } catch {
+      // Unparseable: quarantine before the next flush overwrites it, so the
+      // user's approved-path list stays recoverable.
+      const backup = quarantineCorruptFile(storePath())
+      log.warn('[grantedPathStore] %s is corrupt%s; starting empty', STORE_FILENAME, backup ? `, backed up to ${backup}` : '')
+    }
   }
   cache = new Set()
   return cache

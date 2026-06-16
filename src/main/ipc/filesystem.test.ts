@@ -16,18 +16,23 @@ vi.mock('electron', () => ({
 }))
 
 vi.mock('../windowRegistry', () => ({
-  windowFromEvent: () => undefined,
+  // Tests that need a window attach it as `__win` on the event; the import
+  // tests pass a bare event and keep the original "no window" behavior.
+  windowFromEvent: (event: { __win?: unknown }) => event?.__win,
   sendToWindow: vi.fn(),
 }))
 
-const { registerHandlers } = await import('./filesystem')
+const fsModule = await import('./filesystem')
+const { registerHandlers, subscribeFsChanges } = fsModule
 const { addAllowedRoot, removeAllowedRoot } = await import('./pathValidation')
-const { FS_IMPORT_ENTRIES } = await import('../../shared/ipc-channels')
-const { registerTestLocalCompanion } = await import('../companion/testLocalCompanion')
+const { FS_IMPORT_ENTRIES, FS_WATCH_START, FS_WATCH_STOP } = await import('../../shared/ipc-channels')
+const { registerTestLocalRuntime } = await import('../runtime/testLocalRuntime')
 
 registerHandlers()
-registerTestLocalCompanion()
+registerTestLocalRuntime()
 const importEntries = handlers.get(FS_IMPORT_ENTRIES)!
+const watchStartHandler = handlers.get(FS_WATCH_START)!
+const watchStopHandler = handlers.get(FS_WATCH_STOP)!
 const fakeEvent = { sender: {} } as unknown
 
 // A throwaway event arg + helper to call the handler ergonomically.
@@ -112,5 +117,96 @@ describe('FS_IMPORT_ENTRIES', () => {
 
     expect(result.created).toHaveLength(0)
     expect(result.failed).toBe(1)
+  })
+})
+
+describe('in-process fs subscriptions', () => {
+  let root: string
+
+  beforeEach(async () => {
+    root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cate-fswatch-')))
+    addAllowedRoot(root)
+  })
+
+  afterEach(async () => {
+    await watchStopHandler({ __win: { id: 1 } }, root)
+    removeAllowedRoot(root)
+    await fs.rm(root, { recursive: true, force: true })
+  })
+
+  const startWatch = () => watchStartHandler({ __win: { id: 1 } }, root)
+
+  // Wait until `got()` reaches `count` (or time out). chokidar drops events that
+  // fire before its initial scan finishes, so `poke` re-applies the change each
+  // iteration until it's observed (same pattern as fsWatch.test.ts).
+  const waitFor = async (
+    got: () => number,
+    count: number,
+    poke: () => Promise<void>,
+    ms = 5000,
+  ): Promise<void> => {
+    const deadline = Date.now() + ms
+    while (got() < count && Date.now() < deadline) {
+      await poke()
+      await new Promise((r) => setTimeout(r, 50))
+    }
+  }
+
+  // Regression: in-proc subscriber keys were derived from a GLOBAL counter
+  // instead of each subscriber's own id, so two subs attached on the watchStart
+  // bulk-attach path collided on one key. The second overwrote the first in the
+  // subscribers map (dropping its events) while the watcher refCount was bumped
+  // twice (a leak). Both subs registered BEFORE the watcher exists exercise that
+  // exact path; both must now receive every event.
+  test('two subscribers under one watch root both receive events', async () => {
+    const aEvents: string[] = []
+    const bEvents: string[] = []
+
+    // Register both BEFORE starting the watcher so they attach via the
+    // watchStart bulk-attach loop (the colliding-key path).
+    const unsubA = subscribeFsChanges(root, (fp) => aEvents.push(fp))
+    const unsubB = subscribeFsChanges(root, (fp) => bEvents.push(fp))
+
+    startWatch()
+
+    const file = path.join(root, 'touched.txt')
+    let rev = 0
+    await waitFor(
+      () => Math.min(aEvents.length, bEvents.length),
+      1,
+      () => fs.writeFile(file, `hi${++rev}`, 'utf8'),
+    )
+
+    expect(aEvents).toContain(file)
+    expect(bEvents).toContain(file)
+
+    unsubA()
+    unsubB()
+  })
+
+  // refCount must release cleanly: after both subs unsubscribe and the IPC
+  // watch is stopped, the shared watcher is fully torn down. A fresh subscriber
+  // that registers after teardown receives nothing until a watcher is recreated,
+  // so its absence of events confirms the prior watcher closed (no leaked
+  // refCount keeping a duplicate alive).
+  test('unsubscribing both releases the watcher refCount', async () => {
+    const unsubA = subscribeFsChanges(root, () => {})
+    const unsubB = subscribeFsChanges(root, () => {})
+    startWatch()
+
+    unsubA()
+    unsubB()
+    await watchStopHandler({ __win: { id: 1 } }, root)
+
+    // Watcher is gone now; a new subscriber stays event-free until one is
+    // recreated (proves the old watcher wasn't leaked and left running).
+    const lateEvents: string[] = []
+    const unsubLate = subscribeFsChanges(root, (fp) => lateEvents.push(fp))
+
+    await fs.writeFile(path.join(root, 'after.txt'), 'x', 'utf8')
+    await new Promise((r) => setTimeout(r, 300))
+
+    expect(lateEvents).toHaveLength(0)
+    unsubLate()
   })
 })

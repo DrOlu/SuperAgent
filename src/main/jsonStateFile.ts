@@ -26,6 +26,7 @@ import path from 'path'
 import { watch, type FSWatcher } from 'chokidar'
 import log from './logger'
 import { writeJsonAtomic, writeJsonAtomicSync } from './writeJsonAtomic'
+import { quarantineCorruptFile } from './quarantineCorruptFile'
 
 export interface JsonStateFileOptions<T> {
   /** File name under `app.getPath('userData')`. */
@@ -69,6 +70,13 @@ export function createJsonStateFile<T>(options: JsonStateFileOptions<T>): JsonSt
   let lastWrittenContent = ''
   let watcher: FSWatcher | null = null
   let writeTimer: ReturnType<typeof setTimeout> | null = null
+  // Tail of the serialized async-flush chain. Flushes never overlap: each waits
+  // for the previous to finish before writing. Without this, two debounced
+  // flushes could interleave so the OLDER content lands last on disk while
+  // `lastWrittenContent` holds the newer — the watcher then "corrects" in-memory
+  // state back to the stale snapshot.
+  let flushChain: Promise<void> = Promise.resolve()
+  let flushInFlight = false
 
   function filePath(): string {
     return path.join(app.getPath('userData'), filename)
@@ -80,14 +88,12 @@ export function createJsonStateFile<T>(options: JsonStateFileOptions<T>): JsonSt
 
   /** Copy an unparseable file aside so a corrupt hand-edit / crash-mid-write is
    *  preserved for recovery instead of silently overwritten with defaults. */
-  function quarantineCorruptFile(): void {
-    try {
-      const p = filePath()
-      const backup = `${p}.corrupt-${Date.now()}`
-      fsSync.copyFileSync(p, backup)
+  function quarantineCorrupt(): void {
+    const backup = quarantineCorruptFile(filePath())
+    if (backup) {
       log.error('[jsonStateFile] %s is corrupt; backed up to %s and using defaults', filename, backup)
-    } catch (err) {
-      log.warn('[jsonStateFile] corrupt backup for %s failed: %O', filename, err)
+    } else {
+      log.warn('[jsonStateFile] corrupt backup for %s failed', filename)
     }
   }
 
@@ -105,7 +111,7 @@ export function createJsonStateFile<T>(options: JsonStateFileOptions<T>): JsonSt
           current = normalize(parsed, defaults)
           lastWrittenContent = raw
         } catch {
-          quarantineCorruptFile()
+          quarantineCorrupt()
           current = defaults
         }
       }
@@ -127,16 +133,25 @@ export function createJsonStateFile<T>(options: JsonStateFileOptions<T>): JsonSt
     }
   }
 
-  async function flushWrite(): Promise<void> {
+  // One serialized flush: snapshot `current` at write time (not schedule time) and
+  // append to the chain so writes can't interleave. Returns the chain tail so
+  // callers (ensureFile / stopWatching) can await the latest flush.
+  function flushWrite(): Promise<void> {
     writeTimer = null
-    const content = serialize(current)
-    // Record before the write so a watcher event racing the rename still matches.
-    lastWrittenContent = content
-    try {
-      await writeJsonAtomic(filePath(), current)
-    } catch (err) {
-      log.warn('[jsonStateFile] write of %s failed: %O', filename, err)
-    }
+    flushInFlight = true
+    flushChain = flushChain.then(async () => {
+      const content = serialize(current)
+      // Record before the write so a watcher event racing the rename still matches.
+      lastWrittenContent = content
+      try {
+        await writeJsonAtomic(filePath(), current)
+      } catch (err) {
+        log.warn('[jsonStateFile] write of %s failed: %O', filename, err)
+      }
+    })
+    const settled = flushChain
+    settled.finally(() => { if (flushChain === settled) flushInFlight = false })
+    return settled
   }
 
   function scheduleWrite(): void {
@@ -207,9 +222,19 @@ export function createJsonStateFile<T>(options: JsonStateFileOptions<T>): JsonSt
   }
 
   function flushPendingWritesSync(): void {
-    if (!writeTimer) return
-    clearTimeout(writeTimer)
-    writeTimer = null
+    if (writeTimer) {
+      clearTimeout(writeTimer)
+      writeTimer = null
+    } else if (!flushInFlight && serialize(current) === lastWrittenContent) {
+      // No debounced timer, no async flush mid-await, and the latest value is
+      // already durable — nothing to persist.
+      return
+    }
+    // A timer was pending, an async flush is still mid-await (its rename may not
+    // have landed), or `current` moved past the last durable write. The process
+    // is about to exit, so persist `current` synchronously: the sync rename is
+    // last-writer-wins over any in-flight async rename and guarantees the final
+    // pre-quit state survives.
     writeSync()
   }
 

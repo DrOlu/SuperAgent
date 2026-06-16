@@ -117,8 +117,19 @@ function runRemoteEffects(active: ActiveRemote, state: RuntimeState): void {
           }
         }
         if (remoteTarget && active.onDrop) {
-          active.onDrop(active.snapshot, remoteTarget)
-          window.electronAPI.crossWindowDragDrop(active.snapshot.panel.id)
+          // Claim FIRST — main is the arbiter. Only materialize the panel when
+          // main accepts: a claim landing after the drag already resolved
+          // unclaimed means the source has fallen back to a detach window, and
+          // materializing here too would duplicate the panel.
+          const { snapshot, onDrop } = active
+          const claimedTarget = remoteTarget
+          Promise.resolve(window.electronAPI.crossWindowDragDrop(snapshot.panel.id))
+            .then((result) => {
+              if (result?.accepted) onDrop(snapshot, claimedTarget)
+            })
+            .catch(() => {
+              // Claim IPC failed — don't materialize; the source still owns the panel.
+            })
         }
         break
       }

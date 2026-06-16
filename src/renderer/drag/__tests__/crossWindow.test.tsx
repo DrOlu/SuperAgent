@@ -57,6 +57,10 @@ function electronStub(): ElectronStub {
   return window.electronAPI as unknown as ElectronStub
 }
 
+/** Drops are now claim-first: onDrop only fires after main's async accept.
+ *  Flush the claim promise chain before asserting. */
+const flushAsync = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
+
 /** Mount the bridge and return the handler stashed in onCrossWindowDragUpdate
  *  + the unsubscribe + a setter for the onDragEnd handler. */
 function attachBridge(onDrop?: Parameters<typeof setupCrossWindowDragListeners>[0]) {
@@ -96,6 +100,10 @@ beforeEach(() => {
   stub.crossWindowDragStart.mockClear()
   stub.crossWindowDragCancel.mockClear()
   stub.crossWindowDragDrop.mockClear()
+  // restoreMocks wipes implementations before each test, so the accept default
+  // from setup.ts does not survive — re-arm it here. Drops are claim-first:
+  // onDrop only fires when main answers accepted=true.
+  stub.crossWindowDragDrop.mockResolvedValue({ accepted: true })
   stub.onCrossWindowDragUpdate.mockClear()
   stub.onDragEnd.mockClear()
 })
@@ -195,7 +203,7 @@ describe('cross-window — remote drag', () => {
     bridge.cleanup()
   })
 
-  it('drop on a registered dock zone → onDrop fires + IPC claim sent', () => {
+  it('drop on a registered dock zone → onDrop fires + IPC claim sent', async () => {
     const stub = electronStub()
     const onDrop = vi.fn()
     const bridge = attachBridge(onDrop)
@@ -229,13 +237,14 @@ describe('cross-window — remote drag', () => {
     expect(mid.target).not.toBeNull()
     expect(mid.target?.kind === 'dock-zone' || mid.target?.kind === 'dock-tab').toBe(true)
 
-    // Drop.
+    // Drop. The claim goes to main FIRST; onDrop fires only on accept.
     bridge.fireDragEnd()
+    expect(stub.crossWindowDragDrop).toHaveBeenCalledWith('remote-panel')
+    await flushAsync()
 
     expect(onDrop).toHaveBeenCalledTimes(1)
     const dropArg = onDrop.mock.calls[0][1]
     expect(dropArg.kind).toBe('dock')
-    expect(stub.crossWindowDragDrop).toHaveBeenCalledWith('remote-panel')
     // Runtime should have cleared state.
     expect(useDragStore.getState().isDragging).toBe(false)
 
@@ -243,7 +252,7 @@ describe('cross-window — remote drag', () => {
     bridge.cleanup()
   })
 
-  it('drop on a per-canvas-node mini-dock → onDrop receives that store reference', () => {
+  it('drop on a per-canvas-node mini-dock → onDrop receives that store reference', async () => {
     const stub = electronStub()
     const onDrop = vi.fn()
     const bridge = attachBridge(onDrop)
@@ -272,18 +281,19 @@ describe('cross-window — remote drag', () => {
 
     bridge.fireUpdate({ x: 400, y: 400 }, makeSnapshot())
     bridge.fireDragEnd()
+    expect(stub.crossWindowDragDrop).toHaveBeenCalledWith('remote-panel')
+    await flushAsync()
 
     expect(onDrop).toHaveBeenCalledTimes(1)
     const dropArg = onDrop.mock.calls[0][1]
     expect(dropArg.kind).toBe('dock')
     expect(dropArg.dockStoreApi).toBe(fakeNodeDockStore)
-    expect(stub.crossWindowDragDrop).toHaveBeenCalledWith('remote-panel')
 
     cleanup()
     bridge.cleanup()
   })
 
-  it('drop on canvas surface → onDrop fires with canvas target + IPC claim sent', () => {
+  it('drop on canvas surface → onDrop fires with canvas target + IPC claim sent', async () => {
     const stub = electronStub()
     const onDrop = vi.fn()
     const bridge = attachBridge(onDrop)
@@ -303,17 +313,18 @@ describe('cross-window — remote drag', () => {
     expect(mid.target?.kind).toBe('canvas-add')
 
     bridge.fireDragEnd()
+    expect(stub.crossWindowDragDrop).toHaveBeenCalledWith('remote-panel')
+    await flushAsync()
 
     expect(onDrop).toHaveBeenCalledTimes(1)
     const dropArg = onDrop.mock.calls[0][1]
     expect(dropArg.kind).toBe('canvas')
     expect(dropArg.canvasStoreApi).toBeTruthy()
-    expect(stub.crossWindowDragDrop).toHaveBeenCalledWith('remote-panel')
 
     bridge.cleanup()
   })
 
-  it('terminal snapshot drop deposits PTY transfer before any host mutation', () => {
+  it('terminal snapshot drop deposits PTY transfer before any host mutation', async () => {
     const setPending = terminalRegistry.setPendingTransfer as ReturnType<typeof vi.fn>
     setPending.mockClear()
     const callOrder: string[] = []
@@ -353,6 +364,7 @@ describe('cross-window — remote drag', () => {
 
     bridge.fireUpdate({ x: 400, y: 300 }, termSnap)
     bridge.fireDragEnd()
+    await flushAsync()
 
     expect(setPending).toHaveBeenCalledWith(
       'remote-term',
@@ -361,6 +373,31 @@ describe('cross-window — remote drag', () => {
     )
     expect(callOrder[0]).toBe('setPendingTransfer')
     expect(callOrder[1]).toBe('onDrop')
+
+    bridge.cleanup()
+  })
+
+  it('refused claim → claim sent but onDrop NOT called (no duplicate panel)', async () => {
+    const stub = electronStub()
+    // Main says the drag already resolved unclaimed (source fell back to a
+    // detach window). Materializing here too would duplicate the panel.
+    stub.crossWindowDragDrop.mockResolvedValueOnce({ accepted: false })
+    const onDrop = vi.fn()
+    const bridge = attachBridge(onDrop)
+
+    scene = renderDragScene({
+      canvases: [{ panelId: 'c1', rect: { x: 0, y: 0, w: 1000, h: 800 } }],
+    })
+
+    Object.defineProperty(window, 'screenX', { value: 0, configurable: true })
+    Object.defineProperty(window, 'screenY', { value: 0, configurable: true })
+
+    bridge.fireUpdate({ x: 400, y: 300 }, makeSnapshot())
+    bridge.fireDragEnd()
+    expect(stub.crossWindowDragDrop).toHaveBeenCalledWith('remote-panel')
+    await flushAsync()
+
+    expect(onDrop).not.toHaveBeenCalled()
 
     bridge.cleanup()
   })

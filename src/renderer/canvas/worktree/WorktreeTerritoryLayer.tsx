@@ -71,36 +71,50 @@ function contentSig(groups: TerritoryGroup[]): number {
   return h >>> 0
 }
 
-/** Live canvas-space origin of the node being whole-node dragged (its store
- *  origin is frozen until drop), so its territory follows the ghost in real time. */
-function dragGhostOrigin(
+/** Live drag state for the node being whole-node dragged (its store origin is
+ *  frozen until drop). While the cursor is inside this window the territory
+ *  follows the ghost in real time (`origin` set). Once the cursor leaves the
+ *  window (native cross-window ghost / detached drag) the node is hidden, so
+ *  its territory must drop out too — `origin: null` means "exclude this node"
+ *  rather than fall back to the frozen store origin. */
+function dragGhost(
   canvas: HTMLCanvasElement,
   zoom: number,
   offX: number,
   offY: number,
-): { nodeId: string; x: number; y: number } | null {
+): { nodeId: string; origin: { x: number; y: number } | null } | null {
   const drag = useDragStore.getState()
   if (drag.source?.origin.kind !== 'canvas-node') return null
-  if (!drag.cursor?.insideWindow || !drag.grab) return null
+  const nodeId = drag.source.origin.nodeId
+  if (!drag.cursor?.insideWindow || !drag.grab) return { nodeId, origin: null }
   const r = canvas.getBoundingClientRect()
   const wx = (drag.cursor.client.x - r.left - offX) / zoom
   const wy = (drag.cursor.client.y - r.top - offY) / zoom
-  return { nodeId: drag.source.origin.nodeId, x: wx - drag.grab.x, y: wy - drag.grab.y }
+  return { nodeId, origin: { x: wx - drag.grab.x, y: wy - drag.grab.y } }
 }
 
 function buildGroups(
   groups: WorktreeGroup[],
   nodes: ReturnType<ReturnType<typeof useCanvasStoreApi>['getState']>['nodes'],
-  ghost: { nodeId: string; x: number; y: number } | null,
+  ghost: { nodeId: string; origin: { x: number; y: number } | null } | null,
   focusedWorktreeId: string | null,
 ): TerritoryGroup[] {
+  // Nodes whose detach commit is in flight (dropped outside, removal pending
+  // on IPC) are hidden — keep their territory out too, mirroring the ghost's
+  // outside-the-window exclusion below.
+  const pendingDetach = useDragStore.getState().pendingDetach
   const out: TerritoryGroup[] = []
   for (const g of groups) {
     const rects = []
     for (const nodeId of g.nodeIds) {
       const n = nodes[nodeId]
       if (!n) continue
-      const o = ghost && ghost.nodeId === nodeId ? ghost : n.origin
+      if (pendingDetach.some((p) => p.nodeId === nodeId)) continue
+      let o = n.origin
+      if (ghost && ghost.nodeId === nodeId) {
+        if (!ghost.origin) continue // dragged outside the window — node is hidden
+        o = ghost.origin
+      }
       rects.push({ x: o.x, y: o.y, w: n.size.width, h: n.size.height })
     }
     // Focus lens: non-focused worktrees dim to match the panels (0.5 opacity).
@@ -243,7 +257,7 @@ const WorktreeTerritoryLayer: React.FC<Props> = ({ containerWidth, containerHeig
       const cs = canvasApi.getState()
       const zoom = cs.zoomLevel, offX = cs.viewportOffset.x, offY = cs.viewportOffset.y
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const ghost = dragGhostOrigin(canvas, zoom, offX, offY)
+      const ghost = dragGhost(canvas, zoom, offX, offY)
       const focused = useUIStore.getState().focusedWorktreeId
       const tGroups = buildGroups(groupsRef.current, cs.nodes, ghost, focused)
       const dragging = useDragStore.getState().source?.origin.kind === 'canvas-node'
@@ -269,7 +283,7 @@ const WorktreeTerritoryLayer: React.FC<Props> = ({ containerWidth, containerHeig
       if (!canvas || !ctx) return
       const cs = canvasApi.getState()
       const zoom = cs.zoomLevel, offX = cs.viewportOffset.x, offY = cs.viewportOffset.y
-      const ghost = dragGhostOrigin(canvas, zoom, offX, offY)
+      const ghost = dragGhost(canvas, zoom, offX, offY)
       const focused = useUIStore.getState().focusedWorktreeId
       const tGroups = buildGroups(groupsRef.current, cs.nodes, ghost, focused)
       const dragging = useDragStore.getState().source?.origin.kind === 'canvas-node'

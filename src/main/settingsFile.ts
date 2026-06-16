@@ -37,6 +37,7 @@ const SETTINGS_SCHEMA: Record<keyof AppSettings, string> = {
   systemDarkThemeId: 'string',
   customThemes: 'array',
   editorFontSize: 'number',
+  editorFontFamily: 'string',
   uiScale: 'number',
   showMinimap: 'boolean',
   defaultPanelWidth: 'number',
@@ -68,6 +69,7 @@ const SETTINGS_SCHEMA: Record<keyof AppSettings, string> = {
   crashReportingEnabled: 'boolean',
   usageAnalyticsEnabled: 'boolean',
   telemetryConsentDecided: 'boolean',
+  telemetryNoticeAcknowledgedVersion: 'number',
   onboardingCompleted: 'boolean',
   betaUpdatesEnabled: 'boolean',
   // Agent / layout — structured values. 'object' accepts a plain object or null;
@@ -75,6 +77,7 @@ const SETTINGS_SCHEMA: Record<keyof AppSettings, string> = {
   // renderer consumers, which already tolerate partial/legacy shapes.
   agentDefaultModel: 'object',
   sidebarLayout: 'object',
+  customShortcuts: 'object',
 }
 
 const SETTINGS_KEYS = Object.keys(SETTINGS_SCHEMA) as Array<keyof AppSettings>

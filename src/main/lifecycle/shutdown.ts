@@ -6,12 +6,13 @@ import { getActiveMainWindow, sendToWindow, listDockWindowIds } from '../windowR
 import { flushDockWindowsBeforeQuit } from '../dockWindowFlush'
 import { flushAllLoggers, killAllTerminals } from '../ipc/terminal'
 import { getRunningTerminals } from '../ipc/shell'
+import { getSetting } from '../settingsFile'
 import { saveProjectStateSync } from '../projectWorkspaceStore'
 import { flushPendingWritesSync as flushSettingsPendingWritesSync } from '../settingsFile'
 import { flushWorkspaceStateSync } from '../workspaceStateStore'
 import { flushUIStateSync } from '../uiStateStore'
 import { releaseAllProjectLocks } from '../projectLock'
-import { companions } from '../companion/companionManager'
+import { runtimes } from '../runtime/runtimeManager'
 import { isUpdatePendingInstall } from '../auto-updater'
 import {
   SESSION_FLUSH_SAVE,
@@ -43,6 +44,36 @@ const FLUSH_TIMEOUT_MS = 1500
 // renderer's session flush, so dock sync + session save share the quit budget.
 const DOCK_FLUSH_TIMEOUT_MS = 600
 
+/** A confirmation dialog to show before quitting, or null to quit immediately.
+ *  Two independent reasons gate quit: terminals still running a foreground
+ *  process (data-loss warning, takes precedence so its specific message wins),
+ *  and the user's "Warn before quit" preference (a plain confirmation). */
+export function decideQuitPrompt(opts: {
+  warnBeforeQuit: boolean
+  running: Array<{ processName: string | null }>
+}): { message: string; detail?: string } | null {
+  const count = opts.running.length
+  if (count > 0) {
+    const name = count === 1 ? opts.running[0].processName?.trim() : undefined
+    return {
+      message:
+        count > 1
+          ? `${count} terminals are still running. Quit anyway?`
+          : name
+            ? `“${name}” is still running. Quit anyway?`
+            : 'A terminal is still running. Quit anyway?',
+      detail:
+        count > 1
+          ? 'The processes running in these terminals will be terminated.'
+          : 'The process running in this terminal will be terminated.',
+    }
+  }
+  if (opts.warnBeforeQuit) {
+    return { message: 'Quit Cate?' }
+  }
+  return null
+}
+
 /**
  * Wire the app-lifecycle event handlers: window-all-closed, activate, and the
  * before-quit / will-quit / quit teardown sequence. Called once from the index
@@ -73,35 +104,28 @@ export function registerLifecycleHandlers(): void {
     }
 
     // First gate: warn before tearing down terminals that are still running a
-    // foreground process (dev server, editor, agent, …). Mirrors the per-terminal
-    // close confirmation. Deferred async, so we prevent the quit and re-trigger it
-    // once the user confirms.
+    // foreground process (dev server, editor, agent, …) — and, when the user has
+    // enabled "Warn before quit", confirm a plain quit too. Mirrors the
+    // per-terminal close confirmation. Deferred async, so we prevent the quit and
+    // re-trigger it once the user confirms.
     //
     // Note: updates install on a NORMAL quit (electron-updater autoInstallOnAppQuit),
     // so there's no special update case here — the user is quitting deliberately and
     // the normal terminal-confirmation applies. will-quit handles the install hook.
     if (!quitConfirmed) {
-      const running = getRunningTerminals()
-      if (running.length > 0) {
+      const prompt = decideQuitPrompt({
+        warnBeforeQuit: getSetting('warnBeforeQuit'),
+        running: getRunningTerminals(),
+      })
+      if (prompt) {
         event.preventDefault()
         const focusWin =
           getActiveMainWindow() ?? BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())
-        const count = running.length
-        const name = count === 1 ? running[0].processName?.trim() : undefined
-        const message =
-          count > 1
-            ? `${count} terminals are still running. Quit anyway?`
-            : name
-              ? `“${name}” is still running. Quit anyway?`
-              : 'A terminal is still running. Quit anyway?'
         void dialog
           .showMessageBox(focusWin!, {
             type: 'warning',
-            message,
-            detail:
-              count > 1
-                ? 'The processes running in these terminals will be terminated.'
-                : 'The process running in this terminal will be terminated.',
+            message: prompt.message,
+            detail: prompt.detail,
             buttons: ['Quit', 'Cancel'],
             defaultId: 1,
             cancelId: 1,
@@ -116,7 +140,7 @@ export function registerLifecycleHandlers(): void {
           })
         return
       }
-      // Nothing running — skip the confirmation on the re-triggered pass too.
+      // Nothing to confirm — skip the confirmation on the re-triggered pass too.
       quitConfirmed = true
     }
 
@@ -144,19 +168,14 @@ export function registerLifecycleHandlers(): void {
       proceed()
     })
 
-    // Safety timeout — don't hang forever if the renderer is unresponsive
-    setTimeout(() => {
-      if (!sessionFlushed) {
-        log.warn('Session flush timed out after %dms, proceeding with quit', FLUSH_TIMEOUT_MS)
-        proceed()
-      }
-    }, FLUSH_TIMEOUT_MS)
-
     // FINAL, AWAITED sync from every dock window FIRST, so the main renderer's
     // session flush (which reads listDockWindows() / main's cached dock state)
     // sees the freshest dock layout + terminal/canvas state instead of stale data
-    // from the last 5s tick. Bounded by DOCK_FLUSH_TIMEOUT_MS so an unresponsive
-    // dock window can't delay quit. Runs before SESSION_FLUSH_SAVE either way.
+    // from the last sync. Bounded by DOCK_FLUSH_TIMEOUT_MS so an unresponsive
+    // dock window can't delay quit. The session-flush safety timeout is armed
+    // only once SESSION_FLUSH_SAVE is actually sent, so the dock flush never
+    // eats into the main renderer's save budget — the two timeouts are
+    // sequential, not shared.
     const dockWindowIds = listDockWindowIds()
     flushDockWindowsBeforeQuit({
       windowIds: dockWindowIds,
@@ -174,7 +193,19 @@ export function registerLifecycleHandlers(): void {
       .catch(() => {})
       .finally(() => {
         if (sessionFlushed) return
+        if (mainWin.isDestroyed()) {
+          // Renderer gone mid-flush — nothing to save from, let quit proceed.
+          proceed()
+          return
+        }
         mainWin.webContents.send(SESSION_FLUSH_SAVE)
+        // Safety timeout — don't hang forever if the renderer is unresponsive
+        setTimeout(() => {
+          if (!sessionFlushed) {
+            log.warn('Session flush timed out after %dms, proceeding with quit', FLUSH_TIMEOUT_MS)
+            proceed()
+          }
+        }, FLUSH_TIMEOUT_MS)
       })
   })
 
@@ -201,9 +232,9 @@ export function registerLifecycleHandlers(): void {
     // during Environment::CleanupHandles, node-pty's ThreadSafeFunction exit
     // callback throws into a torn-down context and SIGABRTs the process.
     killAllTerminals()
-    // Tear down any remote/WSL companion connections (kills their daemons /
+    // Tear down any remote/WSL runtime connections (kills their daemons /
     // closes SSH). Fire-and-forget — quit must not block on a remote socket.
-    void companions.disposeAll()
+    void runtimes.disposeAll()
     // An update has been downloaded and is queued to install on quit. DO NOT
     // reallyExit — electron-updater's install-on-quit hook runs on the 'quit'
     // event (which fires AFTER will-quit), so reallyExit (libc exit()) would kill

@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain, screen } from 'electron'
+import log from '../logger'
 import {
   startCrossWindowDrag,
   updateCrossWindowCursor,
@@ -26,7 +27,12 @@ import { buildSinglePanelDockState } from '../windows/dockState'
 import { anyWindowFullscreen } from '../windows/fullscreen'
 import { revealWindow } from '../windows/reveal'
 import { writeDragTempFile, cleanupDragTempFile, createDragGhostImage } from './drag'
-import { beginTerminalTransfer, handleCrossWindowDropTerminalTransfer } from './terminal'
+import {
+  abortTerminalTransfer,
+  beginTerminalBuffering,
+  setTerminalTransferTarget,
+  handleCrossWindowDropTerminalTransfer,
+} from './terminal'
 import {
   sendToWindow,
   broadcastToAll,
@@ -93,32 +99,46 @@ export function registerDragHandlers({ createWindow }: DragHandlerDeps): void {
     })
     if (decision.kind === 'refuse') return null
 
-    // Begin terminal buffering if applicable. For a canvas, each child terminal
-    // is its own PTY that must transfer too — buffer them all so no output is
-    // lost between detach and the new window reconnecting.
-    if (snapshot.terminalPtyId) {
-      beginTerminalTransfer(snapshot.terminalPtyId, -1)
-    }
-    for (const t of Object.values(snapshot.canvasState?.childTerminals ?? {})) {
-      // Only LIVE transfer entries (ptyId) have a running PTY to buffer; restore
-      // entries (replayPtyId) spawn fresh in the new window, so skip them.
-      if (t.ptyId) beginTerminalTransfer(t.ptyId, -1)
+    // A dock window without a workspace can never be persisted: session save
+    // associates dock windows with workspaces by id, so this window would
+    // silently vanish on restart. Detach callers are expected to always pass one.
+    if (!workspaceId) {
+      log.warn('[drag-detach] no workspaceId for panel %s — window will not survive restart', snapshot.panel.id)
     }
 
-    const newWin = createWindow({
-      type: 'dock',
-      panelType: snapshot.panel.type,
-      panelId: snapshot.panel.id,
-      workspaceId,
-    })
-
-    // Update terminal transfer target now that we have the window ID
-    if (snapshot.terminalPtyId) {
-      beginTerminalTransfer(snapshot.terminalPtyId, newWin.id)
-    }
+    // Collect every live PTY that must move with the panel. For a canvas, each
+    // child terminal is its own PTY that must transfer too. (Restore entries —
+    // replayPtyId — spawn fresh in the new window, so they don't buffer.)
+    const transferPtyIds: string[] = []
+    if (snapshot.terminalPtyId) transferPtyIds.push(snapshot.terminalPtyId)
     for (const t of Object.values(snapshot.canvasState?.childTerminals ?? {})) {
-      if (t.ptyId) beginTerminalTransfer(t.ptyId, newWin.id)
+      if (t.ptyId) transferPtyIds.push(t.ptyId)
     }
+
+    // Buffer their output for the duration of the handoff so nothing is lost
+    // between detach and the new window reconnecting. No destination yet — the
+    // window doesn't exist; if creation fails the buffers flush back to source.
+    for (const ptyId of transferPtyIds) beginTerminalBuffering(ptyId)
+
+    let newWin: BrowserWindow
+    try {
+      newWin = createWindow({
+        type: 'dock',
+        panelType: snapshot.panel.type,
+        panelId: snapshot.panel.id,
+        workspaceId,
+      })
+    } catch (err) {
+      // The move is off: flush held output back to the source window (where the
+      // panel still lives) instead of leaving a destination-less transfer armed.
+      for (const ptyId of transferPtyIds) abortTerminalTransfer(ptyId)
+      cleanupDragTempFile()
+      log.error('[drag-detach] window creation failed, detach aborted:', err)
+      return null
+    }
+
+    // Point the armed transfers at the new window
+    for (const ptyId of transferPtyIds) setTerminalTransferTarget(ptyId, newWin.id)
 
     newWin.setBounds({
       x: decision.position.x,
@@ -240,39 +260,47 @@ export function registerDragHandlers({ createWindow }: DragHandlerDeps): void {
   })
 
   ipcMain.handle(CROSS_WINDOW_DRAG_DROP, async (event, _panelId: string) => {
-    if (crossWindowDragState) {
-      stopPollTimer()
-      // Mark the state as claimed (pure transition). The resolver below reads
-      // `claimed` to decide whether to tell the source to remove its node.
-      crossWindowDragState = claimCrossWindowDrop(crossWindowDragState, Date.now())
-      // Record the claim keyed by dragId so a RESOLVE that arrives AFTER this
-      // DROP clears the live state (the no-resolver branch below) still sees
-      // claimed=true — preventing a duplicate detach. Pruned on every write.
-      const now = Date.now()
-      crossWindowClaims = pruneClaims(crossWindowClaims, now, CROSS_WINDOW_CLAIM_WAIT_MS)
-      crossWindowClaims = recordClaim(crossWindowClaims, crossWindowDragState!.dragId, true, now)
-      // Arm terminal-ownership transfer to the target (receiver) window — the
-      // receiver's reconnectTerminal will panelTransferAck after wiring its
-      // listeners, and ack is a no-op without a prior begin.
-      const targetWin = BrowserWindow.fromWebContents(event.sender)
-      if (targetWin) {
-        if (crossWindowDragState!.snapshot.terminalPtyId) {
-          handleCrossWindowDropTerminalTransfer(
-            crossWindowDragState!.snapshot.terminalPtyId,
-            targetWin.id,
-          )
-        }
-        // A canvas carries its child terminals — arm each live PTY for the
-        // receiver. (Cross-window drag is always a live transfer, so every entry
-        // has a ptyId; the guard satisfies the now-optional type.)
-        for (const t of Object.values(crossWindowDragState!.snapshot.canvasState?.childTerminals ?? {})) {
-          if (t.ptyId) handleCrossWindowDropTerminalTransfer(t.ptyId, targetWin.id)
-        }
-      }
-      // Notify source window to remove the panel (carry the dragId so an
-      // unrelated active drag in that window isn't force-ended).
-      sendToWindow(crossWindowDragState!.sourceWindowId, DRAG_END, crossWindowDragState!.dragId)
+    // Main is the ARBITER of the drop. Accept iff a live, unclaimed drag is in
+    // flight. A DROP arriving after the drag resolved unclaimed (live state
+    // nulled — the source has already fallen back to a detach window) or after
+    // another claim is REFUSED, and the caller must not materialize the panel:
+    // accepting late would duplicate it.
+    if (!crossWindowDragState || crossWindowDragState.claimed) {
+      destroyDragGhostWindow()
+      return { accepted: false }
     }
+
+    stopPollTimer()
+    // Mark the state as claimed (pure transition). The resolver below reads
+    // `claimed` to decide whether to tell the source to remove its node.
+    crossWindowDragState = claimCrossWindowDrop(crossWindowDragState, Date.now())
+    // Record the claim keyed by dragId so a RESOLVE that arrives AFTER this
+    // DROP clears the live state (the no-resolver branch below) still sees
+    // claimed=true — preventing a duplicate detach. Pruned on every write.
+    const now = Date.now()
+    crossWindowClaims = pruneClaims(crossWindowClaims, now, CROSS_WINDOW_CLAIM_WAIT_MS)
+    crossWindowClaims = recordClaim(crossWindowClaims, crossWindowDragState!.dragId, true, now)
+    // Arm terminal-ownership transfer to the target (receiver) window — the
+    // receiver's reconnectTerminal will panelTransferAck after wiring its
+    // listeners, and ack is a no-op without a prior begin.
+    const targetWin = BrowserWindow.fromWebContents(event.sender)
+    if (targetWin) {
+      if (crossWindowDragState!.snapshot.terminalPtyId) {
+        handleCrossWindowDropTerminalTransfer(
+          crossWindowDragState!.snapshot.terminalPtyId,
+          targetWin.id,
+        )
+      }
+      // A canvas carries its child terminals — arm each live PTY for the
+      // receiver. (Cross-window drag is always a live transfer, so every entry
+      // has a ptyId; the guard satisfies the now-optional type.)
+      for (const t of Object.values(crossWindowDragState!.snapshot.canvasState?.childTerminals ?? {})) {
+        if (t.ptyId) handleCrossWindowDropTerminalTransfer(t.ptyId, targetWin.id)
+      }
+    }
+    // Notify source window to remove the panel (carry the dragId so an
+    // unrelated active drag in that window isn't force-ended).
+    sendToWindow(crossWindowDragState!.sourceWindowId, DRAG_END, crossWindowDragState!.dragId)
     destroyDragGhostWindow()
 
     // Fire the pending resolver (if any). It will read `claimed=true` from
@@ -288,6 +316,7 @@ export function registerDragHandlers({ createWindow }: DragHandlerDeps): void {
       // panel via a fallback detach).
       crossWindowDragState = cancelCrossWindowDrag(crossWindowDragState)
     }
+    return { accepted: true }
   })
 
   ipcMain.handle(CROSS_WINDOW_DRAG_CANCEL, async () => {

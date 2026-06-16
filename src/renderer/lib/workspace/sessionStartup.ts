@@ -72,12 +72,12 @@ export async function restoreMultiWorkspaceSession(session: MultiWorkspaceSessio
     if (i === selectedIdx) {
       const isRemote = !!snapshot.connection && snapshot.connection.kind !== 'local'
       if (isRemote) {
-        // Remote workspace: do NOT block app startup on the companion connect.
+        // Remote workspace: do NOT block app startup on the runtime connect.
         // selectWorkspace sets the selection + 'connecting' phase synchronously
         // (before its first await), so the sidebar shows this workspace
         // immediately. Defer the snapshot so selectWorkspace's deferred-restore
-        // branch replays it AFTER the companion is live (terminals/fs reads can't
-        // race an unregistered companion) — the same path non-selected workspaces
+        // branch replays it AFTER the runtime is live (terminals/fs reads can't
+        // race an unregistered runtime) — the same path non-selected workspaces
         // use, and it keeps the runtime hydrate-on-open hook from double-restoring.
         deferredSnapshots.set(wsId, snapshot)
         void appStore
@@ -204,23 +204,36 @@ async function recreateDockWindow(dw: DetachedDockWindowSnapshot): Promise<void>
 export function buildDockWindowRestoreInit(
   dw: DetachedDockWindowSnapshot,
 ): { topLevelPanelIds: string[]; initPayload: DockWindowInitPayload } {
-  // A legacy/malformed snapshot may lack dockState.zones entirely — treat it as
-  // an empty window so the caller skips it cleanly rather than throwing.
-  const zones = dw.dockState?.zones
-  if (!zones) {
-    return {
-      topLevelPanelIds: [],
-      initPayload: {
-        panels: dw.panels,
-        dockState: createDefaultDockState(),
-        workspaceId: dw.workspaceId,
-        restore: true,
-        terminalCwds: dw.terminalCwds,
-      },
+  // A legacy/malformed snapshot may lack dockState.zones entirely, or carry
+  // zones that reference no panels. A window with no panels at all is genuinely
+  // empty: return no top-level ids so the caller skips it. But when panel
+  // records DO exist, dropping the window would silently lose them (the next
+  // autosave only persists live windows) — recover by laying every panel out as
+  // a tab in a fresh center stack instead.
+  let zones = dw.dockState?.zones
+  let topLevelIds = zones ? collectPanelIdsFromDockState(zones) : []
+  if (topLevelIds.length === 0) {
+    const orphanIds = Object.keys(dw.panels ?? {})
+    if (orphanIds.length === 0) {
+      return {
+        topLevelPanelIds: [],
+        initPayload: {
+          panels: dw.panels,
+          dockState: zones ?? createDefaultDockState(),
+          workspaceId: dw.workspaceId,
+          restore: true,
+          terminalCwds: dw.terminalCwds,
+        },
+      }
     }
+    log.warn(
+      `[session] dock window snapshot has ${orphanIds.length} panels but no dock zones referencing them; recovering panels into a single tab stack`,
+    )
+    zones = createDefaultDockState()
+    zones.center.layout = { type: 'tabs', id: 'restored-orphan-tabs', panelIds: orphanIds, activeIndex: 0 }
+    topLevelIds = orphanIds
   }
 
-  const topLevelIds = collectPanelIdsFromDockState(zones)
   const topLevelSet = new Set(topLevelIds)
 
   const canvasStates: Record<string, PanelTransferSnapshot['canvasState']> = {}
@@ -238,7 +251,9 @@ export function buildDockWindowRestoreInit(
     // Send EVERY persisted panel record (top-level tabs AND canvas children) so
     // the receiving shell can resolve types/titles AND arm replay for all of them.
     panels: dw.panels,
-    dockState: zones,
+    // Past the guard above, zones is either the snapshot's own layout (with at
+    // least one referenced panel) or the synthesized recovery stack.
+    dockState: zones!,
     workspaceId: dw.workspaceId,
     // Cold restore: the shell replays every terminal panel by its panelId.
     restore: true,

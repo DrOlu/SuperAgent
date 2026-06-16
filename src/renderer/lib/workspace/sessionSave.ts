@@ -16,7 +16,7 @@ import { collectPanelIds } from '../canvas/collectPanelIds'
 import { captureAndSaveScrollback } from '../terminal/captureAndSaveScrollback'
 import { deferredSnapshots } from './deferredRestore'
 import { terminalRegistry } from '../terminal/terminalRegistry'
-import { isLocalLocator } from '../../../main/companion/locator'
+import { isLocalLocator } from '../../../main/runtime/locator'
 import { deriveSidebarSession } from './sidebarSession'
 import { buildWorkspaceFile, buildSessionFile, collectPanelIdsFromDockState } from './sessionSerialize'
 import type {
@@ -35,7 +35,7 @@ const lastSerializedByRoot = new Map<string, string>()
 // Same idea for the global sidebar arrangement: skip the IPC + electron-store
 // write when order/active-workspace haven't changed since the last save.
 let lastSidebarSessionSerialized: string | null = null
-// And for the remote-projects list (cate-companion:// restore snapshots).
+// And for the remote-projects list (cate-runtime:// restore snapshots).
 let lastRemoteProjectsSerialized: string | null = null
 
 export async function saveSession(): Promise<void> {
@@ -56,8 +56,6 @@ export async function saveSession(): Promise<void> {
       snapshots.push(deferred)
       continue
     }
-
-    const isSelected = workspace.id === updatedState.selectedWorkspaceId
 
     // Dock layout from the workspace's OWN dock store if activated, else its
     // last-saved snapshot. The center-zone canvas panel is the primary canvas.
@@ -116,10 +114,13 @@ export async function saveSession(): Promise<void> {
       await Promise.all(scrollbackPromises)
     }
 
-    // Live working directory for each terminal in the SELECTED workspace, keyed
-    // by panel id, so a restored terminal respawns where it was. Batched.
+    // Live working directory for every running terminal, keyed by panel id, so a
+    // restored terminal respawns where it was. Batched. PTYs keep running in
+    // non-selected (but previously activated) workspaces, so capture is NOT
+    // limited to the selected one; never-activated workspaces took the deferred-
+    // snapshot path above and keep their saved cwds.
     const terminalCwds: Record<string, string> = {}
-    if (isSelected && panels) {
+    if (panels) {
       const cwdPromises: { id: string; promise: Promise<string | null> }[] = []
       for (const panel of Object.values(panels)) {
         if (panel.type !== 'terminal') continue
@@ -165,11 +166,11 @@ export async function saveSession(): Promise<void> {
     log.warn('[session] Dock window listing failed:', err)
   }
 
-  // Remote (cate-companion://) workspaces can't use the local .cate/ files —
-  // their tree lives on a companion. Collect their full snapshots + reconnect
+  // Remote (cate-runtime://) workspaces can't use the local .cate/ files —
+  // their tree lives on a runtime. Collect their full snapshots + reconnect
   // info into the electron-store remoteProjects list so restart can rebuild and
   // reconnect them (Findings 2/3/4). TODO: route remote project-state through
-  // companion.file so .cate/ lives next to the remote repo instead of here.
+  // runtime.file so .cate/ lives next to the remote repo instead of here.
   const remoteEntries: RemoteProjectEntry[] = []
   for (const snapshot of snapshots) {
     if (!snapshot.rootPath || isLocalLocator(snapshot.rootPath)) continue
@@ -190,16 +191,30 @@ export async function saveSession(): Promise<void> {
   }
 
   // Save to .cate/workspace.json + .cate/session.json next to the repo for EVERY
-  // workspace. Local writes to local disk; remote routes through the companion to
+  // workspace. Local writes to local disk; remote routes through the runtime to
   // the remote repo's .cate/ (projectStateSave is locator-aware). This is what
   // lets a closed remote workspace restore on reopen, exactly like local.
-  const workspacesByRoot = new Map(
-    persistableWorkspaces.filter((w) => w.rootPath).map((w) => [w.rootPath, w]),
-  )
+  // One owner workspace per root. When two share a root (a duplicated workspace),
+  // the SELECTED one owns the write so the live/active layout is what persists;
+  // otherwise the first in order owns it, deterministically.
+  const workspacesByRoot = new Map<string, typeof persistableWorkspaces[number]>()
+  for (const w of persistableWorkspaces) {
+    if (!w.rootPath) continue
+    const existing = workspacesByRoot.get(w.rootPath)
+    if (!existing || w.id === updatedState.selectedWorkspaceId) {
+      workspacesByRoot.set(w.rootPath, w)
+    }
+  }
   for (const snapshot of snapshots) {
     if (!snapshot.rootPath) continue
 
     const ws = workspacesByRoot.get(snapshot.rootPath)
+    // A single owner workspace per root writes its .cate/ files. Two workspaces
+    // duplicated onto one rootPath would otherwise each write a different layout
+    // every tick — the rootPath-keyed dedup never settles, .cate/workspace.json
+    // flip-flops, and one layout is lost on restart. Skip the non-owner snapshot;
+    // the owner (the selected one, else the first in order) wins.
+    if (ws && ws.id !== snapshot.workspaceId) continue
     const wsFile = buildWorkspaceFile(snapshot, snapshot.rootPath, ws?.color)
 
     // Filter detached dock windows belonging to this workspace

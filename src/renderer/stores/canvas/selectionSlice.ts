@@ -3,6 +3,7 @@
 // overlay state.
 // =============================================================================
 
+import { collectPanelIds } from '../../lib/canvas/collectPanelIds'
 import type { CanvasGet, CanvasSet, CanvasStoreActions } from './storeTypes'
 
 type SelectionActions = Pick<
@@ -58,12 +59,30 @@ export function createSelectionSlice(set: CanvasSet, get: CanvasGet): SelectionA
       if (state.selectedNodeIds.size === 0) return
       state.pushHistory()
 
-      // Trigger exit animation for each node (cleanup happens in component lifecycle)
+      // Route panel-backed nodes through the real close flow so PTYs/agents are
+      // disposed and the workspace panel records are removed — bare removeNode only
+      // drops the canvas node, leaving the underlying panels running invisibly.
+      // Collect the panel ids synchronously (before removeNode runs), then close
+      // them via the appStore (imported lazily to avoid pulling the panel/terminal
+      // module graph into this slice's import cycle).
+      const panelIdsToClose: string[] = []
       for (const nodeId of state.selectedNodeIds) {
+        const node = get().nodes[nodeId]
+        if (!node) continue
+        if (node.dockLayout) panelIdsToClose.push(...collectPanelIds(node.dockLayout))
+        else if (node.panelId) panelIdsToClose.push(node.panelId)
         get().removeNode(nodeId)
       }
 
       set({ selectedNodeIds: new Set<string>() })
+
+      if (panelIdsToClose.length > 0) {
+        void import('../appStore').then(({ useAppStore }) => {
+          const wsId = useAppStore.getState().selectedWorkspaceId
+          const closePanel = useAppStore.getState().closePanel
+          for (const panelId of panelIdsToClose) closePanel(wsId, panelId)
+        })
+      }
     },
   }
 }

@@ -30,6 +30,9 @@ export interface PendingPlacement {
   /** Escape hatch preview: where a free "click-anywhere" placement would land
    *  (only while `freeArmed`). */
   freeGhost: { point: Point; size: Size } | null
+  /** Resolved node size for this placement (honors the user's default-size
+   *  setting); falls back to the panel-type default when unset. */
+  size: Size
   /** Viewport before we zoomed out to show recommendations — restored on cancel/commit. */
   prevZoom: number
   prevOffset: Point
@@ -130,6 +133,7 @@ export interface CanvasStoreActions {
     panelId: string,
     panelType: PanelType,
     onCancelled?: (panelId: string) => void,
+    size?: Size,
   ) => boolean
   /** Commit the pending placement at the given candidate index; returns the new node id. */
   commitPlacement: (index: number) => CanvasNodeId | null

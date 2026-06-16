@@ -4,6 +4,7 @@ import type { PanelProps } from './types'
 import { useAppStore } from '../stores/appStore'
 import { ArrowLeft, ArrowRight, Minus, Plus } from '@phosphor-icons/react'
 import { errorMessage } from '../lib/errorMessage'
+import { viewedArrayBuffer } from './documentBytes'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -96,6 +97,20 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
+function DocumentErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center bg-surface-4 gap-2 p-4 text-center">
+      <span className="text-red-400 text-sm">{message}</span>
+      <button
+        onClick={onRetry}
+        className="text-xs text-neutral-400 hover:text-white underline"
+      >
+        Try Again
+      </button>
+    </div>
+  )
+}
+
 function ImageViewer({ data, mimeType, fileName }: { data: Uint8Array; mimeType: string; fileName: string }) {
   const dataUrl = useMemo(() => {
     const b64 = uint8ToBase64(data)
@@ -120,22 +135,31 @@ function PdfViewer({ data }: { data: Uint8Array }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState(0)
   const [scale, setScale] = useState(1.5)
+  const [error, setError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null)
 
   useEffect(() => {
     let cancelled = false
+    setError(null)
     const loadingTask = pdfjsLib.getDocument({ data })
     loadingTask.promise.then((doc) => {
       if (cancelled) return
       setPdf(doc)
       setNumPages(doc.numPages)
+      setCurrentPage(1)
+    }).catch((err) => {
+      if (!cancelled) setError(errorMessage(err, 'Failed to open PDF'))
     })
     return () => {
       cancelled = true
-      loadingTask.destroy()
+      // destroy() rejects the in-flight promise (ERR: "Worker was destroyed"),
+      // which surfaces as an unhandled rejection — once per open under
+      // StrictMode's double-invoke. Swallow it: the task is being torn down.
+      loadingTask.destroy().catch(() => {})
     }
-  }, [data])
+  }, [data, reloadKey])
 
   useEffect(() => {
     if (!pdf || !canvasRef.current) return
@@ -161,10 +185,25 @@ function PdfViewer({ data }: { data: Uint8Array }) {
       const task = page.render({ canvasContext: ctx, viewport, canvas })
       renderTaskRef.current = task
       task.promise.catch(() => {})
+    }).catch((err) => {
+      if (!cancelled) setError(errorMessage(err, 'Failed to render page'))
     })
 
     return () => { cancelled = true }
   }, [pdf, currentPage, scale])
+
+  if (error) {
+    return (
+      <DocumentErrorState
+        message={error}
+        onRetry={() => {
+          setPdf(null)
+          setNumPages(0)
+          setReloadKey((k) => k + 1)
+        }}
+      />
+    )
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -211,24 +250,28 @@ function PdfViewer({ data }: { data: Uint8Array }) {
 function DocxViewer({ data }: { data: Uint8Array }) {
   const [html, setHtml] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setError(null)
+    setHtml(null)
     import('mammoth').then((mammoth) => {
-      mammoth.convertToHtml({ arrayBuffer: (data.buffer as ArrayBuffer).slice(data.byteOffset, data.byteOffset + data.byteLength) }).then((result) => {
+      return mammoth.convertToHtml({ arrayBuffer: viewedArrayBuffer(data) }).then((result) => {
         if (!cancelled) setHtml(result.value)
-      }).catch((err) => {
-        if (!cancelled) setError(errorMessage(err, 'Failed to render document'))
       })
+    }).catch((err) => {
+      if (!cancelled) setError(errorMessage(err, 'Failed to render document'))
     })
     return () => { cancelled = true }
-  }, [data])
+  }, [data, reloadKey])
 
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center text-red-400 text-sm p-4">
-        Failed to render document: {error}
-      </div>
+      <DocumentErrorState
+        message={error}
+        onRetry={() => setReloadKey((k) => k + 1)}
+      />
     )
   }
 

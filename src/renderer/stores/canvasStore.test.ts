@@ -397,6 +397,15 @@ describe('canvasStore.recommendPlacements', () => {
     expect(three.length).toBeLessThanOrEqual(3)
   })
 
+  it('sizes candidates from sizeOverride when given (honors the default-size setting)', () => {
+    const override = { width: 900, height: 700 }
+    const cands = recommendPlacements(toMap(node('a', 0, 0)), 'a', 'terminal', VIEWPORT, null, 6, override)
+    expect(cands.length).toBeGreaterThan(0)
+    cands.forEach((c) => {
+      expect(c.size).toEqual(override)
+    })
+  })
+
   it('biases the best recommendation toward the anchor (mouse) when given', () => {
     const anchor = { x: 300, y: 300 }
     const cands = recommendPlacements({}, null, 'terminal', VIEWPORT, anchor)

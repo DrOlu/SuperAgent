@@ -82,7 +82,6 @@ import {
   MENU_OPEN_SETTINGS,
   MENU_TRIGGER_ACTION,
   MENU_LOAD_LAYOUT,
-  MENU_CREATE_PANEL,
   BROWSER_SHORTCUT,
   MENU_SHOW_CONTEXT,
   MENU_GET_BAR_ITEMS,
@@ -156,16 +155,16 @@ import {
   WORKSPACE_UPDATE,
   WORKSPACE_REMOVE,
   WORKSPACE_CHANGED,
-  COMPANION_CONNECT,
-  COMPANION_ENSURE,
-  COMPANION_LIST,
-  COMPANION_WSL_DISTROS,
-  COMPANION_SSH_HOSTS,
-  COMPANION_DELETE,
-  COMPANION_INSTALL,
-  COMPANION_STATUS,
-  COMPANION_LOCAL_STATUS,
-  COMPANION_PICK_SSH_KEY,
+  RUNTIME_CONNECT,
+  RUNTIME_ENSURE,
+  RUNTIME_LIST,
+  RUNTIME_WSL_DISTROS,
+  RUNTIME_SSH_HOSTS,
+  RUNTIME_DELETE,
+  RUNTIME_INSTALL,
+  RUNTIME_STATUS,
+  RUNTIME_LOCAL_STATUS,
+  RUNTIME_PICK_SSH_KEY,
   WEBVIEW_SCREENSHOT,
   BROWSER_SET_PROXY,
   NATIVE_FILE_DRAG,
@@ -176,11 +175,10 @@ import {
   ANALYTICS_FEEDBACK_PROMPT,
   ANALYTICS_FEEDBACK_SUBMIT,
   ANALYTICS_FEEDBACK_DISMISS,
-  ANALYTICS_FEEDBACK_ENGAGED,
   ANALYTICS_FEEDBACK_GET_PENDING,
   ANALYTICS_LINK_CLICK,
   ANALYTICS_TRACK_USAGE,
-  TELEMETRY_SET_CONSENT,
+  TELEMETRY_ACKNOWLEDGE_NOTICE,
   OPEN_EXTERNAL_URL,
   AGENT_CREATE,
   AGENT_PROMPT,
@@ -188,9 +186,7 @@ import {
   AGENT_DISPOSE,
   AGENT_SET_MODEL,
   AGENT_GET_COMMANDS,
-  AGENT_TOOL_DECISION,
   AGENT_EVENT,
-  AGENT_TOOL_REQUEST,
   AGENT_OPEN_SKILLS_FOLDER,
   AGENT_OPEN_SKILL_FILE,
   AGENT_DELETE_SKILL_FILE,
@@ -210,10 +206,6 @@ import {
   AGENT_LIST_SESSIONS,
   AGENT_LOAD_SESSION_MESSAGES,
   AGENT_DELETE_SESSION,
-  AGENT_MARKETPLACE_LIST,
-  AGENT_MARKETPLACE_LIST_INSTALLED,
-  AGENT_MARKETPLACE_INSTALL,
-  AGENT_MARKETPLACE_UNINSTALL,
   AGENT_CUSTOM_MODELS_GET,
   AGENT_CUSTOM_MODELS_SAVE,
   SKILLS_GET_INDEX,
@@ -464,16 +456,16 @@ const invokeForwarders = {
   workspaceUpdate: makeInvoker<'workspaceUpdate'>(WORKSPACE_UPDATE),
   workspaceRemove: makeInvoker<'workspaceRemove'>(WORKSPACE_REMOVE),
 
-  // Companion connections (remote / WSL)
-  companionConnect: makeInvoker<'companionConnect'>(COMPANION_CONNECT),
-  companionEnsure: makeInvoker<'companionEnsure'>(COMPANION_ENSURE),
-  companionList: makeInvoker<'companionList'>(COMPANION_LIST),
-  companionLocalStatus: makeInvoker<'companionLocalStatus'>(COMPANION_LOCAL_STATUS),
-  companionWslDistros: makeInvoker<'companionWslDistros'>(COMPANION_WSL_DISTROS),
-  companionSshHosts: makeInvoker<'companionSshHosts'>(COMPANION_SSH_HOSTS),
-  companionPickSshKey: makeInvoker<'companionPickSshKey'>(COMPANION_PICK_SSH_KEY),
-  companionInstall: makeInvoker<'companionInstall'>(COMPANION_INSTALL),
-  companionDelete: makeInvoker<'companionDelete'>(COMPANION_DELETE),
+  // Runtime connections (remote / WSL)
+  runtimeConnect: makeInvoker<'runtimeConnect'>(RUNTIME_CONNECT),
+  runtimeEnsure: makeInvoker<'runtimeEnsure'>(RUNTIME_ENSURE),
+  runtimeList: makeInvoker<'runtimeList'>(RUNTIME_LIST),
+  runtimeLocalStatus: makeInvoker<'runtimeLocalStatus'>(RUNTIME_LOCAL_STATUS),
+  runtimeWslDistros: makeInvoker<'runtimeWslDistros'>(RUNTIME_WSL_DISTROS),
+  runtimeSshHosts: makeInvoker<'runtimeSshHosts'>(RUNTIME_SSH_HOSTS),
+  runtimePickSshKey: makeInvoker<'runtimePickSshKey'>(RUNTIME_PICK_SSH_KEY),
+  runtimeInstall: makeInvoker<'runtimeInstall'>(RUNTIME_INSTALL),
+  runtimeDelete: makeInvoker<'runtimeDelete'>(RUNTIME_DELETE),
 
   // Menu
   showContextMenu: makeInvoker<'showContextMenu'>(MENU_SHOW_CONTEXT),
@@ -486,7 +478,7 @@ const invokeForwarders = {
   // Analytics feedback
   submitFeedback: makeInvoker<'submitFeedback'>(ANALYTICS_FEEDBACK_SUBMIT),
   getPendingFeedback: makeInvoker<'getPendingFeedback'>(ANALYTICS_FEEDBACK_GET_PENDING),
-  setTelemetryConsent: makeInvoker<'setTelemetryConsent'>(TELEMETRY_SET_CONSENT),
+  acknowledgeTelemetryNotice: makeInvoker<'acknowledgeTelemetryNotice'>(TELEMETRY_ACKNOWLEDGE_NOTICE),
 
   // Pi agent
   agentCreate: makeInvoker<'agentCreate'>(AGENT_CREATE),
@@ -508,16 +500,11 @@ const invokeForwarders = {
   agentDispose: makeInvoker<'agentDispose'>(AGENT_DISPOSE),
   agentSetModel: makeInvoker<'agentSetModel'>(AGENT_SET_MODEL),
   agentGetCommands: makeInvoker<'agentGetCommands'>(AGENT_GET_COMMANDS),
-  agentToolDecision: makeInvoker<'agentToolDecision'>(AGENT_TOOL_DECISION),
   agentOpenSkillsFolder: makeInvoker<'agentOpenSkillsFolder'>(AGENT_OPEN_SKILLS_FOLDER),
   agentOpenSkillFile: makeInvoker<'agentOpenSkillFile'>(AGENT_OPEN_SKILL_FILE),
   agentDeleteSkillFile: makeInvoker<'agentDeleteSkillFile'>(AGENT_DELETE_SKILL_FILE),
   agentCreateSkill: makeInvoker<'agentCreateSkill'>(AGENT_CREATE_SKILL),
   agentListSkillFiles: makeInvoker<'agentListSkillFiles'>(AGENT_LIST_SKILL_FILES),
-  agentMarketplaceList: makeInvoker<'agentMarketplaceList'>(AGENT_MARKETPLACE_LIST),
-  agentMarketplaceListInstalled: makeInvoker<'agentMarketplaceListInstalled'>(AGENT_MARKETPLACE_LIST_INSTALLED),
-  agentMarketplaceInstall: makeInvoker<'agentMarketplaceInstall'>(AGENT_MARKETPLACE_INSTALL),
-  agentMarketplaceUninstall: makeInvoker<'agentMarketplaceUninstall'>(AGENT_MARKETPLACE_UNINSTALL),
   agentCustomModelsGet: makeInvoker<'agentCustomModelsGet'>(AGENT_CUSTOM_MODELS_GET),
   agentCustomModelsSave: makeInvoker<'agentCustomModelsSave'>(AGENT_CUSTOM_MODELS_SAVE),
 
@@ -814,8 +801,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Workspace management (main process is source of truth)
   // ---------------------------------------------------------------------------
 
-  onCompanionStatus(callback: (event: unknown) => void): () => void {
-    return createIpcListener(COMPANION_STATUS, callback)
+  onRuntimeStatus(callback: (event: unknown) => void): () => void {
+    return createIpcListener(RUNTIME_STATUS, callback)
   },
 
   onWorkspaceChanged(callback: (workspaces: unknown[], originWindowId: number | null) => void): () => void {
@@ -853,10 +840,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return createIpcListener(MENU_LOAD_LAYOUT, callback)
   },
 
-  onMenuCreatePanel(callback: (payload: { action: string; workspaceId?: string }) => void): () => void {
-    return createIpcListener(MENU_CREATE_PANEL, callback)
-  },
-
   onBrowserShortcut(callback: (action: string) => void): () => void {
     return createIpcListener(BROWSER_SHORTCUT, callback)
   },
@@ -875,10 +858,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   dismissFeedback(method: string): void {
     ipcRenderer.send(ANALYTICS_FEEDBACK_DISMISS, method)
-  },
-
-  trackFeedbackEngagement(): void {
-    ipcRenderer.send(ANALYTICS_FEEDBACK_ENGAGED)
   },
 
   trackLinkClick(link: string): void {
@@ -903,10 +882,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   onAgentEvent(callback: (envelope: unknown) => void): () => void {
     return createIpcListener(AGENT_EVENT, callback)
-  },
-
-  onAgentToolRequest(callback: (req: unknown) => void): () => void {
-    return createIpcListener(AGENT_TOOL_REQUEST, callback)
   },
 
   // ---------------------------------------------------------------------------

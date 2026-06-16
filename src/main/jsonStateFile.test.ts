@@ -73,3 +73,95 @@ describe('jsonStateFile', () => {
     expect(store.get()).toEqual({ items: ['a', 'b'] })
   })
 })
+
+// =============================================================================
+// Flush serialization + quit-flush correctness (bug 3). These build an isolated
+// jsonStateFile instance whose async writeJsonAtomic completion is gated by the
+// test, so overlapping flushes and an in-flight async flush can be reproduced
+// deterministically. The sync writer goes through to the real fs.
+// =============================================================================
+
+interface GatedWrite { path: string; content: string; release: () => void }
+
+async function loadGatedStore(pending: GatedWrite[]) {
+  vi.resetModules()
+  vi.doMock('electron', () => {
+    const electron = { app: { getPath: () => userData } }
+    return { ...electron, default: electron }
+  })
+  vi.doMock('chokidar', () => ({ watch: () => ({ on: vi.fn(), close: vi.fn() }) }))
+  vi.doMock('./logger', () => ({
+    default: { warn: () => {}, info: () => {}, error: () => {}, debug: () => {} },
+  }))
+  // Async writes complete only when the test releases them; sync writes are real
+  // so quit-flush assertions read true on-disk bytes.
+  vi.doMock('./writeJsonAtomic', async () => {
+    const real = await vi.importActual<typeof import('./writeJsonAtomic')>('./writeJsonAtomic')
+    return {
+      ...real,
+      writeJsonAtomic: (p: string, value: unknown) =>
+        new Promise<void>((resolve) => {
+          const content = JSON.stringify(value, null, 2) + '\n'
+          pending.push({
+            path: p,
+            content,
+            release: () => { fs.writeFileSync(p, content, 'utf-8'); resolve() },
+          })
+        }),
+    }
+  })
+  const mod = await import('./jsonStateFile')
+  return mod.createJsonStateFile<Shape>({ filename: 'flush.json', defaults, normalize })
+}
+
+describe('jsonStateFile — flush serialization (bug 3)', () => {
+  test('overlapping flushes end with the NEWER content on disk and in memory', async () => {
+    const pending: GatedWrite[] = []
+    const store = await loadGatedStore(pending)
+    vi.useFakeTimers()
+    try {
+      store.set({ items: ['old'] })
+      await vi.advanceTimersByTimeAsync(200) // fire flush A (now in-flight, gated)
+      store.set({ items: ['new'] })
+      await vi.advanceTimersByTimeAsync(200) // schedule flush B (chained behind A)
+
+      // Flush A is in-flight; flush B is queued behind it on the chain and won't
+      // even snapshot its content until A settles. Release A, then B; the chain
+      // must keep them serial so the newer write lands last.
+      expect(pending.length).toBe(1)
+      pending[0].release()
+      await vi.runAllTimersAsync()
+      expect(pending.length).toBe(2)
+      pending[1].release()
+      await vi.runAllTimersAsync()
+
+      const onDisk = fs.readFileSync(path.join(userData, 'flush.json'), 'utf-8')
+      expect(JSON.parse(onDisk)).toEqual({ items: ['new'] })
+      expect(store.get()).toEqual({ items: ['new'] })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('quit-flush during an in-flight async flush persists the latest value', async () => {
+    const pending: GatedWrite[] = []
+    const store = await loadGatedStore(pending)
+    vi.useFakeTimers()
+    try {
+      store.set({ items: ['a', 'b'] })
+      await vi.advanceTimersByTimeAsync(200) // debounce fires: async flush in-flight, gated.
+      expect(pending.length).toBe(1)
+
+      // The process quits while the async flush is still mid-await (its rename
+      // hasn't landed). The debounce timer is already consumed, so the OLD
+      // flushPendingWritesSync would no-op and the value would be lost if the
+      // gated async write never completes before exit. The fix must persist it.
+      store.flushPendingWritesSync()
+
+      const onDisk = fs.readFileSync(path.join(userData, 'flush.json'), 'utf-8')
+      expect(JSON.parse(onDisk)).toEqual({ items: ['a', 'b'] })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

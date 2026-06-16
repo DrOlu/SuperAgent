@@ -23,12 +23,12 @@ const windows = new Map<number, BrowserWindow>()
 /** Window type for each tracked window. */
 const windowTypes = new Map<number, CateWindowType>()
 
-/** Dock window state — synced periodically from renderer for session persistence. */
-const dockWindowState = new Map<number, Omit<DockWindowSyncState, 'workspaceId'>>()
+/** Dock window state — synced from renderer for session persistence. */
+const dockWindowState = new Map<number, DockWindowSyncState>()
 
-/** Workspace a window was opened for — the SINGLE source of truth. Set at
- *  creation (registerWindow) for every detached path, and refreshed by the
- *  dock sync setter below. */
+/** Workspace a window was opened for — the SINGLE source of truth, owned by
+ *  main. Set once at creation (registerWindow) and NEVER refreshed from
+ *  renderer sync payloads (DockWindowSyncState cannot carry a workspaceId). */
 const windowWorkspaceId = new Map<number, string>()
 
 /** The id of the most recently focused main window — the default target for
@@ -217,12 +217,11 @@ export function setDockWindowState(
   windowId: number,
   state: DockWindowSyncState,
 ): void {
-  // workspaceId is intentionally optional: the detached shell does NOT echo it
-  // back (its local wsId may be the process-local stub). The real id was set at
-  // window creation (registerWindow), so we keep it unless a real one arrives.
-  const { workspaceId, ...rest } = state
+  // Defensively strip a workspaceId if an out-of-date renderer still sends one:
+  // the registry value set at window creation is the sole authority, and a
+  // renderer echo could only be its process-local stub id.
+  const { workspaceId: _ignored, ...rest } = state as DockWindowSyncState & { workspaceId?: unknown }
   dockWindowState.set(windowId, rest)
-  if (workspaceId) windowWorkspaceId.set(windowId, workspaceId)
 }
 
 /** A dock window's persisted state plus its live window id and bounds. */

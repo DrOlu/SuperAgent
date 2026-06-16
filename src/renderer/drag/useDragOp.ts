@@ -11,6 +11,7 @@ import { PANEL_DEFAULT_SIZES, PANEL_CANVAS_DROP_SIZES } from '../../shared/types
 import { useDragStore } from './store'
 import type { DragSource, DragOpSourceSpec, RuntimeState } from './types'
 import { applyBodyClassEffect } from './types'
+import { acquireBodyClass, releaseBodyClass } from '../lib/dom/bodyClassRefcount'
 import { reduce, initial as runtimeInitial } from './runtime'
 import { resolveDrop } from './resolve'
 import { commitDrop } from './commit'
@@ -25,7 +26,7 @@ import { createTransferSnapshot } from '../lib/panelTransfer'
 import { terminalRegistry } from '../lib/terminal/terminalRegistry'
 import { prepareTerminalRemount } from './terminalRemount'
 import { useAppStore } from '../stores/appStore'
-import { removeDetachedPanelRecords } from '../lib/canvas/removeDetachedPanelRecords'
+import { removePanelFromWindow } from '../lib/panels/removePanelFromWindow'
 import { useSettingsStore } from '../stores/settingsStore'
 
 const DEAD_ZONE_PX = 4
@@ -42,16 +43,17 @@ function attachListeners() {
   if (session.listenersAttached) return
   window.addEventListener('mousemove', onMouseMove, true)
   window.addEventListener('mouseup', onMouseUp, true)
+  // Capture phase so Escape reaches us before the global shortcut handler that
+  // would otherwise clear the canvas selection on the same keypress.
+  window.addEventListener('keydown', onKeyDown, true)
   // Bubble phase (not capture): we only want the window's own blur event.
   // Capture-phase would also fire for element-level blur events bubbling up,
   // and xterm's textarea.focus() — triggered by the focus-on-focus effect on
   // terminal panels — would otherwise cancel an in-flight drag.
   window.addEventListener('blur', onBlur, false)
   session.listenersAttached = true
-  // Body marker so resize-cursor / resize-start can guard against starting an
-  // edge-resize on top of an in-flight drag. Mirrors `canvas-interacting`
-  // which is set by the resize hook.
-  document.body.classList.add('canvas-dragging')
+  // Refcounted body marker for the in-flight drag, balanced by detachListeners.
+  acquireBodyClass('canvas-dragging')
 }
 
 function detachListeners() {
@@ -59,9 +61,10 @@ function detachListeners() {
   if (!session.listenersAttached) return
   window.removeEventListener('mousemove', onMouseMove, true)
   window.removeEventListener('mouseup', onMouseUp, true)
+  window.removeEventListener('keydown', onKeyDown, true)
   window.removeEventListener('blur', onBlur, false)
   session.listenersAttached = false
-  document.body.classList.remove('canvas-dragging')
+  releaseBodyClass('canvas-dragging')
 }
 
 // -----------------------------------------------------------------------------
@@ -331,7 +334,6 @@ function runEffects(prevActive: ActiveDispatch, next: RuntimeState) {
           buildSnapshot: () => buildSnapshotFor(prevActive.spec),
           workspaceId: resolveOwningWorkspaceId(prevActive.ownerWorkspaceId),
           onRemovedFromCanvas: (panelId, panelType) => {
-            if (panelType === 'terminal') terminalRegistry.release(panelId)
             const wsId = resolveOwningWorkspaceId(prevActive.ownerWorkspaceId)
             // If the user just detached the workspace's only canvas, spawn a
             // fresh empty one so they don't end up staring at an empty dock.
@@ -349,13 +351,20 @@ function runEffects(prevActive: ActiveDispatch, next: RuntimeState) {
                 }
               }
             }
-            // The panel now lives in the detached window — drop it (and a
-            // canvas's children) from this workspace so the overview lists only
-            // what's actually here. The receive side re-adds it on drop-back.
-            removeDetachedPanelRecords(wsId, panelId, panelType)
+            // The panel now lives in the detached window — release its content
+            // (PTYs keep running, mid-transfer) and drop it (and a canvas's
+            // children) from this workspace so the overview lists only what's
+            // actually here. The receive side re-adds it on drop-back.
+            removePanelFromWindow(wsId, panelId, panelType, 'transfer')
           },
           prepareLocalRemount: (panelId, panelType) => {
             prepareTerminalRemount(panelId, panelType, terminalRegistry)
+          },
+          beginPendingDetach: (panelId, nodeId) => {
+            useDragStore.getState().beginPendingDetach(panelId, nodeId)
+          },
+          endPendingDetach: (panelId) => {
+            useDragStore.getState().endPendingDetach(panelId)
           },
         }).catch((err) => {
           // eslint-disable-next-line no-console
@@ -476,6 +485,22 @@ function onBlur() {
   const session = getDefaultSession()
   const active = session.active
   if (!active) return
+  session.active = null
+  detachListeners()
+  step(active, { type: 'CANCEL' })
+}
+
+function onKeyDown(ev: KeyboardEvent) {
+  if (ev.key !== 'Escape') return
+  const session = getDefaultSession()
+  const active = session.active
+  if (!active) return
+  // Cancel the in-flight drag, and stop the keypress here so it doesn't fall
+  // through to the global shortcut handler that clears the canvas selection
+  // (Escape should only abort the drag, leaving the selection intact).
+  ev.preventDefault()
+  ev.stopPropagation()
+  ev.stopImmediatePropagation()
   session.active = null
   detachListeners()
   step(active, { type: 'CANCEL' })

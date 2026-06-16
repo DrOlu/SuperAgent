@@ -25,6 +25,7 @@ import type {
   AgentSlashCommand,
   AgentThinkingLevel,
 } from '../../shared/types'
+import { Tooltip } from '../../renderer/ui/Tooltip'
 
 export function ChatInput({
   draft,
@@ -49,6 +50,7 @@ export function ChatInput({
   compactionActive,
   planModeActive,
   onTogglePlanMode,
+  onSlashOpen,
   placeholder: placeholderOverride,
 }: {
   draft: string
@@ -73,6 +75,10 @@ export function ChatInput({
   compactionActive: boolean
   planModeActive: boolean
   onTogglePlanMode: () => void
+  /** Fired when the slash-command popup opens (draft starts a `/command`), so the
+   *  parent can refresh the command list — picks up newly-installed skills
+   *  without reopening the panel. */
+  onSlashOpen?: () => void
   placeholder?: string
 }) {
   useEffect(() => {
@@ -89,6 +95,16 @@ export function ChatInput({
     if (draft.includes(' ') || draft.includes('\n')) return null
     return draft.slice(1).toLowerCase()
   }, [draft])
+
+  // On the leading edge of a slash command (the user just typed "/"), ask the
+  // parent to refresh the command list so freshly-installed skills/prompts show
+  // up without reopening the panel. Fires once per open, not per keystroke.
+  const slashWasOpen = useRef(false)
+  useEffect(() => {
+    const open = slashMatch != null
+    if (open && !slashWasOpen.current) onSlashOpen?.()
+    slashWasOpen.current = open
+  }, [slashMatch, onSlashOpen])
 
   const filteredCommands = useMemo(() => {
     if (slashMatch == null) return []
@@ -201,10 +217,7 @@ export function ChatInput({
           placeholder={
             compactionActive
               ? 'Compacting context…'
-              : placeholderOverride ??
-                (running
-                  ? 'Steer the agent…  (queues a course-correct mid-turn)'
-                  : 'Message the agent…  (type / for skills, paste/drop images)')
+              : placeholderOverride ?? (running ? 'Steer the agent…' : 'Message the agent…')
           }
           rows={1}
           className="w-full bg-transparent px-3 py-2 text-[13px] text-primary outline-none resize-none placeholder:text-muted disabled:opacity-50"
@@ -213,17 +226,19 @@ export function ChatInput({
         <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
           <ImageAttachButton onPick={onAddImage} />
           <ThinkingLevelPicker level={thinkingLevel} onChange={onPickThinkingLevel} />
-          <button
-            onClick={onTogglePlanMode}
-            className={`p-1.5 rounded-md ${
-              planModeActive
-                ? 'bg-agent/25 text-primary'
-                : 'text-primary/80 hover:bg-hover'
-            }`}
-            title="Plan mode: agent investigates with parallel scouts, proposes a plan, then waits for your approval."
-          >
-            <ClipboardText size={12} weight={planModeActive ? 'fill' : 'regular'} />
-          </button>
+          <Tooltip label="Plan mode: agent investigates with parallel scouts, proposes a plan, then waits for your approval." placement="top">
+            <button
+              onClick={onTogglePlanMode}
+              className={`p-1.5 rounded-md ${
+                planModeActive
+                  ? 'bg-agent/25 text-primary'
+                  : 'text-primary/80 hover:bg-hover'
+              }`}
+              aria-label="Toggle plan mode"
+            >
+              <ClipboardText size={12} weight={planModeActive ? 'fill' : 'regular'} />
+            </button>
+          </Tooltip>
           <CompactButton
             onManualCompact={onManualCompact}
             onToggleAutoCompaction={onToggleAutoCompaction}
@@ -233,39 +248,44 @@ export function ChatInput({
           <StatsChip stats={stats} />
           <div className="flex-1" />
           {compactionActive ? (
-            <div
-              className="p-1.5 rounded-full bg-agent/40 text-white"
-              title="Compacting context…"
-            >
-              <Spinner size={12} weight="bold" className="animate-spin" />
-            </div>
+            <Tooltip label="Compacting context…" placement="top">
+              <div className="p-1.5 rounded-full bg-agent/40 text-white">
+                <Spinner size={12} weight="bold" className="animate-spin" />
+              </div>
+            </Tooltip>
           ) : running ? (
             canSend ? (
+              <Tooltip label="Steer" placement="top">
+                <button
+                  onClick={onSubmit}
+                  className="p-1.5 rounded-full bg-agent hover:bg-agent-light text-white"
+                  aria-label="Steer"
+                >
+                  <PaperPlaneRight size={12} weight="fill" />
+                </button>
+              </Tooltip>
+            ) : (
+              <Tooltip label="Stop" placement="top">
+                <button
+                  onClick={onStop}
+                  className="p-1.5 rounded-full bg-agent hover:bg-agent-light text-white"
+                  aria-label="Stop"
+                >
+                  <Stop size={12} weight="fill" />
+                </button>
+              </Tooltip>
+            )
+          ) : (
+            <Tooltip label="Send" placement="top">
               <button
                 onClick={onSubmit}
-                className="p-1.5 rounded-full bg-agent hover:bg-agent-light text-white"
-                title="Steer"
+                disabled={!canSend}
+                className="p-1.5 rounded-full bg-agent hover:bg-agent-light disabled:bg-[var(--surface-hover-strong)] disabled:text-muted text-white"
+                aria-label="Send"
               >
                 <PaperPlaneRight size={12} weight="fill" />
               </button>
-            ) : (
-              <button
-                onClick={onStop}
-                className="p-1.5 rounded-full bg-agent hover:bg-agent-light text-white"
-                title="Stop"
-              >
-                <Stop size={12} weight="fill" />
-              </button>
-            )
-          ) : (
-            <button
-              onClick={onSubmit}
-              disabled={!canSend}
-              className="p-1.5 rounded-full bg-agent hover:bg-agent-light disabled:bg-[var(--surface-hover-strong)] disabled:text-muted text-white"
-              title="Send"
-            >
-              <PaperPlaneRight size={12} weight="fill" />
-            </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -300,17 +320,19 @@ function CompactButton({
   )
   return (
     <>
-      <button
-        ref={btnRef}
-        onClick={() => setOpen((v) => !v)}
-        disabled={compactionActive}
-        className={`p-1.5 rounded-md hover:bg-hover disabled:opacity-50 ${
-          autoCompactionEnabled ? 'text-primary/80' : 'text-muted/50'
-        }`}
-        title="Compact context"
-      >
-        <ArrowsClockwise size={12} className={compactionActive ? 'animate-spin' : ''} />
-      </button>
+      <Tooltip label="Compact context" placement="top">
+        <button
+          ref={btnRef}
+          onClick={() => setOpen((v) => !v)}
+          disabled={compactionActive}
+          className={`p-1.5 rounded-md hover:bg-hover disabled:opacity-50 ${
+            autoCompactionEnabled ? 'text-primary/80' : 'text-muted/50'
+          }`}
+          aria-label="Compact context"
+        >
+          <ArrowsClockwise size={12} className={compactionActive ? 'animate-spin' : ''} />
+        </button>
+      </Tooltip>
       {open && (
         <NodePopover
           popoverRef={popoverRef}
@@ -398,15 +420,17 @@ function StatsChip({
   const barColor = barPct > 85 ? 'bg-danger' : barPct > 65 ? 'bg-warning' : 'bg-agent-light'
   return (
     <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-mono ${tone} hover:bg-hover`}
-        title="Conversation stats"
-      >
-        {pctRounded != null ? <ContextRing percent={pctRounded} /> : <span>-</span>}
-      </button>
+      <Tooltip label="Conversation stats" placement="top">
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-mono ${tone} hover:bg-hover`}
+          aria-label="Conversation stats"
+        >
+          {pctRounded != null ? <ContextRing percent={pctRounded} /> : <span>-</span>}
+        </button>
+      </Tooltip>
       {open && (
         <NodePopover
           popoverRef={popoverRef}

@@ -45,6 +45,53 @@ function reset() {
   }
 }
 
+describe('duplicateWorkspace preserves project identity', () => {
+  beforeEach(reset)
+
+  it('keeps the connection so a remote duplicate stays reconnectable', () => {
+    const connection = {
+      kind: 'server' as const,
+      runtimeId: 'comp-1',
+      host: 'box',
+      user: 'me',
+      remotePath: '/srv/repo',
+    }
+    const a = useAppStore.getState().addWorkspace('Remote', 'cate-runtime://comp-1/srv/repo', 'ws-a', connection)
+
+    const dupId = useAppStore.getState().duplicateWorkspace(a)
+
+    const dup = useAppStore.getState().workspaces.find((w) => w.id === dupId)
+    expect(dup?.connection).toEqual(connection)
+    // Not degraded to a broken local workspace.
+    expect(dup?.connection?.kind).toBe('server')
+    expect(dup?.rootPath).toBe('cate-runtime://comp-1/srv/repo')
+  })
+
+  it('preserves additionalRoots and worktrees in the duplicate', () => {
+    const a = useAppStore.getState().addWorkspace('A', '/tmp/repo', 'ws-a')
+    useAppStore.getState().addAdditionalRoot(a, '/tmp/other-repo')
+    useAppStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === a
+          ? { ...w, worktrees: [{ id: 'wt-1', path: '/tmp/repo/.cate/worktrees/feat', color: '#abc', label: 'feat' }] }
+          : w,
+      ),
+    }))
+
+    const dupId = useAppStore.getState().duplicateWorkspace(a)
+    const dup = useAppStore.getState().workspaces.find((w) => w.id === dupId)
+
+    expect(dup?.additionalRoots).toEqual(['/tmp/other-repo'])
+    expect(dup?.worktrees).toEqual([
+      { id: 'wt-1', path: '/tmp/repo/.cate/worktrees/feat', color: '#abc', label: 'feat' },
+    ])
+    // Deep-copied, not aliased — mutating the original must not touch the copy.
+    const original = useAppStore.getState().workspaces.find((w) => w.id === a)
+    expect(dup?.additionalRoots).not.toBe(original?.additionalRoots)
+    expect(dup?.worktrees).not.toBe(original?.worktrees)
+  })
+})
+
 describe('same-instance duplicate-root guard', () => {
   beforeEach(reset)
 

@@ -26,20 +26,25 @@ export interface DragSourceVisibility {
 
 /** Visibility for a canvas-node id. `hidden` is true only for whole-node
  *  drags — tab-role does NOT hide the host node (the tab itself is hidden
- *  separately by DockTabStack via useTabSourceVisibility). */
+ *  separately by DockTabStack via useTabSourceVisibility). Also stays hidden
+ *  while a detach commit for this node is in flight (drag state already
+ *  reset, node not yet removed) so it doesn't flash at its pre-drag spot. */
 export function useDragSourceVisibility(nodeId: string): DragSourceVisibility {
   return useStoreWithEqualityFn(
     useDragStore,
     (s) => {
       const role = selectDragSourceRole(s, nodeId)
-      return { hidden: role === 'whole-node', role }
+      const pending = s.pendingDetach.some((p) => p.nodeId === nodeId)
+      return { hidden: role === 'whole-node' || pending, role }
     },
     shallow,
   )
 }
 
 /** Visibility for an individual dock tab. `hidden` is true while THIS panel
- *  is the dock-tab source in flight. */
+ *  is the dock-tab source in flight, or while its detach commit is pending
+ *  (nodeId === null distinguishes dock-tab sources — whole-node pending
+ *  detaches hide the host node instead, which covers the tab). */
 export function useTabSourceVisibility(panelId: string): {
   hidden: boolean
   role: 'tab' | null
@@ -48,7 +53,8 @@ export function useTabSourceVisibility(panelId: string): {
     useDragStore,
     (s) => {
       const role = selectDragSourceRoleForTab(s, panelId)
-      return { hidden: role === 'tab', role }
+      const pending = s.pendingDetach.some((p) => p.panelId === panelId && p.nodeId === null)
+      return { hidden: role === 'tab' || pending, role }
     },
     shallow,
   )

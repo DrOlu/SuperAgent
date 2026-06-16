@@ -215,7 +215,6 @@ describe('cross-window panel discovery (main)', () => {
     setDockWindowState(150, {
       dockState: { zones: {} } as never,
       panels: { t1: { id: 't1', type: 'terminal', title: 'Terminal 1', isDirty: false } as PanelState },
-      workspaceId: 'ws-A',
     })
 
     expect(broadcastsTo(main).length).toBe(before)

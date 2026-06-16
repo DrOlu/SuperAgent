@@ -1,0 +1,69 @@
+// =============================================================================
+// placementForActivePanel — multi-canvas routing regression.
+//
+// Bug: when the active panel was a canvas, placementForActivePanel returned
+// `undefined` ("default canvas placement"), and the default routes to the
+// workspace's PRIMARY canvas (the first canvas tab in the center zone). With a
+// SECONDARY canvas tab active, every keyboard-created panel therefore landed on
+// a hidden canvas — to the user, panel creation silently stopped working.
+// The fix pins the placement to the active canvas explicitly.
+// =============================================================================
+
+import { describe, it, expect, afterEach } from 'vitest'
+import {
+  registerCanvasOps,
+  unregisterCanvasOps,
+  placementForActivePanel,
+  getActiveCanvasPanelId,
+} from './canvasAccess'
+import type { CanvasOperations } from '../canvas/canvasBridge'
+import { setActivePanel } from '../activePanel'
+
+// placementForActivePanel only consults the ops REGISTRY for the canvas-active
+// branch, so a stub is sufficient — no real canvas store needed.
+const stubOps = {} as CanvasOperations
+
+const PRIMARY = 'canvas-primary'
+const SECONDARY = 'canvas-secondary'
+
+afterEach(() => {
+  unregisterCanvasOps(PRIMARY)
+  unregisterCanvasOps(SECONDARY)
+  setActivePanel(null)
+})
+
+describe('placementForActivePanel with multiple canvases', () => {
+  it('pins the placement to the ACTIVE canvas, not the primary one', () => {
+    registerCanvasOps(PRIMARY, stubOps)
+    registerCanvasOps(SECONDARY, stubOps)
+    setActivePanel(SECONDARY)
+
+    expect(placementForActivePanel()).toEqual({
+      target: 'canvas',
+      canvasPanelId: SECONDARY,
+    })
+  })
+
+  it('pins to the primary canvas when that one is active', () => {
+    registerCanvasOps(PRIMARY, stubOps)
+    registerCanvasOps(SECONDARY, stubOps)
+    setActivePanel(PRIMARY)
+
+    expect(placementForActivePanel()).toEqual({
+      target: 'canvas',
+      canvasPanelId: PRIMARY,
+    })
+  })
+
+  it('returns undefined when nothing is active', () => {
+    expect(placementForActivePanel()).toBeUndefined()
+  })
+
+  it('getActiveCanvasPanelId resolves the active secondary canvas', () => {
+    registerCanvasOps(PRIMARY, stubOps)
+    registerCanvasOps(SECONDARY, stubOps)
+    setActivePanel(SECONDARY)
+
+    expect(getActiveCanvasPanelId()).toBe(SECONDARY)
+  })
+})

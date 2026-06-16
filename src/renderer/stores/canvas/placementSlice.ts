@@ -30,8 +30,9 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
       ctx.lastPointerCanvasPos = point
     },
 
-    beginPlacement(panelId, panelType, onCancelled) {
+    beginPlacement(panelId, panelType, onCancelled, size) {
       const state = get()
+      const nodeSize = size ?? PANEL_DEFAULT_SIZES[panelType]
       // Re-trigger while a placement is pending: latest wins. Roll the previous
       // pending panel back before replacing it so no orphan record lingers.
       const prev = state.pendingPlacement
@@ -47,9 +48,10 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
           cs.width > 0 && cs.height > 0
             ? viewToCanvasCoords({ x: cs.width / 2, y: cs.height / 2 }, state.zoomLevel, state.viewportOffset)
             : null
-        const size = PANEL_DEFAULT_SIZES[panelType]
-        const origin = center ? { x: center.x - size.width / 2, y: center.y - size.height / 2 } : undefined
-        const nodeId = get().addNode(panelId, panelType, origin)
+        const origin = center
+          ? { x: center.x - nodeSize.width / 2, y: center.y - nodeSize.height / 2 }
+          : undefined
+        const nodeId = get().addNode(panelId, panelType, origin, nodeSize)
         if (!nodeId) return false
         get().focusAndCenter(nodeId)
         return true
@@ -60,6 +62,8 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
         panelType,
         { offset: state.viewportOffset, zoom: state.zoomLevel, containerSize: state.containerSize },
         ctx.lastPointerCanvasPos,
+        undefined,
+        nodeSize,
       )
       if (candidates.length === 0) return false
 
@@ -95,6 +99,7 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
           hoveredIndex: null,
           freeArmed: false,
           freeGhost: null,
+          size: nodeSize,
           prevZoom: state.zoomLevel,
           prevOffset: state.viewportOffset,
           onCancelled,
@@ -128,7 +133,7 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
     updatePlacementCursor(point) {
       const pending = get().pendingPlacement
       if (!pending) return
-      const size = PANEL_DEFAULT_SIZES[pending.panelType]
+      const size = pending.size
       const desired = { x: point.x - size.width / 2, y: point.y - size.height / 2 }
       const p = nudgeToFree(get().nodes, size, desired)
       const cur = pending.freeGhost
@@ -139,7 +144,7 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
     commitFreePlacement(point) {
       const pending = get().pendingPlacement
       if (!pending) return null
-      const size = PANEL_DEFAULT_SIZES[pending.panelType]
+      const size = pending.size
       const desired = { x: point.x - size.width / 2, y: point.y - size.height / 2 }
       const p = nudgeToFree(get().nodes, size, desired)
       set({ pendingPlacement: null, zoomLevel: pending.prevZoom })

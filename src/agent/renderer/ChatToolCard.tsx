@@ -73,6 +73,60 @@ function CodePreview({
   )
 }
 
+// ask_user (cate-ask-user) renders as a normal collapsible tool row like every
+// other tool — a one-line summary that expands — but the expanded body is nice
+// readable text (the questions, and the answer once given) instead of raw JSON.
+export function AskUserToolView({ msg, shimmer }: { msg: ToolMessage; shimmer?: boolean }) {
+  const args = (msg.args ?? {}) as {
+    questions?: Array<{ question: string; options?: { label: string }[] }>
+    question?: string
+    options?: { label: string }[]
+  }
+  const questions =
+    args.questions ?? (args.question ? [{ question: args.question, options: args.options }] : [])
+  const [expanded, setExpanded] = useState(false)
+  const isRunning = msg.status === 'running' || msg.status === 'pending'
+  const summary = questions[0]?.question ?? 'the user'
+  const hasExtras = questions.length > 0 || !!msg.result || !!msg.error
+
+  return (
+    <div className="text-[12px] cate-fade-in">
+      <button
+        onClick={() => hasExtras && setExpanded((v) => !v)}
+        className={`w-full flex items-center gap-1.5 text-left ${isRunning || shimmer ? 'cate-notif-pulse' : ''} ${hasExtras ? 'hover:text-primary' : 'cursor-default'}`}
+      >
+        <span className="text-muted shrink-0">Asked</span>
+        <span className="truncate text-primary/90 flex-1">{summary}</span>
+      </button>
+      {expanded && hasExtras && (
+        <div className="mt-1 pl-4 space-y-1.5 select-text cursor-text">
+          {/* Once answered, show just the answer — drop the "The user answered:"
+              framing and the option lists. While pending, list the questions so
+              the user knows what's being asked. */}
+          {msg.result ? (
+            <pre className="text-[11px] text-primary/80 whitespace-pre-wrap break-words font-sans leading-snug">
+              {msg.result.replace(/^The user answered:\n?/, '')}
+            </pre>
+          ) : (
+            questions.length > 0 && (
+              <div className="space-y-1">
+                {questions.map((q, i) => (
+                  <div key={i} className="text-primary/85 whitespace-pre-wrap break-words">{q.question}</div>
+                ))}
+              </div>
+            )
+          )}
+          {msg.error && (
+            <pre className="text-[11px] text-danger whitespace-pre-wrap break-words leading-snug">
+              {msg.error}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function toolVerb(msg: ToolMessage): string {
   if (msg.name === 'write') return 'Wrote'
   if (EDIT_NAMES.has(msg.name)) return 'Edited'

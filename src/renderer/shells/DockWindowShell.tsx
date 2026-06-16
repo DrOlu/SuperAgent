@@ -5,7 +5,6 @@
 // =============================================================================
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import log from '../lib/logger'
 import type { CanvasLayoutSnapshot, DockWindowInitPayload, PanelState, PanelTransferSnapshot } from '../../shared/types'
 import { createDockStore } from '../stores/dockStore'
 import { DockStoreProvider } from '../stores/DockStoreContext'
@@ -18,6 +17,7 @@ import { terminalRestoreData } from '../lib/workspace/session'
 import { getOrCreateCanvasStoreForPanel } from '../stores/canvasStore'
 import { ensurePanelsInAppStore } from '../lib/canvas/applyCanvasChildPanels'
 import { hydrateReceivedPanel, hydrateCanvasState } from '../lib/panelTransfer'
+import { removePanelFromWindow } from '../lib/panels/removePanelFromWindow'
 import { useAppStore } from '../stores/appStore'
 import { confirmCloseDirtyPanels } from '../lib/confirmCloseDirty'
 import { confirmCloseRunningTerminals } from '../lib/confirmCloseTerminal'
@@ -40,6 +40,13 @@ interface DockWindowShellProps {
 // workspace is absent — avoids re-render churn and effect re-runs from a fresh
 // `{}` each render.
 const EMPTY: Record<string, PanelState> = {}
+
+// Change-driven sync debounce: short enough that main's cache is effectively
+// always fresh, long enough to coalesce a burst (drag rearranges, restores).
+const SYNC_DEBOUNCE_MS = 500
+// Periodic safety net — re-captures terminal scrollback, which accumulates
+// without any store change.
+const SYNC_INTERVAL_MS = 5000
 
 export default function DockWindowShell({ workspaceId: initialWorkspaceId }: DockWindowShellProps) {
   const [wsId, setWsId] = useState(initialWorkspaceId ?? '')
@@ -74,6 +81,11 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       // no-ops on '' and the window renders blank. The id is internal: it's
       // never sent back to main (dockWindowSyncState carries only zones/panels).
       const effectiveWs = payload.workspaceId || 'detached-dock-window'
+      // Update the ref SYNCHRONOUSLY: PANEL_RECEIVE arrives in the same IPC batch
+      // right after this handler (dragHandlers sends INIT then RECEIVE), before
+      // React re-renders with the new wsId state. Handlers read wsIdRef.current,
+      // so it must be correct before this handler returns.
+      wsIdRef.current = effectiveWs
       ensurePanelsInAppStore(effectiveWs, payload.panels, payload.rootPath, payload.worktrees)
 
       // Register THIS window's dock store under the effective workspace id so the
@@ -120,34 +132,22 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
     return cleanup
   }, [dockStore])
 
-  // Editor Save-As inside this window already wrote the new filePath/title and
-  // cleared isDirty straight into appStore (EditorPanel calls updatePanelFilePath
-  // / setPanelDirty), which IS our source of truth — no local mirror needed.
-  // We only force an immediate sync so a quit before the next 5s tick still
-  // persists the saved file instead of a stale Untitled scratch buffer.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ce = e as CustomEvent<{ panelId: string; filePath: string; title: string }>
-      if (!ce.detail?.panelId) return
-      syncNowRef.current()
-    }
-    window.addEventListener('editor:panel-saved-as', handler)
-    return () => window.removeEventListener('editor:panel-saved-as', handler)
-  }, [])
-
-  // Listen for incoming panel transfers (drag from other windows)
+  // Listen for incoming panel transfers (drag from other windows). The handlers
+  // read wsId via the ref, never a closed-over value: these effects register
+  // once, and the INIT handler bumps wsIdRef.current synchronously, so a
+  // transfer landing before React re-renders still targets the right workspace.
   useEffect(() => {
     const cleanup = window.electronAPI.onPanelReceive((snapshot: PanelTransferSnapshot) => {
       // Deposit PTY hand-off + hydrate canvas children BEFORE the panel mounts —
       // otherwise the window paints an empty canvas / a fresh shell and syncs
       // that empty state back to persistence. (ACK is deferred to
       // reconnectTerminal() after listeners are wired.)
-      hydrateReceivedPanel(wsId, snapshot)
-      ensurePanelsInAppStore(wsId, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath, snapshot.worktrees)
+      hydrateReceivedPanel(wsIdRef.current, snapshot)
+      ensurePanelsInAppStore(wsIdRef.current, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath, snapshot.worktrees)
     })
 
     return cleanup
-  }, [wsId])
+  }, [])
 
   // Set up cross-window drag listeners
   useEffect(() => {
@@ -155,8 +155,8 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       createRemoteDropHandler({
         addPanelStep: (snapshot) => {
           // Deposit PTY hand-off + hydrate canvas children BEFORE the panel mounts.
-          hydrateReceivedPanel(wsId, snapshot)
-          ensurePanelsInAppStore(wsId, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath, snapshot.worktrees)
+          hydrateReceivedPanel(wsIdRef.current, snapshot)
+          ensurePanelsInAppStore(wsIdRef.current, { [snapshot.panel.id]: snapshot.panel }, snapshot.rootPath, snapshot.worktrees)
         },
       }),
     )
@@ -199,10 +199,8 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       }
 
       // Send the snapshot under `dockState` (the field main caches and persists).
-      // Deliberately do NOT send workspaceId: this window's wsId may be the
-      // process-local stub ('detached-dock-window'), and echoing it back would
-      // overwrite the REAL workspace id main captured at creation — dropping the
-      // window from session.json (its save filter is dw.workspaceId === ws.id).
+      // The payload carries no workspaceId by design (DockWindowSyncState cannot
+      // express one): main owns the window→workspace mapping, set at creation.
       const snapshot = dockStore.getState().getSnapshot()
       window.electronAPI.dockWindowSyncState({
         dockState: snapshot,
@@ -215,16 +213,37 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       // flush can await it. allSettled: a failed write must not reject the flush.
       await Promise.allSettled(savePromises)
     }
-    // Expose the latest syncNow via a ref so callers outside this effect
-    // (the editor:panel-saved-as handler) can trigger an immediate sync
-    // without waiting for the next 5-second interval / focus tick.
+    // Expose the latest syncNow via a ref so callers outside this effect (the
+    // rename handler, the pre-quit flush) can trigger an immediate sync.
     syncNowRef.current = syncNow
+
+    // CHANGE-DRIVEN sync: any dock-layout or panel-state change schedules a
+    // debounced sync, so main's cached view of this window is near-fresh at all
+    // times instead of up to one period stale. This is what lets the pre-quit
+    // flush be a safety net rather than a correctness requirement (e.g. an
+    // editor Save-As writes appStore → lands here within the debounce).
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    const scheduleSync = () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null
+        syncNow()
+      }, SYNC_DEBOUNCE_MS)
+    }
+    const unsubDock = dockStore.subscribe(scheduleSync)
+    const unsubApp = useAppStore.subscribe((state, prev) => {
+      const panels = state.workspaces.find((w) => w.id === wsIdRef.current)?.panels
+      const prevPanels = prev.workspaces.find((w) => w.id === wsIdRef.current)?.panels
+      if (panels !== prevPanels) scheduleSync()
+    })
 
     // Initial sync ~1s after panels are populated so main learns ptyIds quickly
     const initialSync = setTimeout(syncNow, 1000)
+    // Periodic safety net — terminal scrollback accumulates WITHOUT any store
+    // change, so the change-driven path alone would never re-capture it.
     syncTimerRef.current = setInterval(() => {
       if (document.visibilityState === 'visible') syncNow()
-    }, 5000)
+    }, SYNC_INTERVAL_MS)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') syncNow()
@@ -239,6 +258,9 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
     window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      unsubDock()
+      unsubApp()
       clearTimeout(initialSync)
       if (syncTimerRef.current) clearInterval(syncTimerRef.current)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
@@ -321,16 +343,14 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
     async (panelId: string) => {
       if (!(await confirmCloseDirtyPanels([panels[panelId]]))) return
       if (!(await confirmCloseRunningTerminals([panels[panelId]]))) return
-      // Undock from THIS shell's own dock store, then drop only the panel
-      // record from appStore (removePanelRecord — not removePanel, which would
-      // target the workspace dock registry this shell doesn't use).
+      // Undock from THIS shell's own dock store first (removePanelFromWindow
+      // never touches layout stores — the workspace dock registry would be the
+      // wrong tree for this shell), then tear down content + records with
+      // 'close' semantics: PTYs killed (including a canvas tab's children),
+      // xterms and pi sessions disposed, records dropped.
       dockStore.getState().undockPanel(panelId)
       const panel = panels[panelId]
-      useAppStore.getState().removePanelRecord(wsId, panelId)
-
-      if (panel?.type === 'terminal') {
-        window.electronAPI.terminalKill(panelId).catch((err) => log.warn('[dock-window] Terminal kill failed:', err))
-      }
+      if (panel) removePanelFromWindow(wsId, panelId, panel.type, 'close')
 
       if (isDockEmpty(dockStore.getState())) {
         window.close()

@@ -12,6 +12,7 @@ import { useDragStore } from '../drag'
 import { viewToCanvas } from '../lib/canvas/coordinates'
 import { rectsOverlap } from '../canvas/layoutEngine'
 import { isMouseWheel, type WheelLike } from '../lib/wheelIntent'
+import { acquireBodyClass, releaseBodyClass } from '../lib/dom/bodyClassRefcount'
 import { ZOOM_MIN, ZOOM_MAX } from '../../shared/types'
 import type { Point } from '../../shared/types'
 
@@ -106,7 +107,7 @@ export function useCanvasInteraction(
       wheelPanEndTimer.current = null
     }
     if (wheelPanActive.current) {
-      document.body.classList.remove('canvas-interacting')
+      releaseBodyClass('canvas-interacting')
       wheelPanActive.current = false
     }
     // Also stop the canvas store's own animateZoomTo rAF — it lives in a
@@ -330,13 +331,13 @@ export function useCanvasInteraction(
       e.stopPropagation()
       if (!wheelPanActive.current) {
         wheelPanActive.current = true
-        document.body.classList.add('canvas-interacting')
+        acquireBodyClass('canvas-interacting')
       }
       if (wheelPanEndTimer.current) clearTimeout(wheelPanEndTimer.current)
       wheelPanEndTimer.current = setTimeout(() => {
         wheelPanEndTimer.current = null
         wheelPanActive.current = false
-        document.body.classList.remove('canvas-interacting')
+        releaseBodyClass('canvas-interacting')
       }, 150)
 
       pendingPanDelta.current.x += e.deltaX
@@ -376,10 +377,42 @@ export function useCanvasInteraction(
       if (canvasRef.current) {
         canvasRef.current.style.cursor = 'grabbing'
       }
-      document.body.classList.add('canvas-interacting')
+      acquireBodyClass('canvas-interacting')
     },
     [canvasRef],
   )
+
+  // Tear down an in-flight pan: clear the panning refs, the grabbing cursor, and
+  // the refcounted body class. Idempotent — safe to call when no pan is active
+  // (so the window-level mouseup/blur cleanup below can fire unconditionally).
+  const endPanDrag = useCallback(() => {
+    if (!isPanning.current) return
+    isPanning.current = false
+    panButton.current = null
+    lastPanPos.current = null
+    rightClickStart.current = null
+    if (canvasRef.current) {
+      canvasRef.current.style.cursor = idleCursorForTool()
+    }
+    releaseBodyClass('canvas-interacting')
+  }, [canvasRef])
+
+  // A pan can begin inside the canvas div but the mouse can be released OUTSIDE
+  // it (over a panel, the sidebar, or off-window). The element-scoped
+  // handleMouseUp never fires there, so without a window-level fallback the pan
+  // sticks: isPanning stays true, the grabbing cursor and body class linger, and
+  // the next click pans instead of selecting. A window blur (Cmd+Tab) has the
+  // same hazard. Both clear the pan via the idempotent endPanDrag.
+  useEffect(() => {
+    const onWindowMouseUp = () => endPanDrag()
+    const onWindowBlur = () => endPanDrag()
+    window.addEventListener('mouseup', onWindowMouseUp)
+    window.addEventListener('blur', onWindowBlur)
+    return () => {
+      window.removeEventListener('mouseup', onWindowMouseUp)
+      window.removeEventListener('blur', onWindowBlur)
+    }
+  }, [endPanDrag])
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -597,15 +630,10 @@ export function useCanvasInteraction(
       }
 
       if (e.button === 2 || e.button === panButton.current) {
-        isPanning.current = false
-        panButton.current = null
-        lastPanPos.current = null
-        rightClickStart.current = null
-        if (canvasRef.current) {
-          // Hand back to React's idle cursor for the active tool.
-          canvasRef.current.style.cursor = idleCursorForTool()
-        }
-        document.body.classList.remove('canvas-interacting')
+        // Tear down the pan (refs, cursor, refcounted body class). Idempotent, so
+        // it's harmless if the window-level mouseup fallback already ran for this
+        // same release.
+        endPanDrag()
       }
 
       // Start inertia after right-click drag release
@@ -678,7 +706,7 @@ export function useCanvasInteraction(
         velocityCount.current = 0
       }
     },
-    [canvasRef],
+    [canvasRef, endPanDrag],
   )
 
   // ---------------------------------------------------------------------------

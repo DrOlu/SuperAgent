@@ -225,11 +225,12 @@ export function recommendPlacements(
   viewport: { offset: Point; zoom: number; containerSize: Size },
   anchor: Point | null,
   max = 6,
+  sizeOverride?: Size,
 ): PlacementCandidate[] {
   const grid = CANVAS_GRID_SIZE
   const snapPt = (p: Point): Point => snapToGrid(p, grid)
   const gap = PLACEMENT_GAP
-  const std = PANEL_DEFAULT_SIZES[panelType]
+  const std = sizeOverride ?? PANEL_DEFAULT_SIZES[panelType]
 
   const { offset, zoom, containerSize } = viewport
   const hasVp = containerSize.width > 0 && containerSize.height > 0

@@ -12,7 +12,9 @@
 // =============================================================================
 
 import type { StoreApi } from 'zustand'
-import { useAppStore, getWorkspaceCanvasStore } from '../../stores/appStore'
+import { useAppStore } from '../../stores/appStore'
+import { getWorkspaceCanvasPanelIds } from './canvasAccess'
+import { peekCanvasStoreForPanel } from '../../stores/canvasStore'
 import { getOrCreateWorkspaceDockStore } from './dockRegistry'
 import { saveSession } from './sessionSave'
 import type { CanvasStore } from '../../stores/canvasStore'
@@ -39,6 +41,14 @@ function unrefTimer<T>(t: T): T {
 let pendingSave = false
 let saveInFlight = false
 let autoSaveSetUp = false
+// Restore gate — while a workspace restore is hydrating stores, the store
+// subscriptions below fire with TRANSIENT half-built state (panels recreated
+// but canvases not yet seeded, teardown's momentary empty layout, …). Saving
+// that state is how a rich on-disk layout gets clobbered by an empty one
+// (issue #220). This gate suppresses scheduling at the source; the main
+// process's empty-overwrite/richness guards remain as backstops. A counter,
+// not a boolean: multi-workspace startup can overlap restores.
+let restoreDepth = 0
 // "Dirty since last save" flag — set by every store subscription that schedules
 // a save, cleared after a successful write. Lets the quit flush skip the IPC
 // round-trip entirely when there's nothing to persist.
@@ -76,12 +86,28 @@ function runSave(): void {
 }
 
 function scheduleSave(): void {
+  // Hydrating — transient restore state must never be persisted.
+  if (restoreDepth > 0) return
   pendingSave = true
   sessionDirty = true
   if (idleTimer) clearTimeout(idleTimer)
   idleTimer = unrefTimer(setTimeout(runSave, IDLE_DELAY))
   if (!maxWaitTimer) {
     maxWaitTimer = unrefTimer(setTimeout(runSave, MAX_WAIT))
+  }
+}
+
+/** Suppress session autosave while a workspace restore hydrates the stores.
+ *  Returns an `end` callback (idempotent); when the LAST overlapping restore
+ *  ends, one save is scheduled so the final fully-hydrated state persists. */
+export function beginRestoreQuiescence(): () => void {
+  restoreDepth++
+  let ended = false
+  return () => {
+    if (ended) return
+    ended = true
+    restoreDepth--
+    if (restoreDepth === 0) scheduleSave()
   }
 }
 
@@ -92,25 +118,59 @@ export function setupAutoSave(): () => void {
   autoSaveSetUp = true
 
   // Each workspace owns its dock + canvas stores, so there is no single store to
-  // subscribe to. Track the ACTIVE workspace's stores and re-subscribe whenever
-  // the selection — or the resolved store instances — change. We re-evaluate on
-  // every appStore change (selection switch, panel add/remove), which also
-  // catches a canvas store being created lazily for the active workspace.
-  let unsubActive: () => void = () => {}
+  // subscribe to. Track the ACTIVE workspace's dock store AND every one of its
+  // live canvas stores (primary + secondaries) — a geometry edit (move/resize/
+  // pan/zoom) on a secondary canvas must mark the session dirty too, or the quit
+  // flush ACKs without saving it. We re-evaluate on every appStore change
+  // (selection switch, panel add/remove), which also catches a secondary canvas
+  // store created lazily for the active workspace. Canvas subscriptions are
+  // keyed by panel id and diffed in/out so a canvas added/removed mid-session
+  // gains/loses its listener without churning the others.
   let curDock: StoreApi<DockStore> | null = null
-  let curCanvas: StoreApi<CanvasStore> | null = null
+  let dockUnsub: (() => void) | null = null
+  const canvasUnsubs = new Map<string, () => void>()
   const subscribeActive = () => {
     const wsId = useAppStore.getState().selectedWorkspaceId || null
     const dock = wsId ? getOrCreateWorkspaceDockStore(wsId) : null
-    const canvas = wsId ? getWorkspaceCanvasStore(wsId) : null
-    if (dock === curDock && canvas === curCanvas) return
-    curDock = dock
-    curCanvas = canvas
-    unsubActive()
-    const subs: Array<() => void> = []
-    if (dock) subs.push(dock.subscribe(scheduleSave))
-    if (canvas) subs.push(canvas.subscribe(scheduleSave))
-    unsubActive = () => { for (const u of subs) u() }
+    if (dock !== curDock) {
+      curDock = dock
+      dockUnsub?.()
+      dockUnsub = dock ? dock.subscribe(scheduleSave) : null
+    }
+
+    // Live canvas stores for the active workspace, keyed by canvas panel id. Only
+    // mounted stores are subscribed — an unmounted secondary canvas can't be
+    // edited, so it has nothing to dirty until it mounts (which fires an appStore
+    // change that re-runs this).
+    const liveCanvasIds = new Set<string>()
+    const canvasStores = new Map<string, StoreApi<CanvasStore>>()
+    if (wsId) {
+      for (const panelId of getWorkspaceCanvasPanelIds(wsId)) {
+        const store = peekCanvasStoreForPanel(panelId)
+        if (store) {
+          liveCanvasIds.add(panelId)
+          canvasStores.set(panelId, store)
+        }
+      }
+    }
+    for (const [panelId, unsub] of canvasUnsubs) {
+      if (!liveCanvasIds.has(panelId)) {
+        unsub()
+        canvasUnsubs.delete(panelId)
+      }
+    }
+    for (const [panelId, store] of canvasStores) {
+      if (!canvasUnsubs.has(panelId)) {
+        canvasUnsubs.set(panelId, store.subscribe(scheduleSave))
+      }
+    }
+  }
+  const unsubActive = () => {
+    dockUnsub?.()
+    dockUnsub = null
+    curDock = null
+    for (const unsub of canvasUnsubs.values()) unsub()
+    canvasUnsubs.clear()
   }
   const unsubApp = useAppStore.subscribe(() => {
     subscribeActive()
@@ -122,6 +182,7 @@ export function setupAutoSave(): () => void {
   // PERIODIC_INTERVAL stale, even without detected store changes. Protects
   // against crashes, force-kills, and update restarts.
   periodicTimer = unrefTimer(setInterval(() => {
+    if (restoreDepth > 0) return
     if (pendingSave) {
       runSave()
     } else if (!saveInFlight) {
@@ -136,6 +197,13 @@ export function setupAutoSave(): () => void {
   const unsubFlush = window.electronAPI.onSessionFlushSave(() => {
     if (idleTimer) { clearTimeout(idleTimer); idleTimer = null }
     if (maxWaitTimer) { clearTimeout(maxWaitTimer); maxWaitTimer = null }
+
+    // Quitting mid-restore: the on-disk session IS the state being restored —
+    // persisting half-hydrated stores could only degrade it. ACK without saving.
+    if (restoreDepth > 0) {
+      window.electronAPI.sessionFlushSaveDone()
+      return
+    }
 
     // Phase 4.3: skip the round-trip entirely when nothing has changed since
     // the last successful save. Cuts quit latency for read-only sessions.

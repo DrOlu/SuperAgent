@@ -13,7 +13,7 @@ import type {
   PanelType,
   Point,
   DockStateSnapshot,
-  CompanionConnection,
+  RuntimeConnection,
 } from '../../../shared/types'
 import { ACCENT_COLORS } from '../../../shared/colors'
 import { BASE_DARK, BASE_LIGHT } from '../../../shared/themes'
@@ -23,6 +23,7 @@ import { getOrCreateWorkspaceDockStore } from '../../lib/workspace/dockRegistry'
 import { createDefaultDockState } from '../dockStore'
 import {
   ensureCanvasOpsForPanel,
+  getActiveCanvasOps,
   getWorkspaceCanvasOps,
 } from '../../lib/workspace/canvasAccess'
 import { useWindowPanelStore } from '../windowPanelStore'
@@ -38,7 +39,7 @@ import type { AppSet, AppGet, PanelPlacement } from './types'
  * Dynamically imported to avoid a static cycle (session.ts imports appStore).
  * hydrateWorkspaceFromDiskIfEmpty is internally guarded (rootPath + no live
  * content + not deferred), so this is a safe, idempotent no-op otherwise. For a
- * remote workspace the caller must ensure the companion is connected first.
+ * remote workspace the caller must ensure the runtime is connected first.
  */
 export async function hydrateWorkspaceFromDisk(wsId: string): Promise<void> {
   try {
@@ -56,15 +57,15 @@ export function createDefaultWorkspace(
   name?: string,
   rootPath?: string,
   id?: string,
-  connection?: CompanionConnection,
+  connection?: RuntimeConnection,
 ): WorkspaceState {
   return {
     id: id ?? generateId(),
     name: name ?? 'Workspace',
     color: '',
     rootPath: rootPath ?? '',
-    // Carry remote reconnect info through restore so ensureWorkspaceCompanion
-    // can reconnect the companion before any fs/git/terminal op (Finding 2).
+    // Carry remote reconnect info through restore so ensureWorkspaceRuntime
+    // can reconnect the runtime before any fs/git/terminal op (Finding 2).
     ...(connection && connection.kind !== 'local' ? { connection } : {}),
     rootPathError: null,
     isRootPathPending: false,
@@ -270,11 +271,15 @@ function placePanel(
   // Default: place on a canvas (target === 'canvas'/'auto'/undefined).
   // Prefer the explicit originating canvas when the caller pinned one (an
   // interactive create from a specific canvas's toolbar/menu/drop), so the node
-  // lands on the canvas the user aimed at — not just the primary one. Otherwise
-  // route by workspace id, which lands on the workspace's own primary canvas and
-  // works for a background restore into an inactive workspace.
+  // lands on the canvas the user aimed at — not just the primary one. An
+  // unpinned create on the ACTIVE workspace lands on the canvas the user is
+  // looking at (the active one) — the workspace's primary canvas is the wrong
+  // (hidden) target whenever a secondary canvas tab is active. Background
+  // restores into an inactive workspace keep the primary-canvas routing.
   const pinnedCanvasId = placement?.target === 'canvas' ? placement.canvasPanelId : undefined
-  const ops = pinnedCanvasId ? ensureCanvasOpsForPanel(pinnedCanvasId) : getWorkspaceCanvasOps(workspaceId)
+  const ops = pinnedCanvasId
+    ? ensureCanvasOpsForPanel(pinnedCanvasId)
+    : (isActiveWorkspace ? getActiveCanvasOps() : null) ?? getWorkspaceCanvasOps(workspaceId)
   if (!ops) {
     // No canvas to place onto — e.g. a detached dock window (center zone only)
     // where nothing was focused, so placementForActivePanel couldn't tab into a
@@ -293,7 +298,7 @@ function placePanel(
   // through and auto-place in the best spot. Explicit-position paths (drag-drop,
   // session restore, right-click "new here") always skip the picker.
   if (isActiveWorkspace && canvasPosition == null && onGhostCancel && useSettingsStore.getState().placementPicker) {
-    const shown = ops.beginPlacement(panelId, panelType, onGhostCancel)
+    const shown = ops.beginPlacement(panelId, panelType, onGhostCancel, canvasSize)
     if (shown) return
   }
   ops.addNodeAndFocus(panelId, panelType, canvasPosition, canvasSize)

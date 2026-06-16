@@ -86,10 +86,13 @@ describe('placementForActivePanel', () => {
     expect(placementForActivePanel()).toBeUndefined()
   })
 
-  it('uses the default canvas placement when a CANVAS is active, despite its center-zone dock location', () => {
+  it('pins the placement to the active CANVAS, despite its center-zone dock location', () => {
     // The canvas panel is itself docked in the center zone, so it has a dock
     // location — but a create while it's active must land ON the canvas, not as
-    // a sibling tab. The canvas ops registry distinguishes it.
+    // a sibling tab. The canvas ops registry distinguishes it. The placement is
+    // pinned to THAT canvas explicitly: the unpinned default would route to the
+    // workspace's primary canvas, which is the wrong (hidden) one whenever a
+    // secondary canvas tab is the active one.
     const canvasId = 'canvas-1'
     const dock = getOrCreateWorkspaceDockStore(wsId)
     dock.getState().dockPanel(canvasId, 'center')
@@ -97,7 +100,7 @@ describe('placementForActivePanel', () => {
     registerCanvasOps(canvasId, createCanvasOps(getOrCreateCanvasStoreForPanel(canvasId)))
 
     setActivePanel(canvasId)
-    expect(placementForActivePanel()).toBeUndefined()
+    expect(placementForActivePanel()).toEqual({ target: 'canvas', canvasPanelId: canvasId })
 
     unregisterCanvasOps(canvasId)
     releaseCanvasStoreForPanel(canvasId)

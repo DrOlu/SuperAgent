@@ -18,16 +18,13 @@ import type { TerminalPanelProps } from './types'
 import { terminalRegistry } from '../lib/terminal/terminalRegistry'
 import { formatTerminalPaste, type DroppedRef } from './terminalDrop'
 import { useAppStore } from '../stores/appStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useCanvasStoreContext, useCanvasStoreApi } from '../stores/CanvasStoreContext'
+import { resolveTerminalFontSize } from '../lib/terminal/terminalSettings'
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
-// Base xterm font size — must match the value used in terminalRegistry.ts when
-// creating the Terminal. We re-rasterize at BASE_FONT_SIZE * renderScale when
-// the canvas zooms in, so glyph atlases stay crisp instead of being CSS-upscaled.
-const BASE_FONT_SIZE = 13
 
 // Discrete render-scale steps. We snap canvas zoom to one of these so a
 // continuous pinch only triggers a small number of expensive atlas rebuilds.
@@ -65,6 +62,9 @@ export default function TerminalPanel({
   const fitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFitSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 })
   const [renderScale, setRenderScale] = useState(1.0)
+  const terminalBaseFontSize = useSettingsStore((state) =>
+    resolveTerminalFontSize(state.terminalFontSize),
+  )
 
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -413,8 +413,8 @@ export default function TerminalPanel({
   // The canvas applies a single scale(zoom) transform to the world div. That
   // CSS-upscales xterm's pre-rasterized glyph atlas, which looks pixelated at
   // zoom > 1. To stay sharp we mimic VS Code's webFrame-zoom trick: when zoom
-  // settles on a higher step, we bump xterm's fontSize to BASE * renderScale
-  // (forcing a fresh higher-resolution atlas) and counter-scale the render
+  // settles on a higher step, we bump xterm's fontSize to the configured base
+  // size * renderScale (forcing a fresh higher-resolution atlas) and counter-scale the render
   // box by 1/renderScale so the on-screen size — after the world div's outer
   // scale(zoom) — is unchanged. Cols × rows stay constant because both the
   // box and the cell grow by the same factor before fit() runs.
@@ -463,14 +463,23 @@ export default function TerminalPanel({
 
       // Mutating options.fontSize triggers xterm's internal renderer refresh,
       // which rebuilds the WebGL glyph atlas at the new resolution.
-      entry.terminal.options.fontSize = BASE_FONT_SIZE * renderScale
-      terminalRegistry.fit(panelId)
+      entry.terminal.options.fontSize = terminalBaseFontSize * renderScale
+      // preserveGrid: the box and the cell grew by the same factor, so the
+      // grid must not change — but ceil/parseInt quantization flips rows by
+      // ±1 across scale steps, and each phantom SIGWINCH makes a TUI like
+      // Claude Code stack a duplicate frame into scrollback (doubled content
+      // that only a large vertical resize clears).
+      terminalRegistry.fit(panelId, { preserveGrid: true })
+      // The render box's layout size legitimately changed by the scale factor;
+      // sync the ResizeObserver's last-fit size so its debounced plain fit()
+      // doesn't run right after this and un-pin the grid.
+      lastFitSizeRef.current = { w: renderBox.clientWidth, h: renderBox.clientHeight }
 
       if (wasAtBottom) entry.terminal.scrollToBottom()
     } catch {
       // Ignore — fit can throw on zero-size frames during layout transitions.
     }
-  }, [renderScale, panelId])
+  }, [renderScale, panelId, terminalBaseFontSize])
 
   // -------------------------------------------------------------------------
   // Repaint after the zoom settles

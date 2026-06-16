@@ -18,6 +18,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const events: string[] = []
 beforeEach(() => { events.length = 0 })
 
+const settingsState = {
+  terminalFontFamily: '',
+  terminalFontSize: 0,
+  terminalScrollback: 2000,
+  terminalCursorBlink: false,
+  terminalScrollSpeed: 1.0,
+  terminalContrast: 4.5,
+  terminalOptionIsMeta: true,
+}
+
 vi.mock('@xterm/xterm', () => {
   // Faithful-enough fake: models the buffer viewportY/baseY scroll indices and
   // a real `.xterm-viewport` DOM child (so the registry's scroll listener and
@@ -25,11 +35,14 @@ vi.mock('@xterm/xterm', () => {
   // scrollToBottom mutate viewportY the way xterm does.
   class FakeTerminal {
     public writes: string[] = []
-    public options: { theme?: unknown } = {}
+    public options: Record<string, unknown>
     public buffer = { active: { baseY: 0, cursorY: 0, viewportY: 0, getLine: () => undefined } }
     public element: HTMLElement | undefined
     public cols = 80
     public rows = 24
+    constructor(options: Record<string, unknown> = {}) {
+      this.options = options
+    }
     loadAddon(): void { /* no-op */ }
     open(container: HTMLElement): void {
       this.element = document.createElement('div')
@@ -63,8 +76,11 @@ vi.mock('@xterm/xterm', () => {
   return { Terminal: FakeTerminal }
 })
 
+// Mutable so individual tests can simulate FitAddon proposing a different grid
+// (e.g. the ±1 row quantization flip across render-scale steps).
+const fitProposal = { cols: 80, rows: 24 }
 vi.mock('@xterm/addon-fit', () => ({
-  FitAddon: class { proposeDimensions() { return { cols: 80, rows: 24 } } fit() {} dispose() {} },
+  FitAddon: class { proposeDimensions() { return { ...fitProposal } } fit() {} dispose() {} },
 }))
 vi.mock('@xterm/addon-webgl', () => ({
   WebglAddon: class { onContextLoss() {} dispose() {} },
@@ -79,12 +95,7 @@ vi.mock('../../stores/statusStore', () => ({
 }))
 vi.mock('../../stores/settingsStore', () => ({
   useSettingsStore: {
-    getState: () => ({
-      terminalScrollback: 2000,
-      terminalCursorBlink: false,
-      terminalScrollSpeed: 1.0,
-      terminalContrast: 4.5,
-    }),
+    getState: () => settingsState,
     subscribe: () => () => {},
   },
 }))
@@ -113,6 +124,15 @@ const panelTransferAck = vi.fn(async (_id: string) => undefined as undefined)
 const shellRegisterTerminal = vi.fn(async () => undefined)
 
 beforeEach(() => {
+  fitProposal.cols = 80
+  fitProposal.rows = 24
+  settingsState.terminalFontFamily = ''
+  settingsState.terminalFontSize = 0
+  settingsState.terminalScrollback = 2000
+  settingsState.terminalCursorBlink = false
+  settingsState.terminalScrollSpeed = 1.0
+  settingsState.terminalContrast = 4.5
+  settingsState.terminalOptionIsMeta = true
   terminalCreate.mockClear()
   panelTransferAck.mockClear()
   shellRegisterTerminal.mockClear()
@@ -134,6 +154,64 @@ beforeEach(() => {
       settingsGet: vi.fn(async () => ''),
       panelTransferAck,
     },
+  })
+})
+
+describe('terminal font settings', () => {
+  it('passes default terminal font settings to xterm', async () => {
+    const { terminalRegistry } = await import('./terminalRegistry')
+
+    const entry = await terminalRegistry.getOrCreate('panel-font-defaults', { workspaceId: 'ws-1' })
+
+    expect(entry.terminal.options.fontFamily).toBe('Menlo, Monaco, "Courier New", monospace')
+    expect(entry.terminal.options.fontSize).toBe(13)
+
+    terminalRegistry.dispose('panel-font-defaults')
+  })
+
+  it('passes configured terminal font settings to xterm', async () => {
+    settingsState.terminalFontFamily = "'Hack Nerd Font Mono','Segoe UI'"
+    settingsState.terminalFontSize = 16
+    const { terminalRegistry } = await import('./terminalRegistry')
+
+    const entry = await terminalRegistry.getOrCreate('panel-font-custom', { workspaceId: 'ws-1' })
+
+    expect(entry.terminal.options.fontFamily).toBe("'Hack Nerd Font Mono','Segoe UI'")
+    expect(entry.terminal.options.fontSize).toBe(16)
+
+    terminalRegistry.dispose('panel-font-custom')
+  })
+})
+
+describe('fit() preserveGrid', () => {
+  // Render-scale steps swap fontSize and counter-scale the box, so the visual
+  // size is unchanged — but cell-px rounding makes FitAddon propose ±1 row.
+  // That phantom SIGWINCH makes Ink TUIs (Claude Code) stack a duplicate frame
+  // into scrollback. preserveGrid must discard ±1 deltas and keep real ones.
+  it('discards ±1 quantization deltas but applies real grid changes', async () => {
+    const { terminalRegistry } = await import('./terminalRegistry')
+    const entry = await terminalRegistry.getOrCreate('panel-grid', { workspaceId: 'ws-1' })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    ;(entry.terminal as unknown as { open: (c: HTMLElement) => void }).open(container)
+    expect(entry.terminal.rows).toBe(24)
+
+    // ±1 proposal with preserveGrid: pinned, no resize.
+    fitProposal.rows = 23
+    terminalRegistry.fit('panel-grid', { preserveGrid: true })
+    expect(entry.terminal.rows).toBe(24)
+
+    // Same proposal via a plain fit (a real container resize): applied.
+    terminalRegistry.fit('panel-grid')
+    expect(entry.terminal.rows).toBe(23)
+
+    // A multi-row change passes through even with preserveGrid.
+    fitProposal.rows = 30
+    terminalRegistry.fit('panel-grid', { preserveGrid: true })
+    expect(entry.terminal.rows).toBe(30)
+
+    terminalRegistry.dispose('panel-grid')
+    container.remove()
   })
 })
 

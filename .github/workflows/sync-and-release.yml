@@ -1,0 +1,228 @@
+name: Sync Upstream & Release
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force release even if version unchanged (true/false)'
+        required: false
+        default: 'false'
+      upstream_tag:
+        description: 'Specific upstream tag to sync (e.g. v1.2.5). Leave empty for latest.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  check-and-sync:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      upstream_version: ${{ steps.check.outputs.upstream_version }}
+    steps:
+      - name: Checkout SuperAgent
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new upstream release
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE: ${{ github.event.inputs.force }}
+          UPSTREAM_TAG: ${{ github.event.inputs.upstream_tag }}
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current SuperAgent version: $CURRENT_VERSION"
+
+          if [ -n "$UPSTREAM_TAG" ]; then
+            LATEST_TAG="$UPSTREAM_TAG"
+          else
+            LATEST_TAG=$(curl -sL https://api.github.com/repos/0-AI-UG/cate/releases/latest | jq -r '.tag_name')
+          fi
+
+          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            echo "No upstream release found"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "upstream_version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          UPSTREAM_VERSION="${LATEST_TAG#v}"
+          echo "Latest upstream version: $UPSTREAM_VERSION"
+
+          echo "upstream_version=$UPSTREAM_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$UPSTREAM_VERSION" != "$CURRENT_VERSION" ] || [ "$FORCE" = "true" ]; then
+            echo "New version detected or force flag set. Will sync and release."
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Already up to date (v$CURRENT_VERSION). No release needed."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  sync-and-rebrand:
+    needs: check-and-sync
+    if: needs.check-and-sync.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ needs.check-and-sync.outputs.upstream_version }}
+    steps:
+      - name: Checkout SuperAgent
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUPERAGENT_PAT }}
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config user.name "SuperAgent Bot"
+          git config user.email "superagent@hyperspace.ng"
+
+      - name: Sync from upstream
+        env:
+          UPSTREAM_VERSION: ${{ needs.check-and-sync.outputs.upstream_version }}
+        run: |
+          git remote add upstream https://github.com/0-AI-UG/cate.git
+          git fetch upstream --tags --force
+
+          UPSTREAM_TAG="v${UPSTREAM_VERSION}"
+          echo "Syncing from upstream tag: $UPSTREAM_TAG"
+
+          if ! git rev-parse "${UPSTREAM_TAG}" >/dev/null 2>&1; then
+            echo "ERROR: Upstream tag $UPSTREAM_TAG not found!"
+            exit 1
+          fi
+
+          git checkout -b sync-upstream "${UPSTREAM_TAG}"
+
+          git checkout main -- \
+            scripts/rebrand.sh \
+            .github/workflows/sync-and-release.yml \
+            assets/superagent-logo.svg \
+            src/renderer/assets/superagent-logo.svg \
+            2>/dev/null || true
+
+          node -e "
+            const fs = require('fs');
+            const p = 'package.json';
+            const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+            j.version = '${UPSTREAM_VERSION}';
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          "
+
+          bash scripts/rebrand.sh
+
+          git add -A
+          git commit -m "Sync v${UPSTREAM_VERSION} from upstream Cate + apply SuperAgent rebrand" || true
+
+          git checkout main
+          git merge sync-upstream --allow-unrelated-histories --no-edit || {
+            echo "Merge conflicts detected, resolving..."
+            # List all unmerged files using git ls-files -u (more reliable than git diff --diff-filter=U)
+            CONFLICTS=$(git ls-files -u | awk '{print $4}' | sort -u)
+            echo "Conflicted files:"
+            echo "$CONFLICTS"
+            # Brand files: keep our version (--ours)
+            OURS_FILES="scripts/rebrand.sh .github/workflows/sync-and-release.yml assets/superagent-logo.svg src/renderer/assets/superagent-logo.svg"
+            echo "$CONFLICTS" | while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              if echo "$OURS_FILES" | grep -qw "$f"; then
+                echo "  Keeping ours: $f"
+                git checkout --ours "$f" 2>/dev/null || true
+              else
+                echo "  Taking upstream: $f"
+                # Handle modify/delete conflicts: if upstream deleted the file, --theirs fails
+                if ! git checkout --theirs "$f" 2>/dev/null; then
+                  echo "  Upstream deleted: removing $f"
+                  git rm -f "$f" 2>/dev/null || true
+                  continue
+                fi
+              fi
+              git add "$f"
+            done
+            # Re-apply branding on top of upstream code
+            bash scripts/rebrand.sh
+            git add -A
+            git commit --no-edit || true
+          }
+          # Remove upstream workflow files from the merge before pushing.
+          # Strategy: remove all workflow files from index, then restore only the pre-merge
+          # versions using ORIG_HEAD (set by git merge). This ensures no upstream workflow
+          # changes leak into the push, even when SUPERAGENT_PAT has workflows permission.
+          git rm -r --cached .github/workflows/ 2>/dev/null || true
+          git checkout ORIG_HEAD -- .github/workflows/ 2>/dev/null || true
+          git add -A
+          git diff --cached --quiet || git commit --amend --no-edit || true
+
+          git push --force-with-lease origin main
+
+          git tag -f "v${UPSTREAM_VERSION}"
+          git push origin "v${UPSTREAM_VERSION}" --force
+
+          git branch -D sync-upstream 2>/dev/null || true
+
+          echo "Sync complete. Version v${UPSTREAM_VERSION} pushed to main."
+
+      - name: Verify no workflow file changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # With ORIG_HEAD restoration, workflow files should match the remote.
+          # Verify no workflow diffs exist — if they do, the push above would have failed.
+          echo "Checking for workflow file changes..."
+          CHANGED=$(git diff HEAD~1 --name-only -- .github/workflows/ 2>/dev/null || true)
+          if [ -n "$CHANGED" ]; then
+            echo "WARNING: Workflow files changed in last commit: $CHANGED"
+            echo "These may need manual cleanup with a PAT that has workflows permission."
+          else
+            echo "No workflow file changes detected. Sync is clean."
+          fi
+
+  build-and-release:
+    needs: [check-and-sync, sync-and-rebrand]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-and-sync.outputs.upstream_version }}
+        run: |
+          TAG="v${VERSION}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping creation"
+          else
+            RELEASE_NOTES=$(cat << 'NOTES_EOF'
+          SuperAgent ${VERSION} — synced from upstream Cate ${VERSION}
+
+          ## Changes
+          This release syncs with [Cate v${VERSION}](https://github.com/0-AI-UG/cate/releases/tag/v${VERSION}) and applies the SuperAgent rebrand.
+
+          ### Branding
+          - App name: **SuperAgent** by **Hyperspace Technologies**
+          - App ID: `ng.hyperspace.superagent`
+          - Contact: superagent@hyperspace.ng
+          - Repo: https://github.com/DrOlu/SuperAgent
+
+          ### Downloads
+          | Platform | File |
+          |----------|------|
+          | macOS (Apple Silicon) | `SuperAgent-${VERSION}-arm64.dmg` |
+          | macOS (Intel) | `SuperAgent-${VERSION}.dmg` |
+          | Windows | `SuperAgent.Setup.${VERSION}.exe` |
+          | Linux | `SuperAgent-${VERSION}.AppImage` |
+          | Linux (deb) | `superagent_${VERSION}_amd64.deb` |
+
+          > **Note:** macOS builds are ad-hoc signed. On first launch, right-click the app → Open to bypass Gatekeeper.
+          NOTES_EOF
+          )
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "SuperAgent $TAG" \
+              --generate-notes \
+              --notes "$RELEASE_NOTES"
+          fi

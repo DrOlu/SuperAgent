@@ -21,8 +21,8 @@ import type {
   DockStateSnapshot,
   WorktreeMeta,
   RemoteConnectSpec,
-  CompanionConnection,
-  CompanionPhase,
+  RuntimeConnection,
+  RuntimePhase,
 } from '../../shared/types'
 import { PANEL_DEFAULT_SIZES, ALL_ZONES } from '../../shared/types'
 import { ACCENT_COLORS } from '../../shared/colors'
@@ -82,14 +82,14 @@ function createDefaultWorkspace(
   name?: string,
   rootPath?: string,
   id?: string,
-  connection?: CompanionConnection,
+  connection?: RuntimeConnection,
 ): WorkspaceState {
   return {
     id: id ?? generateId(),
     name: name ?? 'Workspace',
     color: '',
     rootPath: rootPath ?? '',
-    // Carry remote reconnect info through restore so ensureWorkspaceCompanion
+    // Carry remote reconnect info through restore so ensureWorkspaceRuntime
     // can reconnect the companion before any fs/git/terminal op (Finding 2).
     ...(connection && connection.kind !== 'local' ? { connection } : {}),
     rootPathError: null,
@@ -296,7 +296,7 @@ interface AppStoreState {
   /** Phase of the built-in LOCAL companion daemon (a process-wide singleton, so
    *  it's global rather than per-workspace). Drives the local loading blocker.
    *  `null` until seeded at init. */
-  localCompanionPhase: CompanionPhase | null
+  localRuntimePhase: RuntimePhase | null
   /** Per-workspace reload counter. Bumped when a workspace's layout is rebuilt
    *  from disk (reload / hydrate), so the main shell can remount and respawn its
    *  terminals cleanly. Defaults to 0 for any workspace not present here. */
@@ -305,7 +305,7 @@ interface AppStoreState {
 
 interface AppStoreActions {
   // Workspace management
-  addWorkspace: (name?: string, rootPath?: string, id?: string, connection?: CompanionConnection) => string
+  addWorkspace: (name?: string, rootPath?: string, id?: string, connection?: RuntimeConnection) => string
   selectWorkspace: (id: string) => Promise<void>
   removeWorkspace: (id: string, forgetRecent?: boolean) => void
 
@@ -350,25 +350,25 @@ interface AppStoreActions {
   // Workspace operations
   setWorkspaceRootPath: (wsId: string, rootPath: string) => Promise<boolean>
   connectRemoteWorkspace: (wsId: string, spec: RemoteConnectSpec) => Promise<boolean>
-  ensureWorkspaceCompanion: (wsId: string) => Promise<boolean>
+  ensureWorkspaceRuntime: (wsId: string) => Promise<boolean>
   /** Cheap relaunch of an existing connection (companion:ensure) — for a
    *  disconnected/unreachable companion whose connection record is intact. */
-  retryCompanion: (wsId: string) => Promise<boolean>
+  retryRuntime: (wsId: string) => Promise<boolean>
   /** Explicit clean install of the companion daemon, then connect. The entry
    *  action of the `missing` phase — the only action that installs. */
-  installCompanion: (wsId: string) => Promise<boolean>
+  installRuntime: (wsId: string) => Promise<boolean>
   /** Literally delete the companion: stop the daemon + rm -rf the host install
    *  (keeps saved auth). Main drives the workspace to `missing`; the user
    *  recovers via Install. */
-  deleteCompanion: (wsId: string) => Promise<boolean>
+  deleteRuntime: (wsId: string) => Promise<boolean>
   /** The single writer of a workspace's companion phase. Called ONLY by the
    *  COMPANION_STATUS broadcast — the main process is the sole authority for the
    *  phase (it probes the connection step by step). The connect/ensure/install/
    *  delete actions never set it themselves. */
-  setWorkspaceCompanionPhase: (wsId: string, phase: CompanionPhase, error?: string | null) => void
+  setWorkspaceRuntimePhase: (wsId: string, phase: RuntimePhase, error?: string | null) => void
   /** Set the global LOCAL companion phase (drives the local loading blocker).
    *  Written by the COMPANION_STATUS handler for LOCAL events + the init seed. */
-  setLocalCompanionPhase: (phase: CompanionPhase) => void
+  setLocalRuntimePhase: (phase: RuntimePhase) => void
   setWorkspaceColor: (wsId: string, color: string) => void
   renameWorkspace: (wsId: string, name: string) => void
   duplicateWorkspace: (wsId: string) => string
@@ -543,7 +543,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Start empty — a default workspace is created during init only if no session is restored.
   workspaces: [],
   selectedWorkspaceId: '',
-  localCompanionPhase: null,
+  localRuntimePhase: null,
   reloadEpochs: {},
 
   // --- Workspace management ---
@@ -600,8 +600,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // connect here so the restore's awaited selectWorkspace still resolves
       // only once the companion is live.
       const current = state.workspaces.find((w) => w.id === id)
-      if (current?.connection && current.connection.kind !== 'local' && !current.companion) {
-        await get().ensureWorkspaceCompanion(id)
+      if (current?.connection && current.connection.kind !== 'local' && !current.runtime) {
+        await get().ensureWorkspaceRuntime(id)
       }
       return
     }
@@ -638,7 +638,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // an unregistered companion and throw. Local workspaces stay synchronous.
     const incoming = get().workspaces.find((w) => w.id === id)
     if (incoming?.connection && incoming.connection.kind !== 'local') {
-      const ok = await get().ensureWorkspaceCompanion(id)
+      const ok = await get().ensureWorkspaceRuntime(id)
       if (!ok) {
         log.warn('[companion] reconnect failed for workspace %s; restore will surface the error', id)
       }
@@ -1094,17 +1094,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
     })
   },
 
-  setWorkspaceCompanionPhase(wsId, phase, error) {
+  setWorkspaceRuntimePhase(wsId, phase, error) {
     const clean = error == null ? null : errorMessage(error)
     set((state) => ({
       workspaces: state.workspaces.map((c) =>
-        c.id === wsId ? { ...c, companion: { phase, ...(clean != null ? { error: clean } : {}) } } : c,
+        c.id === wsId ? { ...c, runtime: { phase, ...(clean != null ? { error: clean } : {}) } } : c,
       ),
     }))
   },
 
-  setLocalCompanionPhase(phase) {
-    set({ localCompanionPhase: phase })
+  setLocalRuntimePhase(phase) {
+    set({ localRuntimePhase: phase })
   },
 
   async connectRemoteWorkspace(wsId, spec) {
@@ -1112,7 +1112,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!ws) return false
     let res
     try {
-      res = await window.electronAPI.companionConnect(spec)
+      res = await window.electronAPI.runtimeConnect(spec)
     } catch (err) {
       log.warn('[companion] connect failed:', err instanceof Error ? err.message : String(err))
       return false
@@ -1125,7 +1125,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const label = spec.kind === 'wsl' ? `${spec.distro}` : `${spec.user}@${spec.host}`
     const desiredName = ws.name === 'Workspace' ? label : ws.name
     // Store rootPath + connection FIRST so the probe's COMPANION_STATUS phases
-    // (keyed by companionId) can match this workspace.
+    // (keyed by runtimeId) can match this workspace.
     set((state) => ({
       workspaces: state.workspaces.map((c) =>
         c.id === wsId ? { ...c, rootPath: res!.rootPath, name: desiredName } : c,
@@ -1146,18 +1146,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // Probe to drive the phase. Main reports connected / missing / unreachable;
     // we never set the phase ourselves. (A fresh remote with no daemon lands in
     // 'missing' → the canvas lock offers Install.)
-    await get().ensureWorkspaceCompanion(wsId)
+    await get().ensureWorkspaceRuntime(wsId)
     return true
   },
 
-  async ensureWorkspaceCompanion(wsId) {
+  async ensureWorkspaceRuntime(wsId) {
     const ws = get().workspaces.find((w) => w.id === wsId)
     if (!ws?.connection || ws.connection.kind === 'local') return true
     // Probe only. The phase (connecting → connected | missing | unreachable) is
     // emitted by the main process and lands via the COMPANION_STATUS broadcast.
     // No client-side phase logic. Returns whether the companion is now live.
     try {
-      const res = await window.electronAPI.companionEnsure(ws.connection)
+      const res = await window.electronAPI.runtimeEnsure(ws.connection)
       return !!res?.ok
     } catch (err) {
       log.warn('[companion] ensure failed:', err instanceof Error ? err.message : String(err))
@@ -1166,15 +1166,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   // The lock overlay's "Retry"/"Reconnect" — re-probe the existing connection.
-  async retryCompanion(wsId) {
-    return get().ensureWorkspaceCompanion(wsId)
+  async retryRuntime(wsId) {
+    return get().ensureWorkspaceRuntime(wsId)
   },
 
-  async installCompanion(wsId) {
+  async installRuntime(wsId) {
     const ws = get().workspaces.find((w) => w.id === wsId)
     if (!ws?.connection || ws.connection.kind === 'local') return false
     try {
-      const res = await window.electronAPI.companionInstall(ws.connection)
+      const res = await window.electronAPI.runtimeInstall(ws.connection)
       return !!res?.ok
     } catch (err) {
       log.warn('[companion] install failed:', err instanceof Error ? err.message : String(err))
@@ -1182,12 +1182,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
-  async deleteCompanion(wsId) {
+  async deleteRuntime(wsId) {
     const ws = get().workspaces.find((w) => w.id === wsId)
     if (!ws?.connection || ws.connection.kind === 'local') return false
     try {
       // Main rm -rf's the host install and drives the phase to 'missing'.
-      const res = await window.electronAPI.companionDelete(ws.connection)
+      const res = await window.electronAPI.runtimeDelete(ws.connection)
       return !!res?.ok
     } catch (err) {
       log.warn('[companion] delete failed:', err instanceof Error ? err.message : String(err))
@@ -1462,8 +1462,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
             existing.name !== info.name ||
             existing.color !== info.color ||
             existing.rootPath !== info.rootPath ||
-            (existing.connection && existing.connection.kind !== 'local' ? existing.connection.companionId : undefined) !==
-              (info.connection && info.connection.kind !== 'local' ? info.connection.companionId : undefined)
+            (existing.connection && existing.connection.kind !== 'local' ? existing.connection.runtimeId : undefined) !==
+              (info.connection && info.connection.kind !== 'local' ? info.connection.runtimeId : undefined)
           ) {
           existingMap.set(info.id, {
             ...existing,
@@ -1516,20 +1516,20 @@ export function setupWorkspaceSync(): () => void {
 
   // Reflect the live companion phase on the matching workspace. This broadcast
   // is the authoritative writer once a workspace has a stored connection record
-  // (companionId); the connect/ensure/reinstall actions only seed/finalize the
+  // (runtimeId); the connect/ensure/reinstall actions only seed/finalize the
   // phase around their IPC calls. All writes funnel through the one setter so
   // the canonical field can't be set two different ways.
-  const unsubscribeStatus = window.electronAPI.onCompanionStatus((evt) => {
+  const unsubscribeStatus = window.electronAPI.onRuntimeStatus((evt) => {
     const store = useAppStore.getState()
     // The LOCAL daemon is a singleton; its phase is global, not per-workspace.
-    if (evt.companionId === LOCAL_RUNTIME_ID) {
-      store.setLocalCompanionPhase(evt.phase)
+    if (evt.runtimeId === LOCAL_RUNTIME_ID) {
+      store.setLocalRuntimePhase(evt.phase)
       return
     }
     const target = store.workspaces.find(
-      (ws) => ws.connection && ws.connection.kind !== 'local' && ws.connection.companionId === evt.companionId,
+      (ws) => ws.connection && ws.connection.kind !== 'local' && ws.connection.runtimeId === evt.runtimeId,
     )
-    if (target) store.setWorkspaceCompanionPhase(target.id, evt.phase, evt.message ?? null)
+    if (target) store.setWorkspaceRuntimePhase(target.id, evt.phase, evt.message ?? null)
   })
 
   // Seed the LOCAL phase once: the startup connect may have finished (or failed)
@@ -1537,10 +1537,10 @@ export function setupWorkspaceSync(): () => void {
   // FIRST (above), then snapshot — and don't clobber a live event that already
   // landed (only seed while still unknown).
   void window.electronAPI
-    .companionLocalStatus()
+    .runtimeLocalStatus()
     .then((s) => {
-      if (useAppStore.getState().localCompanionPhase === null) {
-        useAppStore.getState().setLocalCompanionPhase(s.phase as CompanionPhase)
+      if (useAppStore.getState().localRuntimePhase === null) {
+        useAppStore.getState().setLocalRuntimePhase(s.phase as RuntimePhase)
       }
     })
     .catch(() => { /* best-effort seed; live events still drive updates */ })
@@ -1590,8 +1590,8 @@ export function useWorkspaceList(): WorkspaceState[] {
           a[i].rootPath !== b[i].rootPath ||
           a[i].rootPathError !== b[i].rootPathError ||
           a[i].isRootPathPending !== b[i].isRootPathPending ||
-          a[i].companion?.phase !== b[i].companion?.phase ||
-          a[i].companion?.error !== b[i].companion?.error
+          a[i].runtime?.phase !== b[i].runtime?.phase ||
+          a[i].runtime?.error !== b[i].runtime?.error
         ) return false
       }
       return true

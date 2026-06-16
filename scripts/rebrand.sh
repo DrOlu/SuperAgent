@@ -164,19 +164,27 @@ find src/shared/themes -name '*.ts' -exec sed -i "s|author: 'Cate theme pack'|au
 echo '  src/shared/themes/'
 
 # ── src/agent/ ────────────────────────────────────────────────────────────────
-sed -i 's|not supported in Cate yet|not supported in SuperAgent yet|' \
-  src/agent/renderer/AgentSettingsView.tsx
-sed -i "s|'user-agent': 'Cate/marketplace|'user-agent': 'SuperAgent/marketplace|" \
-  src/agent/main/marketplace.ts
-sed -i 's|from Cate is not supported|from SuperAgent is not supported|' \
-  src/agent/main/marketplace.ts
+if [ -f src/agent/renderer/AgentSettingsView.tsx ]; then
+  sed -i 's|not supported in Cate yet|not supported in SuperAgent yet|' \
+    src/agent/renderer/AgentSettingsView.tsx
+fi
+if [ -f src/agent/main/marketplace.ts ]; then
+  sed -i "s|'user-agent': 'Cate/marketplace|'user-agent': 'SuperAgent/marketplace|" \
+    src/agent/main/marketplace.ts
+  sed -i 's|from Cate is not supported|from SuperAgent is not supported|' \
+    src/agent/main/marketplace.ts
+fi
 echo '  src/agent/'
 
 # ── src/skills/ ───────────────────────────────────────────────────────────────
-sed -i "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
-  src/skills/main/githubCrawl.ts
-sed -i "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
-  src/skills/main/skillsRegistry.ts
+if [ -f src/skills/main/githubCrawl.ts ]; then
+  sed -i "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
+    src/skills/main/githubCrawl.ts
+fi
+if [ -f src/skills/main/skillsRegistry.ts ]; then
+  sed -i "s|'User-Agent': 'Cate-skills'|'User-Agent': 'SuperAgent-skills'|g" \
+    src/skills/main/skillsRegistry.ts
+fi
 echo '  src/skills/'
 
 # ── scripts/patch-electron-name.sh ───────────────────────────────────────────

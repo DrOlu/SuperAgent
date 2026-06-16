@@ -492,7 +492,7 @@ const WorktreeRow: React.FC<{
             />
             <SpawnButton
               icon={<CateLogo size={12} />}
-              title="Cate agent"
+              title="SuperAgent agent"
               panelType="agent"
               cwd={wt.path}
               worktreeId={wt.id}

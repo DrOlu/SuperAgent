@@ -9,7 +9,7 @@ export const oneDarkProFlat: Theme = {
   name: 'One Dark Pro Flat',
   type: 'dark',
   builtIn: true,
-  author: 'Cate theme pack',
+  author: 'SuperAgent theme pack',
   bootBackground: '#282c34',
   app: {
     'surface-0': '#282c34',

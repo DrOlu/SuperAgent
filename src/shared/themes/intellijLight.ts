@@ -8,7 +8,7 @@ export const intellijLight: Theme = {
   name: 'IntelliJ Light',
   type: 'light',
   builtIn: true,
-  author: 'Cate theme pack',
+  author: 'SuperAgent theme pack',
   description: "Clean white surfaces with IntelliJ IDEA's classic light palette.",
   bootBackground: '#f2f2f2',
   app: {

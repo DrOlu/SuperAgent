@@ -87,7 +87,7 @@ export interface UseParallelWork {
   reconcile: () => void
   createWorktree: (rawName: string, baseRef?: string) => Promise<void>
   checkoutPr: (pr: PrListItem) => Promise<void>
-  /** Spawn a terminal or Cate agent bound to a worktree. Pass `placement` to pin
+  /** Spawn a terminal or SuperAgent agent bound to a worktree. Pass `placement` to pin
    *  it to a specific canvas (the toolbar does); omit for default placement. */
   launchInWorktree: (wt: JoinedWorktree, type: 'terminal' | 'agent', placement?: PanelPlacement) => void
   handlePublish: (wt: JoinedWorktree) => Promise<void>

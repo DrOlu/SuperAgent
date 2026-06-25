@@ -177,8 +177,23 @@ async function promptManualReinstall(version: string, opts: { offerMove: boolean
 
 /** Run a check. When eligible, AndNotify downloads (autoDownload) and shows the
  *  native "ready to install" notification; when ineligible we only check so the
- *  update-available handler can offer the manual path. */
+ *  update-available handler can offer the manual path.
+ *
+ *  Skips entirely once an update is downloaded and staged. A redundant check —
+ *  the 15-minute poll, a manual "Check for Updates…", or a beta-toggle re-check —
+ *  re-enters electron-updater's macOS flow (MacUpdater.doDownloadUpdate →
+ *  setFeedURL + nativeUpdater.checkForUpdates), which re-arms the native
+ *  Squirrel.Mac install-on-quit (no relaunch) and resets its internal
+ *  `squirrelDownloadedUpdate` "ready" flag. With that flag false, a subsequent
+ *  quitAndInstall (the "Restart now" button) silently DOESN'T relaunch: the
+ *  update installs on quit but the app never reopens (ShipItState
+ *  launchAfterInstallation=false). We already hold the latest, staged — there's
+ *  nothing to find by re-checking, so don't perturb the native state. */
 function runCheck(eligible: boolean): Promise<unknown> {
+  if (updatePendingInstall) {
+    log.info('[auto-updater] skipping check — an update is already downloaded and staged for install')
+    return Promise.resolve(null)
+  }
   const p = eligible ? autoUpdater.checkForUpdatesAndNotify() : autoUpdater.checkForUpdates()
   return p.catch((err) => {
     log.warn('[auto-updater] check failed: %O', err)
@@ -354,10 +369,19 @@ export function initAutoUpdater(): void {
 
 /** Wired to the "Check for Updates…" menu items. Re-arms the manual prompt since
  *  the user explicitly asked. No "you're up to date" dialog by design — a pending
- *  update surfaces via the OS notification / manual fallback. */
+ *  update surfaces via the OS notification / manual fallback.
+ *
+ *  If an update is already downloaded and staged, the in-app modal may have been
+ *  dismissed ("Install on next quit") and won't re-open on its own — the modal
+ *  only auto-shows once per version. An explicit check is the deliberate way back
+ *  to "Restart now", so re-broadcast the staged status with forceShow to re-open
+ *  it. Sent off lastStatus directly (not cached) so the flag stays a one-off. */
 export function checkForUpdatesManually(): void {
   if (!app.isPackaged) return
   manualPrompted = false
+  if (updatePendingInstall && lastStatus.state === 'downloaded') {
+    broadcastToAll(UPDATE_STATUS, { ...lastStatus, forceShow: true })
+  }
   void runCheck(canSelfUpdate())
 }
 

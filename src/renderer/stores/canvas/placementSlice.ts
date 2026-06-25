@@ -7,9 +7,10 @@
 import type { Rect } from '../../../shared/types'
 import { ZOOM_MIN, ZOOM_MAX, PANEL_DEFAULT_SIZES } from '../../../shared/types'
 import { viewToCanvas as viewToCanvasCoords } from '../../lib/canvas/coordinates'
-import { recommendPlacements, nudgeToFree } from '../../canvas/placement'
+import { recommendPlacements, nudgeToFree, type PlacementTrace } from '../../canvas/placement'
 import type { CanvasGet, CanvasSet, CanvasStoreActions } from './storeTypes'
 import type { CanvasStoreCtx } from './storeCtx'
+import { focusedNodeId } from './selectionModel'
 
 type PlacementActions = Pick<
   CanvasStoreActions,
@@ -56,14 +57,22 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
         get().focusAndCenter(nodeId)
         return true
       }
+      // Dev-only: capture the algorithm's reasoning so the placement-viz overlay
+      // (Cmd/Ctrl+Shift+G) can render the REAL spots. Stays undefined in prod, so
+      // no object is allocated and the trace path costs nothing.
+      const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV
+      const trace: PlacementTrace | undefined = isDev
+        ? { area: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }, rankAt: { x: 0, y: 0 }, inflated: [], guides: { xs: [], ys: [] }, steps: [] }
+        : undefined
       const candidates = recommendPlacements(
         state.nodes,
-        state.focusedNodeId,
+        focusedNodeId(state),
         panelType,
         { offset: state.viewportOffset, zoom: state.zoomLevel, containerSize: state.containerSize },
         ctx.lastPointerCanvasPos,
         undefined,
         nodeSize,
+        trace,
       )
       if (candidates.length === 0) return false
 
@@ -74,7 +83,8 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
       const cs = state.containerSize
       if (cs.width > 0 && cs.height > 0) {
         const rects: Rect[] = candidates.map((c) => ({ origin: c.point, size: c.size }))
-        const focused = state.focusedNodeId ? state.nodes[state.focusedNodeId] : null
+        const focusedId = focusedNodeId(state)
+        const focused = focusedId ? state.nodes[focusedId] : null
         if (focused) rects.push({ origin: focused.origin, size: focused.size })
         const minX = Math.min(...rects.map((r) => r.origin.x))
         const minY = Math.min(...rects.map((r) => r.origin.y))
@@ -100,6 +110,7 @@ export function createPlacementSlice(set: CanvasSet, get: CanvasGet, ctx: Canvas
           freeArmed: false,
           freeGhost: null,
           size: nodeSize,
+          trace,
           prevZoom: state.zoomLevel,
           prevOffset: state.viewportOffset,
           onCancelled,

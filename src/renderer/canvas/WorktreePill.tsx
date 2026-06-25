@@ -5,7 +5,9 @@
 //   • Hover  → highlights every node in that worktree (ring + sludge boost).
 //   • Click  → menu: focus the worktree on canvas, or switch this panel to
 //              another worktree. Switching a TERMINAL opens a fresh PTY in the
-//              new checkout (a terminal IS a checkout); agents are re-tagged.
+//              new checkout (a terminal IS a checkout); switching an AGENT
+//              re-tags it and respawns pi in the new checkout (AgentPanel
+//              reacts to the changed cwd).
 //
 // Hidden unless the workspace has 2+ worktrees — otherwise it's just chrome
 // noise on the common single-branch flow.
@@ -17,6 +19,7 @@ import { useAppStore } from '../stores/appStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorktrees } from '../stores/useWorktrees'
 import { confirmCloseRunningTerminals } from '../lib/confirmCloseTerminal'
+import { resolveWorktree } from '../../shared/worktrees'
 import type { PanelState } from '../../shared/types'
 
 interface WorktreePillProps {
@@ -35,7 +38,7 @@ export const WorktreePill: React.FC<WorktreePillProps> = ({ panel, workspaceId }
   const focusWorktree = useUIStore((s) => s.focusWorktree)
   const focusedWorktreeId = useUIStore((s) => s.focusedWorktreeId)
 
-  const current = worktrees.find((w) => w.id === panel.worktreeId) ?? worktrees.find((w) => w.isPrimary)
+  const current = resolveWorktree(panel.worktreeId, worktrees) ?? worktrees.find((w) => w.isPrimary)
   const currentId = current?.id
 
   // Collapsed (icon-only) until hovered, so the overlay covers as little of the
@@ -78,8 +81,9 @@ export const WorktreePill: React.FC<WorktreePillProps> = ({ panel, workspaceId }
       if (!ok) return
       useAppStore.getState().respawnPanelTerminal(workspaceId, panel.id, target.path, target.id)
     } else {
-      // Agent panels: re-tag only — pi's cwd is fixed at spawn. The sidebar's
-      // "open agent here" starts a fresh agent in a worktree.
+      // Agent panels: re-tag the panel. AgentPanel derives its cwd from the
+      // worktree tag and reacts to the change by disposing the old checkout's
+      // chats and reopening pi in the new one, so the agent moves with the pill.
       setPanelWorktreeId(workspaceId, panel.id, target.id)
     }
   }, [worktrees, current, focusedWorktreeId, panel, workspaceId, setPanelWorktreeId, focusWorktree])

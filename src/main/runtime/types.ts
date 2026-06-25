@@ -38,6 +38,10 @@ export interface PtyHandle {
   pid: number
   /** Optional notice to surface in the terminal (e.g. shell fallback warning). */
   notice?: string
+  /** The shell path the host actually spawned (after the host's own resolution).
+   *  Carried back purely for diagnostics — e.g. logging which shell a terminal
+   *  that exited immediately was running (#401). */
+  shell?: string
 }
 
 /** Per-pty process-tree-derived activity, for the shell process monitor.
@@ -319,12 +323,13 @@ export interface VcsHost {
     repoCwd: string,
     branch: string,
     targetPath: string,
-    options?: { createBranch?: boolean; baseRef?: string },
+    options?: { createBranch?: boolean; baseRef?: string; symlinkPaths?: string[] },
   ): Promise<{ path: string; branch: string }>
   worktreeAddFromPr(
     repoCwd: string,
     prNumber: number,
     targetPath: string,
+    options?: { symlinkPaths?: string[] },
   ): Promise<{ path: string; branch: string }>
   worktreeRemove(repoCwd: string, worktreePath: string, options?: { force?: boolean }): Promise<void>
   worktreePrune(repoCwd: string): Promise<{ output: string }>

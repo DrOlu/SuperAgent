@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { DEFAULT_UPDATE_RECORD, type UpdateRecord } from './updateState'
+import { UPDATE_STATUS } from '../shared/ipc-channels'
 
 // ---------------------------------------------------------------------------
 // Mocks. electron-updater's autoUpdater is an EventEmitter with stubbed methods
@@ -144,6 +145,32 @@ describe('initAutoUpdater — config', () => {
     initAutoUpdater()
     vi.advanceTimersByTime(6000)
     expect(h.autoUpdater.checkForUpdatesAndNotify).toHaveBeenCalled()
+  })
+
+  it('stops re-checking once an update is downloaded and staged', async () => {
+    const { initAutoUpdater } = await loadModule()
+    initAutoUpdater()
+    vi.advanceTimersByTime(6000) // launch check fires
+    expect(h.autoUpdater.checkForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+
+    // Update finished downloading → staged for install on quit.
+    h.autoUpdater.emit('update-downloaded', { version: '1.2.3' })
+
+    // The 15-minute poll must NOT re-check: a redundant check resets the native
+    // macOS Squirrel "ready" flag, which would make a later "Restart now" install
+    // on quit without relaunching (the app never reopens).
+    vi.advanceTimersByTime(15 * 60 * 1000)
+    expect(h.autoUpdater.checkForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+  })
+
+  it('a manual check does not re-check when an update is already staged', async () => {
+    const { initAutoUpdater, checkForUpdatesManually } = await loadModule()
+    initAutoUpdater()
+    vi.advanceTimersByTime(6000)
+    h.autoUpdater.emit('update-downloaded', { version: '1.2.3' })
+    const before = h.autoUpdater.checkForUpdatesAndNotify.mock.calls.length
+    checkForUpdatesManually() // re-opens the modal, but must not perturb native state
+    expect(h.autoUpdater.checkForUpdatesAndNotify.mock.calls.length).toBe(before)
   })
 
   it('dev-update mode: wires events, forces dev config, and treats as eligible', async () => {
@@ -377,5 +404,28 @@ describe('manual-reinstall fallback', () => {
     h.autoUpdater.emit('update-available', { version: '1.2.3' })
     await flushMicrotasks()
     expect(h.dialog.showMessageBox).toHaveBeenCalledTimes(2)
+  })
+
+  it('checkForUpdatesManually re-surfaces a staged update (forceShow) so a dismissed modal can re-open', async () => {
+    const { initAutoUpdater, checkForUpdatesManually } = await loadModule()
+    initAutoUpdater()
+    h.autoUpdater.emit('update-downloaded', { version: '1.2.3' })
+    h.broadcastToAll.mockClear()
+    checkForUpdatesManually()
+    expect(h.broadcastToAll).toHaveBeenCalledWith(
+      UPDATE_STATUS,
+      expect.objectContaining({ state: 'downloaded', version: '1.2.3', forceShow: true }),
+    )
+  })
+
+  it('checkForUpdatesManually does NOT force-broadcast when nothing is staged', async () => {
+    const { initAutoUpdater, checkForUpdatesManually } = await loadModule()
+    initAutoUpdater()
+    h.broadcastToAll.mockClear()
+    checkForUpdatesManually()
+    expect(h.broadcastToAll).not.toHaveBeenCalledWith(
+      UPDATE_STATUS,
+      expect.objectContaining({ forceShow: true }),
+    )
   })
 })

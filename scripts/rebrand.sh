@@ -78,6 +78,15 @@ sed -i \
   src/main/auto-updater.ts
 echo '  src/main/auto-updater.ts'
 
+# ── src/main/auto-updater.test.ts ────────────────────────────────────────────
+# Keep the manual-reinstall fallback assertions in lock-step with the rebranded
+# RELEASES_URL above, so the next upstream sync can't reintroduce the stale
+# `github.com/0-AI-UG/cate/releases` expectation that CI rejects.
+sed -i \
+  -e "s|expect\.stringContaining('github.com/0-AI-UG/cate/releases')|expect.stringContaining('superagent.ng/downloads.html')|g" \
+  src/main/auto-updater.test.ts
+echo '  src/main/auto-updater.test.ts'
+
 # ── src/main/workspaceManager.ts ──────────────────────────────────────────────
 sed -i \
   -e "s|message: 'Another Cate instance|message: 'Another SuperAgent instance|" \

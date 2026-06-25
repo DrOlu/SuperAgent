@@ -65,9 +65,16 @@ sed -i \
 echo '  src/main/menu.ts'
 
 # ── src/main/auto-updater.ts ─────────────────────────────────────────────────
+# Point the manual "Download latest" fallback (opened by Check for Updates when
+# self-update is unavailable) at the SuperAgent downloads page instead of the
+# upstream Cate GitHub releases. Drop the now-unused GITHUB_OWNER/GITHUB_REPO
+# consts so the next upstream sync can't silently revert the update target.
 sed -i \
   -e "s|'Cate can|'SuperAgent can|g" \
   -e "s|Move Cate to Applications|Move SuperAgent to Applications|" \
+  -e "s|^const RELEASES_URL = .*|const RELEASES_URL = 'https://superagent.ng/downloads.html'|" \
+  -e "/^const GITHUB_OWNER = '0-AI-UG'$/d" \
+  -e "/^const GITHUB_REPO = 'cate'$/d" \
   src/main/auto-updater.ts
 echo '  src/main/auto-updater.ts'
 

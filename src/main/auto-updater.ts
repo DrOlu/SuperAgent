@@ -46,9 +46,11 @@ import {
   type UpdateRecord,
 } from './updateState'
 
-const GITHUB_OWNER = '0-AI-UG'
-const GITHUB_REPO = 'cate'
-const RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`
+// Manual "Download latest" fallback opened by the Check for Updates flow when the
+// app can't self-update (translocated / not in /Applications) or a staged install
+// repeatedly fails. Points to the SuperAgent downloads page rather than the
+// upstream GitHub releases, so users always land on the branded download site.
+const RELEASES_URL = 'https://superagent.ng/downloads.html'
 const CHECK_INTERVAL_MS = 15 * 60 * 1000
 
 /** Persisted "what did we last stage, and how often has it failed to apply"

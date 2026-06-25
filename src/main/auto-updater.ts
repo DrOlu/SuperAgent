@@ -46,10 +46,6 @@ import {
   type UpdateRecord,
 } from './updateState'
 
-// Manual "Download latest" fallback opened by the Check for Updates flow when the
-// app can't self-update (translocated / not in /Applications) or a staged install
-// repeatedly fails. Points to the SuperAgent downloads page rather than the
-// upstream GitHub releases, so users always land on the branded download site.
 const RELEASES_URL = 'https://superagent.ng/downloads.html'
 const CHECK_INTERVAL_MS = 15 * 60 * 1000
 

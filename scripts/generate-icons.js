@@ -7,16 +7,16 @@ const path = require('path')
 const fs = require('fs')
 const { execSync } = require('child_process')
 
-const SVG_PATH = path.join(__dirname, '..', 'assets', 'cate-logo.svg')
+const SVG_PATH = path.join(__dirname, '..', 'assets', 'superagent-logo.svg')
 const BUILD_DIR = path.join(__dirname, '..', 'build')
 
 // Dark background matching the app theme
 const BG_COLOR = { r: 30, g: 30, b: 36, alpha: 1 } // #1E1E24
 
 async function createIcon(size) {
-  // Logo is 389x204 — scale to fit ~60% of the icon width, centered
-  const logoWidth = Math.round(size * 0.6)
-  const logoHeight = Math.round(logoWidth * (204 / 389))
+  // SuperAgent logo is 512x512 — scale to fit ~60% of the icon width, centered
+  const logoWidth = Math.round(size * 0.85)
+  const logoHeight = Math.round(logoWidth)
 
   const logo = await sharp(SVG_PATH)
     .resize(logoWidth, logoHeight, { fit: 'contain' })

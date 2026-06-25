@@ -80,9 +80,8 @@ echo '  src/main/workspaceManager.ts'
 
 # ── src/main/analytics.ts ────────────────────────────────────────────────────
 sed -i \
-  -e "s|User-Agent.*Cate/|User-Agent\`, \`SuperAgent/|; s|\`Cate/\${app|SuperAgent/\${app|" \
-  src/main/analytics.ts 2>/dev/null || \
-sed -i "s|'Cate/\${app|'SuperAgent/\${app|" src/main/analytics.ts
+  -e "s|'User-Agent', \`Cate/|\`User-Agent\`, \`SuperAgent/|" \
+  src/main/analytics.ts 2>/dev/null || true
 echo '  src/main/analytics.ts'
 
 # ── src/renderer/App.tsx ──────────────────────────────────────────────────────

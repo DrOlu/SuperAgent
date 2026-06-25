@@ -731,7 +731,7 @@ export const SHORTCUT_DISPLAY_NAMES: Record<ShortcutAction, string> = {
   newTerminal: 'New Terminal',
   newBrowser: 'New Browser',
   newEditor: 'New Editor',
-  newAgent: 'New Cate Agent',
+  newAgent: 'New SuperAgent Agent',
   newCanvas: 'New Canvas',
   newFile: 'New File',
   closePanel: 'Close Panel',

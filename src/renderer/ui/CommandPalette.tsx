@@ -157,7 +157,7 @@ export const CommandPalette: React.FC = () => {
       { id: 'newTerminal', title: 'New Terminal', icon: <TerminalIcon />, action: run('newTerminal') },
       { id: 'newBrowser', title: 'New Browser', icon: <GlobeIcon />, action: run('newBrowser') },
       { id: 'newEditor', title: 'New Editor', icon: <FileTextIcon />, action: run('newEditor') },
-      { id: 'newAgent', title: 'New Cate Agent', icon: <AgentIcon />, action: run('newAgent') },
+      { id: 'newAgent', title: 'New SuperAgent Agent', icon: <AgentIcon />, action: run('newAgent') },
       { id: 'newCanvas', title: 'New Canvas', icon: <LayoutIcon />, action: run('newCanvas') },
       { id: 'closePanel', title: 'Close Panel', icon: <CloseIcon />, action: run('closePanel') },
       { id: 'saveFile', title: 'Save File', icon: <SaveIcon />, action: run('saveFile') },

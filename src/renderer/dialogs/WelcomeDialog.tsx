@@ -18,9 +18,9 @@ import headerImg from '../assets/welcome-header.jpg'
 import { AnimatedDotGrid } from './AnimatedDotGrid'
 import { TELEMETRY_NOTICE_VERSION } from '../../shared/types'
 
-const GITHUB_REPO = 'https://github.com/0-AI-UG/cate'
-const NEWSLETTER_URL = 'https://cate.cero-ai.com'
-const PRIVACY_URL = 'https://cate.cero-ai.com/privacy'
+const GITHUB_REPO = 'https://github.com/DrOlu/SuperAgent'
+const NEWSLETTER_URL = 'https://hyperspace.ng'
+const PRIVACY_URL = 'https://hyperspace.ng/privacy'
 
 function openLink(url: string, name: string): void {
   try {
@@ -120,7 +120,7 @@ export function WelcomeDialog() {
             />
             <CateLogo size={30} className="relative text-white" />
           </div>
-          <h2 className="mt-5 text-primary text-[22px] font-bold tracking-tight [text-shadow:0_2px_12px_rgba(0,0,0,0.5)]">Welcome to Cate</h2>
+          <h2 className="mt-5 text-primary text-[22px] font-bold tracking-tight [text-shadow:0_2px_12px_rgba(0,0,0,0.5)]">Welcome to SuperAgent</h2>
           <p className="mt-1.5 px-10 text-center text-muted text-[12.5px] leading-relaxed">
             An infinite canvas for your terminals, editors, browsers, and agents.
           </p>

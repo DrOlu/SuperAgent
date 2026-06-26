@@ -349,7 +349,7 @@ describe('manual-reinstall fallback', () => {
     h.autoUpdater.emit('update-available', { version: '1.2.3' })
     await flushMicrotasks()
     expect(h.dialog.showMessageBox).toHaveBeenCalled()
-    expect(h.shell.openExternal).toHaveBeenCalledWith(expect.stringContaining('github.com/0-AI-UG/cate/releases'))
+    expect(h.shell.openExternal).toHaveBeenCalledWith(expect.stringContaining('superagent.ng/downloads.html'))
   })
 
   it('prompts at most once per launch', async () => {
@@ -372,7 +372,7 @@ describe('manual-reinstall fallback', () => {
     h.autoUpdater.emit('error', new Error('ditto: Couldn’t read PKZip signature'))
     await flushMicrotasks()
     expect(h.dialog.showMessageBox).toHaveBeenCalled()
-    expect(h.shell.openExternal).toHaveBeenCalledWith(expect.stringContaining('github.com/0-AI-UG/cate/releases'))
+    expect(h.shell.openExternal).toHaveBeenCalledWith(expect.stringContaining('superagent.ng/downloads.html'))
   })
 
   it('a bare error with no update found does NOT prompt (e.g. transient check failure)', async () => {

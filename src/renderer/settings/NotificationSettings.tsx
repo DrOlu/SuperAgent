@@ -18,7 +18,7 @@ export function NotificationSettings() {
 
       <SettingRow
         label="Only when window unfocused"
-        description="Skip notifications while Cate is in focus"
+        description="Skip notifications while SuperAgent is in focus"
       >
         <Toggle
           checked={store.notifyOnlyWhenUnfocused}

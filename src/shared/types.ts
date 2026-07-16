@@ -29,7 +29,7 @@ export interface Rect {
 // Panel types
 // -----------------------------------------------------------------------------
 
-export type PanelType = 'terminal' | 'browser' | 'editor' | 'canvas' | 'agent' | 'document'
+export type PanelType = 'terminal' | 'browser' | 'editor' | 'canvas' | 'agent' | 'document' | 'extension'
 
 // -----------------------------------------------------------------------------
 // Canvas node
@@ -40,10 +40,6 @@ export type CanvasNodeId = string
 
 export interface CanvasNodeState {
   id: CanvasNodeId
-  /** Primary panel id — the panel the node was originally created from. The
-   *  authoritative panel layout lives in `dockLayout` (a per-node dock tree),
-   *  but `panelId` is preserved for legacy code paths and as a stable identity. */
-  panelId: string
   origin: Point
   size: Size
   zOrder: number
@@ -55,7 +51,7 @@ export interface CanvasNodeState {
    *  Each canvas node owns a private DockStore whose `center` zone holds this
    *  layout. Splits, stacks and drag-and-drop all use the same primitives as
    *  the main dock zones. */
-  dockLayout?: DockLayoutNode | null
+  dockLayout: DockLayoutNode
   animationState?: 'entering' | 'exiting' | 'idle'
 }
 
@@ -74,10 +70,8 @@ export interface PanelState {
   title: string
   isDirty: boolean
   filePath?: string
-  url?: string
-  /** Browser panels only: open tabs (light model). The active tab's url is kept
-   *  mirrored to `url` above for session-restore + panel-transfer compatibility,
-   *  so older code paths that only read `url` still work. */
+  /** Browser panels only: open tabs (light model). This is the sole persisted
+   *  navigation state; the current URL is derived through browserPanelUrl. */
   tabs?: BrowserTab[]
   activeTabId?: string
   /** Browser panels only: per-panel HTTP/HTTPS/SOCKS5/PAC proxy. When set, the
@@ -114,6 +108,10 @@ export interface PanelState {
    *  registry entry is disposed and `TerminalPanel`'s create effect re-runs at
    *  the new `cwd`. */
   ptyEpoch?: number
+  /** Extension panels only: which installed extension + which of its declared
+   *  panels this instance renders. */
+  extensionId?: string
+  extensionPanelId?: string
 }
 
 // -----------------------------------------------------------------------------
@@ -143,7 +141,7 @@ export interface WorktreeMeta {
 /**
  * Where a workspace's files physically live, and how the runtime that hosts
  * its terminal/fs/git operations is reached. Absent ⇒ `{ kind: 'local' }` (the
- * migration default for every workspace that predates remote support). Secrets
+ * canonical compact representation for a local workspace). Secrets
  * (SSH passphrases/keys) NEVER live here — they are stored encrypted via
  * Electron safeStorage, keyed by runtimeId.
  */
@@ -174,7 +172,7 @@ export interface WorkspaceInfo {
   /** Locator string: a bare absolute path for local, a `cate-runtime://`
    *  URI otherwise. See src/main/runtime/locator.ts. */
   rootPath: string
-  /** Defaults to { kind: 'local' } when absent (migration rule). */
+  /** Absent is the canonical local-workspace representation. */
   connection?: RuntimeConnection
 }
 
@@ -249,6 +247,8 @@ export interface RuntimeStatus {
 export interface WorkspaceMutationError {
   code: 'INVALID_ROOT_PATH' | 'INVALID_WORKSPACE_ID' | 'WORKSPACE_NOT_FOUND' | 'DUPLICATE_ROOT'
   message: string
+  /** Present for DUPLICATE_ROOT so the renderer can focus the existing workspace. */
+  conflictingWorkspaceId?: string
 }
 
 export type WorkspaceMutationResult =
@@ -256,10 +256,10 @@ export type WorkspaceMutationResult =
   | { ok: false; error: WorkspaceMutationError }
 
 // -----------------------------------------------------------------------------
-// Window type system — main window vs borderless panel windows (Phase 4)
+// Window type system
 // -----------------------------------------------------------------------------
 
-export type CateWindowType = 'main' | 'panel' | 'dock'
+export type CateWindowType = 'main' | 'dock'
 
 /** A shadow record of a panel and the window that hosts it. Main maintains the
  *  union across ALL windows (main + detached) and broadcasts it, so every window
@@ -301,11 +301,7 @@ export interface WindowPanelReport {
 
 export interface CateWindowParams {
   type: CateWindowType
-  /** For panel windows: the panel type being displayed */
-  panelType?: PanelType
-  /** For panel windows: the panel ID */
-  panelId?: string
-  /** For panel/dock windows: workspace context */
+  /** For dock windows: workspace context */
   workspaceId?: string
 }
 
@@ -356,13 +352,12 @@ export interface DetachedDockWindowSnapshot {
    *  ptyId indirection, so restore never depends on a captured live-ptyId map. */
   terminalCwds?: Record<string, string>
   /** Per-canvas-panel layout snapshots (nodes + viewport), keyed by canvas panelId,
-   *  so a detached canvas window restores its children instead of landing empty.
-   *  Optional for back-compat with session files written before this existed. */
-  canvasStates?: Record<string, CanvasLayoutSnapshot>
+   *  so a detached canvas window restores its children instead of landing empty. */
+  canvasStates: Record<string, CanvasLayoutSnapshot>
 }
 
 // -----------------------------------------------------------------------------
-// Panel transfer protocol — cross-window panel migration (Phase 4)
+// Panel transfer protocol — cross-window panel handoff
 // -----------------------------------------------------------------------------
 
 export interface PanelTransferSnapshot {
@@ -384,24 +379,6 @@ export interface PanelTransferSnapshot {
   // Terminal-specific
   terminalPtyId?: string
   terminalScrollback?: string
-  /** Set during session restore: ptyId of the original (now-dead) PTY whose
-   *  scrollback log should be replayed into the freshly-spawned terminal. */
-  terminalReplayPtyId?: string
-
-  // Editor-specific
-  editorState?: {
-    cursorPosition: { line: number; column: number }
-    scrollTop: number
-    unsavedContent?: string
-  }
-
-  // Browser-specific
-  browserState?: {
-    url: string
-    canGoBack: boolean
-    canGoForward: boolean
-  }
-
   // Canvas-specific — child nodes/viewport for nested canvas panels.
   // Without this, detaching a canvas panel to a new window would land with an
   // empty store (fresh per-process), losing every panel inside it.
@@ -518,7 +495,7 @@ export interface WorkspaceState {
   panels: Record<string, PanelState>
   // PERSISTENCE-ONLY projection of the live per-workspace DockStore. Read via
   // getWorkspaceDockSnapshot(workspaceId), never directly.
-  dockState?: { zones: WindowDockState; locations: Record<string, PanelLocation> }
+  dockState?: DockStateSnapshot
   // PERSISTENCE-ONLY per-canvas projection, keyed by canvas panel id. A workspace
   // can host several canvas panels; each canvas's live CanvasStore projects into
   // this map at save time, and a never-mounted (cold-start) canvas restores from
@@ -605,42 +582,48 @@ export function displayString(s: StoredShortcut): string {
   return parts.join('')
 }
 
-// All shortcut actions. Keep ShortcutAction, SHORTCUT_ACTIONS,
-// SHORTCUT_DISPLAY_NAMES, and DEFAULT_SHORTCUTS in sync.
-export type ShortcutAction =
-  | 'newTerminal'
-  | 'newBrowser'
-  | 'newEditor'
-  | 'newAgent'
-  | 'newCanvas'
-  | 'newFile'
-  | 'closePanel'
-  | 'toggleSidebar'
-  | 'toggleFileExplorer'
-  | 'toggleSearch'
-  | 'toggleMinimap'
-  | 'commandPalette'
-  | 'zoomIn'
-  | 'zoomOut'
-  | 'zoomReset'
-  | 'focusNext'
-  | 'focusPrevious'
-  | 'saveFile'
-  | 'zoomToFit'
-  | 'zoomToSelection'
-  | 'autoLayout'
-  | 'undo'
-  | 'redo'
-  | 'deleteNode'
-  | 'toggleTool'
-  | 'navigateUp'
-  | 'navigateDown'
-  | 'navigateLeft'
-  | 'navigateRight'
-  | 'panUp'
-  | 'panDown'
-  | 'panLeft'
-  | 'panRight'
+/** Canonical shortcut-action catalog. Action ids, labels, ordering, and default
+ * bindings are derived from this one declaration. */
+export const SHORTCUT_DEFINITIONS = {
+  newTerminal: { label: 'New Terminal', shortcut: storedShortcut('t', { command: true }) },
+  newBrowser: { label: 'New Browser', shortcut: storedShortcut('b', { command: true, shift: true }) },
+  newEditor: { label: 'New Editor', shortcut: storedShortcut('e', { command: true, shift: true }) },
+  newAgent: { label: 'New Agent', shortcut: storedShortcut('a', { command: true, shift: true }) },
+  newCanvas: { label: 'New Canvas', shortcut: storedShortcut('c', { command: true, shift: true }) },
+  newFile: { label: 'New File', shortcut: storedShortcut('n', { command: true }) },
+  closePanel: { label: 'Close Panel', shortcut: storedShortcut('w', { command: true }) },
+  toggleSidebar: { label: 'Toggle Sidebar', shortcut: storedShortcut('b', { command: true }) },
+  toggleFileExplorer: { label: 'Toggle File Explorer', shortcut: storedShortcut('x', { command: true, shift: true }) },
+  toggleSearch: { label: 'Toggle Search', shortcut: storedShortcut('f', { command: true, shift: true }) },
+  toggleMinimap: { label: 'Toggle Minimap', shortcut: storedShortcut('m', { command: true, shift: true }) },
+  commandPalette: { label: 'Command Palette', shortcut: storedShortcut('k', { command: true }) },
+  nextWorkspace: { label: 'Next Workspace', shortcut: storedShortcut('→', { command: true, option: true }) },
+  previousWorkspace: { label: 'Previous Workspace', shortcut: storedShortcut('←', { command: true, option: true }) },
+  zoomIn: { label: 'Zoom In', shortcut: storedShortcut('=', { command: true }) },
+  zoomOut: { label: 'Zoom Out', shortcut: storedShortcut('-', { command: true }) },
+  zoomReset: { label: 'Reset Zoom', shortcut: storedShortcut('0', { command: true }) },
+  focusNext: { label: 'Focus Next Panel', shortcut: storedShortcut('\t', { control: true }) },
+  focusPrevious: { label: 'Focus Previous Panel', shortcut: storedShortcut('\t', { shift: true, control: true }) },
+  saveFile: { label: 'Save File', shortcut: storedShortcut('s', { command: true }) },
+  zoomToFit: { label: 'Zoom to Fit', shortcut: storedShortcut('1', { command: true }) },
+  zoomToSelection: { label: 'Zoom to Selection', shortcut: storedShortcut('2', { command: true }) },
+  autoLayout: { label: 'Auto Layout Canvas', shortcut: storedShortcut('l', { command: true, shift: true }) },
+  undo: { label: 'Undo', shortcut: storedShortcut('z', { command: true }) },
+  redo: { label: 'Redo', shortcut: storedShortcut('z', { command: true, shift: true }) },
+  deleteNode: { label: 'Delete Focused Panel', shortcut: storedShortcut('Backspace', { command: true }) },
+  // Control+Space is safe while typing; Shift+Space used to swallow ordinary spaces.
+  toggleTool: { label: 'Toggle Select / Hand Tool', shortcut: storedShortcut(' ', { control: true }) },
+  navigateUp: { label: 'Navigate to Panel Above', shortcut: storedShortcut('↑', { command: true }) },
+  navigateDown: { label: 'Navigate to Panel Below', shortcut: storedShortcut('↓', { command: true }) },
+  navigateLeft: { label: 'Navigate to Panel Left', shortcut: storedShortcut('←', { command: true }) },
+  navigateRight: { label: 'Navigate to Panel Right', shortcut: storedShortcut('→', { command: true }) },
+  panUp: { label: 'Pan Canvas Up', shortcut: storedShortcut('↑', { shift: true }) },
+  panDown: { label: 'Pan Canvas Down', shortcut: storedShortcut('↓', { shift: true }) },
+  panLeft: { label: 'Pan Canvas Left', shortcut: storedShortcut('←', { shift: true }) },
+  panRight: { label: 'Pan Canvas Right', shortcut: storedShortcut('→', { shift: true }) },
+} as const satisfies Record<string, { label: string; shortcut: StoredShortcut }>
+
+export type ShortcutAction = keyof typeof SHORTCUT_DEFINITIONS
 
 /** Actions the native menu can dispatch into the renderer. Superset of
  *  ShortcutAction — includes a few menu-only items that have no keyboard
@@ -674,135 +657,69 @@ export interface BrowserTab {
   id: string
   url: string
   title: string
+  /** Favicon URL captured from the page (page-favicon-updated). Absent until the
+   *  page reports one; the UI falls back to a globe glyph. */
+  favicon?: string
   /** Pinned ("fixed") tabs sort left, render compact, and resist accidental close. */
   pinned?: boolean
 }
 
-/** Sentinel URL for the browser start page ("new tab"). Persisted like any
- *  other panel URL so a start-page panel survives session restore; never
+/** Sentinel URL for the browser start page ("new tab"). Persisted in a browser
+ *  tab so a start-page panel survives session restore; never
  *  recorded to history and never passed to the <webview> as src. */
 export const BROWSER_NEW_TAB_URL = 'cate://newtab'
 
-/** True when a URL should render the start page rather than a webview: the
- *  sentinel, the legacy `about:blank` default, or an empty/missing URL. Lets
- *  brand-new AND already-saved (about:blank) browser panels show the start
- *  screen instead of a blank page. */
+/** The selected browser tab, if the panel carries a valid current-schema tab
+ *  selection. Consumers use this instead of maintaining a parallel URL field. */
+export function activeBrowserTab(
+  panel: Pick<PanelState, 'tabs' | 'activeTabId'>,
+): BrowserTab | undefined {
+  return panel.tabs?.find((tab) => tab.id === panel.activeTabId)
+}
+
+/** Current URL selector for browser panel state. */
+export function browserPanelUrl(
+  panel: Pick<PanelState, 'tabs' | 'activeTabId'>,
+): string | undefined {
+  return activeBrowserTab(panel)?.url
+}
+
+/** True when a URL is the browser start-page sentinel. */
 export function isStartPageUrl(url: string | undefined | null): boolean {
-  return !url || url === BROWSER_NEW_TAB_URL || url === 'about:blank'
+  return url === BROWSER_NEW_TAB_URL
 }
 
-export const SHORTCUT_ACTIONS: ShortcutAction[] = [
-  'newTerminal',
-  'newBrowser',
-  'newEditor',
-  'newAgent',
-  'newCanvas',
-  'newFile',
-  'closePanel',
-  'toggleSidebar',
-  'toggleFileExplorer',
-  'toggleSearch',
-  'toggleMinimap',
-  'commandPalette',
-  'zoomIn',
-  'zoomOut',
-  'zoomReset',
-  'focusNext',
-  'focusPrevious',
-  'saveFile',
-  'zoomToFit',
-  'zoomToSelection',
-  'autoLayout',
-  'undo',
-  'redo',
-  'deleteNode',
-  'toggleTool',
-  'navigateUp',
-  'navigateDown',
-  'navigateLeft',
-  'navigateRight',
-  'panUp',
-  'panDown',
-  'panLeft',
-  'panRight',
-]
+export const SHORTCUT_ACTIONS = Object.keys(SHORTCUT_DEFINITIONS) as ShortcutAction[]
 
-export const SHORTCUT_DISPLAY_NAMES: Record<ShortcutAction, string> = {
-  newTerminal: 'New Terminal',
-  newBrowser: 'New Browser',
-  newEditor: 'New Editor',
-  newAgent: 'New SuperAgent Agent',
-  newCanvas: 'New Canvas',
-  newFile: 'New File',
-  closePanel: 'Close Panel',
-  toggleSidebar: 'Toggle Sidebar',
-  toggleFileExplorer: 'Toggle File Explorer',
-  toggleSearch: 'Toggle Search',
-  toggleMinimap: 'Toggle Minimap',
-  commandPalette: 'Command Palette',
-  zoomIn: 'Zoom In',
-  zoomOut: 'Zoom Out',
-  zoomReset: 'Reset Zoom',
-  focusNext: 'Focus Next Panel',
-  focusPrevious: 'Focus Previous Panel',
-  saveFile: 'Save File',
-  zoomToFit: 'Zoom to Fit',
-  zoomToSelection: 'Zoom to Selection',
-  autoLayout: 'Auto Layout Canvas',
-  undo: 'Undo',
-  redo: 'Redo',
-  deleteNode: 'Delete Focused Panel',
-  toggleTool: 'Toggle Select / Hand Tool',
-  navigateUp: 'Navigate to Panel Above',
-  navigateDown: 'Navigate to Panel Below',
-  navigateLeft: 'Navigate to Panel Left',
-  navigateRight: 'Navigate to Panel Right',
-  panUp: 'Pan Canvas Up',
-  panDown: 'Pan Canvas Down',
-  panLeft: 'Pan Canvas Left',
-  panRight: 'Pan Canvas Right',
+export const SHORTCUT_DISPLAY_NAMES = Object.fromEntries(
+  SHORTCUT_ACTIONS.map((action) => [action, SHORTCUT_DEFINITIONS[action].label]),
+) as Record<ShortcutAction, string>
+
+export const DEFAULT_SHORTCUTS = Object.fromEntries(
+  SHORTCUT_ACTIONS.map((action) => [action, SHORTCUT_DEFINITIONS[action].shortcut]),
+) as Record<ShortcutAction, StoredShortcut>
+
+function parseStoredShortcut(value: unknown): StoredShortcut | null {
+  if (typeof value !== 'object' || value === null) return null
+  const candidate = value as Record<string, unknown>
+  if (typeof candidate.key !== 'string') return null
+  return storedShortcut(candidate.key, {
+    command: candidate.command === true,
+    shift: candidate.shift === true,
+    option: candidate.option === true,
+    control: candidate.control === true,
+  })
 }
 
-export const DEFAULT_SHORTCUTS: Record<ShortcutAction, StoredShortcut> = {
-  newTerminal: storedShortcut('t', { command: true }),
-  newBrowser: storedShortcut('b', { command: true, shift: true }),
-  newEditor: storedShortcut('e', { command: true, shift: true }),
-  newAgent: storedShortcut('a', { command: true, shift: true }),
-  newCanvas: storedShortcut('c', { command: true, shift: true }),
-  newFile: storedShortcut('n', { command: true }),
-  closePanel: storedShortcut('w', { command: true }),
-  toggleSidebar: storedShortcut('b', { command: true }),
-  toggleFileExplorer: storedShortcut('x', { command: true, shift: true }),
-  toggleSearch: storedShortcut('f', { command: true, shift: true }),
-  toggleMinimap: storedShortcut('m', { command: true, shift: true }),
-  commandPalette: storedShortcut('k', { command: true }),
-  zoomIn: storedShortcut('=', { command: true }),
-  zoomOut: storedShortcut('-', { command: true }),
-  zoomReset: storedShortcut('0', { command: true }),
-  focusNext: storedShortcut('\t', { control: true }),
-  focusPrevious: storedShortcut('\t', { shift: true, control: true }),
-  saveFile: storedShortcut('s', { command: true }),
-  zoomToFit: storedShortcut('1', { command: true }),
-  zoomToSelection: storedShortcut('2', { command: true }),
-  autoLayout: storedShortcut('l', { command: true, shift: true }),
-  undo: storedShortcut('z', { command: true }),
-  redo: storedShortcut('z', { command: true, shift: true }),
-  deleteNode: storedShortcut('Backspace', { command: true }),
-  // ⌃Space toggles the tool from anywhere — including a focused terminal,
-  // editor, or input — by being intercepted before the surface sees it. (Plain
-  // Space also toggles, but only when the canvas is focused.) Used to be
-  // ⇧Space, but Shift is still held when the space after `:` `(` `?` `!` lands,
-  // so normal typing kept triggering it and the space never reached the
-  // terminal (issue #371).
-  toggleTool: storedShortcut(' ', { control: true }),
-  navigateUp: storedShortcut('↑', { command: true }),
-  navigateDown: storedShortcut('↓', { command: true }),
-  navigateLeft: storedShortcut('←', { command: true }),
-  navigateRight: storedShortcut('→', { command: true }),
-  panUp: storedShortcut('↑', { shift: true }),
-  panDown: storedShortcut('↓', { shift: true }),
-  panLeft: storedShortcut('←', { shift: true }),
-  panRight: storedShortcut('→', { shift: true }),
+/** Resolve persisted overrides over built-ins in every process from one parser. */
+export function resolveShortcuts(raw: unknown): Record<ShortcutAction, StoredShortcut> {
+  const shortcuts = { ...DEFAULT_SHORTCUTS }
+  if (typeof raw !== 'object' || raw === null) return shortcuts
+  for (const action of SHORTCUT_ACTIONS) {
+    const parsed = parseStoredShortcut((raw as Record<string, unknown>)[action])
+    if (parsed) shortcuts[action] = parsed
+  }
+  return shortcuts
 }
 
 // -----------------------------------------------------------------------------
@@ -950,7 +867,7 @@ export interface SessionSnapshot {
   dockState?: DockStateSnapshot
   /** Every placed panel's record, keyed by panel id — dock-zone panels AND every
    *  canvas's child panels (including each canvas panel itself). Geometry lives
-   *  in `canvases`; this carries type/title/filePath/url/etc. */
+   *  in `canvases`; this carries type/title/filePath/browser tabs/etc. */
   panels?: Record<string, PanelState>
   /** Every canvas's geometry (nodes + viewport + zoom), keyed by canvas panel id,
    *  including the primary/center canvas. */
@@ -997,7 +914,6 @@ export interface SidebarSession {
 /** Serialized dock zone state for session persistence. */
 export interface DockStateSnapshot {
   zones: WindowDockState
-  locations: Record<string, PanelLocation>
 }
 
 /** Dock-window sync payload sent renderer -> main for session persistence.
@@ -1009,23 +925,14 @@ export interface DockWindowSyncState {
   dockState: DockStateSnapshot
   panels: Record<string, PanelState>
   terminalCwds?: Record<string, string>
-  canvasStates?: Record<string, CanvasLayoutSnapshot>
-}
-
-// Legacy: detached single-panel windows (removed). Retained only to migrate old session files into dock windows.
-export interface PanelWindowSnapshot {
-  panel: PanelState
-  bounds: { x: number; y: number; width: number; height: number }
-  workspaceId?: string
-  /** ptyId of the terminal in this window (terminal panels only). */
-  terminalPtyId?: string
+  canvasStates: Record<string, CanvasLayoutSnapshot>
 }
 
 export interface MultiWorkspaceSession {
   version: 2
   selectedWorkspaceIndex: number | null
   workspaces: SessionSnapshot[]
-  /** Detached dock windows with full dock layout. Missing = no dock windows (migration). */
+  /** Detached dock windows with full dock layout. */
   dockWindows?: DetachedDockWindowSnapshot[]
 }
 
@@ -1053,11 +960,18 @@ export interface ProjectPanelRef {
   type: string
   title: string
   filePath?: string
-  url?: string
+  /** Browser panels only: canonical navigation state. */
+  tabs?: BrowserTab[]
+  activeTabId?: string
   /** Browser panels only: per-panel proxy URL (see PanelState.proxyUrl). */
   proxyUrl?: string
   /** Document panels only: sub-type discriminator for the viewer. */
   documentType?: 'pdf' | 'docx' | 'image'
+  /** Extension panels only: which installed extension + which of its declared
+   *  panels this instance renders. Persisted so a restored extension panel
+   *  re-binds to its extension instead of coming back as "unavailable". */
+  extensionId?: string
+  extensionPanelId?: string
 }
 
 // -----------------------------------------------------------------------------
@@ -1098,15 +1012,238 @@ export interface ProjectSessionPanel {
 }
 
 // -----------------------------------------------------------------------------
-// Layout snapshot (saved canvas arrangements)
+// Cate Agent — the iterate/verify loop layer (shared by a chat's `run`)
+//
+// A code task runs as a loop: the chat agent sets a goal + check, then spawns
+// parallel ITERATIONS (each its own fresh worktree + coding agents). When an
+// iteration's agents park, an independent verifier driver runs the check in its
+// worktree and writes a verdict; the chat agent picks a winner or runs another round.
+// This state lives on the chat's `run` (see ChatRun above).
 // -----------------------------------------------------------------------------
 
-export interface LayoutSnapshot {
-  nodes: Array<{
-    panelType: PanelType
-    origin: Point
-    size: Size
-  }>
+/** One atomic check inside a verdict. `observed` is pasted from output the verifier
+ *  actually produced (test run, build, diff inspection) — or "unknown" when the check
+ *  could not be run — so a failed attempt's cause travels with its verdict as ground
+ *  truth, not judge prose. */
+export interface VerdictCheck {
+  /** What was checked, e.g. "vitest suite" or "shift-resize keeps aspect". */
+  check: string
+  met: boolean
+  /** Verbatim outcome (command output excerpt, exit code, what the diff shows). */
+  observed: string
+  /** What a pass would have looked like — set on failed checks. */
+  expected?: string
+}
+
+/** A single verification verdict for one iteration — produced by a checker coding
+ *  agent that ran the check in the iteration's worktree and wrote the verdict file.
+ *  `met` is the conjunction over `checks` when they're present. */
+export interface VerifyResult {
+  met: boolean
+  reason: string
+  /** Unix ms when verification completed. */
+  at: number
+  /** Per-check results backing the verdict, when the verifier provided them. */
+  checks?: VerdictCheck[]
+  /** The verifier's advisory next step for a failed attempt. */
+  suggestion?: string
+}
+
+export type IterationStatus =
+  | 'running' // coding agents working in the worktree
+  | 'finished' // agents parked — work done, awaiting the check
+  | 'verifying' // a checker coding agent is judging the result
+  | 'passed' // verification met
+  | 'failed' // verification not met
+  | 'error' // could not run / crashed
+  | 'cancelled' // round discarded or superseded
+
+/** One coding agent inside an iteration, DISCOVERED as the iteration's driver opens
+ *  terminals (the orchestrator no longer pre-assigns agents or scopes). Several can
+ *  run in one iteration's shared worktree at once (e.g. claude + codex). */
+export interface IterationAgent {
+  /** AgentId (e.g. 'claude-code', 'codex') or a free label. */
+  agent: string
+  /** Canvas panel id of the terminal running this agent. */
+  terminalId: string
+  /** The disjoint slice of the work this agent owns, if the driver partitioned. */
+  scope?: string
+  /** Which phase opened this terminal: `work` does the task, `verify` checks it.
+   *  Both get a job-card chip and stay open. The orchestrator context and winner
+   *  note are scoped to the work agents. */
+  kind: 'work' | 'verify'
+}
+
+export interface Iteration {
+  id: string
+  /** Back-reference to the owning chat id (the chat whose `run` holds this iteration). */
+  todoId: string
+  /** Which round spawned it (1-based). */
+  round: number
+  /** Its own fresh worktree (never shared with another iteration). */
+  worktreeId?: string
+  branch?: string
+  /** The agents the driver launched (empty until create_terminal records them). */
+  agents: IterationAgent[]
+  status: IterationStatus
+  /** The verifier's verdict, once judged. */
+  verify?: VerifyResult
+  createdAt: number
+}
+
+// -----------------------------------------------------------------------------
+// Cate Agent — per-workspace CHATS (.cate/chats.json)
+//
+// The chat is the Cate Agent's front door: a persistent thread you type into. Its
+// agent (the former orchestrator, now one persistent session per chat that keeps
+// its conversation history) answers a question inline, or runs a code task as the
+// iterate/verify LOOP, or delegates a canvas task. Each agent action renders as a
+// purpose-built typed block in the transcript — not a text bubble — so the thread
+// still means something after a reload. The loop machinery (iterations, drivers,
+// verifiers, worktrees) is unchanged; its state now lives on the chat's `run`
+// instead of a global todo.
+// -----------------------------------------------------------------------------
+
+export type ChatMessageRole = 'user' | 'agent'
+
+/** A plain markdown message — the user's prompt, or the agent's inline answer. */
+export interface ChatTextMessage {
+  id: string
+  role: ChatMessageRole
+  ts: number
+  kind: 'text'
+  text: string
+}
+
+/** The agent's plan for a code task: the goal + how it will be checked (set_goal). */
+export interface ChatPlanMessage {
+  id: string
+  role: 'agent'
+  ts: number
+  kind: 'plan'
+  goal: string
+  check: string
+}
+
+/** The parallel-attempts grid for a code task (iterate). While the run is live the
+ *  UI reads iterations off `chat.run`; the fields here are the frozen snapshot
+ *  written when the run settles so the transcript survives a reload. */
+export interface ChatAttemptsMessage {
+  id: string
+  role: 'agent'
+  ts: number
+  kind: 'attempts'
+  iterations?: Iteration[]
+  round?: number
+  recommendedIterationId?: string
+}
+
+/** The outcome of a code task (select_winner / fail): the winning verdict + the
+ *  land actions. `outcome` records the user's land decision once they act. */
+export interface ChatResultMessage {
+  id: string
+  role: 'agent'
+  ts: number
+  kind: 'result'
+  iterationId?: string
+  met: boolean
+  reason: string
+  worktreeId?: string
+  branch?: string
+  outcome?: 'merged' | 'pr' | 'discarded'
+  note?: string
+}
+
+/** A delegated canvas task (canvas): a working indicator while the canvas subagent
+ *  runs, then the panels it left on the canvas + a jump-to-canvas target. */
+export interface ChatCanvasMessage {
+  id: string
+  role: 'agent'
+  ts: number
+  kind: 'canvas'
+  request: string
+  working: boolean
+  panels?: Array<{ id: string; type: string; title: string }>
+  canvasPanelId?: string
+}
+
+export type ChatMessage =
+  | ChatTextMessage
+  | ChatPlanMessage
+  | ChatAttemptsMessage
+  | ChatResultMessage
+  | ChatCanvasMessage
+
+/** The live (or last) run state for one chat's active code/canvas task — the
+ *  iterate/verify loop layer that used to live on a Todo. Absent when the chat has
+ *  only ever answered questions. */
+export interface ChatRun {
+  status: 'running' | 'review' | 'done' | 'failed'
+  /** The goal the loop iterates toward (set_goal). */
+  goal?: string
+  /** How an iteration is verified (set_goal). */
+  check?: string
+  /** Parallel attempts across rounds (the current round's are live). */
+  iterations?: Iteration[]
+  /** Current round number (1-based); bumped each time the agent iterates. */
+  round?: number
+  /** The iteration selected to land (select_winner). */
+  recommendedIterationId?: string
+  /** The winning iteration's worktree/branch, copied on at review (what lands). */
+  worktreeId?: string
+  branch?: string
+  /** Canvas node ids of every terminal spawned across this run's iterations. */
+  terminalNodeIds?: string[]
+  /** The canvas this run is pinned to (captured when the chat's session starts). */
+  canvasPanelId?: string
+  /** Failure reason / land note. */
+  note?: string
+  /** Set when a run was cut off by an app restart; the block offers Continue. */
+  interrupted?: boolean
+  /** The attempts message this run's live iteration grid binds to. */
+  attemptsMessageId?: string
+}
+
+export interface Chat {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: ChatMessage[]
+  run?: ChatRun
+}
+
+export interface ProjectChatsFile {
+  version: 1
+  chats: Chat[]
+}
+
+/** Which headless brain a Cate Agent session drives. Passed to the cate-agent-tools
+ *  extension via `CATE_AGENT_ROLE` so it registers the matching tool subset.
+ *  - observer: watches, proposes todos.
+ *  - orchestrator: sets a goal + check, spawns iterations from an overview, never
+ *    chooses agents or touches files itself. Each iteration is checked by an
+ *    independent verifier driver.
+ *  - driver: ONE per iteration. Seeded with the overview + worktree cwd, it opens
+ *    terminals, launches coding-agent CLIs, answers startup/permission prompts, and
+ *    submits the task; a backgrounded send_keys re-prompts it as each terminal
+ *    finishes. create_terminal + read_terminal + send_keys. */
+export type CateAgentRole = 'observer' | 'orchestrator' | 'driver' | 'canvas'
+
+/** The Cate Agent's coarse runtime state, surfaced in the toolbar button + feedback panel. */
+export type CateAgentActivity =
+  | 'off' // not started yet (workspace still restoring, or the session failed to start)
+  | 'resting' // running, nothing to do
+  | 'observing' // observer taking a look at user activity
+  | 'working' // orchestrator running a todo
+
+/** Persisted per-workspace Cate Agent preferences (.cate/cateAgent.json). Machine-local.
+ *  The Cate Agent is always on for a workspace — only automatic observations toggle. */
+export interface ProjectCateAgentFile {
+  version: 1
+  /** Whether the observer runs automatically on a timer. When false, observe
+   *  turns happen only when the user clicks the idle Cate Agent. Defaults to true. */
+  autoObserve: boolean
 }
 
 // -----------------------------------------------------------------------------
@@ -1150,7 +1287,7 @@ export const FILE_EXCLUSIONS: string[] = [
 ]
 
 /** A sidebar view (left/right rail tabs). */
-export type SidebarView = 'workspaces' | 'explorer' | 'git' | 'search'
+export type SidebarView = 'workspaces' | 'explorer' | 'git' | 'search' | 'cateAgent'
 
 /** Which sidebar views live in the left vs. right rail. Persisted in settings. */
 export interface SidebarLayout {
@@ -1257,6 +1394,26 @@ export interface AppSettings {
    *  output for 2 minutes. SIGCONT is sent on focus/interaction. POSIX-only;
    *  no effect on Windows. */
   autoSuspendIdleTerminals: boolean
+  /** Enable the `cate` command-line control endpoint. When on, terminals and the
+   *  pi agent get a per-workspace CATE_API loopback endpoint + bearer token in
+   *  their env so the `cate` CLI can drive Cate (browser, panels, editor, canvas).
+   *  When OFF (fail closed): no endpoint is opened and no env is injected, so the
+   *  CLI is unreachable — `cate` stays on PATH but only explains how to enable it.
+   *  On by default. The trade-off: the token lands in the env of every process
+   *  spawned in a terminal, so any of them (e.g. an npm postinstall) could drive
+   *  the browser on the user's live session — turn it off to close that.
+   *  Existing installs keep the value already written in their settings.json
+   *  (the file is seeded with full defaults on first run). */
+  cliEnabled: boolean
+  /** Auto-install the bundled cate-cli skill so agents learn the `cate` command:
+   *  seeded into each opened workspace through the skills installer, the same
+   *  way for local and remote hosts — Cate's own agent always, other supported
+   *  agents (Claude Code, Pi, OpenCode, Codex, Antigravity) when their tool dir
+   *  exists there (see seedCateCliSkill).
+   *  Seeds at most once per workspace/target, never overwrites edits, and an
+   *  uninstall sticks. Turning this off stops future installs; it does not
+   *  remove an already-installed skill. */
+  cliSkillInstallEnabled: boolean
 
   // Browser
   browserHomepage: string
@@ -1287,14 +1444,6 @@ export interface AppSettings {
   notifyOnlyWhenUnfocused: boolean
 
   // Privacy
-  /** DEPRECATED — no longer read anywhere. Telemetry is always on in packaged
-   *  builds since notice v2. Kept in the schema so existing settings.json files
-   *  load cleanly; remove in a later release. */
-  crashReportingEnabled: boolean
-  /** DEPRECATED — see crashReportingEnabled. */
-  usageAnalyticsEnabled: boolean
-  /** DEPRECATED — see crashReportingEnabled. */
-  telemetryConsentDecided: boolean
   /** Highest TELEMETRY_NOTICE_VERSION the user has dismissed the telemetry
    *  notice (WelcomeDialog) for. The notice shows whenever this is below the
    *  current TELEMETRY_NOTICE_VERSION — on first install, and again for every
@@ -1325,16 +1474,39 @@ export interface AppSettings {
    *  none. Was renderer localStorage (cate.agent.defaultModel.v1) before. */
   agentDefaultModel: AgentModelRef | null
 
+  // Cate Agent — the model both headless Cate Agent brains (observer + orchestrator) run on.
+  // null falls back to agentDefaultModel, then pi's first-available. Chosen by the
+  // user in Settings → Cate Agent.
+  cateAgentModel: AgentModelRef | null
+  /** The coding-agent CLI each iteration's driver launches in a terminal to do the
+   *  actual work — an AgentId from src/shared/agents.ts. Empty ⇒ the driver picks
+   *  an installed one itself. */
+  cateAgentOrchestratorAgentId: string
+  /** How often the observer may take an automatic look, in minutes. Applies only
+   *  when a workspace has automatic observations on. */
+  cateAgentObserveCooldownMin: number
+  /** Most iterations (each a fresh worktree running its own coding agents) a job
+   *  may have active at once in a round. Enforced by the `iterate` tool. */
+  cateAgentMaxParallelIterations: number
+
   // Layout
   /** Which sidebar views live in the left vs. right rail. Was renderer
    *  localStorage (cate.sidebarLayout.v3) before. */
   sidebarLayout: SidebarLayout
+
+  // Extensions
+  /** Ids of enabled extensions. */
+  enabledExtensions: string[]
+  /** Catalog index URLs (used in Phase 2). */
+  extensionCatalogSources: string[]
+  /** Absolute local folders sideloaded for dev. */
+  extensionSideloadPaths: string[]
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   // General
   // Empty string = auto-detect from $SHELL / platform fallback chain at spawn
-  // time (see src/main/shellResolver.ts). Avoids hardcoding /bin/zsh on Linux,
+  // time (see src/runtime/capabilities/shellResolver.ts). Avoids hardcoding /bin/zsh on Linux,
   // where it commonly isn't installed.
   defaultShellPath: '',
   warnBeforeQuit: false,
@@ -1371,6 +1543,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   terminalCursorBlink: false,
   terminalOptionIsMeta: true,
   autoSuspendIdleTerminals: true,
+  cliEnabled: true,
+  cliSkillInstallEnabled: true,
 
   // Browser
   browserHomepage: '',
@@ -1391,12 +1565,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notificationsEnabled: true,
   notifyOnlyWhenUnfocused: true,
 
-  // Privacy. The three legacy consent flags are deprecated (no longer read);
-  // telemetry is always on in packaged builds. The acknowledged notice version
-  // starts at 0 so every fresh install and every updater sees the notice once.
-  crashReportingEnabled: true,
-  usageAnalyticsEnabled: true,
-  telemetryConsentDecided: false,
+  // Privacy notice. Telemetry is always on in packaged builds.
   telemetryNoticeAcknowledgedVersion: 0,
 
   // Onboarding
@@ -1411,11 +1580,27 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Agent
   agentDefaultModel: null,
 
+  // Cate Agent
+  cateAgentModel: null,
+  cateAgentOrchestratorAgentId: '',
+  cateAgentObserveCooldownMin: 1,
+  cateAgentMaxParallelIterations: 3,
+
   // Layout — keep in sync with the sidebar's default arrangement.
   sidebarLayout: {
     left: ['workspaces', 'explorer', 'search'],
     right: ['git'],
   },
+
+  // Extensions
+  enabledExtensions: [],
+  // The official Cate extensions catalog (0-AI-UG/cate-extensions). That repo's
+  // CI hosts index.json + artifact tarballs as assets on a rolling `catalog`
+  // GitHub Release. Users can add more sources or remove this.
+  extensionCatalogSources: [
+    'https://github.com/0-AI-UG/cate-extensions/releases/download/catalog/index.json',
+  ],
+  extensionSideloadPaths: [],
 }
 
 // -----------------------------------------------------------------------------
@@ -1469,6 +1654,7 @@ export const PANEL_CANVAS_DROP_SIZES: Record<PanelType, Size> = {
   canvas: { width: 640, height: 480 },
   agent: { width: 520, height: 440 },
   document: { width: 640, height: 480 },
+  extension: { width: 520, height: 360 },
 }
 
 // -----------------------------------------------------------------------------
@@ -1492,8 +1678,6 @@ export interface AuthProviderDescriptor {
   /** Display name. */
   name: string
   kind: AuthProviderKind
-  /** Environment variable that pi-ai reads for this provider, if any. */
-  envVar?: string
   /** Hint shown under the input (e.g. where to get a key). */
   helpUrl?: string
   /** For OAuth providers: whether a local callback server is needed. */
@@ -1506,7 +1690,21 @@ export interface AuthProviderStatus {
   /** Last connect time as ISO string, if known. */
   connectedAt?: string
   /** Where the credential lives. */
-  source?: 'oauth' | 'safeStorage' | 'env' | 'config'
+  source?: 'oauth' | 'env' | 'config'
+}
+
+/** Result of actively verifying that a provider's credential works.
+ *  - `ok`         — the credential authenticated (OAuth token minted/refreshed, or a
+ *                   live model request succeeded).
+ *  - `needsReauth`— an OAuth token could not be refreshed; the user must sign in again.
+ *  - `error`      — a live request failed (bad/expired API key, endpoint unreachable, …). */
+export type ProviderHealth = 'ok' | 'needsReauth' | 'error'
+
+export interface ProviderVerification {
+  id: string
+  health: ProviderHealth
+  /** Human-readable failure detail for `needsReauth` / `error`. */
+  error?: string
 }
 
 /** A user-defined OpenAI-compatible endpoint (Ollama, LM Studio, vLLM, a
@@ -1560,6 +1758,14 @@ export interface AgentCreateOptions {
   /** Resume an existing pi session file (jsonl). When set, pi will load it
    *  on start instead of creating a fresh session. */
   sessionFile?: string
+  /** Extra environment variables merged into the pi process env. Used by the
+   *  Cate Agent to pass `CATE_AGENT_ROLE` so the cate-agent-tools extension knows
+   *  which tool subset to register for this (headless) session. */
+  env?: Record<string, string>
+  /** Which per-workspace pi dir this session uses. `'cateAgent'` isolates the Cate
+   *  Agent's headless sessions in `.cate/pi-agent-cate-agent` so their transcripts never
+   *  appear in the agent panel's session list. Defaults to `'default'`. */
+  agentDir?: 'default' | 'cateAgent'
 }
 
 /** Pi agent events forwarded from main to renderer. We keep the shape loose

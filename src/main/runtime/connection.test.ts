@@ -235,6 +235,56 @@ describe('RuntimeManager connection lifecycle', () => {
     expect(mgr.has('wsl_test')).toBe(false)
   })
 
+  test('onDisconnected fires exactly once on a live drop and the unsubscribe stops it', async () => {
+    const mgr = new RuntimeManager()
+    const transport = new FakeTransport()
+    const dropped: string[] = []
+    const off = mgr.onDisconnected((id) => dropped.push(id))
+    await mgr.connect('wsl_test', transport)
+
+    transport.triggerClose() // live drop
+    expect(dropped).toEqual(['wsl_test'])
+
+    // A second close on the already-removed connection must not re-fire.
+    transport.triggerClose()
+    expect(dropped).toEqual(['wsl_test'])
+
+    // Unsubscribe: a later runtime's drop is no longer delivered.
+    off()
+    const t2 = new FakeTransport()
+    await mgr.connect('wsl_two', t2)
+    t2.triggerClose()
+    expect(dropped).toEqual(['wsl_test'])
+  })
+
+  test('onDisconnected fires for a LOCAL drop too, and a throwing subscriber is isolated', async () => {
+    const mgr = new RuntimeManager()
+    // No localOpts primed, so scheduleLocalReconnect no-ops (no dangling timer);
+    // emitDisconnected fires before the LOCAL branch regardless.
+    const dropped: string[] = []
+    mgr.onDisconnected(() => { throw new Error('subscriber boom') }) // must not break the handler
+    mgr.onDisconnected((id) => dropped.push(id))
+    const transport = new FakeTransport()
+    await mgr.connect(LOCAL_RUNTIME_ID, transport, { install: true })
+
+    transport.triggerClose()
+    // The throwing subscriber is swallowed + logged; the second still ran.
+    expect(dropped).toEqual([LOCAL_RUNTIME_ID])
+    expect(mgr.has(LOCAL_RUNTIME_ID)).toBe(false)
+  })
+
+  test('an intentional disposeConnection does NOT fire onDisconnected', async () => {
+    const mgr = new RuntimeManager()
+    const transport = new FakeTransport()
+    const dropped: string[] = []
+    mgr.onDisconnected((id) => dropped.push(id))
+    await mgr.connect('wsl_test', transport)
+    // disposeConnection removes the connection first, so the late close event is
+    // ignored — an intentional teardown is not a "drop".
+    await mgr.disposeConnection('wsl_test')
+    expect(dropped).toEqual([])
+  })
+
   test('the local runtime is NOT registered until ensureLocalRuntime brings it online', () => {
     const mgr = new RuntimeManager()
     // The LOCAL workspace runs as the daemon subprocess, provisioned by
@@ -259,6 +309,75 @@ describe('RuntimeManager connection lifecycle', () => {
     expect(mgr.localStatus().phase).toBe('connecting') // a remote connect doesn't touch it
     await mgr.connect(LOCAL_RUNTIME_ID, new FakeTransport(), { install: true })
     expect(mgr.localStatus().phase).toBe('connected')
+  })
+})
+
+// The renderer's Retry path: a failed LOCAL startup connect used to be dead
+// until app restart (nothing re-ran ensureLocalRuntime, and runtime:ensure
+// rejects local connections). retryLocal re-attempts the connect on demand.
+describe('RuntimeManager retryLocal', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  /** Prime localOpts the way ensureLocalRuntime would at startup. */
+  function primeLocalOpts(mgr: RuntimeManager): void {
+    ;(mgr as unknown as { localOpts: unknown }).localOpts = { root: os.homedir() }
+  }
+
+  test('fails clearly when the local runtime was never initialised', async () => {
+    const mgr = new RuntimeManager()
+    const res = await mgr.retryLocal()
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/not been initialised/)
+  })
+
+  test('is a no-op when LOCAL is already connected', async () => {
+    const mgr = new RuntimeManager()
+    primeLocalOpts(mgr)
+    await mgr.connect(LOCAL_RUNTIME_ID, new FakeTransport(), { install: true })
+    const ensureSpy = vi.spyOn(mgr, 'ensureLocalRuntime')
+    expect(await mgr.retryLocal()).toEqual({ ok: true })
+    expect(ensureSpy).not.toHaveBeenCalled()
+  })
+
+  test('relaunches LOCAL after a failed startup connect and resolves once live', async () => {
+    const mgr = new RuntimeManager()
+    primeLocalOpts(mgr)
+    // Stand in for ensureLocalRuntime's transport construction (which needs a
+    // real tarball): kick the same connect() it would, over a fake transport.
+    vi.spyOn(mgr, 'ensureLocalRuntime').mockImplementation(() => {
+      void mgr.connect(LOCAL_RUNTIME_ID, new FakeTransport(), { install: true }).catch(() => {})
+    })
+    expect(mgr.has(LOCAL_RUNTIME_ID)).toBe(false) // the startup connect failed
+    const res = await mgr.retryLocal()
+    expect(res).toEqual({ ok: true })
+    expect(mgr.isConnected(LOCAL_RUNTIME_ID)).toBe(true)
+  })
+
+  test('surfaces the unreachable reason when no connect can even start (no tarball)', async () => {
+    const mgr = new RuntimeManager()
+    primeLocalOpts(mgr)
+    // ensureLocalRuntime with no transport available: emits unreachable and
+    // registers nothing.
+    vi.spyOn(mgr, 'ensureLocalRuntime').mockImplementation(() => {
+      mgr.report(LOCAL_RUNTIME_ID, 'unreachable', 'No local runtime tarball/target available')
+    })
+    const res = await mgr.retryLocal()
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/tarball/)
+  })
+
+  test('a retry whose connect fails resolves ok:false with the connect error', async () => {
+    const mgr = new RuntimeManager()
+    primeLocalOpts(mgr)
+    vi.spyOn(mgr, 'ensureLocalRuntime').mockImplementation(() => {
+      const transport = new FakeTransport()
+      transport.installed = false
+      // Probe (no install) of a not-installed host → NotInstalled rejection.
+      void mgr.connect(LOCAL_RUNTIME_ID, transport).catch(() => {})
+    })
+    const res = await mgr.retryLocal()
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/not installed/i)
   })
 })
 

@@ -9,14 +9,19 @@
 // element; callers invoke it on mouseup (and on unmount if the gesture leaks).
 // =============================================================================
 
+import { acquireBodyClass, releaseBodyClass } from './bodyClassRefcount'
+
 export function pinDocumentCursor(cursor: string): () => void {
-  document.body.classList.add('canvas-interacting')
+  acquireBodyClass('canvas-interacting')
   const cursorStyleEl = document.createElement('style')
   cursorStyleEl.textContent = `*, *::before, *::after { cursor: ${cursor} !important; }`
   document.head.appendChild(cursorStyleEl)
+  let pinned = true
 
   return () => {
-    document.body.classList.remove('canvas-interacting')
+    if (!pinned) return
+    pinned = false
+    releaseBodyClass('canvas-interacting')
     cursorStyleEl.remove()
   }
 }

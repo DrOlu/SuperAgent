@@ -15,6 +15,8 @@ import {
   TERMINAL_SCROLLBACK_SAVE,
   TERMINAL_SET_VISIBILITY,
   TERMINAL_CLIPBOARD_WRITE,
+  WEBGL_REQUEST_GRANT,
+  WEBGL_RELEASE_GRANT,
   FS_READ_FILE,
   FS_READ_BINARY,
   FS_WRITE_FILE,
@@ -24,6 +26,7 @@ import {
   FS_WATCH_EVENT,
   FS_STAT,
   GIT_IS_REPO,
+  GIT_FIND_REPOS,
   GIT_INIT,
   GIT_LS_FILES,
   GIT_BRANCH_UPDATE,
@@ -57,8 +60,6 @@ import {
   GIT_STASH,
   GIT_STASH_POP,
   GIT_DISCARD_FILE,
-  SHELL_REGISTER_TERMINAL,
-  SHELL_UNREGISTER_TERMINAL,
   SHELL_ACTIVITY_UPDATE,
   SHELL_PORTS_UPDATE,
   SHELL_CWD_UPDATE,
@@ -76,6 +77,10 @@ import {
   SESSION_FLUSH_SAVE_DONE,
   PROJECT_STATE_SAVE,
   PROJECT_STATE_LOAD,
+  PROJECT_CATE_AGENT_LOAD,
+  PROJECT_CATE_AGENT_SAVE,
+  PROJECT_CHATS_LOAD,
+  PROJECT_CHATS_SAVE,
   WORKSPACE_EXTERNAL_EDIT,
   WORKSPACE_EXTERNAL_EDIT_DISMISS,
   BOOT_SNAPSHOT_WRITE,
@@ -95,6 +100,7 @@ import {
   DIALOG_CONFIRM_CLOSE_TERMINAL,
   DIALOG_CONFIRM_CLOSE_CANVAS,
   DIALOG_CONFIRM_RELOAD_WORKSPACE,
+  DIALOG_CONFIRM_DISCARD_JOB,
   DIALOG_CONFIRM_IMPORT,
   DIALOG_TERMINAL_LINK_OPEN,
   RECENT_PROJECTS_GET,
@@ -138,13 +144,10 @@ import {
   WINDOW_CLOSE,
   WINDOW_IS_MAXIMIZED,
   WINDOW_MAXIMIZE_STATE,
-  PANEL_TRANSFER,
   PANEL_RECEIVE,
   PANEL_TRANSFER_ACK,
-  PANEL_WINDOW_DOCK_BACK,
   WINDOW_CLOSE_FOR_WORKSPACE,
   RUN_ACTION_IN_MAIN,
-  DRAG_START,
   DRAG_DETACH,
   WINDOW_FULLSCREEN_STATE,
   DRAG_END,
@@ -157,6 +160,8 @@ import {
   WINDOW_PANELS_CHANGED,
   FOCUS_WINDOW_PANEL,
   REVEAL_PANEL_IN_WINDOW,
+  CLOSE_WINDOW_PANEL,
+  CLOSE_PANEL_IN_WINDOW,
   WINDOW_PANELS_REPORT,
   CROSS_WINDOW_DRAG_START,
   CROSS_WINDOW_DRAG_UPDATE,
@@ -176,11 +181,11 @@ import {
   RUNTIME_INSTALL,
   RUNTIME_STATUS,
   RUNTIME_LOCAL_STATUS,
+  RUNTIME_RETRY_LOCAL,
   RUNTIME_PICK_SSH_KEY,
   WEBVIEW_SCREENSHOT,
   BROWSER_SET_PROXY,
   NATIVE_FILE_DRAG,
-  CAPTURE_PAGE,
   UPDATE_STATUS,
   UPDATE_QUIT_AND_INSTALL,
   UPDATE_GET_STATUS,
@@ -236,6 +241,7 @@ import {
   SKILLS_SET_TOKEN,
   AUTH_LIST_PROVIDERS,
   AUTH_STATUS,
+  AUTH_VERIFY,
   AUTH_OAUTH_START,
   AUTH_OAUTH_PROMPT_REPLY,
   AUTH_OAUTH_EVENT,
@@ -243,6 +249,25 @@ import {
   AUTH_SAVE_API_KEY,
   AUTH_DELETE,
   PERF_GET,
+  EXTENSION_LIST,
+  EXTENSION_ENABLE,
+  EXTENSION_DISABLE,
+  EXTENSION_ADD_SIDELOAD,
+  EXTENSION_REMOVE_SIDELOAD,
+  EXTENSION_CATALOG_REFRESH,
+  EXTENSION_INSTALL,
+  EXTENSION_UNINSTALL,
+  EXTENSION_REINSTALL,
+  EXTENSION_UPDATE,
+  EXTENSION_ADD_CATALOG_SOURCE,
+  EXTENSION_REMOVE_CATALOG_SOURCE,
+  EXTENSION_CATALOG_SOURCES,
+  EXTENSION_PROXY_URL,
+  EXTENSION_PANEL_CLOSED,
+  EXTENSION_SERVER_RESTART,
+  EXTENSIONS_CHANGED,
+  CATE_HOST_FORWARD,
+  CATE_HOST_FORWARD_REPLY,
 } from '../shared/ipc-channels'
 import type { AppSettings, SearchResultBatch, SearchDoneEvent } from '../shared/types'
 import type { ElectronAPI, UpdateStatus } from '../shared/electron-api'
@@ -323,6 +348,8 @@ const invokeForwarders = {
   terminalScrollbackSave: makeInvoker<'terminalScrollbackSave'>(TERMINAL_SCROLLBACK_SAVE),
   terminalSetVisibility: makeInvoker<'terminalSetVisibility'>(TERMINAL_SET_VISIBILITY),
   terminalClipboardWrite: makeInvoker<'terminalClipboardWrite'>(TERMINAL_CLIPBOARD_WRITE),
+  webglRequestGrant: makeInvoker<'webglRequestGrant'>(WEBGL_REQUEST_GRANT),
+  webglReleaseGrant: makeInvoker<'webglReleaseGrant'>(WEBGL_RELEASE_GRANT),
 
   // Filesystem
   fsReadFile: makeInvoker<'fsReadFile'>(FS_READ_FILE),
@@ -345,6 +372,7 @@ const invokeForwarders = {
 
   // Git
   gitIsRepo: makeInvoker<'gitIsRepo'>(GIT_IS_REPO),
+  gitFindRepos: makeInvoker<'gitFindRepos'>(GIT_FIND_REPOS),
   gitInit: makeInvoker<'gitInit'>(GIT_INIT),
   gitLsFiles: makeInvoker<'gitLsFiles'>(GIT_LS_FILES),
   gitStatus: makeInvoker<'gitStatus'>(GIT_STATUS),
@@ -377,8 +405,6 @@ const invokeForwarders = {
   gitDiscardFile: makeInvoker<'gitDiscardFile'>(GIT_DISCARD_FILE),
 
   // Shell / Process Monitor
-  shellRegisterTerminal: makeInvoker<'shellRegisterTerminal'>(SHELL_REGISTER_TERMINAL),
-  shellUnregisterTerminal: makeInvoker<'shellUnregisterTerminal'>(SHELL_UNREGISTER_TERMINAL),
 
   // Settings
   settingsGet: makeInvoker<'settingsGet'>(SETTINGS_GET),
@@ -392,6 +418,10 @@ const invokeForwarders = {
   // Session
   projectStateSave: makeInvoker<'projectStateSave'>(PROJECT_STATE_SAVE),
   projectStateLoad: makeInvoker<'projectStateLoad'>(PROJECT_STATE_LOAD),
+  projectCateAgentLoad: makeInvoker<'projectCateAgentLoad'>(PROJECT_CATE_AGENT_LOAD),
+  projectCateAgentSave: makeInvoker<'projectCateAgentSave'>(PROJECT_CATE_AGENT_SAVE),
+  projectChatsLoad: makeInvoker<'projectChatsLoad'>(PROJECT_CHATS_LOAD),
+  projectChatsSave: makeInvoker<'projectChatsSave'>(PROJECT_CHATS_SAVE),
 
   // Dialog
   openFolderDialog: makeInvoker<'openFolderDialog'>(DIALOG_OPEN_FOLDER),
@@ -401,6 +431,7 @@ const invokeForwarders = {
   confirmCloseTerminal: makeInvoker<'confirmCloseTerminal'>(DIALOG_CONFIRM_CLOSE_TERMINAL),
   confirmCloseCanvas: makeInvoker<'confirmCloseCanvas'>(DIALOG_CONFIRM_CLOSE_CANVAS),
   confirmReloadWorkspace: makeInvoker<'confirmReloadWorkspace'>(DIALOG_CONFIRM_RELOAD_WORKSPACE),
+  confirmDiscardJob: makeInvoker<'confirmDiscardJob'>(DIALOG_CONFIRM_DISCARD_JOB),
   confirmImportEntries: makeInvoker<'confirmImportEntries'>(DIALOG_CONFIRM_IMPORT),
 
   // Recent projects / sidebar / remote projects
@@ -431,7 +462,6 @@ const invokeForwarders = {
   layoutDelete: makeInvoker<'layoutDelete'>(LAYOUT_DELETE),
 
   // Capture / browser
-  capturePage: makeInvoker<'capturePage'>(CAPTURE_PAGE),
   webviewScreenshot: makeInvoker<'webviewScreenshot'>(WEBVIEW_SCREENSHOT),
   browserSetProxy: makeInvoker<'browserSetProxy'>(BROWSER_SET_PROXY),
   nativeFileDrag: makeInvoker<'nativeFileDrag'>(NATIVE_FILE_DRAG),
@@ -450,12 +480,9 @@ const invokeForwarders = {
   runActionInMain: makeInvoker<'runActionInMain'>(RUN_ACTION_IN_MAIN),
 
   // Panel transfer (cross-window)
-  panelTransfer: makeInvoker<'panelTransfer'>(PANEL_TRANSFER),
   panelTransferAck: makeInvoker<'panelTransferAck'>(PANEL_TRANSFER_ACK),
-  panelWindowDockBack: makeInvoker<'panelWindowDockBack'>(PANEL_WINDOW_DOCK_BACK),
 
   // Cross-window drag-and-drop
-  dragStart: makeInvoker<'dragStart'>(DRAG_START),
   dragDetach: makeInvoker<'dragDetach'>(DRAG_DETACH),
 
   // Workspace external edit
@@ -468,6 +495,7 @@ const invokeForwarders = {
 
   // Cross-window panel discovery
   focusWindowPanel: makeInvoker<'focusWindowPanel'>(FOCUS_WINDOW_PANEL),
+  closeWindowPanel: makeInvoker<'closeWindowPanel'>(CLOSE_WINDOW_PANEL),
   reportWindowPanels: makeInvoker<'reportWindowPanels'>(WINDOW_PANELS_REPORT),
 
   // Cross-window drag coordination
@@ -491,6 +519,7 @@ const invokeForwarders = {
   runtimePickSshKey: makeInvoker<'runtimePickSshKey'>(RUNTIME_PICK_SSH_KEY),
   runtimeInstall: makeInvoker<'runtimeInstall'>(RUNTIME_INSTALL),
   runtimeDelete: makeInvoker<'runtimeDelete'>(RUNTIME_DELETE),
+  runtimeRetryLocal: makeInvoker<'runtimeRetryLocal'>(RUNTIME_RETRY_LOCAL),
 
   // Menu
   showContextMenu: makeInvoker<'showContextMenu'>(MENU_SHOW_CONTEXT),
@@ -549,9 +578,27 @@ const invokeForwarders = {
   skillsGetToken: makeInvoker<'skillsGetToken'>(SKILLS_GET_TOKEN),
   skillsSetToken: makeInvoker<'skillsSetToken'>(SKILLS_SET_TOKEN),
 
+  // Extensions
+  extensionList: makeInvoker<'extensionList'>(EXTENSION_LIST),
+  extensionEnable: makeInvoker<'extensionEnable'>(EXTENSION_ENABLE),
+  extensionDisable: makeInvoker<'extensionDisable'>(EXTENSION_DISABLE),
+  extensionAddSideload: makeInvoker<'extensionAddSideload'>(EXTENSION_ADD_SIDELOAD),
+  extensionRemoveSideload: makeInvoker<'extensionRemoveSideload'>(EXTENSION_REMOVE_SIDELOAD),
+  extensionCatalogRefresh: makeInvoker<'extensionCatalogRefresh'>(EXTENSION_CATALOG_REFRESH),
+  extensionInstall: makeInvoker<'extensionInstall'>(EXTENSION_INSTALL),
+  extensionUninstall: makeInvoker<'extensionUninstall'>(EXTENSION_UNINSTALL),
+  extensionReinstall: makeInvoker<'extensionReinstall'>(EXTENSION_REINSTALL),
+  extensionUpdate: makeInvoker<'extensionUpdate'>(EXTENSION_UPDATE),
+  extensionAddCatalogSource: makeInvoker<'extensionAddCatalogSource'>(EXTENSION_ADD_CATALOG_SOURCE),
+  extensionRemoveCatalogSource: makeInvoker<'extensionRemoveCatalogSource'>(EXTENSION_REMOVE_CATALOG_SOURCE),
+  extensionCatalogSources: makeInvoker<'extensionCatalogSources'>(EXTENSION_CATALOG_SOURCES),
+  extensionProxyUrl: makeInvoker<'extensionProxyUrl'>(EXTENSION_PROXY_URL),
+  extensionServerRestart: makeInvoker<'extensionServerRestart'>(EXTENSION_SERVER_RESTART),
+
   // Pi auth / providers
   authListProviders: makeInvoker<'authListProviders'>(AUTH_LIST_PROVIDERS),
   authStatus: makeInvoker<'authStatus'>(AUTH_STATUS),
+  authVerify: makeInvoker<'authVerify'>(AUTH_VERIFY),
   authOAuthStart: makeInvoker<'authOAuthStart'>(AUTH_OAUTH_START),
   authOAuthPromptReply: makeInvoker<'authOAuthPromptReply'>(AUTH_OAUTH_PROMPT_REPLY),
   authSaveApiKey: makeInvoker<'authSaveApiKey'>(AUTH_SAVE_API_KEY),
@@ -734,10 +781,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return createIpcListener(PANEL_RECEIVE, callback)
   },
 
-  onPanelWindowDockBack(callback: (payload: { panelWindowId: number; snapshot?: unknown }) => void): () => void {
-    return createIpcListener(PANEL_WINDOW_DOCK_BACK, callback)
-  },
-
   // ---------------------------------------------------------------------------
   // Cross-window drag-and-drop
   // ---------------------------------------------------------------------------
@@ -765,7 +808,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => { ipcRenderer.removeListener(WINDOW_MAXIMIZE_STATE, listener) }
   },
 
-  onDragEnd(callback: (dragId?: string) => void): () => void {
+  onDragEnd(callback: (dragId: string) => void): () => void {
     return createIpcListener(DRAG_END, callback)
   },
 
@@ -814,11 +857,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return createIpcListener(REVEAL_PANEL_IN_WINDOW, callback)
   },
 
+  onClosePanelInWindow(callback: (panelId: string) => void): () => void {
+    return createIpcListener(CLOSE_PANEL_IN_WINDOW, callback)
+  },
+
   // ---------------------------------------------------------------------------
   // Cross-window drag coordination
   // ---------------------------------------------------------------------------
 
-  onCrossWindowDragUpdate(callback: (screenPos: unknown, snapshot: unknown, dragId?: unknown) => void): () => void {
+  onCrossWindowDragUpdate(callback: (screenPos: unknown, snapshot: unknown, dragId: unknown) => void): () => void {
     return createIpcListener(CROSS_WINDOW_DRAG_UPDATE, callback)
   },
 
@@ -927,6 +974,42 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   onAuthChanged(callback: () => void): () => void {
     return createIpcListener(AUTH_CHANGED, callback)
+  },
+
+  // ---------------------------------------------------------------------------
+  // Extensions
+  // ---------------------------------------------------------------------------
+
+  /** Fired (broadcast) whenever the known/enabled extension set changes. */
+  onExtensionsChanged(callback: () => void): () => void {
+    return createIpcListener(EXTENSIONS_CHANGED, callback)
+  },
+
+  /** A server-backed extension panel unmounted — let main start the grace timer
+   *  (fire-and-forget). */
+  extensionPanelClosed(args: { extensionId: string; workspaceId: string; panelId: string }): void {
+    ipcRenderer.send(EXTENSION_PANEL_CLOSED, args)
+  },
+
+  /** Main forwards a state-mutating cateHost call (editor.openFile,
+   *  canvas.createPanel, panel.setTitle) to the owning renderer, which acts and
+   *  replies via cateHostActionReply. */
+  onCateHostAction(
+    callback: (payload: {
+      requestId: string
+      workspaceId: string
+      panelId: string
+      extensionId: string
+      method: string
+      args: unknown
+    }) => void,
+  ): () => void {
+    return createIpcListener(CATE_HOST_FORWARD, callback)
+  },
+
+  /** Reply to a forwarded cateHost action (fire-and-forget). */
+  cateHostActionReply(payload: { requestId: string; ok: boolean; result?: unknown; error?: string }): void {
+    ipcRenderer.send(CATE_HOST_FORWARD_REPLY, payload)
   },
 
 })

@@ -9,6 +9,7 @@ import type {
   CanvasNodeId,
   CanvasNodeState,
   DockLayoutNode,
+  PanelState,
   Point,
   Rect,
   Size,
@@ -88,6 +89,11 @@ export interface CanvasHistoryEntry {
   nodes: Record<CanvasNodeId, CanvasNodeState>
   selection: CanvasNodeId[]
   selectionActive: boolean
+  /** Panel records closed by the delete that followed this snapshot. Undo
+   *  re-adds them to the workspace (so the restored nodes aren't ghosts);
+   *  redo closes them again. Carried between the history and future stacks
+   *  as the entry bounces on undo/redo. */
+  closedPanels?: { workspaceId: string; panels: PanelState[] }
 }
 
 export interface CanvasStoreActions {
@@ -143,6 +149,10 @@ export interface CanvasStoreActions {
     onCancelled?: (panelId: string) => void,
     size?: Size,
   ) => boolean
+  /** Re-rank the pending placement's ghosts around whatever node is focused NOW
+   *  (the user clicked a different panel) and re-frame the camera, keeping the
+   *  open transaction. No-op when nothing is pending or free mode is armed. */
+  refreshPlacement: () => void
   /** Commit the pending placement at the given candidate index; returns the new node id. */
   commitPlacement: (index: number) => CanvasNodeId | null
   /** Arm/disarm free "place anywhere" mode (press F). Disarming clears the ghost. */
@@ -196,7 +206,7 @@ export interface CanvasStoreActions {
   clearSelection: () => void
   selectAll: () => void
   toggleNodeSelection: (id: string) => void
-  deleteSelection: () => void
+  deleteSelection: () => Promise<void>
 
   // Bulk arrangement of the current selection
   stackSelected: (axis: 'row' | 'column', gap?: number) => void
@@ -212,6 +222,14 @@ export interface CanvasStoreActions {
   undo: () => void
   redo: () => void
   clearHistory: () => void
+  /** Open a delete transaction: snapshots the current state and suppresses all
+   *  pushHistory calls until commit, so a multi-panel delete (which removes
+   *  nodes through several paths) lands as ONE undo step. */
+  beginHistoryTransaction: () => void
+  /** Close the transaction. Pushes the begin-time snapshot as a single history
+   *  entry when nodes actually changed, annotated with the panel records the
+   *  delete closed so undo can restore them. No-op without a begin. */
+  commitHistoryTransaction: (closedPanels?: { workspaceId: string; panels: PanelState[] }) => void
 
   // Bulk reset (used when switching workspaces)
   loadWorkspaceCanvas: (

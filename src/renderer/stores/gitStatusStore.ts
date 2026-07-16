@@ -30,6 +30,7 @@ import {
   type GitTree,
 } from '../sidebar/gitStatusDecoration'
 import { watchFsRoot } from '../lib/fs/fsWatchManager'
+import { useAppStore } from './appStore'
 
 // -----------------------------------------------------------------------------
 // Types
@@ -96,6 +97,9 @@ interface RootEntry {
   /** Generation guard so a stale in-flight refetch can't clobber a newer one. */
   fetchSeq: number
   disposed: boolean
+  /** Test-only: when set, the live git fetch is suppressed so an injected
+   *  snapshot (gitStatusStore._seedWorktrees) survives focus/fs refreshes. */
+  pinned: boolean
 }
 
 const roots = new Map<string, RootEntry>()
@@ -116,6 +120,7 @@ function getRoot(rootPath: string): RootEntry {
       teardown: null,
       fetchSeq: 0,
       disposed: false,
+      pinned: false,
     }
     roots.set(rootPath, entry)
   }
@@ -126,20 +131,36 @@ function notify(entry: RootEntry): void {
   for (const sub of entry.subscribers) sub()
 }
 
+/** Resolve the workspace that owns `rootPath` — an exact root match first
+ *  (workspace roots are unique, see remoteSlice's duplicate-root guard), then
+ *  the workspace whose root is an ancestor (sub-repos discovered inside a
+ *  multi-repo workspace). Every git IPC call must name its workspace so main
+ *  validates the cwd against that workspace's scope; an unknown root yields ''
+ *  and is denied. Exported for call sites holding a rootPath but no id. */
+export function workspaceIdForRoot(rootPath: string): string {
+  const norm = (p: string) => toPosixPath(p)
+  const target = norm(rootPath)
+  const workspaces = useAppStore.getState().workspaces
+  const exact = workspaces.find((w) => norm(w.rootPath) === target)
+  if (exact) return exact.id
+  return workspaces.find((w) => w.rootPath && target.startsWith(`${norm(w.rootPath)}/`))?.id ?? ''
+}
+
 /** Fetch the full git snapshot for `rootPath` from the git IPC. */
 async function fetchSnapshot(rootPath: string): Promise<GitStatusSnapshot | null> {
   const api = window.electronAPI
   if (!api || !rootPath) return null
+  const workspaceId = workspaceIdForRoot(rootPath)
 
-  const isRepo = await api.gitIsRepo(rootPath).catch(() => false)
+  const isRepo = await api.gitIsRepo(rootPath, workspaceId).catch(() => false)
   if (!isRepo) {
     return { ...EMPTY_SNAPSHOT, isRepo: false, tracked: new Set(), worktrees: [] }
   }
 
   const [trackedFiles, status, worktreeList] = await Promise.all([
-    api.gitLsFiles(rootPath).catch(() => [] as string[]),
-    api.gitStatus(rootPath),
-    api.gitWorktreeList(rootPath).catch(() => [] as Array<{ path: string; branch: string; isBare: boolean; isCurrent: boolean }>),
+    api.gitLsFiles(rootPath, workspaceId).catch(() => [] as string[]),
+    api.gitStatus(rootPath, workspaceId),
+    api.gitWorktreeList(rootPath, workspaceId).catch(() => [] as Array<{ path: string; branch: string; isBare: boolean; isCurrent: boolean }>),
   ])
 
   // gitLsFiles returns repo-cwd-relative paths; convert to absolute (posix) so
@@ -169,10 +190,11 @@ async function fetchSnapshot(rootPath: string): Promise<GitStatusSnapshot | null
 /** Refetch and apply a fresh snapshot for this root, guarding against stale
  *  in-flight responses landing after a newer refresh. */
 function refresh(entry: RootEntry): void {
+  if (entry.pinned) return // test-only injected snapshot owns this root
   const seq = ++entry.fetchSeq
   void fetchSnapshot(entry.rootPath)
     .then((snap) => {
-      if (entry.disposed || seq !== entry.fetchSeq || !snap) return
+      if (entry.disposed || entry.pinned || seq !== entry.fetchSeq || !snap) return
       entry.snapshot = { ...snap, revision: entry.snapshot.revision + 1 }
       notify(entry)
     })
@@ -257,6 +279,27 @@ export const gitStatusStore = {
   refresh(rootPath: string): void {
     const entry = roots.get(rootPath)
     if (entry) refresh(entry)
+  },
+
+  /** Test-only: inject a live worktree list for `rootPath` and pin it so the
+   *  real git fetch can't overwrite it. Lets the e2e perf harness make the
+   *  worktree terrace render without a real on-disk repo. Marks the root as a
+   *  repo and notifies subscribers (membership recomputes on the new snapshot). */
+  _seedWorktrees(rootPath: string, worktrees: GitWorktreeEntry[]): void {
+    if (!rootPath) return
+    const entry = getRoot(rootPath)
+    entry.pinned = true
+    entry.snapshot = {
+      isRepo: true,
+      tracked: new Set(),
+      statusFiles: [],
+      branch: worktrees.find((w) => w.isPrimary)?.branch ?? 'main',
+      ahead: 0,
+      behind: 0,
+      worktrees,
+      revision: entry.snapshot.revision + 1,
+    }
+    notify(entry)
   },
 
   /** Test-only: clear all roots and timers. */

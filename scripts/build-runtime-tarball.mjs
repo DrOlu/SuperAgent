@@ -10,6 +10,8 @@
 //     runtime/bin/node[.exe]              (bundled Node runtime for the target)
 //     runtime/bin/rg[.exe]                 (bundled ripgrep for content search)
 //     pi/dist/cli.js                       (bundled pi coding agent, cross-platform)
+//     cate/dist/cli.cjs                    (bundled `cate` in-terminal CLI)
+//     cate/bin/cate[.cmd]                  (launcher shims → bundled node)
 //
 // UNIFIED layout: every target keeps node + rg under runtime/bin/, just with a
 // `.exe` suffix on win32 (runtime/bin/node.exe, runtime/bin/rg.exe). The install
@@ -33,7 +35,7 @@
 // (e.g. a Mac) for local end-to-end testing before CI exists.
 // =============================================================================
 
-import { existsSync, mkdirSync, cpSync, rmSync, chmodSync, readFileSync, renameSync } from 'node:fs'
+import { existsSync, mkdirSync, cpSync, rmSync, chmodSync, readFileSync, renameSync, readdirSync, openSync, readSync, closeSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -104,6 +106,7 @@ await stageParcelWatcher(stageDir)
 await stageNodeRuntime(targetPlatform, targetArch, path.join(stageDir, 'runtime', 'bin', `node${exe}`))
 await stageRipgrep(targetArg, path.join(stageDir, 'runtime', 'bin', `rg${exe}`))
 stagePi(path.join(stageDir, 'pi'))
+await stageCateCli(path.join(stageDir, 'cate'))
 signMacNatives(stageDir)
 
 // Fail loudly if anything the daemon's install-probe requires is missing, rather
@@ -115,6 +118,9 @@ const required = [
   path.join('runtime', 'bin', `node${exe}`),
   path.join('runtime', 'bin', `rg${exe}`),
   path.join('pi', 'dist', 'cli.js'),
+  path.join('cate', 'dist', 'cli.cjs'),
+  path.join('cate', 'bin', 'cate'),
+  path.join('cate', 'bin', 'cate.cmd'),
 ]
 const missing = required.filter((rel) => !existsSync(path.join(stageDir, rel)))
 if (missing.length) throw new Error(`[runtime] incomplete stage for ${targetArg}; missing: ${missing.join(', ')}`)
@@ -523,6 +529,33 @@ function stagePi(outRoot) {
   console.log(`[runtime] staged pi ${piVersion}`)
 }
 
+/** Stage the `cate` in-terminal CLI into <outRoot> (cate/dist/cli.cjs + the two
+ *  launcher shims under cate/bin/). The CLI rides in the runtime tarball exactly
+ *  like pi, so it lands on every host — local + remote/WSL — the moment the
+ *  daemon is provisioned; the env-injection layer prepends cate/bin to a shell's
+ *  PATH. Bundled to a single self-contained CJS file (node built-ins + global
+ *  fetch only), so the bundled node runs it directly. */
+async function stageCateCli(outRoot) {
+  rmSync(outRoot, { recursive: true, force: true })
+  mkdirSync(path.join(outRoot, 'dist'), { recursive: true })
+  mkdirSync(path.join(outRoot, 'bin'), { recursive: true })
+
+  await build({
+    entryPoints: [path.join(repoRoot, 'src', 'cli', 'cate.ts')],
+    outfile: path.join(outRoot, 'dist', 'cli.cjs'),
+    platform: 'node',
+    format: 'cjs',
+    bundle: true,
+    target: `node${NODE_VERSION.split('.')[0]}`,
+  })
+
+  const shimSrc = path.join(repoRoot, 'src', 'cli', 'bin')
+  cpSync(path.join(shimSrc, 'cate'), path.join(outRoot, 'bin', 'cate'))
+  chmodSync(path.join(outRoot, 'bin', 'cate'), 0o755)
+  cpSync(path.join(shimSrc, 'cate.cmd'), path.join(outRoot, 'bin', 'cate.cmd'))
+  console.log('[runtime] staged cate CLI')
+}
+
 /**
  * Codesign the bundled darwin Mach-O binaries with a Developer ID + hardened
  * runtime BEFORE they are tarred. Apple's notarytool recurses into the bundled
@@ -530,6 +563,10 @@ function stagePi(outRoot) {
  * pty.node/spawn-helper and @parcel/watcher's watcher.node must be signed like
  * the app. node also gets the runtime entitlements (JIT + disable-library-
  * validation) so it still runs and can load the native addons once hardened.
+ * The bundled pi tree (staged cross-platform, so it carries BOTH darwin arches)
+ * also ships native addons — e.g. @earendil-works/pi-tui's darwin-modifiers.node
+ * — so we discover every Mach-O .node under it and sign those too; a hard-coded
+ * list silently missed them and broke notarization when pi added the addon.
  * No-op unless we're building a darwin tarball on a darwin host with
  * CATE_MAC_SIGN_IDENTITY set (see ci-mac-signing-keychain.sh); when absent the
  * binaries stay unsigned and notarization fails loudly.
@@ -545,6 +582,10 @@ function signMacNatives(stageDir) {
     path.join(pbDir, 'pty.node'),
     path.join(pbDir, 'spawn-helper'),
     path.join('node_modules', '@parcel', parcelBinaryDir(targetPlatform, targetArch), 'watcher.node'),
+    // pi's own native addons (both darwin arches ride in the cross-platform pi
+    // tarball). win32/linux prebuilds under the same tree are skipped: the
+    // finder keeps only Mach-O files, so codesign never sees a PE/ELF .node.
+    ...findMachONodes(path.join(stageDir, 'pi')).map((abs) => path.relative(stageDir, abs)),
   ]
   // The identity is found via the keychain search list (ci-mac-signing-keychain.sh
   // adds the signing keychain to it); codesign --keychain alone is unreliable.
@@ -560,6 +601,43 @@ function signMacNatives(stageDir) {
     execFileSync('codesign', ['--verify', '--strict', file], { stdio: 'inherit' })
   }
   console.log(`[runtime] signed darwin natives for ${targetArg} (Developer ID ${identity})`)
+}
+
+/** Recursively collect absolute paths of Mach-O `.node` addons under `root`.
+ *  Reads each candidate's 4-byte magic so win32 PE / linux ELF prebuilds that
+ *  share the tree (e.g. pi-tui's win32-console-mode.node) are skipped — only
+ *  darwin binaries that notarytool would flag get returned. Missing root → []. */
+function findMachONodes(root) {
+  const out = []
+  const walk = (dir) => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return // dir absent (e.g. no pi staged) — nothing to sign
+    }
+    for (const e of entries) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (e.isFile() && e.name.endsWith('.node') && isMachO(p)) out.push(p)
+    }
+  }
+  walk(root)
+  return out
+}
+
+/** True if `file` starts with a Mach-O magic (thin 32/64-bit or fat/universal,
+ *  either byte order). Non-Mach-O binaries (PE `MZ…`, ELF `\x7fELF`) return false. */
+function isMachO(file) {
+  const MACH_O_MAGICS = new Set([0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe, 0xbebafeca])
+  const fd = openSync(file, 'r')
+  try {
+    const buf = Buffer.alloc(4)
+    if (readSync(fd, buf, 0, 4, 0) < 4) return false
+    return MACH_O_MAGICS.has(buf.readUInt32BE(0))
+  } finally {
+    closeSync(fd)
+  }
 }
 
 function plat(p) {

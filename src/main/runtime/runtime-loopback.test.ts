@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { addAllowedRoot, removeAllowedRoot, getAllowedRoots, clearFileGrantsForWindow, clearScopedWriteAllowancesForWindow } from '../ipc/pathValidation'
+import { addAllowedRoot, removeAllowedRoot, clearFileGrantsForWindow, clearScopedWriteAllowancesForWindow } from '../ipc/pathValidation'
 import { readDir, searchFiles } from '../ipc/filesystem'
 import { RpcServer } from '../../runtime/rpcServer'
 import { RUNTIME_PROTOCOL_VERSION } from '../../runtime/protocol'
@@ -10,7 +10,7 @@ import { RuntimeRpcClient } from './rpcClient'
 import { RemoteRuntime } from './RemoteRuntime'
 import { buildDaemonRuntime } from '../../runtime/capabilities'
 import { rgPath } from '@vscode/ripgrep'
-import type { Runtime, FileHost, VcsHost, ProcessHost, AgentHost } from './types'
+import type { Runtime, FileHost, VcsHost, ProcessHost, AgentHost, ServerHost, TunnelHost } from './types'
 
 /** The real daemon capability set over the wire — same FileHost/VcsHost the
  *  local workspace daemon hosts. rgPath is injected because tests don't run under
@@ -21,6 +21,8 @@ function daemonApi(): Runtime {
 
 const stubProcess = {} as unknown as ProcessHost
 const stubAgent = {} as unknown as AgentHost
+const stubServer = {} as unknown as ServerHost
+const stubTunnel = {} as unknown as TunnelHost
 
 // Wire an RpcServer and a RuntimeRpcClient back-to-back, in-process, over the
 // real LF-JSON framing. This proves the entire wire stack (framing, req/res
@@ -59,14 +61,14 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
 
   beforeEach(async () => {
     rootDir = await fs.realpath(await fs.mkdtemp(path.join(process.cwd(), 'cate-loopback-')))
-    addAllowedRoot(rootDir)
+    addAllowedRoot(rootDir, 'srv_test')
     await fs.writeFile(path.join(rootDir, 'alpha.ts'), 'const needle = 42\n')
     await fs.writeFile(path.join(rootDir, 'pic.bin'), Buffer.from([0, 1, 2, 3, 255]))
     await fs.mkdir(path.join(rootDir, 'sub'))
   })
 
   afterEach(async () => {
-    removeAllowedRoot(rootDir)
+    removeAllowedRoot(rootDir, 'srv_test')
     await fs.rm(rootDir, { recursive: true, force: true })
   })
 
@@ -85,7 +87,7 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
 
   test('file.readDir over the wire matches the local function', async () => {
     const { remote } = loopback(daemonApi())
-    const safe = await remote.validatePathStrict(rootDir)
+    const safe = await remote.validatePathStrict(rootDir, undefined, 'srv_test')
     const viaRemote = await remote.file.readDir(safe)
     const direct = await readDir(safe)
     expect(viaRemote).toEqual(direct)
@@ -94,14 +96,14 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
 
   test('file.readFile + file.stat over the wire', async () => {
     const { remote } = loopback(daemonApi())
-    const file = await remote.validatePathStrict(path.join(rootDir, 'alpha.ts'))
+    const file = await remote.validatePathStrict(path.join(rootDir, 'alpha.ts'), undefined, 'srv_test')
     expect(await remote.file.readFile(file)).toBe('const needle = 42\n')
     expect(await remote.file.stat(file)).toEqual({ isDirectory: false, isFile: true })
   })
 
   test('file.readBinary survives base64 transit', async () => {
     const { remote } = loopback(daemonApi())
-    const file = await remote.validatePathStrict(path.join(rootDir, 'pic.bin'))
+    const file = await remote.validatePathStrict(path.join(rootDir, 'pic.bin'), undefined, 'srv_test')
     const buf = await remote.file.readBinary(file)
     expect(Buffer.isBuffer(buf)).toBe(true)
     expect([...buf]).toEqual([0, 1, 2, 3, 255])
@@ -109,7 +111,7 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
 
   test('file.search over the wire matches the local function', async () => {
     const { remote } = loopback(daemonApi())
-    const safe = await remote.validatePathStrict(rootDir)
+    const safe = await remote.validatePathStrict(rootDir, undefined, 'srv_test')
     const viaRemote = await remote.file.search(safe, 'needle')
     const direct = await searchFiles(safe, 'needle')
     expect(viaRemote).toEqual(direct)
@@ -117,7 +119,7 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
 
   test('file.searchContent streams ripgrep results over the wire', async () => {
     const { remote } = loopback(daemonApi())
-    const safe = await remote.validatePathStrict(rootDir)
+    const safe = await remote.validatePathStrict(rootDir, undefined, 'srv_test')
     const { files, stats, error } = await collectSearch(remote, safe, { query: 'needle' })
     expect(error).toBeUndefined()
     expect(stats.matches).toBe(1)
@@ -137,12 +139,58 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
     expect(status.files.some((f) => f.path === 'alpha.ts')).toBe(true)
   })
 
+  test('vcs.findRepos discovers sub-repos one level down over the wire', async () => {
+    const { remote } = loopback(daemonApi())
+    // rootDir itself is not a repo; two children are, one plain folder is not.
+    await fs.mkdir(path.join(rootDir, 'frontend'))
+    await fs.mkdir(path.join(rootDir, 'backend'))
+    await remote.vcs.init(path.join(rootDir, 'frontend'))
+    await remote.vcs.init(path.join(rootDir, 'backend'))
+    // `sub` (created in beforeEach) stays a non-repo folder.
+    const repos = await remote.vcs.findRepos(rootDir)
+    expect(repos.sort()).toEqual(
+      [path.join(rootDir, 'backend'), path.join(rootDir, 'frontend')].sort(),
+    )
+  })
+
   test('write through the wire then read it back', async () => {
     const { remote } = loopback(daemonApi())
     const target = path.join(rootDir, 'written.txt')
-    const safe = await remote.validatePathForCreation(target)
-    await remote.file.writeFile(safe, 'hello from remote\n')
+    const safe = await remote.file.writeFile(target, 'hello from remote\n')
+    expect(safe).toBe(target)
     expect(await fs.readFile(target, 'utf-8')).toBe('hello from remote\n')
+  })
+
+  test('extensionsRoot + extractArtifact round-trip over the wire (extension install)', async () => {
+    const { execFile } = await import('node:child_process')
+    const { promisify } = await import('node:util')
+    const execFileAsync = promisify(execFile)
+    const { remote } = loopback(daemonApi())
+
+    // extensionsRoot returns a string over the wire (and registers itself as an
+    // allowed root daemon-side). Point it at a temp dir so we don't touch ~/.cate.
+    const hostRoot = path.join(rootDir, 'host-ext')
+    process.env.CATE_EXTENSIONS_ROOT = hostRoot
+    try {
+      expect(await remote.file.extensionsRoot()).toBe(hostRoot)
+
+      // Stage a tarball under the (allowed) rootDir, then extract it host-side
+      // through the daemon — the path a real catalog install takes after the
+      // client uploads the .tgz via writeBinary.
+      const stage = path.join(rootDir, 'stage')
+      await fs.mkdir(stage, { recursive: true })
+      await fs.writeFile(path.join(stage, 'manifest.json'), JSON.stringify({ id: 'cate.x', name: 'X', panels: [] }))
+      await fs.writeFile(path.join(stage, 'index.html'), '<title>wire</title>')
+      const tgz = path.join(hostRoot, 'cate.x', '1.0.0.tgz')
+      await fs.mkdir(path.dirname(tgz), { recursive: true })
+      await execFileAsync('tar', ['-czf', tgz, '-C', stage, '.'])
+
+      const dest = path.join(hostRoot, 'cate.x', '1.0.0')
+      expect(await remote.file.extractArtifact(tgz, dest)).toBe(dest)
+      expect(await remote.file.readFile(path.join(dest, 'index.html'))).toContain('<title>wire</title>')
+    } finally {
+      delete process.env.CATE_EXTENSIONS_ROOT
+    }
   })
 
   test('grantFileAccess round-trips so the daemon allows an out-of-root file', async () => {
@@ -165,23 +213,54 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
     }
   })
 
-  test('addAllowedRoot / removeAllowedRoot round-trip over the wire', async () => {
+  test('workspace-scoped allowed roots round-trip when workspaceId differs from runtimeId', async () => {
     const { remote } = loopback(daemonApi())
-    const extra = path.resolve(rootDir, 'extra-root')
+    // A dir OUTSIDE the registered root (and outside tmpdir) so validation
+    // flips with the root registration.
+    const extra = await fs.realpath(await fs.mkdtemp(path.join(process.cwd(), 'cate-extra-')))
+    const probe = path.join(extra, 'probe.txt')
+    const workspaceId = 'workspace-alpha'
+    await fs.writeFile(probe, 'x\n')
+    try {
+      await expect(remote.file.readFile(probe, { scopeId: workspaceId })).rejects.toThrow(/Access denied/)
+      await remote.addAllowedRoot(extra, workspaceId)
+      expect(await remote.file.readFile(probe, { scopeId: workspaceId })).toBe('x\n')
+      // Runtime identity is not workspace authority, and another workspace may
+      // not borrow this root.
+      await expect(remote.file.readFile(probe, { scopeId: 'srv_test' })).rejects.toThrow(/Access denied/)
+      await expect(remote.file.readFile(probe, { scopeId: 'workspace-foreign' })).rejects.toThrow(/Access denied/)
+      await remote.removeAllowedRoot(extra, workspaceId)
+      await expect(remote.file.readFile(probe, { scopeId: workspaceId })).rejects.toThrow(/Access denied/)
+    } finally {
+      removeAllowedRoot(extra, workspaceId)
+      await fs.rm(extra, { recursive: true, force: true })
+    }
+  })
 
-    expect(getAllowedRoots().has(extra)).toBe(false)
-    await remote.addAllowedRoot(extra)
-    expect(getAllowedRoots().has(extra)).toBe(true)
+  // The daemon has NO fallback scope: a request whose access context names no
+  // scopeId (or a foreign one) must be denied even for an in-root path — only
+  // per-window grants can admit a scopeless request. RemoteRuntime attaches the
+  // runtime's own scope for main-internal calls, so an explicit context is used
+  // here to exercise the wire-level rejection.
+  test('an access context without a scopeId is rejected even inside the root', async () => {
+    const { remote } = loopback(daemonApi())
+    const inRoot = path.join(rootDir, 'alpha.ts')
+    await expect(remote.file.readFile(inRoot, { ownerWindowId: 1 })).rejects.toThrow(/Access denied/)
+    await expect(remote.vcs.status(rootDir, { ownerWindowId: 1 })).rejects.toThrow(/Access denied/)
+  })
 
-    await remote.removeAllowedRoot(extra)
-    expect(getAllowedRoots().has(extra)).toBe(false)
+  test('a foreign workspace scope is rejected for another scope\'s root', async () => {
+    const { remote } = loopback(daemonApi())
+    const inRoot = path.join(rootDir, 'alpha.ts')
+    await expect(remote.file.readFile(inRoot, { scopeId: 'ws-other' })).rejects.toThrow(/Access denied/)
+    await expect(remote.vcs.isRepo(rootDir, { scopeId: 'ws-other' })).rejects.toThrow(/Access denied/)
   })
 
   test('setExclusions mutates the daemon set live so readDir hides the new name', async () => {
     const { remote } = loopback(daemonApi())
     await fs.writeFile(path.join(rootDir, 'a.ts'), 'a\n')
     await fs.writeFile(path.join(rootDir, 'ignoreme.log'), 'noise\n')
-    const safe = await remote.validatePathStrict(rootDir)
+    const safe = await remote.validatePathStrict(rootDir, undefined, 'srv_test')
 
     // No exclusions yet: both files show in the tree.
     const before = (await remote.file.readDir(safe)).map((n) => n.name)
@@ -211,12 +290,17 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
       await remote.clearFileGrantsForWindow(7)
       await expect(remote.validatePathStrict(outsideFile, 7)).rejects.toThrow(/Access denied/)
 
-      // Scoped write allowance: register one, confirm creation passes, then clear.
+      // A scoped write is authorized, executed, and consumed in one RPC.
       const createTarget = path.join(outsideDir, 'new.txt')
       await remote.registerScopedWriteAllowance(createTarget, 7)
-      await expect(remote.validatePathForCreation(createTarget, 7)).resolves.toBe(createTarget)
+      await expect(remote.file.writeFile(createTarget, 'created\n', { ownerWindowId: 7 })).resolves.toBe(createTarget)
+      await expect(remote.file.writeFile(createTarget, 'again\n', { ownerWindowId: 7 })).rejects.toThrow(/Access denied/)
+
+      // Explicit clearing still revokes an unused allowance.
+      const clearedTarget = path.join(outsideDir, 'cleared.txt')
+      await remote.registerScopedWriteAllowance(clearedTarget, 7)
       await remote.clearScopedWriteAllowancesForWindow(7)
-      await expect(remote.validatePathForCreation(createTarget, 7)).rejects.toThrow(/Access denied/)
+      await expect(remote.file.writeFile(clearedTarget, 'nope\n', { ownerWindowId: 7 })).rejects.toThrow(/Access denied/)
     } finally {
       clearFileGrantsForWindow(7)
       clearScopedWriteAllowancesForWindow(7)
@@ -232,7 +316,7 @@ describe('runtime loopback (real daemon capabilities over the wire)', () => {
   test('setExclusions rebuilds active watchers and the rebuilt watcher still delivers events', async () => {
     const api = daemonApi()
     const { remote } = loopback(api)
-    const safe = await remote.validatePathStrict(rootDir)
+    const safe = await remote.validatePathStrict(rootDir, undefined, 'srv_test')
 
     const events: string[] = []
     const unsub = remote.file.watch(safe, (changedPath) => { events.push(path.basename(changedPath)) })
@@ -278,6 +362,8 @@ describe('runtime loopback (protocol behaviors via a stub)', () => {
       id: 'srv_test',
       process: stubProcess,
       agent: stubAgent,
+      server: stubServer,
+      tunnel: stubTunnel,
       file: { readFile: async () => { throw new Error('boom on daemon') } } as unknown as FileHost,
       vcs: {} as VcsHost,
       validatePath: (p: string) => p,
@@ -303,6 +389,8 @@ describe('runtime loopback (protocol behaviors via a stub)', () => {
       id: 'srv_test',
       process: stubProcess,
       agent: stubAgent,
+      server: stubServer,
+      tunnel: stubTunnel,
       file: {
         watch: (_prefix: string, onChange: (p: string) => void) => {
           emit = onChange
@@ -346,6 +434,8 @@ describe('runtime loopback (protocol behaviors via a stub)', () => {
       id: 'srv_test',
       process: stubProcess,
       agent: stubAgent,
+      server: stubServer,
+      tunnel: stubTunnel,
       file: {
         searchContent: (_root: string, _opts: unknown, cbs: typeof callbacks) => {
           callbacks = cbs
@@ -397,6 +487,8 @@ function localRuntimeLike(): Runtime {
     id: 'srv_test',
     process: stubProcess,
     agent: stubAgent,
+    server: stubServer,
+    tunnel: stubTunnel,
     file: {} as FileHost,
     vcs: {} as VcsHost,
     validatePath: (p) => p,

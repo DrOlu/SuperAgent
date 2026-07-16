@@ -14,6 +14,7 @@
 
 import React, { useEffect, useRef } from 'react'
 import { useCanvasStoreContext, useCanvasStoreApi } from '../stores/CanvasStoreContext'
+import { focusedNodeId as focusedNodeIdOf } from '../stores/canvas/selectionModel'
 
 // Theme accent — ghosts track the active theme's --focus-blue rather than a
 // hardcoded blue, so they recolor with the IDE theme. color-mix gives us a
@@ -35,12 +36,40 @@ function injectStyles() {
 
 const GhostPlacementLayer: React.FC = () => {
   const pending = useCanvasStoreContext((s) => s.pendingPlacement)
+  const focusedId = useCanvasStoreContext((s) => focusedNodeIdOf(s))
   const zoom = useCanvasStoreContext((s) => s.zoomLevel)
   const api = useCanvasStoreApi()
 
   const count = pending?.candidates.length ?? 0
 
   useEffect(injectStyles, [])
+
+  // Re-target the recommendations when the active panel changes mid-placement
+  // (the user clicked a different panel). The candidates were computed for the
+  // focus at beginPlacement; refreshPlacement re-ranks them around the new focus.
+  // We seed the ref with the begin-time focus so this skips that first render and
+  // only fires on an ACTUAL change — otherwise begin's own framing gets re-run.
+  const lastFocus = useRef<string | null>(null)
+  const wasPending = useRef(false)
+  useEffect(() => {
+    if (!pending) {
+      wasPending.current = false
+      return
+    }
+    if (!wasPending.current) {
+      // Placement just opened — candidates already match the current focus.
+      wasPending.current = true
+      lastFocus.current = focusedId
+      return
+    }
+    if (focusedId !== lastFocus.current) {
+      lastFocus.current = focusedId
+      // Clicking a panel briefly deselects (selectNodes clears the active flag)
+      // before focusNode re-activates it — skip that transient null so the camera
+      // doesn't jump to a viewport-ranked frame and straight back.
+      if (focusedId !== null) api.getState().refreshPlacement()
+    }
+  }, [pending, focusedId, api])
 
   // Keyboard: digits / Enter commit, F arms free placement, Esc cancels.
   useEffect(() => {
@@ -142,7 +171,7 @@ const GhostPlacementLayer: React.FC = () => {
         >
           <div style={{ transform: `scale(${badgeScale})`, padding: '3px 10px', borderRadius: 6,
             background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 500,
-            fontFamily: 'system-ui, -apple-system, sans-serif', whiteSpace: 'nowrap', userSelect: 'none' }}>
+            fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap', userSelect: 'none' }}>
             Place here
           </div>
         </div>
@@ -190,7 +219,7 @@ const GhostPlacementLayer: React.FC = () => {
                   width: 42, height: 42, borderRadius: 21,
                   background: accent(hovered || isBest ? 100 : 85),
                   color: '#fff', fontWeight: 700, fontSize: 19,
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  fontFamily: 'var(--font-sans)',
                   boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
                 }}
               >
@@ -199,7 +228,7 @@ const GhostPlacementLayer: React.FC = () => {
               {isBest && (
                 <div style={{ padding: '2px 8px', borderRadius: 6, background: accent(95),
                   color: '#fff', fontSize: 10.5, fontWeight: 600, letterSpacing: 0.3,
-                  fontFamily: 'system-ui, -apple-system, sans-serif', textTransform: 'uppercase' }}>
+                  fontFamily: 'var(--font-sans)', textTransform: 'uppercase' }}>
                   Best
                 </div>
               )}

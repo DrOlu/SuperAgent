@@ -43,7 +43,7 @@ import type { ProjectWorkspaceFile, ProjectSessionFile, CanvasNodeState } from '
 function makeNode(panelId: string): CanvasNodeState {
   return {
     id: `node-${panelId}`,
-    panelId,
+    dockLayout: { type: 'tabs', id: `stack-${panelId}`, panelIds: [panelId], activeIndex: 0 },
     origin: { x: 0, y: 0 },
     size: { width: 100, height: 100 },
     zOrder: 0,
@@ -109,6 +109,16 @@ describe('saveProjectState — issue #220 empty-overwrite guard', () => {
     await saveProjectStateLocal(root, makeWorkspace([makeNode('a')]), makeSession())
     expect(nodeCount(await readWorkspaceJson(root))).toBe(1)
   })
+
+  it('keeps the previous generation in workspace.json.bak after a save', async () => {
+    // The .bak recovery tier must survive the move onto the shared atomic-write
+    // primitive: each save copies the current file aside before renaming over it.
+    await saveProjectStateLocal(root, makeWorkspace([makeNode('a')]), makeSession())
+    await saveProjectStateLocal(root, makeWorkspace([makeNode('a'), makeNode('b')]), makeSession())
+    const bak = JSON.parse(await fs.readFile(path.join(root, '.cate', 'workspace.json.bak'), 'utf-8'))
+    expect(nodeCount(bak)).toBe(1)
+    expect(nodeCount(await readWorkspaceJson(root))).toBe(2)
+  })
 })
 
 describe('loadProjectState — issue #220 prefer-richer fallback', () => {
@@ -137,6 +147,20 @@ describe('loadProjectState — issue #220 prefer-richer fallback', () => {
 
     const loaded = await loadProjectState(root)
     expect(nodeCount(loaded!.workspace)).toBe(3)
+  })
+
+  it('does not resurrect legitimately deleted nodes from a richer .bak', async () => {
+    const cateDir = path.join(root, '.cate')
+    await fs.mkdir(cateDir, { recursive: true })
+    const wsPath = path.join(cateDir, 'workspace.json')
+    // The primary is a valid later generation where node b was intentionally
+    // deleted. Richness alone must not make the older backup authoritative.
+    await fs.writeFile(wsPath, JSON.stringify(makeWorkspace([makeNode('a')])), 'utf-8')
+    await fs.writeFile(wsPath + '.bak', JSON.stringify(makeWorkspace([makeNode('a'), makeNode('b')])), 'utf-8')
+    await fs.writeFile(path.join(cateDir, 'session.json'), JSON.stringify(makeSession()), 'utf-8')
+
+    const loaded = await loadProjectState(root)
+    expect(nodeCount(loaded!.workspace)).toBe(1)
   })
 
   it('sweeps orphaned <file>.<pid>.<seq>.tmp files left by a crashed write', async () => {
@@ -206,7 +230,7 @@ describe('saveProjectStateSync — quit-time guard ordering (issue #220)', () =>
     saveProjectStateSync()
 
     // The quit flush must consult .bak's richness and refuse the empty overwrite,
-    // so atomicWriteSync never copies the empty primary over the rich .bak.
+    // so the .bak-copying writer never copies the empty primary over the rich .bak.
     expect(nodeCount(JSON.parse(await fs.readFile(wsPath + '.bak', 'utf-8')))).toBe(2)
     expect(nodeCount(await readWorkspaceJson(root))).toBe(0)
   })

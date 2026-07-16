@@ -21,6 +21,8 @@ import { resolveTrustedWorkspaceRoot } from './workspaceRoots'
 import { acquireProjectLock, releaseProjectLock } from './projectLock'
 import { isLocalLocator, parseLocator } from './runtime/locator'
 import { runtimes } from './runtime/runtimeManager'
+import { workspaceCateApi } from './extensions/workspaceCateApi'
+import { seedCateCliSkill } from '../skills/main/seedCateCliSkill'
 import type { RuntimeConnection } from '../shared/types'
 
 // In-memory workspace list — authoritative source of truth
@@ -46,13 +48,17 @@ function generateId(): string {
 // it's opened here, so a second Cate (dev vs installed) won't autosave over us.
 // -----------------------------------------------------------------------------
 
-/** True if any workspace other than `exceptId` is rooted at `rootPath`. */
-function rootInUse(rootPath: string, exceptId?: string): boolean {
+/** Workspace other than `exceptId` rooted at `rootPath`, if one exists. */
+function workspaceUsingRoot(rootPath: string, exceptId?: string): WorkspaceInfo | undefined {
   for (const [id, w] of workspaces) {
     if (id === exceptId) continue
-    if (w.rootPath === rootPath) return true
+    if (w.rootPath === rootPath) return w
   }
-  return false
+  return undefined
+}
+
+function rootInUse(rootPath: string, exceptId?: string): boolean {
+  return workspaceUsingRoot(rootPath, exceptId) !== undefined
 }
 
 /** Claim the lock for a root; if a live instance already owns it, warn that
@@ -92,12 +98,46 @@ function forwardAllowedRoot(rootPath: string, op: 'add' | 'remove', scopeId: str
   result.catch(() => { /* best-effort: never break workspace lifecycle */ })
 }
 
+/** Re-register every workspace root owned by a runtime after connect. Daemon
+ *  root state is process-local, so a reconnect starts with none of the
+ *  workspace-scoped roots previously forwarded by this process. */
+function replayAllowedRoots(runtimeId: string, runtime: ReturnType<typeof runtimes.resolve>): void {
+  for (const workspace of workspaces.values()) {
+    const locator = parseLocator(workspace.rootPath)
+    if (!locator.path || locator.runtimeId !== runtimeId) continue
+    runtime.addAllowedRoot(locator.path, workspace.id).catch(() => {
+      /* best-effort: a rejected registration must not break runtime connect */
+    })
+  }
+}
+
+/** Seed the cate-cli skill for every workspace on a runtime once it actually
+ *  connects. createWorkspace/updateWorkspace seed too, but a REMOTE workspace's
+ *  runtime connects only AFTER those run (register → create/attach → ensure), so
+ *  their attempt finds no runtime and skips — this replay is what makes seeding
+ *  behave the same for local and remote. Re-runs on reconnect are cheap: seed
+ *  markers in .cate/skills.json short-circuit already-seeded targets. */
+function replaySkillSeeds(runtimeId: string): void {
+  for (const workspace of workspaces.values()) {
+    const locator = parseLocator(workspace.rootPath)
+    if (!locator.path || locator.runtimeId !== runtimeId) continue
+    void seedCateCliSkill(workspace.rootPath)
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Public API (called by IPC handlers)
 // -----------------------------------------------------------------------------
 
 function listWorkspaces(): WorkspaceInfo[] {
   return Array.from(workspaces.values())
+}
+
+/** Look up a workspace's metadata by id, or undefined if unknown. Exported for
+ *  consumers outside the IPC layer (e.g. the extension reverse-API bridge that
+ *  resolves a workspace's rootPath/locator). */
+export function getWorkspaceInfo(id: string): WorkspaceInfo | undefined {
+  return workspaces.get(id)
 }
 
 async function createWorkspace(
@@ -131,6 +171,18 @@ async function createWorkspace(
     }
   }
 
+  const duplicate = trustedRoot ? workspaceUsingRoot(trustedRoot, resolvedId) : undefined
+  if (duplicate) {
+    return {
+      ok: false,
+      error: {
+        code: 'DUPLICATE_ROOT',
+        message: `This folder is already open in another workspace: ${trustedRoot}`,
+        conflictingWorkspaceId: duplicate.id,
+      },
+    }
+  }
+
   const info: WorkspaceInfo = {
     id: resolvedId,
     name: name ?? 'Workspace',
@@ -140,10 +192,13 @@ async function createWorkspace(
   }
   workspaces.set(info.id, info)
   log.info('Workspace created: %s (%s%s)', info.id, info.rootPath || 'no root', remote ? ', remote' : '')
-  if (info.rootPath && !remote) {
-    addAllowedRoot(info.rootPath, info.id)
+  if (info.rootPath) {
+    if (!remote) addAllowedRoot(info.rootPath, info.id)
     forwardAllowedRoot(info.rootPath, 'add', info.id)
-    claimProjectLock(info.rootPath, info.name)
+    if (!remote) claimProjectLock(info.rootPath, info.name)
+    // Seed the bundled cate-cli skill for the agents used in this workspace
+    // (same install path as the skills modal). Best effort, never blocks open.
+    void seedCateCliSkill(info.rootPath)
   }
   return { ok: true, workspace: info }
 }
@@ -198,12 +253,16 @@ async function updateWorkspace(id: string, changes: Partial<Omit<WorkspaceInfo, 
   // duplicate. The renderer redirects to the existing tab before reaching this,
   // but the resolved path is the authority — it catches symlink/trailing-slash
   // aliases the renderer's raw string compare misses.
-  if (nextRootPath && existing.rootPath !== nextRootPath && rootInUse(nextRootPath, id)) {
+  const duplicate = nextRootPath && existing.rootPath !== nextRootPath
+    ? workspaceUsingRoot(nextRootPath, id)
+    : undefined
+  if (duplicate) {
     return {
       ok: false,
       error: {
         code: 'DUPLICATE_ROOT',
         message: `This folder is already open in another workspace: ${nextRootPath}`,
+        conflictingWorkspaceId: duplicate.id,
       },
     }
   }
@@ -211,21 +270,24 @@ async function updateWorkspace(id: string, changes: Partial<Omit<WorkspaceInfo, 
   const rootChanged = existing.rootPath !== nextRootPath
   const existingLocal = !!existing.rootPath && isLocalLocator(existing.rootPath)
   const nextLocal = !!nextRootPath && isLocalLocator(nextRootPath)
-  if (existingLocal && rootChanged) {
-    removeAllowedRoot(existing.rootPath, id)
+  if (existing.rootPath && rootChanged) {
+    if (existingLocal) removeAllowedRoot(existing.rootPath, id)
     forwardAllowedRoot(existing.rootPath, 'remove', id)
   }
 
   const updated = { ...existing, ...changes, rootPath: nextRootPath }
   workspaces.set(id, updated)
-  if (nextLocal) {
-    addAllowedRoot(updated.rootPath, id)
+  if (updated.rootPath) {
+    if (nextLocal) addAllowedRoot(updated.rootPath, id)
     forwardAllowedRoot(updated.rootPath, 'add', id)
   }
   if (rootChanged) {
     // Release the lock on the old root (local only) and claim the new one.
     if (existingLocal) dropProjectLock(existing.rootPath, id)
     if (nextLocal) claimProjectLock(updated.rootPath, updated.name)
+    // A workspace first gets its folder through here (local folder pick, remote
+    // attach) — seed exactly like createWorkspace. Best effort, never blocks.
+    if (updated.rootPath) void seedCateCliSkill(updated.rootPath)
   }
   return { ok: true, workspace: updated }
 }
@@ -237,11 +299,12 @@ function removeWorkspace(id: string): boolean {
   }
   const existing = workspaces.get(id)
   const removed = workspaces.delete(id)
-  if (existing?.rootPath && isLocalLocator(existing.rootPath)) {
-    removeAllowedRoot(existing.rootPath, id)
+  if (existing?.rootPath) {
+    const local = isLocalLocator(existing.rootPath)
+    if (local) removeAllowedRoot(existing.rootPath, id)
     forwardAllowedRoot(existing.rootPath, 'remove', id)
     // Delete first so rootInUse() doesn't count the workspace we just removed.
-    dropProjectLock(existing.rootPath, id)
+    if (local) dropProjectLock(existing.rootPath, id)
   }
   if (removed) log.info('Workspace removed: %s', id)
   return removed
@@ -260,6 +323,17 @@ function broadcastWorkspaceChange(originWindowId?: number): void {
 // -----------------------------------------------------------------------------
 
 export function registerWorkspaceHandlers(): void {
+  // A runtime daemon loses its in-memory allowed-root registry whenever its
+  // process disconnects. Rebuild the workspace-scoped entries on every initial
+  // connection and reconnect; workspace ids deliberately differ from runtime
+  // ids and are the scope carried by renderer fs/git requests.
+  runtimes.onConnected(replayAllowedRoots)
+
+  // Skill seeding needs a live runtime; replay it on every (re)connect so remote
+  // workspaces — whose runtime connects after create/attach — seed exactly like
+  // local ones. Idempotent via seed markers.
+  runtimes.onConnected(replaySkillSeeds)
+
   // Create a new workspace
   ipcMain.handle(
     WORKSPACE_CREATE,
@@ -290,6 +364,10 @@ export function registerWorkspaceHandlers(): void {
     // Closing a workspace tab also closes its detached (dock) windows — they
     // belong to the workspace and have no home once it's gone.
     closeWindowsForWorkspace(id)
+    // Release the workspace's first-party CATE_API endpoint. The local runtime
+    // never disconnects during app life, so disposeForRuntime alone would let
+    // this endpoint leak until quit.
+    workspaceCateApi.disposeForWorkspace(id)
     const removed = removeWorkspace(id)
     if (removed) {
       const win = windowFromEvent(event)

@@ -18,7 +18,10 @@ import { useSearchStore } from '../stores/searchStore'
 import type { MenuActionId, ShortcutAction } from '../../shared/types'
 import type { CanvasStore } from '../stores/canvasStore'
 import { focusedNodeId as focusedNodeIdOf } from '../stores/canvas/selectionModel'
-import { confirmClosePanels } from './confirmClosePanels'
+import { provideAppStoreForHistory } from '../stores/canvas/historySlice'
+import { inheritedWorktreeFromSelection } from './inheritWorktree'
+import { closePanelWithConfirm } from './closePanelWithConfirm'
+import { activeDockPanelId } from '../../shared/collectPanelIds'
 
 /**
  * Ensures the workspace has a rootPath before proceeding.
@@ -44,13 +47,13 @@ export async function ensureWorkspaceFolder(workspaceId: string): Promise<string
  */
 export async function runAction(
   action: MenuActionId,
-  canvasStoreApi: StoreApi<CanvasStore>,
+  canvasStoreApi?: StoreApi<CanvasStore>,
 ): Promise<void> {
   // Resolve the *active* canvas store at call time rather than binding to a
   // store captured on mount. The visible canvas is a per-panel store;
   // getActiveCanvasOps derives it from the canonical active panel, falling back
   // to the passed store for single-canvas / detached windows.
-  const canvasStore = () => (getActiveCanvasOps()?.storeApi ?? canvasStoreApi).getState()
+  const canvasStore = () => (getActiveCanvasOps()?.storeApi ?? canvasStoreApi)?.getState()
   const appStore = useAppStore.getState
   const selectedWorkspaceId = appStore().selectedWorkspaceId
 
@@ -86,7 +89,14 @@ export async function runAction(
     case 'newTerminal': {
       const placement = placementForActivePanel()
       const wsId = await ensureWorkspaceFolder(selectedWorkspaceId)
-      if (wsId) appStore().createTerminal(wsId, undefined, undefined, placement)
+      if (wsId) {
+        // Inherit the selected terminal/agent's worktree so ⌘T from inside a
+        // worktree opens the new terminal in that same worktree.
+        const canvas = canvasStore()
+        const wt = canvas ? inheritedWorktreeFromSelection(canvas, appStore().getWorkspace(wsId)?.panels) : {}
+        const panelId = appStore().createTerminal(wsId, undefined, undefined, placement, wt.cwd)
+        if (panelId && wt.worktreeId) appStore().setPanelWorktreeId(wsId, panelId, wt.worktreeId)
+      }
       break
     }
     case 'newBrowser': {
@@ -105,7 +115,14 @@ export async function runAction(
     case 'newAgent': {
       const placement = placementForActivePanel()
       const wsId = await ensureWorkspaceFolder(selectedWorkspaceId)
-      if (wsId) appStore().createAgent(wsId, undefined, placement)
+      if (wsId) {
+        // Same worktree inheritance as newTerminal — an agent carries only a
+        // worktreeId (no cwd), so bind it when the selection has one.
+        const canvas = canvasStore()
+        const wt = canvas ? inheritedWorktreeFromSelection(canvas, appStore().getWorkspace(wsId)?.panels) : {}
+        const panelId = appStore().createAgent(wsId, undefined, placement)
+        if (panelId && wt.worktreeId) appStore().setPanelWorktreeId(wsId, panelId, wt.worktreeId)
+      }
       break
     }
     case 'newCanvas': {
@@ -115,12 +132,12 @@ export async function runAction(
       break
     }
     case 'closePanel': {
-      const focusedNodeId = focusedNodeIdOf(canvasStore())
+      const canvas = canvasStore()
+      const focusedNodeId = canvas ? focusedNodeIdOf(canvas) : null
       if (focusedNodeId) {
-        const node = canvasStore().nodes[focusedNodeId]
-        if (node && (await confirmClosePanels(selectedWorkspaceId, [node.panelId]))) {
-          appStore().closePanel(selectedWorkspaceId, node.panelId)
-        }
+        const node = canvas?.nodes[focusedNodeId]
+        const panelId = activeDockPanelId(node?.dockLayout)
+        if (panelId) await closePanelWithConfirm(selectedWorkspaceId, panelId)
       }
       break
     }
@@ -153,33 +170,41 @@ export async function runAction(
     case 'commandPalette':
       useUIStore.getState().setShowCommandPalette(true)
       break
+    case 'nextWorkspace':
+      void appStore().switchWorkspaceByOffset(1)
+      break
+    case 'previousWorkspace':
+      void appStore().switchWorkspaceByOffset(-1)
+      break
     case 'zoomIn':
-      canvasStore().animateZoomTo(canvasStore().zoomLevel + 0.1)
+      { const canvas = canvasStore(); if (canvas) canvas.animateZoomTo(canvas.zoomLevel + 0.1) }
       break
     case 'zoomOut':
-      canvasStore().animateZoomTo(canvasStore().zoomLevel - 0.1)
+      { const canvas = canvasStore(); if (canvas) canvas.animateZoomTo(canvas.zoomLevel - 0.1) }
       break
     case 'zoomReset':
-      canvasStore().animateZoomTo(1.0)
+      canvasStore()?.animateZoomTo(1.0)
       break
     case 'focusNext': {
-      const next = canvasStore().nextNode()
-      if (next) canvasStore().focusNode(next)
+      const canvas = canvasStore()
+      const next = canvas?.nextNode()
+      if (next) canvas?.focusNode(next)
       break
     }
     case 'focusPrevious': {
-      const prev = canvasStore().previousNode()
-      if (prev) canvasStore().focusNode(prev)
+      const canvas = canvasStore()
+      const prev = canvas?.previousNode()
+      if (prev) canvas?.focusNode(prev)
       break
     }
     case 'saveFile':
       window.dispatchEvent(new CustomEvent('save-file'))
       break
     case 'zoomToFit':
-      canvasStore().zoomToFit()
+      canvasStore()?.zoomToFit()
       break
     case 'zoomToSelection':
-      canvasStore().zoomToSelection()
+      canvasStore()?.zoomToSelection()
       break
     case 'toggleTool': {
       const ui = useUIStore.getState()
@@ -187,44 +212,59 @@ export async function runAction(
       break
     }
     case 'navigateUp':
-      canvasStore().navigateSelect('up')
+      canvasStore()?.navigateSelect('up')
       break
     case 'navigateDown':
-      canvasStore().navigateSelect('down')
+      canvasStore()?.navigateSelect('down')
       break
     case 'navigateLeft':
-      canvasStore().navigateSelect('left')
+      canvasStore()?.navigateSelect('left')
       break
     case 'navigateRight':
-      canvasStore().navigateSelect('right')
+      canvasStore()?.navigateSelect('right')
       break
     case 'panUp':
-      canvasStore().panViewport('up')
+      canvasStore()?.panViewport('up')
       break
     case 'panDown':
-      canvasStore().panViewport('down')
+      canvasStore()?.panViewport('down')
       break
     case 'panLeft':
-      canvasStore().panViewport('left')
+      canvasStore()?.panViewport('left')
       break
     case 'panRight':
-      canvasStore().panViewport('right')
+      canvasStore()?.panViewport('right')
       break
     case 'autoLayout':
-      canvasStore().autoLayout()
+      canvasStore()?.autoLayout()
       break
     case 'undo':
-      canvasStore().undo()
+      canvasStore()?.undo()
       break
     case 'redo':
-      canvasStore().redo()
+      canvasStore()?.redo()
       break
     case 'deleteNode': {
-      const focusedId = focusedNodeIdOf(canvasStore())
-      if (focusedId && canvasStore().nodes[focusedId]) {
-        const node = canvasStore().nodes[focusedId]
-        if (await confirmClosePanels(selectedWorkspaceId, [node.panelId])) {
-          appStore().closePanel(selectedWorkspaceId, node.panelId)
+      const canvas = canvasStore()
+      const focusedId = canvas ? focusedNodeIdOf(canvas) : null
+      if (focusedId && canvas?.nodes[focusedId]) {
+        const node = canvas.nodes[focusedId]
+        const panelId = activeDockPanelId(node.dockLayout)
+        if (panelId) {
+          // Snapshot the record before the close so the history entry can
+          // carry it — Cmd+Z then restores the panel, not a ghost node.
+          const record = appStore().workspaces
+            .find((w) => w.id === selectedWorkspaceId)?.panels[panelId]
+          provideAppStoreForHistory(useAppStore)
+          canvas.beginHistoryTransaction()
+          let closed = false
+          try {
+            closed = await closePanelWithConfirm(selectedWorkspaceId, panelId)
+          } finally {
+            canvas.commitHistoryTransaction(
+              closed && record ? { workspaceId: selectedWorkspaceId, panels: [record] } : undefined,
+            )
+          }
         }
       }
       break

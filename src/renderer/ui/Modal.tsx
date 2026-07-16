@@ -17,7 +17,7 @@
 // exported so even hand-rolled overlays match without a component per element.
 // =============================================================================
 
-import { useEffect, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from '@phosphor-icons/react'
 import { Tooltip } from './Tooltip'
@@ -59,6 +59,30 @@ export const SEGMENT = {
     }`,
 }
 
+/** Return keyboard focus to wherever it was before this dialog opened. The
+ *  active element is captured on the first render — before the dialog's own
+ *  autoFocus moves focus — and restored on unmount, but only when focus fell
+ *  back to <body> (i.e. the dialog closed without the user deliberately focusing
+ *  something else). Without this, closing a dialog/palette leaves focus on
+ *  <body> and keyboard shortcuts stop reaching the panel until the user clicks. */
+function useRestoreFocusOnUnmount(): void {
+  const [previous] = useState<Element | null>(() =>
+    typeof document === 'undefined' ? null : document.activeElement,
+  )
+  useEffect(() => {
+    return () => {
+      const active = document.activeElement
+      if (
+        previous instanceof HTMLElement &&
+        previous.isConnected &&
+        (active === null || active === document.body)
+      ) {
+        previous.focus({ preventScroll: true })
+      }
+    }
+  }, [previous])
+}
+
 interface PaletteDialogShellProps {
   /** Dismiss when the backdrop (outside the card) is clicked. */
   onClose: () => void
@@ -67,20 +91,29 @@ interface PaletteDialogShellProps {
   /** Extra props forwarded to the inner card (e.g. data-onboarding). */
   cardProps?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>
   children: ReactNode
+  /** Optional detached card rendered as a sibling BELOW the main card (its own
+   *  CARD_SURFACE, own stop-propagation), separated by a gap. */
+  aside?: ReactNode
+  /** Sizing/positioning classes for the aside card. CARD_SURFACE is applied. */
+  asideClassName?: string
 }
 
 /** Top-anchored palette shell: full-screen dimmed backdrop that closes on an
  *  outside click, wrapping a centered card that stops propagation so clicks
  *  inside don't dismiss. Shared by the Cmd+K palette and palette-style dialogs;
- *  Escape handling stays with each caller. */
+ *  Escape handling stays with each caller. An optional `aside` renders as a
+ *  second, detached card beside the main one (the pair is centered as a group). */
 export function PaletteDialogShell({
   onClose,
   cardClassName,
   cardProps,
   children,
+  aside,
+  asideClassName,
 }: PaletteDialogShellProps) {
+  useRestoreFocusOnUnmount()
   return (
-    <div className={`fixed inset-0 flex justify-center z-50 ${BACKDROP}`} onClick={onClose}>
+    <div className={`fixed inset-0 flex flex-row items-start justify-center gap-2 z-50 ${BACKDROP}`} onClick={onClose}>
       <div
         {...cardProps}
         className={`${cardClassName} ${CARD_SURFACE}`}
@@ -88,6 +121,14 @@ export function PaletteDialogShell({
       >
         {children}
       </div>
+      {aside && (
+        <div
+          className={`${asideClassName ?? ''} ${CARD_SURFACE}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {aside}
+        </div>
+      )}
     </div>
   )
 }
@@ -135,7 +176,7 @@ export function ModalCard({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex items-center justify-center w-6 h-6 -mr-1 rounded-md text-secondary hover:text-primary hover:bg-hover transition-colors"
+                className="flex items-center justify-center w-6 h-6 -mr-1 rounded-[10px] text-secondary hover:text-primary hover:bg-hover transition-colors"
                 aria-label="Close"
               >
                 <X size={14} />
@@ -176,6 +217,7 @@ export function Modal({
   bodyClassName,
   ...card
 }: ModalProps) {
+  useRestoreFocusOnUnmount()
   const escapeCloses = closeOnEscape ?? dismissable
   useEffect(() => {
     if (!escapeCloses) return

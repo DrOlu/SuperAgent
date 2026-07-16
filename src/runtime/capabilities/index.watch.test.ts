@@ -49,16 +49,16 @@ function lastPool(): FakePool {
 describe('daemon runtime watch delegation', () => {
   beforeEach(() => {
     mockState.pools.length = 0
-    addAllowedRoot(ROOT)
+    addAllowedRoot(ROOT, 'srv_test')
   })
   afterEach(() => {
-    removeAllowedRoot(ROOT)
+    removeAllowedRoot(ROOT, 'srv_test')
   })
 
   test('file.watch subscribes the validated root and forwards events verbatim', () => {
     const runtime = buildDaemonRuntime({ id: 'srv_test', rgPath: '/rg' }).runtime
     const events: Array<[string, string]> = []
-    const unsub = runtime.file.watch(SRC, (p, t) => events.push([p, t]))
+    const unsub = runtime.file.watch(SRC, (p, t) => events.push([p, t]), { scopeId: 'srv_test' })
 
     const pool = lastPool()
     expect(pool.subscribe).toHaveBeenCalledTimes(1)

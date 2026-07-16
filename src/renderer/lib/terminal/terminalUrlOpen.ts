@@ -10,15 +10,7 @@
 
 import { useAppStore } from '../../stores/appStore'
 import { portalRegistry } from '../portalRegistry'
-
-function findBrowserPanelId(workspaceId: string): string | null {
-  const ws = useAppStore.getState().workspaces.find((w) => w.id === workspaceId)
-  if (!ws) return null
-  for (const panel of Object.values(ws.panels)) {
-    if (panel.type === 'browser') return panel.id
-  }
-  return null
-}
+import { findBrowserPanelId } from '../browser/browserDriver'
 
 /** Open a URL on the canvas: reuse the workspace's browser panel if one exists,
  *  otherwise create a new one. */
@@ -29,7 +21,7 @@ export function openTerminalUrl(workspaceId: string, url: string): void {
     if (webview) {
       try {
         webview.loadURL(url)
-        useAppStore.getState().updatePanelUrl(workspaceId, existing, url)
+        useAppStore.getState().updateBrowserActiveTabUrl(workspaceId, existing, url)
         return
       } catch {
         // Fall through if the guest webContents is not dom-ready yet.
@@ -37,7 +29,7 @@ export function openTerminalUrl(workspaceId: string, url: string): void {
     }
     // Browser panel exists but webview is not registered yet — still prefer
     // updating its URL so it picks it up on next mount.
-    useAppStore.getState().updatePanelUrl(workspaceId, existing, url)
+    useAppStore.getState().updateBrowserActiveTabUrl(workspaceId, existing, url)
     return
   }
   useAppStore.getState().createBrowser(workspaceId, url)

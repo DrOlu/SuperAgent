@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { SessionSnapshot, SidebarSession } from '../../../shared/types'
-import { deriveSidebarSession, applySidebarSession } from './sidebarSession'
+import { deriveSidebarSession, applySidebarSession, dedupeSnapshotsByRoot } from './sidebarSession'
 
 // Minimal snapshot — only rootPath matters to the ordering logic.
 function snap(rootPath: string | null): SessionSnapshot {
@@ -26,6 +26,11 @@ describe('deriveSidebarSession', () => {
     expect(res.order).toEqual(['/p/a', '/p/c'])
   })
 
+  it('does not persist duplicate roots from legacy runtime state', () => {
+    const res = deriveSidebarSession([ws('a', '/p/a'), ws('dup', '/p/a'), ws('b', '/p/b')], 'a')
+    expect(res.order).toEqual(['/p/a', '/p/b'])
+  })
+
   it('sets selected to the root path of the selected workspace', () => {
     const res = deriveSidebarSession([ws('a', '/p/a'), ws('b', '/p/b')], 'b')
     expect(res.selected).toBe('/p/b')
@@ -39,6 +44,22 @@ describe('deriveSidebarSession', () => {
   it('selected is empty when the selected workspace has no rootPath', () => {
     const res = deriveSidebarSession([ws('a', '')], 'a')
     expect(res.selected).toBe('')
+  })
+})
+
+describe('dedupeSnapshotsByRoot', () => {
+  it('keeps the first snapshot for each root and preserves rootless snapshots', () => {
+    const first = snap('/p/a')
+    const duplicate = { ...snap('/p/a'), workspaceName: 'duplicate' }
+    const rootlessA = snap(null)
+    const rootlessB = snap(null)
+
+    expect(dedupeSnapshotsByRoot([first, rootlessA, duplicate, rootlessB, snap('/p/b')])).toEqual([
+      first,
+      rootlessA,
+      rootlessB,
+      snap('/p/b'),
+    ])
   })
 })
 

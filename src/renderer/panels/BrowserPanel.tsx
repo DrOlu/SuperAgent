@@ -9,20 +9,21 @@ import { Globe, ArrowLeft, ArrowRight, ArrowClockwise, Camera, MagnifyingGlass, 
 import { useSettingsStore } from '../stores/settingsStore'
 import { useAppStore } from '../stores/appStore'
 import { useBrowserStore } from '../stores/browserStore'
-import { useCanvasStoreContext } from '../stores/CanvasStoreContext'
+import { useOptionalCanvasStoreContext } from '../stores/CanvasStoreContext'
 import { focusedNodeId } from '../stores/canvas/selectionModel'
 import { SEARCH_ENGINE_URLS, BROWSER_NEW_TAB_URL, isStartPageUrl } from '../../shared/types'
 import { UrlSuggestions } from './UrlSuggestions'
 import { StartPage } from './StartPage'
-import { BookmarksBar } from './BookmarksBar'
 import { BrowserMenu } from './BrowserMenu'
 import { BrowserSettingsPopover } from './BrowserSettingsPopover'
-import { BrowserTabSidebar } from './BrowserTabSidebar'
+import { BrowserTabStrip } from './BrowserTabStrip'
+import { BrowserBookmarksSidebar } from './BrowserBookmarksSidebar'
 import type { BrowserTab } from '../../shared/types'
 import type { BrowserPanelProps } from './types'
 import type { BrowserShortcutAction } from '../../shared/types'
 import type { NativeContextMenuItem } from '../../shared/electron-api'
 import { portalRegistry } from '../lib/portalRegistry'
+import { writeCateFileDrag } from '../drag/fileDragPayload'
 import { isUrl, normalizeUrl } from './browserUrl'
 import { pageLoadErrorFrom } from './browserLoadError'
 import { Tooltip } from '../ui/Tooltip'
@@ -80,9 +81,11 @@ interface WebviewElement extends HTMLElement {
   reloadIgnoringCache(): void
   canGoBack(): boolean
   canGoForward(): boolean
+  isLoading(): boolean
   getURL(): string
   getTitle(): string
   getWebContentsId(): number
+  executeJavaScript(code: string): Promise<any>
   addEventListener(type: string, listener: (event: any) => void): void
   removeEventListener(type: string, listener: (event: any) => void): void
 }
@@ -95,7 +98,6 @@ export default function BrowserPanel({
   panelId,
   workspaceId,
   nodeId,
-  url,
   proxyUrl,
   tabs: tabsProp,
   activeTabId: activeTabIdProp,
@@ -104,7 +106,7 @@ export default function BrowserPanel({
   const browserSearchEngine = useSettingsStore((s) => s.browserSearchEngine)
   const browserNewTabBehavior = useSettingsStore((s) => s.browserNewTabBehavior)
   const updatePanelTitle = useAppStore((s) => s.updatePanelTitle)
-  const updatePanelUrl = useAppStore((s) => s.updatePanelUrl)
+  const updateBrowserActiveTabUrl = useAppStore((s) => s.updateBrowserActiveTabUrl)
   const updatePanelTabs = useAppStore((s) => s.updatePanelTabs)
   const updatePanelProxy = useAppStore((s) => s.updatePanelProxy)
 
@@ -114,29 +116,27 @@ export default function BrowserPanel({
   const toggleBookmark = useBrowserStore((s) => s.toggleBookmark)
   const querySuggestions = useBrowserStore((s) => s.querySuggestions)
 
-  const isFocused = useCanvasStoreContext((s) => focusedNodeId(s) === nodeId)
-
-  // A new browser panel with no saved URL lands on the start page (unless the
-  // user configured a homepage). The sentinel is never normalized or navigated.
-  const rawInitialUrl = url || browserHomepage || BROWSER_NEW_TAB_URL
-  const initialUrl =
-    rawInitialUrl === BROWSER_NEW_TAB_URL || rawInitialUrl.startsWith('about:')
-      ? rawInitialUrl
-      : normalizeUrl(rawInitialUrl)
+  // Optional: a panel docked in a detached dock window has no CanvasStoreProvider
+  // (no canvas node to be focused), so treat that as not-canvas-focused.
+  const isFocused = useOptionalCanvasStoreContext((s) => focusedNodeId(s) === nodeId, false)
 
   // --- Tabs (light model: one webview re-navigates on switch) --------------
-  // Seed once from persisted tabs, else a single tab at the initial URL.
+  // Seed once from the current persisted schema. There is deliberately no
+  // URL fallback: tabs + activeTabId are the only navigation authority.
   const seedTabs = useRef<{ tabs: BrowserTab[]; activeId: string } | null>(null)
   if (seedTabs.current === null) {
-    const seeded =
-      tabsProp && tabsProp.length > 0 ? tabsProp : [{ id: makeTabId(), url: initialUrl, title: '' }]
-    const active = activeTabIdProp && seeded.some((t) => t.id === activeTabIdProp)
-      ? activeTabIdProp
-      : seeded[0].id
-    seedTabs.current = { tabs: seeded, activeId: active }
+    // A legacy panel persisted before the tabs schema (migrations were removed)
+    // arrives with tabs/activeTabId undefined. Treat that like any other invalid
+    // state so the PanelErrorBoundary renders a clean error tile instead of an
+    // unguarded `undefined.length` TypeError.
+    if (!tabsProp?.length || !tabsProp.some((tab) => tab.id === activeTabIdProp)) {
+      throw new Error(`Browser panel ${panelId} has invalid tab state`)
+    }
+    seedTabs.current = { tabs: tabsProp, activeId: activeTabIdProp }
   }
   const [tabs, setTabs] = useState<BrowserTab[]>(seedTabs.current.tabs)
   const [activeTabId, setActiveTabId] = useState<string>(seedTabs.current.activeId)
+  const initialUrl = seedTabs.current.tabs.find((tab) => tab.id === seedTabs.current!.activeId)!.url
   const activeTabIdRef = useRef(activeTabId)
   useEffect(() => { activeTabIdRef.current = activeTabId }, [activeTabId])
 
@@ -186,38 +186,6 @@ export default function BrowserPanel({
   const [screenshot, setScreenshot] = useState<{ dataUrl: string; filePath: string } | null>(null)
   const screenshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // A dock tab stack renders only its active tab and REUSES this component
-  // instance when the slot switches between two browser panels (same type, no
-  // React key, so A and B reconcile as one instance). Our webview src + nav
-  // state are seeded once at mount, so a reused slot would keep showing the
-  // PREVIOUS browser's page — the "press +/split, then open the new tab and it
-  // renders the first one" bug. Re-seed every per-panel field the moment the
-  // slot switches panels. Done during render (React's "reset state when a prop
-  // changes" pattern) so the panelId-keyed <webview> below mounts straight to
-  // the new URL with no intermediate load of the old page. Editor/terminal
-  // panels stay correct the same way, via their own identity props/effects.
-  const [seededPanelId, setSeededPanelId] = useState(panelId)
-  if (seededPanelId !== panelId) {
-    setSeededPanelId(panelId)
-    setActiveProxy(proxyUrl)
-    setWebviewSrc(initialUrl)
-    setCurrentUrl(initialUrl)
-    setInputUrl(initialUrl)
-    currentUrlRef.current = initialUrl
-    setCanGoBack(false)
-    setCanGoForward(false)
-    setIsLoading(false)
-    setLoadError(null)
-    setCrashed(false)
-    setScreenshot(null)
-    // Re-seed tabs for the panel now occupying this reused slot.
-    const reseeded = tabsProp && tabsProp.length > 0 ? tabsProp : [{ id: makeTabId(), url: initialUrl, title: '' }]
-    const reActive = activeTabIdProp && reseeded.some((t) => t.id === activeTabIdProp) ? activeTabIdProp : reseeded[0].id
-    setTabs(reseeded)
-    setActiveTabId(reActive)
-    activeTabIdRef.current = reActive
-  }
-
   // -------------------------------------------------------------------------
   // Navigation helpers
   // -------------------------------------------------------------------------
@@ -259,9 +227,9 @@ export default function BrowserPanel({
     patchActiveTab({ url: targetUrl })
     // Persist immediately so a quick app close / workspace switch before
     // did-navigate fires still restores to the URL the user typed.
-    updatePanelUrl(workspaceId, panelId, targetUrl)
+    updateBrowserActiveTabUrl(workspaceId, panelId, targetUrl)
     loadInView(targetUrl)
-  }, [browserSearchEngine, updatePanelUrl, workspaceId, panelId, patchActiveTab, loadInView])
+  }, [browserSearchEngine, updateBrowserActiveTabUrl, workspaceId, panelId, patchActiveTab, loadInView])
 
   // --- Tab operations -------------------------------------------------------
   const selectTab = useCallback((id: string) => {
@@ -305,7 +273,7 @@ export default function BrowserPanel({
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t)))
   }, [])
 
-  // Persist tabs + active tab (mirrors the active url into PanelState.url).
+  // Persist the complete canonical navigation state.
   useEffect(() => {
     updatePanelTabs(workspaceId, panelId, tabs, activeTabId)
   }, [tabs, activeTabId, updatePanelTabs, workspaceId, panelId])
@@ -350,7 +318,7 @@ export default function BrowserPanel({
     // editable surfaces (URL bar, search boxes, external apps that accept text).
     try {
       e.dataTransfer.effectAllowed = 'copy'
-      e.dataTransfer.setData('application/cate-file', screenshot.filePath)
+      writeCateFileDrag(e.dataTransfer, [screenshot.filePath])
       e.dataTransfer.setData('text/uri-list', `file://${screenshot.filePath}`)
       e.dataTransfer.setData('text/plain', screenshot.filePath)
       // Use the screenshot itself as the drag image so the cursor shows the
@@ -381,8 +349,7 @@ export default function BrowserPanel({
   const isBookmarked = bookmarks.some((b) => b.url === currentUrl)
   const canBookmark = !isStartPageUrl(currentUrl) && !currentUrl.startsWith('about:')
 
-  // Chrome-like chrome: bookmarks bar (setting-driven), overflow menu + settings.
-  const showBookmarksBar = useSettingsStore((s) => s.browserShowBookmarksBar)
+  // Chrome-like chrome: bookmarks sidebar (setting-driven), overflow menu + settings.
   const showTabSidebar = useSettingsStore((s) => s.browserShowTabSidebar)
   const setSetting = useSettingsStore((s) => s.setSetting)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -589,7 +556,7 @@ export default function BrowserPanel({
       setIsLoading(false)
       setLoadError(null)
       currentUrlRef.current = url
-      updatePanelUrl(workspaceId, panelId, url)
+      updateBrowserActiveTabUrl(workspaceId, panelId, url)
       patchActiveTab({ url, title: webview.getTitle() || '' })
       recordVisit(url, webview.getTitle() || '')
     }
@@ -602,8 +569,15 @@ export default function BrowserPanel({
       setCanGoBack(webview.canGoBack())
       setCanGoForward(webview.canGoForward())
       currentUrlRef.current = url
-      updatePanelUrl(workspaceId, panelId, url)
+      updateBrowserActiveTabUrl(workspaceId, panelId, url)
       patchActiveTab({ url })
+    }
+
+    const onPageFaviconUpdated = (event: any) => {
+      // Electron fires an array of candidate favicon URLs; the first is the
+      // page's preferred icon. Store it on the active tab (persisted with tabs).
+      const favicon = Array.isArray(event.favicons) ? event.favicons[0] : undefined
+      if (favicon) patchActiveTab({ favicon })
     }
 
     const onPageTitleUpdated = (event: any) => {
@@ -632,17 +606,11 @@ export default function BrowserPanel({
       setCrashed(false)
     }
 
-    // The guest renderer process died. Newer Electron fires `render-process-gone`
-    // (with a reason); older builds fire the deprecated `crashed`. Handle both.
+    // The guest renderer process died.
     const onRenderProcessGone = (event: any) => {
       const reason = event?.reason ?? 'crashed'
       if (reason === 'clean-exit') return // normal teardown, not a crash
       console.error('[BrowserPanel] webview renderer gone:', reason)
-      setCrashed(true)
-      setIsLoading(false)
-    }
-    const onCrashed = () => {
-      console.error('[BrowserPanel] webview crashed')
       setCrashed(true)
       setIsLoading(false)
     }
@@ -669,29 +637,29 @@ export default function BrowserPanel({
 
     webview.addEventListener('did-navigate', onDidNavigate)
     webview.addEventListener('did-navigate-in-page', onDidNavigateInPage)
+    webview.addEventListener('page-favicon-updated', onPageFaviconUpdated)
     webview.addEventListener('page-title-updated', onPageTitleUpdated)
     webview.addEventListener('did-fail-load', onDidFailLoad)
     webview.addEventListener('did-start-loading', onDidStartLoading)
     webview.addEventListener('did-stop-loading', onDidStopLoading)
     webview.addEventListener('render-process-gone', onRenderProcessGone)
-    webview.addEventListener('crashed', onCrashed)
 
     return () => {
       try { portalRegistry.unregister(panelId) } catch { /* ignore */ }
       webview.removeEventListener('dom-ready', onDomReady)
       webview.removeEventListener('did-navigate', onDidNavigate)
       webview.removeEventListener('did-navigate-in-page', onDidNavigateInPage)
+      webview.removeEventListener('page-favicon-updated', onPageFaviconUpdated)
       webview.removeEventListener('page-title-updated', onPageTitleUpdated)
       webview.removeEventListener('did-fail-load', onDidFailLoad)
       webview.removeEventListener('did-start-loading', onDidStartLoading)
       webview.removeEventListener('did-stop-loading', onDidStopLoading)
       webview.removeEventListener('render-process-gone', onRenderProcessGone)
-      webview.removeEventListener('crashed', onCrashed)
     }
     // `partition` + `proxyReady` are deps so the listeners re-bind to the fresh
     // <webview> element after a proxy change remounts it (key={partition} +
     // the proxyReady gate); without them the new element would have no handlers.
-  }, [panelId, workspaceId, updatePanelTitle, updatePanelUrl, partition, proxyReady, recordVisit, patchActiveTab])
+  }, [panelId, workspaceId, updatePanelTitle, updateBrowserActiveTabUrl, partition, proxyReady, recordVisit, patchActiveTab])
 
   // -------------------------------------------------------------------------
   // Render
@@ -699,70 +667,59 @@ export default function BrowserPanel({
 
   return (
     <div className="flex w-full h-full relative" onKeyDown={handleChromeKeyDown}>
-      {/* Vertical tab sidebar (Arc/Edge-style) */}
-      {showTabSidebar && (
-        <BrowserTabSidebar
-          tabs={tabs}
-          activeTabId={activeTabId}
-          onSelect={selectTab}
-          onClose={closeTab}
-          onNewTab={addTab}
-          onTogglePin={togglePin}
-        />
-      )}
+      {/* Bookmarks sidebar (Safari-style) — the slot the vertical tab list vacated */}
+      {showTabSidebar && <BrowserBookmarksSidebar onNavigate={navigateTo} />}
 
       {/* Main column: toolbar + bookmarks bar + content */}
       <div className="flex flex-col flex-1 min-w-0 h-full">
       {/* URL bar */}
       <div className="h-10 flex items-center gap-2 px-2 bg-surface-4 border-b border-subtle shrink-0">
-        {/* Sidebar toggle */}
-        <Tooltip label={showTabSidebar ? 'Hide tabs' : 'Show tabs'}>
+        {/* Sidebar toggle — bookmarks sidebar */}
+        <Tooltip label={showTabSidebar ? 'Hide bookmarks' : 'Show bookmarks'}>
           <button
             onClick={() => setSetting('browserShowTabSidebar', !showTabSidebar)}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-hover text-primary transition-colors shrink-0"
-            aria-label={showTabSidebar ? 'Hide tabs' : 'Show tabs'}
+            className="w-7 h-7 flex items-center justify-center rounded-[10px] hover:bg-hover text-secondary hover:text-primary transition-colors shrink-0"
+            aria-label={showTabSidebar ? 'Hide bookmarks' : 'Show bookmarks'}
           >
             <SidebarSimple size={14} weight={showTabSidebar ? 'fill' : 'regular'} />
           </button>
         </Tooltip>
-        {/* Navigation pill */}
-        <div className="flex items-center h-7 rounded-full border border-subtle bg-surface-5 overflow-hidden">
+        {/* Navigation controls — flat ghost buttons */}
+        <div className="flex items-center gap-0.5 shrink-0">
           <Tooltip label="Back">
             <button
               onClick={handleGoBack}
               disabled={!canGoBack}
-              className="w-7 h-7 flex items-center justify-center hover:bg-hover disabled:opacity-30 disabled:hover:bg-transparent text-primary transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-[10px] hover:bg-hover disabled:opacity-30 disabled:hover:bg-transparent text-secondary hover:text-primary transition-colors"
               aria-label="Back"
             >
-              <ArrowLeft size={13} />
+              <ArrowLeft size={14} />
             </button>
           </Tooltip>
-          <div className="w-px h-3.5 bg-subtle" />
           <Tooltip label="Forward">
             <button
               onClick={handleGoForward}
               disabled={!canGoForward}
-              className="w-7 h-7 flex items-center justify-center hover:bg-hover disabled:opacity-30 disabled:hover:bg-transparent text-primary transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-[10px] hover:bg-hover disabled:opacity-30 disabled:hover:bg-transparent text-secondary hover:text-primary transition-colors"
               aria-label="Forward"
             >
-              <ArrowRight size={13} />
+              <ArrowRight size={14} />
             </button>
           </Tooltip>
-          <div className="w-px h-3.5 bg-subtle" />
           <Tooltip label="Reload">
             <button
               onClick={handleReload}
-              className="w-7 h-7 flex items-center justify-center hover:bg-hover text-primary transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-[10px] hover:bg-hover text-secondary hover:text-primary transition-colors"
               aria-label="Reload"
             >
-              <ArrowClockwise size={13} className={isLoading ? 'animate-spin' : ''} />
+              <ArrowClockwise size={14} className={isLoading ? 'animate-spin' : ''} />
             </button>
           </Tooltip>
         </div>
 
         {/* URL input + autocomplete */}
         <div className="flex-1 relative">
-          <div className="flex items-center h-7 rounded-full border border-subtle bg-surface-5 px-3 gap-2 focus-within:border-strong transition-colors">
+          <div className="flex items-center h-7 rounded-full bg-transparent hover:bg-surface-3 px-3 gap-2 transition-colors">
             <MagnifyingGlass size={13} className="text-muted shrink-0" />
             <input
               ref={urlInputRef}
@@ -789,10 +746,10 @@ export default function BrowserPanel({
           <button
             onClick={() => canBookmark && toggleBookmark(currentUrl, webviewRef.current?.getTitle() || currentUrl)}
             disabled={!canBookmark}
-            className={`w-7 h-7 flex items-center justify-center rounded-full border transition-colors disabled:opacity-30 ${
+            className={`w-7 h-7 flex items-center justify-center rounded-[10px] transition-colors disabled:opacity-30 ${
               isBookmarked
-                ? 'border-agent bg-agent/15 text-agent hover:bg-agent/25'
-                : 'border-subtle bg-surface-5 hover:bg-hover text-primary'
+                ? 'text-agent hover:bg-hover'
+                : 'text-secondary hover:text-primary hover:bg-hover'
             }`}
             aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark this page'}
           >
@@ -805,10 +762,10 @@ export default function BrowserPanel({
           <button
             onClick={openProxyDialog}
             onContextMenu={handleProxyContextMenu}
-            className={`w-7 h-7 flex items-center justify-center rounded-full border transition-colors ${
+            className={`w-7 h-7 flex items-center justify-center rounded-[10px] transition-colors ${
               activeProxy
-                ? 'border-agent bg-agent/15 text-agent hover:bg-agent/25'
-                : 'border-subtle bg-surface-5 hover:bg-hover text-primary'
+                ? 'text-agent hover:bg-hover'
+                : 'text-secondary hover:text-primary hover:bg-hover'
             }`}
             aria-label={activeProxy ? `Proxy: ${activeProxy}` : 'Configure proxy'}
           >
@@ -820,7 +777,7 @@ export default function BrowserPanel({
         <Tooltip label="Screenshot">
           <button
             onClick={handleScreenshot}
-            className="w-7 h-7 flex items-center justify-center rounded-full border border-subtle bg-surface-5 hover:bg-hover text-primary transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-[10px] hover:bg-hover text-secondary hover:text-primary transition-colors"
             aria-label="Screenshot"
           >
             <Camera size={13} />
@@ -831,16 +788,23 @@ export default function BrowserPanel({
         <Tooltip label="Menu">
           <button
             onClick={() => { setMenuOpen((o) => !o); setSettingsOpen(false) }}
-            className="w-7 h-7 flex items-center justify-center rounded-full border border-subtle bg-surface-5 hover:bg-hover text-primary transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-[10px] hover:bg-hover text-secondary hover:text-primary transition-colors"
             aria-label="Browser menu"
           >
-            <DotsThreeVertical size={15} weight="bold" />
+            <DotsThreeVertical size={15} />
           </button>
         </Tooltip>
       </div>
 
-      {/* Bookmarks bar */}
-      {showBookmarksBar && <BookmarksBar onNavigate={navigateTo} />}
+      {/* Horizontal tab strip (Safari-style) — pinned favicon chips + regular tabs */}
+      <BrowserTabStrip
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onSelect={selectTab}
+        onClose={closeTab}
+        onNewTab={addTab}
+        onTogglePin={togglePin}
+      />
 
       {/* Overflow menu + settings popover */}
       {menuOpen && (

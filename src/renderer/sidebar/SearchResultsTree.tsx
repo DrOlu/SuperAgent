@@ -15,6 +15,7 @@ import { useAppStore } from '../stores/appStore'
 import { openFileAsPanel } from '../lib/fs/fileRouting'
 import { setPendingReveal } from '../lib/editor/editorReveal'
 import { Tooltip } from '../ui/Tooltip'
+import { writeCateFileDrag } from '../drag/fileDragPayload'
 
 // Uniform row height (px). Both the file-header and code-line rows are forced to
 // this height so the windowed (virtualized) list can map scrollTop <-> row index
@@ -59,12 +60,8 @@ const extOf = (name: string): string => {
  *  / terminal / agent drop targets all accept it. For a line drag, also carry
  *  the line + column so canvas/dock drops can open at the match. */
 function setFileDrag(e: React.DragEvent, path: string, line?: number, column?: number): void {
-  e.dataTransfer.setData('application/cate-file', path)
-  e.dataTransfer.setData('application/cate-files', JSON.stringify([path]))
+  writeCateFileDrag(e.dataTransfer, [path], line == null ? undefined : { path, line, column: column ?? 1 })
   e.dataTransfer.setData('text/plain', path)
-  if (line != null) {
-    e.dataTransfer.setData('application/cate-file-line', JSON.stringify({ path, line, column: column ?? 1 }))
-  }
   e.dataTransfer.effectAllowed = 'copy'
 }
 
@@ -266,7 +263,7 @@ export const SearchResultsTree: React.FC<Props> = ({ files, git }) => {
                   data-testid="search-file"
                   data-path={file.path}
                   data-selected={isSel}
-                  className={`group flex items-center gap-1.5 pl-2 pr-2 text-xs cursor-pointer min-w-0 ${
+                  className={`group flex items-center gap-1.5 pl-2 pr-2 text-xs cursor-pointer min-w-0 mx-1.5 my-0.5 rounded-lg ${
                     isSel ? 'bg-surface-5 ring-1 ring-inset ring-blue-500/40' : 'hover:bg-surface-5'
                   }`}
                   style={{ height: ROW_H }}
@@ -327,7 +324,7 @@ export const SearchResultsTree: React.FC<Props> = ({ files, git }) => {
                 data-path={file.path}
                 data-line={ln.line}
                 data-selected={isSel}
-                className={`group flex items-center gap-1.5 pr-1 text-xs cursor-pointer ${
+                className={`group flex items-center gap-1.5 pr-1 text-xs cursor-pointer mx-1.5 my-0.5 rounded-lg ${
                   isSel ? 'bg-surface-5 ring-1 ring-inset ring-blue-500/40' : 'hover:bg-surface-5'
                 }`}
                 style={{ paddingLeft: 20, height: ROW_H }}

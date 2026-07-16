@@ -4,7 +4,7 @@
 //
 // Per worktree you can: focus its spatial lens (click the row), see its git
 // status + PR state + what's already open on the canvas, open a terminal or
-// Cate agent bound to it (click = here, drag = drop anywhere on the canvas),
+// Agent bound to it (click = here, drag = drop anywhere on the canvas),
 // recolor / rename inline, reach the full publish / PR / update / merge /
 // discard menu via ⋯, start a new worktree, and clean up orphans. Plus a
 // git-init path when the folder isn't a repo yet.
@@ -25,8 +25,9 @@ import {
   Warning,
   X,
   GitPullRequest,
+  ChatCircle,
+  CircleNotch,
 } from '@phosphor-icons/react'
-import { CateLogo } from '../ui/CateLogo'
 import { Tooltip } from '../ui/Tooltip'
 import { CreateWorktreeForm } from '../sidebar/CreateWorktreeForm'
 import { useWorktrees, type JoinedWorktree } from '../stores/useWorktrees'
@@ -40,6 +41,9 @@ interface WorktreeToolbarMenuProps {
   canvasPanelId: string
   workspaceId: string
   rootPath: string
+  tooltipPlacement?: 'top' | 'right'
+  menuSide?: 'up' | 'right'
+  onOpenChange?: (open: boolean) => void
 }
 
 interface PopoverPos {
@@ -51,12 +55,23 @@ const WorktreeToolbarMenu: React.FC<WorktreeToolbarMenuProps> = ({
   canvasPanelId,
   workspaceId,
   rootPath,
+  tooltipPlacement = 'top',
+  menuSide = 'up',
+  onOpenChange,
 }) => {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<PopoverPos | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const focusedWorktreeId = useUIStore((s) => s.focusedWorktreeId)
   const active = open || !!focusedWorktreeId
+
+  // Notify the parent card on real open/close transitions only (not on every
+  // render), so an open fly-out keeps the collapsing toolbar expanded.
+  const onOpenChangeRef = useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
+  useEffect(() => {
+    onOpenChangeRef.current?.(open)
+  }, [open])
 
   const close = useCallback(() => setOpen(false), [])
 
@@ -65,17 +80,23 @@ const WorktreeToolbarMenu: React.FC<WorktreeToolbarMenuProps> = ({
       setOpen(false)
       return
     }
-    const toolbarEl = btnRef.current?.closest('[data-onboarding="toolbar"]') as HTMLElement | null
-    const r = (toolbarEl ?? btnRef.current)?.getBoundingClientRect()
+    // Anchor to the toolbar card: drop up from it in the horizontal bar, or fly
+    // out to its right in the compact vertical bar (growing upward either way).
+    const cardEl = btnRef.current?.closest('[data-toolbar-card]') as HTMLElement | null
+    const r = (cardEl ?? btnRef.current)?.getBoundingClientRect()
     if (r) {
-      setPos({ left: r.left, bottom: window.innerHeight - r.top + 10 })
+      setPos(
+        menuSide === 'right'
+          ? { left: r.right + 8, bottom: window.innerHeight - r.bottom }
+          : { left: r.left, bottom: window.innerHeight - r.top + 10 },
+      )
     }
     setOpen(true)
-  }, [open])
+  }, [open, menuSide])
 
   return (
     <>
-      <Tooltip label="Parallel worktrees" placement="top">
+      <Tooltip label="Parallel worktrees" placement={tooltipPlacement}>
         <button
           ref={btnRef}
           type="button"
@@ -120,7 +141,9 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
   const rootRef = useRef<HTMLDivElement>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  // Worktree id with a slow git op (publish / PR / update / merge / discard) in
+  // flight — drives that row's inline spinner so the work is visible.
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   const snapshot = useGitStatusSnapshot(rootPath)
   const isRepo = rootPath ? snapshot.isRepo : false
@@ -159,7 +182,7 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
     rootPath,
     workspaceId,
     primaryLabel,
-    { setError, setNotice, onPrCreated: refreshPr },
+    { setError, onPrCreated: refreshPr, setBusy: setBusyId },
   )
 
   // Close on outside click or Escape. Clicks on the trigger button are ignored
@@ -197,12 +220,12 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
     if (!rootPath) return
     setError(null)
     try {
-      await window.electronAPI.gitInit(rootPath)
+      await window.electronAPI.gitInit(rootPath, workspaceId)
       gitStatusStore.refresh(rootPath)
     } catch (err: any) {
       setError(`Could not initialize git: ${err?.message || err}`)
     }
-  }, [rootPath])
+  }, [rootPath, workspaceId])
 
   return (
     <div
@@ -217,14 +240,10 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {(error || notice) && (
-        <div
-          className={`mx-1.5 mb-1 px-2 py-1 rounded-lg text-[11px] flex items-start gap-1.5 ${
-            error ? 'text-red-400/90 bg-red-500/[0.08]' : 'text-green-400/90 bg-green-500/[0.08]'
-          }`}
-        >
-          <span className="flex-1">{error || notice}</span>
-          <button onClick={() => { setError(null); setNotice(null) }} className="opacity-60 hover:opacity-100">
+      {error && (
+        <div className="mx-2.5 mb-1 flex items-start gap-1.5 text-[11px] text-red-400/90">
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError(null)} className="opacity-60 hover:opacity-100">
             <X size={11} />
           </button>
         </div>
@@ -271,6 +290,7 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
               status={humanStatus(statusByPath[wt.path], primaryLabel)}
               pr={prByPath[wt.path]}
               panels={panelCounts[wt.id]}
+              busy={busyId === wt.id}
               cb={makeCallbacks(wt)}
               onFocus={() => focusWorktree(focusedWorktreeId === wt.id ? null : wt.id)}
               onHover={(on) => setHoveredWorktree(on ? wt.id : null)}
@@ -282,7 +302,7 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
             onClick={() => setCreating(true)}
             className="mx-1 w-[calc(100%-0.5rem)] flex items-center gap-2 h-[26px] px-1.5 rounded-lg text-[12px] text-secondary hover:text-primary hover:bg-surface-4 transition-colors"
           >
-            <Plus size={13} weight="bold" className="flex-shrink-0" />
+            <Plus size={13} className="flex-shrink-0" />
             <span>Create new worktree…</span>
           </button>
 
@@ -295,7 +315,7 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
                 </span>
                 <button
                   onClick={() => void handlePrune()}
-                  className="px-1.5 py-0.5 rounded hover:bg-surface-4 text-secondary hover:text-primary"
+                  className="px-1.5 py-0.5 rounded-lg hover:bg-surface-4 text-secondary hover:text-primary"
                   title="Remove the missing entries"
                 >
                   Clean up
@@ -345,7 +365,7 @@ const PrPill: React.FC<{ pr: PrStatus; onClick: () => void }> = ({ pr, onClick }
       title="Open pull request on GitHub"
       className={`inline-flex items-center gap-1 text-[10px] leading-none ${tone} hover:underline`}
     >
-      <GitPullRequest size={10} weight="bold" />
+      <GitPullRequest size={10} />
       <span className="tabular-nums">#{pr.number}</span>
       <span>{label}</span>
     </button>
@@ -374,7 +394,7 @@ const SpawnButton: React.FC<{
         e.dataTransfer.setData('application/cate-spawn', JSON.stringify({ panelType, cwd, worktreeId }))
       }}
       onClick={(e) => { e.stopPropagation(); onClick() }}
-      className="w-5 h-5 flex items-center justify-center rounded-md text-muted hover:text-primary hover:bg-surface-5 cursor-grab active:cursor-grabbing transition-colors"
+      className="w-5 h-5 flex items-center justify-center rounded-lg text-muted hover:text-primary hover:bg-surface-5 cursor-grab active:cursor-grabbing transition-colors"
     >
       {icon}
     </div>
@@ -393,11 +413,12 @@ const WorktreeRow: React.FC<{
   status: { text: string; tone: string } | null
   pr?: PrStatus
   panels?: { terminals: number; agents: number }
+  busy?: boolean
   cb: CardCallbacks
   onFocus: () => void
   onHover: (on: boolean) => void
   onLaunch: (type: 'terminal' | 'agent') => void
-}> = ({ wt, primaryLabel, focused, status, pr, panels, cb, onFocus, onHover, onLaunch }) => {
+}> = ({ wt, primaryLabel, focused, status, pr, panels, busy, cb, onFocus, onHover, onLaunch }) => {
   const isPrimary = !!wt.isPrimary
   const label = wt.label || wt.branch || (isPrimary ? 'main' : '(detached)')
   const color = wt.color || 'var(--text-muted)'
@@ -432,12 +453,16 @@ const WorktreeRow: React.FC<{
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
       onClick={(e) => {
+        if (busy) return
         if ((e.target as HTMLElement).closest('button, input, [role="button"]')) return
         onFocus()
       }}
-      onContextMenu={(e) => { e.preventDefault(); void openMenu() }}
-      title={wt.path}
-      className="mx-1 px-1.5 py-1 rounded-lg cursor-pointer hover:bg-surface-4 transition-colors"
+      onContextMenu={(e) => { e.preventDefault(); if (!busy) void openMenu() }}
+      title={busy ? 'Discarding…' : wt.path}
+      aria-busy={busy || undefined}
+      className={`mx-1 px-1.5 py-1 rounded-lg transition-colors ${
+        busy ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:bg-surface-4'
+      }`}
       style={focused ? { backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)` } : undefined}
     >
       {/* Line 1 — name + actions */}
@@ -462,7 +487,7 @@ const WorktreeRow: React.FC<{
               if (e.key === 'Escape') setRenaming(false)
             }}
             onBlur={commitRename}
-            className="flex-1 min-w-0 text-[12px] bg-surface-5 rounded px-1 border border-blue-500/50 outline-none text-primary"
+            className="flex-1 min-w-0 text-[12px] bg-surface-5 rounded px-1 border border-focus outline-none text-primary"
           />
         ) : (
           <span
@@ -477,13 +502,17 @@ const WorktreeRow: React.FC<{
           <span className="flex-shrink-0 text-[10px] leading-none text-muted">base</span>
         )}
         {focused && !renaming && (
-          <Check size={11} weight="bold" className="flex-shrink-0 text-primary" />
+          <Check size={11} className="flex-shrink-0 text-primary" />
         )}
 
-        {!renaming && (
+        {busy && (
+          <CircleNotch size={13} className="flex-shrink-0 text-muted animate-spin" />
+        )}
+
+        {!renaming && !busy && (
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <SpawnButton
-              icon={<TerminalIcon size={12} weight="bold" />}
+              icon={<TerminalIcon size={12} />}
               title="Terminal"
               panelType="terminal"
               cwd={wt.path}
@@ -491,8 +520,8 @@ const WorktreeRow: React.FC<{
               onClick={() => onLaunch('terminal')}
             />
             <SpawnButton
-              icon={<CateLogo size={12} />}
-              title="SuperAgent agent"
+              icon={<ChatCircle size={12} />}
+              title="Agent"
               panelType="agent"
               cwd={wt.path}
               worktreeId={wt.id}
@@ -502,9 +531,9 @@ const WorktreeRow: React.FC<{
               <button
                 onClick={(e) => { e.stopPropagation(); void openMenu() }}
                 aria-label="More actions"
-                className="w-5 h-5 flex items-center justify-center rounded-md text-muted hover:text-primary hover:bg-surface-5 transition-colors"
+                className="w-5 h-5 flex items-center justify-center rounded-lg text-muted hover:text-primary hover:bg-surface-5 transition-colors"
               >
-                <DotsThree size={14} weight="bold" />
+                <DotsThree size={14} />
               </button>
             </Tooltip>
           </div>
@@ -521,13 +550,13 @@ const WorktreeRow: React.FC<{
             <span className="flex items-center gap-2 text-muted" title="Open on this canvas">
               {openTerminals > 0 && (
                 <span className="flex items-center gap-0.5">
-                  <TerminalIcon size={10} weight="bold" />
+                  <TerminalIcon size={10} />
                   {openTerminals}
                 </span>
               )}
               {openAgents > 0 && (
                 <span className="flex items-center gap-0.5">
-                  <CateLogo size={10} />
+                  <ChatCircle size={10} />
                   {openAgents}
                 </span>
               )}

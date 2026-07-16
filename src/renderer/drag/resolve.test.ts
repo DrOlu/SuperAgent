@@ -237,7 +237,7 @@ describe('resolveDrop — dock zones', () => {
     expect((t as { stackId?: string })?.stackId).toBe('small-stack')
   })
 
-  it('self-drop guard: single-tab dock-tab (center) on its own stack returns null', () => {
+  it('self-drop: single-tab dock-tab (center) on its own stack → dock-tab target (preview shows; commit no-ops)', () => {
     const dock = makeDockStoreWithStack('stack-1', ['only'])
     const ownStack: DropZoneEntry = {
       id: 'own',
@@ -252,6 +252,33 @@ describe('resolveDrop — dock zones', () => {
     }
     const t = resolveDropT(
       { client: { x: 250, y: 10 }, screen: { x: 250, y: 10 }, insideWindow: true },
+      src,
+      grab,
+      ghostSize,
+      'editor',
+      env({ zones: [ownStack] }),
+    )
+    expect((t as { kind?: string })?.kind).toBe('dock-tab')
+    expect((t as { stackId?: string })?.stackId).toBe('stack-1')
+  })
+
+  it('self-drop guard: single-tab at an EDGE of its own stack returns null (no self-split of a lone panel)', () => {
+    const dock = makeDockStoreWithStack('stack-1', ['only'])
+    const ownStack: DropZoneEntry = {
+      id: 'own',
+      zone: 'left',
+      stackId: 'stack-1',
+      dockStoreApi: dock,
+      getRect: () => rect(0, 0, 500, 400),
+    }
+    const src: DragSource = {
+      panelId: 'panel-T',
+      origin: { kind: 'dock-tab', dockStoreApi: dock, zone: 'left', stackId: 'stack-1' },
+    }
+    const t = resolveDropT(
+      // Far right of the stack → 'right' edge (a split), which is suppressed for
+      // a lone panel dropping on its own stack.
+      { client: { x: 490, y: 200 }, screen: { x: 490, y: 200 }, insideWindow: true },
       src,
       grab,
       ghostSize,
@@ -384,6 +411,84 @@ describe('resolveDrop — dock zones', () => {
       ghostSize,
       'canvas',
       env({ zones: [noCanvas] }),
+    )
+    expect(t).toBeNull()
+  })
+})
+
+// -----------------------------------------------------------------------------
+// Grouped canvas-node (multi-selection) — pure reposition, never dock/detach
+// -----------------------------------------------------------------------------
+
+describe('resolveDrop — grouped canvas-node', () => {
+  const groupedSource: DragSource = {
+    panelId: 'panel-A',
+    origin: {
+      kind: 'canvas-node',
+      canvasStoreApi: CANVAS_STORE_A,
+      nodeId: 'node-A',
+      startOrigin: { x: 100, y: 100 },
+      members: [{ nodeId: 'node-B', startOrigin: { x: 400, y: 100 } }],
+    },
+  }
+
+  it('ignores dock zones and resolves canvas-reposition (a group cannot dock)', () => {
+    const stackEntry: DropZoneEntry = {
+      id: 'stack-1',
+      zone: 'center',
+      stackId: 'stack-1',
+      dockStoreApi: DOCK_STORE,
+      getRect: () => rect(0, 0, 500, 400),
+    }
+    // Cursor in the top dock-tab band — a single-node source resolves dock-tab
+    // here (see the dock-zones suite); a grouped source must stay canvas-only.
+    const t = resolveDropT(
+      { client: { x: 250, y: 10 }, screen: { x: 250, y: 10 }, insideWindow: true },
+      groupedSource,
+      grab,
+      ghostSize,
+      'editor',
+      env({
+        zones: [stackEntry],
+        canvasAt: () => ({
+          panelId: 'canvas-A',
+          rect: rect(0, 0, 1000, 800),
+          canvasStoreApi: CANVAS_STORE_A,
+        }),
+      }),
+    )
+    expect(t).toMatchObject({ kind: 'canvas-reposition', nodeId: 'node-A' })
+  })
+
+  it('off-canvas (cursor left the window) yields null — no detach for a group', () => {
+    const t = resolveDropT(
+      { client: { x: -10, y: 100 }, screen: { x: 999, y: 100 }, insideWindow: false },
+      groupedSource,
+      grab,
+      ghostSize,
+      'editor',
+      env(),
+    )
+    expect(t).toBeNull()
+  })
+
+  it('over a DIFFERENT canvas yields null — a group cannot cross canvases (would strand members)', () => {
+    // resolveCanvasHit on a foreign canvas resolves canvas-add, whose commit
+    // moves only the anchor and leaves the members behind. The grouped guard must
+    // refuse it so the whole selection stays on its source canvas.
+    const t = resolveDropT(
+      { client: { x: 100, y: 100 }, screen: { x: 100, y: 100 }, insideWindow: true },
+      groupedSource,
+      grab,
+      ghostSize,
+      'editor',
+      env({
+        canvasAt: () => ({
+          panelId: 'canvas-B',
+          rect: rect(0, 0, 1000, 800),
+          canvasStoreApi: CANVAS_STORE_B,
+        }),
+      }),
     )
     expect(t).toBeNull()
   })

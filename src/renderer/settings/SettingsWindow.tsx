@@ -27,7 +27,9 @@ import { ShortcutSettings } from './ShortcutSettings'
 import { NotificationSettings } from './NotificationSettings'
 import { UpdatesSettings } from './UpdatesSettings'
 import { ProvidersSettings } from './ProvidersSettings'
+import { CanvasCateAgentSettings } from './CanvasCateAgentSettings'
 import { SkillsSettings } from './SkillsSettings'
+import { ExtensionsSettings } from './ExtensionsSettings'
 import { SettingsSearchContext } from './SettingsSearchContext'
 import { TextInput } from './SettingsComponents'
 
@@ -42,7 +44,9 @@ const SECTIONS = [
   { title: 'Worktrees', component: WorktreeSettings },
   { title: 'Notifications', component: NotificationSettings },
   { title: 'Providers', component: ProvidersSettings },
+  { title: 'Cate Agent', component: CanvasCateAgentSettings },
   { title: 'Skills', component: SkillsSettings },
+  { title: 'Extensions', component: ExtensionsSettings },
   { title: 'Updates', component: UpdatesSettings },
   { title: 'Shortcuts', component: ShortcutSettings },
 ] as const

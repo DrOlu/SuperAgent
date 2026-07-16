@@ -18,8 +18,11 @@
 // The SOURCE bundle is always read locally with node fs (it ships inside the
 // app). Each DESTINATION is written THROUGH the runtime (local fs for the
 // local runtime, the daemon for a remote one), so remote workspaces are
-// seeded too. All copies are skip-if-exists so the user's own modifications on
-// the host survive.
+// seeded too. All copies overwrite when the host copy differs from the bundle:
+// these are Cate-managed artifacts (like installPlanMode's), and skip-if-exists
+// froze stale installs forever — e.g. older bundles pinned `model: claude-*`
+// in the subagent .md frontmatter, breaking every non-Anthropic user. Files a
+// user adds under agents/ or prompts/ have other names and are never touched.
 // =============================================================================
 
 import fs from 'fs'
@@ -27,10 +30,8 @@ import fsp from 'fs/promises'
 import path from 'path'
 import { app } from 'electron'
 import log from '../../main/logger'
-import { addAllowedRoot } from '../../main/ipc/pathValidation'
 import { hostAgentDir, hostJoin } from './agentDir'
 import { copyFileToHost, createIdempotencyTracker, findSourceDir } from './extensionInstall'
-import { LOCAL_RUNTIME_ID } from '../../main/runtime/locator'
 import type { Runtime } from '../../main/runtime/types'
 
 /** Source dir of the vendored subagent extension. Tries the dev path first
@@ -43,15 +44,17 @@ function subagentSourceDir(): string | null {
   ])
 }
 
-/** Copy a single source file (read locally) to a host destination, skipping
- *  when the host already has it so a user's modified copy is never overwritten. */
-async function copyIfMissing(
+/** Copy a single source file (read locally) to a host destination, overwriting
+ *  only when the host copy differs from the bundled source. The bundle is
+ *  authoritative for these files, so shipped fixes reliably reach hosts that
+ *  already have an older copy (see header comment). */
+async function copyIfChanged(
   runtime: Runtime,
   src: string,
   destDir: string,
   destName: string,
 ): Promise<void> {
-  await copyFileToHost(runtime, src, destDir, destName, 'if-missing', '[installSubagents]')
+  await copyFileToHost(runtime, src, destDir, destName, 'if-changed', '[installSubagents]')
 }
 
 /** Copy every regular file under `srcDir` (local) into `destDir` (host). */
@@ -63,43 +66,7 @@ async function copyDirContents(
   if (!fs.existsSync(srcDir)) return
   for (const entry of await fsp.readdir(srcDir, { withFileTypes: true })) {
     if (!entry.isFile()) continue
-    await copyIfMissing(runtime, path.join(srcDir, entry.name), destDir, entry.name)
-  }
-}
-
-/**
- * Pi's default subagent .md files pin `model: claude-haiku-4-5` etc. in their
- * frontmatter. When the user has only signed in to another provider (DeepSeek,
- * OpenAI, …), every subagent invocation fails with "No API key found for
- * anthropic". Stripping the model line makes pi fall back to the parent
- * session's model, so subagents inherit whatever the user has connected.
- *
- * We also migrate already-installed files in case the user has an older copy.
- * Operates on the host via the runtime so remote copies are migrated too.
- */
-async function stripPinnedModels(runtime: Runtime, agentsDir: string): Promise<void> {
-  let entries
-  try { entries = await runtime.file.readDir(agentsDir) }
-  catch { return }
-  for (const entry of entries) {
-    if (entry.isDirectory || !entry.name.endsWith('.md')) continue
-    const filePath = hostJoin(runtime.id, agentsDir, entry.name)
-    let content: string
-    try { content = await runtime.file.readFile(filePath) }
-    catch { continue }
-    if (!content.startsWith('---')) continue
-    const end = content.indexOf('\n---', 3)
-    if (end < 0) continue
-    const frontmatter = content.slice(0, end + 4)
-    if (!/^model:\s*/m.test(frontmatter)) continue
-    const stripped = frontmatter.replace(/^model:\s*.*\n/m, '')
-    const updated = stripped + content.slice(end + 4)
-    try {
-      await runtime.file.writeFile(filePath, updated)
-      log.info('[installSubagents] stripped pinned model from %s', filePath)
-    } catch (err) {
-      log.warn('[installSubagents] failed to update %s: %O', filePath, err)
-    }
+    await copyIfChanged(runtime, path.join(srcDir, entry.name), destDir, entry.name)
   }
 }
 
@@ -112,12 +79,6 @@ const installed = createIdempotencyTracker()
  *  local runtime, POSIX path on a remote host). */
 export async function installSubagentExtension(runtime: Runtime, cwd: string): Promise<void> {
   const home = hostAgentDir(runtime.id, cwd)
-  // Whitelist the workspace's pi-agent dir on every call so EditorPanel can
-  // read skill/agent .md files via fs:readFile. Only meaningful for the local
-  // runtime (a local fs path); remote files are validated by the daemon.
-  if (runtime.id === LOCAL_RUNTIME_ID) {
-    try { addAllowedRoot(home) } catch { /* */ }
-  }
   const key = runtime.id + '\0' + home
   if (!installed.shouldInstall(key)) return
   installed.markInstalled(key)
@@ -128,8 +89,8 @@ export async function installSubagentExtension(runtime: Runtime, cwd: string): P
       return
     }
     const extDir = hostJoin(runtime.id, home, 'extensions', 'subagent')
-    await copyIfMissing(runtime, path.join(examples, 'index.ts'), extDir, 'index.ts')
-    await copyIfMissing(runtime, path.join(examples, 'agents.ts'), extDir, 'agents.ts')
+    await copyIfChanged(runtime, path.join(examples, 'index.ts'), extDir, 'index.ts')
+    await copyIfChanged(runtime, path.join(examples, 'agents.ts'), extDir, 'agents.ts')
     const agentsDir = hostJoin(runtime.id, home, 'agents')
     await copyDirContents(runtime, path.join(examples, 'agents'), agentsDir)
     await copyDirContents(
@@ -137,7 +98,6 @@ export async function installSubagentExtension(runtime: Runtime, cwd: string): P
       path.join(examples, 'prompts'),
       hostJoin(runtime.id, home, 'prompts'),
     )
-    await stripPinnedModels(runtime, agentsDir)
   } catch (err) {
     log.warn('[installSubagents] install failed: %O', err)
   }

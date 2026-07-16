@@ -15,7 +15,8 @@ import { useGitTreeFor } from '../stores/gitStatusStore'
 import { getClipboard, hasClipboard } from './fileClipboard'
 import { useAppStore } from '../stores/appStore'
 import { openFileAsPanel } from '../lib/fs/fileRouting'
-import { workspaceDisplayName } from '../lib/fs/displayPath'
+import { pathDisplayName, workspaceDisplayName } from '../lib/fs/displayPath'
+import { isLocalLocator } from '../../main/runtime/locator'
 import { isExternalFileDrag, importDroppedEntries } from '../lib/fs/importExternalEntries'
 import { SidebarSectionHeader, SidebarHeaderButton } from './SidebarSectionHeader'
 
@@ -463,7 +464,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ rootPath }) => {
   const deletePaths = useCallback(async (paths: string[]) => {
     if (!window.electronAPI || paths.length === 0) return
     const label = paths.length === 1
-      ? `"${paths[0].split('/').pop()}"`
+      ? `"${pathDisplayName(paths[0])}"`
       : `${paths.length} items`
     if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return
     for (const p of paths) {
@@ -570,7 +571,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ rootPath }) => {
       { id: 'new-file', label: 'New File…' },
       { id: 'new-folder', label: 'New Folder…' },
       { type: 'separator' },
-      { id: 'reveal', label: 'Reveal in Finder', accelerator: 'Alt+Cmd+R' },
+      // Reveal opens the LOCAL Finder — omitted for a remote workspace root
+      // instead of silently no-oping.
+      ...(isLocalLocator(rootPath)
+        ? [{ id: 'reveal', label: 'Reveal in Finder', accelerator: 'Alt+Cmd+R' }]
+        : []),
       { id: 'open-terminal', label: 'Open in Integrated Terminal' },
       { type: 'separator' },
       { id: 'paste', label: 'Paste', accelerator: 'Cmd+V', enabled: hasClipboard() },
@@ -585,7 +590,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ rootPath }) => {
     switch (id) {
       case 'new-file': startRootCreate('file'); break
       case 'new-folder': startRootCreate('folder'); break
-      case 'reveal': window.electronAPI.shellShowInFolder(rootPath); break
+      case 'reveal': window.electronAPI.shellShowInFolder(rootPath, selectedWorkspaceId); break
       case 'open-terminal':
         createTerminal(selectedWorkspaceId, undefined, undefined, { target: 'dock', zone: 'bottom' })
         break
@@ -692,7 +697,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ rootPath }) => {
                 e.stopPropagation()
               }}
               placeholder="Filter by name"
-              className="w-full bg-surface-5 text-primary text-xs pl-7 pr-2 py-1 rounded border border-subtle focus:border-blue-500/50 outline-none"
+              className="w-full bg-surface-2 text-primary text-xs pl-7 pr-2 py-1 rounded-lg border border-subtle focus:border-focus outline-none"
             />
           </div>
           {searchQuery && (

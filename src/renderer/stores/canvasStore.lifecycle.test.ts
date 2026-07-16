@@ -7,20 +7,50 @@
 // slices in one scenario — the bugs this guards against live at the seams.
 // =============================================================================
 
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 
-// deleteSelection routes panel closure through a lazily-imported appStore.
-const closePanel = vi.fn()
+// deleteSelection routes panel closure through the normal close helper. The
+// appStore mock keeps a live panel-record map so undo/redo can exercise the
+// real recovery flow (records removed on close, re-added on undo).
+const closePanelWithConfirm = vi.fn()
+const wsPanels: Record<string, { id: string; type: string; title: string; isDirty: boolean }> = {}
+const addPanel = vi.fn((_wsId: string, panel: { id: string }) => {
+  wsPanels[panel.id] = panel as (typeof wsPanels)[string]
+})
+const closePanel = vi.fn((_wsId: string, panelId: string) => {
+  delete wsPanels[panelId]
+})
 vi.mock('./appStore', () => ({
   useAppStore: {
-    getState: () => ({ selectedWorkspaceId: 'ws-1', closePanel }),
+    getState: () => ({
+      selectedWorkspaceId: 'ws-1',
+      workspaces: [{ id: 'ws-1', panels: wsPanels }],
+      addPanel,
+      closePanel,
+    }),
   },
 }))
+vi.mock('../lib/closePanelWithConfirm', () => ({ closePanelWithConfirm }))
 
 import { createCanvasStore } from './canvasStore'
 import { focusedNodeId } from './canvas/selectionModel'
 import { ZOOM_MIN, ZOOM_MAX } from '../../shared/types'
 import type { CanvasNodeState } from '../../shared/types'
+
+beforeEach(() => {
+  closePanelWithConfirm.mockReset()
+  // The real closePanelWithConfirm removes the panel record via closePanel.
+  closePanelWithConfirm.mockImplementation(async (_wsId: string, panelId: string) => {
+    delete wsPanels[panelId]
+    return true
+  })
+  addPanel.mockClear()
+  closePanel.mockClear()
+  for (const id of Object.keys(wsPanels)) delete wsPanels[id]
+  for (const id of ['panel-a', 'panel-b', 'panel-c']) {
+    wsPanels[id] = { id, type: 'terminal', title: id, isDirty: false }
+  }
+})
 
 const SIZE = { width: 200, height: 200 }
 
@@ -40,10 +70,6 @@ function nodesOverlap(a: CanvasNodeState, b: CanvasNodeState): boolean {
     a.origin.y < b.origin.y + b.size.height &&
     b.origin.y < a.origin.y + a.size.height
   )
-}
-
-async function flushMicrotasks() {
-  await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 describe('node lifecycle', () => {
@@ -232,31 +258,45 @@ describe('viewport math', () => {
 })
 
 describe('undo/redo across a bulk delete', () => {
-  it('undo restores deleted nodes + selection; redo reapplies the delete', async () => {
+  it('a bulk delete is ONE undo step: undo restores nodes + panel records, redo re-closes', async () => {
     const store = createCanvasStore()
     const { a, b } = addThree(store)
     store.getState().selectNodes([a, b])
 
-    store.getState().deleteSelection()
-    await flushMicrotasks()
-    expect(closePanel).toHaveBeenCalledWith('ws-1', 'panel-a')
-    expect(closePanel).toHaveBeenCalledWith('ws-1', 'panel-b')
+    await store.getState().deleteSelection()
+    expect(closePanelWithConfirm).toHaveBeenCalledWith('ws-1', 'panel-a')
+    expect(closePanelWithConfirm).toHaveBeenCalledWith('ws-1', 'panel-b')
     expect(store.getState().nodes[a].animationState).toBe('exiting')
     expect(store.getState().nodes[b].animationState).toBe('exiting')
     expect(store.getState().selection.length).toBe(0)
+    expect(wsPanels['panel-a']).toBeUndefined()
+    expect(wsPanels['panel-b']).toBeUndefined()
 
-    // deleteSelection pushes once + once per removeNode → two undos rewind it.
-    store.getState().undo()
+    // The whole delete (panel closes + node removals) is a single entry.
     store.getState().undo()
     expect(store.getState().nodes[a].animationState).not.toBe('exiting')
     expect(store.getState().nodes[b].animationState).not.toBe('exiting')
     expect([...store.getState().selection].sort()).toEqual([a, b].sort())
+    // Undo brought the closed panel records back, so the nodes aren't ghosts.
+    expect(wsPanels['panel-a']).toBeDefined()
+    expect(wsPanels['panel-b']).toBeDefined()
 
-    store.getState().redo()
     store.getState().redo()
     expect(store.getState().nodes[a].animationState).toBe('exiting')
     expect(store.getState().nodes[b].animationState).toBe('exiting')
     expect(store.getState().selection.length).toBe(0)
+    // Redo re-applied the delete for real: records closed again.
+    expect(closePanel).toHaveBeenCalledWith('ws-1', 'panel-a')
+    expect(closePanel).toHaveBeenCalledWith('ws-1', 'panel-b')
+    expect(wsPanels['panel-a']).toBeUndefined()
+    expect(wsPanels['panel-b']).toBeUndefined()
+
+    // And undo after redo restores everything again.
+    store.getState().undo()
+    expect(store.getState().nodes[a].animationState).not.toBe('exiting')
+    expect(store.getState().nodes[b].animationState).not.toBe('exiting')
+    expect(wsPanels['panel-a']).toBeDefined()
+    expect(wsPanels['panel-b']).toBeDefined()
   })
 
   it('a new mutation clears the redo stack', () => {

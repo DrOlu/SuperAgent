@@ -13,6 +13,7 @@ import {
   releaseBodyClass,
   bodyClassRefCount,
 } from './bodyClassRefcount'
+import { pinDocumentCursor } from './pinDocumentCursor'
 
 const CLS = 'canvas-interacting'
 
@@ -107,5 +108,18 @@ describe('bodyClassRefcount', () => {
     // The class must survive — the resize still depends on it for pointer-events.
     expect(document.body.classList.contains(CLS)).toBe(true)
     expect(bodyClassRefCount(CLS)).toBe(1)
+  })
+
+  it('cursor pinning releases only its own hold on the shared class', () => {
+    acquireBodyClass(CLS) // active canvas pan
+    const unpin = pinDocumentCursor('col-resize')
+    expect(bodyClassRefCount(CLS)).toBe(2)
+
+    unpin()
+    expect(bodyClassRefCount(CLS)).toBe(1)
+    expect(document.body.classList.contains(CLS)).toBe(true)
+
+    releaseBodyClass(CLS)
+    expect(document.body.classList.contains(CLS)).toBe(false)
   })
 })

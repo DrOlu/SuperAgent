@@ -5,6 +5,8 @@ import { useAppStore } from '../stores/appStore'
 import { ArrowLeft, ArrowRight, Minus, Plus } from '@phosphor-icons/react'
 import { errorMessage } from '../lib/errorMessage'
 import { viewedArrayBuffer } from './documentBytes'
+import { pathDisplayName } from '../lib/fs/displayPath'
+import { isLocalLocator } from '../../main/runtime/locator'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -207,11 +209,11 @@ function PdfViewer({ data }: { data: Uint8Array }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800/60 border-b border-white/5 text-xs text-neutral-400">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800/60 border-b border-subtle text-xs text-neutral-400">
         <button
           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
           disabled={currentPage <= 1}
-          className="p-1 rounded hover:bg-white/10 disabled:opacity-30"
+          className="p-1 rounded-lg hover:bg-white/10 disabled:opacity-30"
         >
           <ArrowLeft size={14} />
         </button>
@@ -221,21 +223,21 @@ function PdfViewer({ data }: { data: Uint8Array }) {
         <button
           onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
           disabled={currentPage >= numPages}
-          className="p-1 rounded hover:bg-white/10 disabled:opacity-30"
+          className="p-1 rounded-lg hover:bg-white/10 disabled:opacity-30"
         >
           <ArrowRight size={14} />
         </button>
         <div className="w-px h-4 bg-white/10 mx-1" />
         <button
           onClick={() => setScale((s) => Math.max(0.5, s - 0.25))}
-          className="p-1 rounded hover:bg-white/10"
+          className="p-1 rounded-lg hover:bg-white/10"
         >
           <Minus size={14} />
         </button>
         <span>{Math.round(scale * 100)}%</span>
         <button
           onClick={() => setScale((s) => Math.min(4, s + 0.25))}
-          className="p-1 rounded hover:bg-white/10"
+          className="p-1 rounded-lg hover:bg-white/10"
         >
           <Plus size={14} />
         </button>
@@ -310,7 +312,7 @@ export default function DocumentPanel({ panelId, workspaceId }: PanelProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fileName = filePath?.split('/').pop() ?? 'Document'
+  const fileName = (filePath && pathDisplayName(filePath)) || 'Document'
 
   const detected = useMemo(() => {
     if (!data) return null
@@ -322,9 +324,9 @@ export default function DocumentPanel({ panelId, workspaceId }: PanelProps) {
 
   const openExternal = useCallback(() => {
     if (filePath) {
-      window.electronAPI.shellShowInFolder(filePath)
+      window.electronAPI.shellShowInFolder(filePath, workspaceId)
     }
-  }, [filePath])
+  }, [filePath, workspaceId])
 
   useEffect(() => {
     if (!filePath) {
@@ -364,12 +366,15 @@ export default function DocumentPanel({ panelId, workspaceId }: PanelProps) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-surface-4 gap-2">
         <span className="text-red-400 text-sm">{error ?? 'Failed to load file'}</span>
-        <button
-          onClick={openExternal}
-          className="text-xs text-neutral-400 hover:text-white underline"
-        >
-          Show in Finder
-        </button>
+        {/* Finder is local-only; a remote file has nothing to show there. */}
+        {filePath && isLocalLocator(filePath) && (
+          <button
+            onClick={openExternal}
+            className="text-xs text-neutral-400 hover:text-white underline"
+          >
+            Show in Finder
+          </button>
+        )}
       </div>
     )
   }

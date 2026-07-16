@@ -20,10 +20,12 @@ import {
 } from '@phosphor-icons/react'
 import { useAppStore } from '../stores/appStore'
 import { SidebarSectionHeader, SidebarHeaderButton } from './SidebarSectionHeader'
+import { pathDisplayName } from '../lib/fs/displayPath'
 import { Tooltip } from '../ui/Tooltip'
-import { useGitStatusSnapshot, gitStatusStore } from '../stores/gitStatusStore'
+import { useGitStatusSnapshot, gitStatusStore, workspaceIdForRoot } from '../stores/gitStatusStore'
 import { useWorktrees } from '../stores/useWorktrees'
 import { errorMessage } from '../lib/errorMessage'
+import { parseLocator, formatLocator } from '../../main/runtime/locator'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,13 +66,23 @@ interface GitLogEntry {
 // ---------------------------------------------------------------------------
 
 function fileName(path: string): string {
-  return path.split('/').pop() || path
+  return pathDisplayName(path) || path
 }
 
 function dirName(path: string): string {
   const parts = path.split('/')
   parts.pop()
   return parts.join('/')
+}
+
+/** Last path segment of a rootPath, for the nested-mode section header.
+ *  rootPath may be a locator (`cate-runtime://<id>/<path>`) for a remote
+ *  workspace, so decode it before taking the basename. */
+function repoDisplayName(rootPath: string): string {
+  let p = rootPath
+  try { p = parseLocator(rootPath).path } catch { /* already a plain path */ }
+  const segs = p.split(/[/\\]/).filter(Boolean)
+  return segs[segs.length - 1] || p
 }
 
 function statusColor(status: string): string {
@@ -149,7 +161,7 @@ const FileEntry: React.FC<{
   const dir = dirName(file.path)
   return (
     <div
-      className="group flex items-center gap-1 px-3 py-[3px] text-[12px] cursor-pointer hover:bg-hover"
+      className="group flex items-center gap-1 mx-1.5 my-0.5 rounded-lg px-3 py-[3px] text-[12px] cursor-pointer hover:bg-hover"
       onClick={onClick}
     >
       <span className={`w-4 text-center font-mono text-[11px] flex-shrink-0 ${statusColor(statusChar)}`}>
@@ -163,7 +175,7 @@ const FileEntry: React.FC<{
         {onDiscard && (
           <Tooltip label="Discard changes">
             <button
-              className="p-0.5 rounded hover:bg-hover text-muted hover:text-red-400"
+              className="p-0.5 rounded-lg hover:bg-hover text-muted hover:text-red-400"
               onClick={(e) => { e.stopPropagation(); onDiscard() }}
               aria-label="Discard changes"
             >
@@ -174,7 +186,7 @@ const FileEntry: React.FC<{
         {onStage && (
           <Tooltip label="Stage file">
             <button
-              className="p-0.5 rounded hover:bg-hover text-muted hover:text-primary"
+              className="p-0.5 rounded-lg hover:bg-hover text-muted hover:text-primary"
               onClick={(e) => { e.stopPropagation(); onStage() }}
               aria-label="Stage file"
             >
@@ -185,7 +197,7 @@ const FileEntry: React.FC<{
         {onUnstage && (
           <Tooltip label="Unstage file">
             <button
-              className="p-0.5 rounded hover:bg-hover text-muted hover:text-primary"
+              className="p-0.5 rounded-lg hover:bg-hover text-muted hover:text-primary"
               onClick={(e) => { e.stopPropagation(); onUnstage() }}
               aria-label="Unstage file"
             >
@@ -216,7 +228,7 @@ const BranchPicker: React.FC<{
 
   const loadBranches = useCallback(async () => {
     try {
-      const result = await window.electronAPI.gitBranchList(rootPath)
+      const result = await window.electronAPI.gitBranchList(rootPath, workspaceIdForRoot(rootPath))
       setBranches(result.branches)
     } catch { /* ignore */ }
   }, [rootPath])
@@ -236,7 +248,7 @@ const BranchPicker: React.FC<{
     setError(null)
     try {
       const branchName = name.replace(/^remotes\/origin\//, '')
-      await window.electronAPI.gitCheckout(rootPath, branchName)
+      await window.electronAPI.gitCheckout(rootPath, branchName, workspaceIdForRoot(rootPath))
       setIsOpen(false)
       onSwitch()
     } catch (err: any) {
@@ -248,7 +260,7 @@ const BranchPicker: React.FC<{
     if (!newBranchName.trim()) return
     setError(null)
     try {
-      await window.electronAPI.gitBranchCreate(rootPath, newBranchName.trim())
+      await window.electronAPI.gitBranchCreate(rootPath, newBranchName.trim(), undefined, workspaceIdForRoot(rootPath))
       setIsOpen(false)
       onSwitch()
     } catch (err: any) {
@@ -261,7 +273,7 @@ const BranchPicker: React.FC<{
     if (name === currentBranch) return
     setError(null)
     try {
-      await window.electronAPI.gitBranchDelete(rootPath, name)
+      await window.electronAPI.gitBranchDelete(rootPath, name, undefined, workspaceIdForRoot(rootPath))
       loadBranches()
     } catch (err: any) {
       setError(errorMessage(err, 'Delete failed'))
@@ -301,15 +313,15 @@ const BranchPicker: React.FC<{
                   value={newBranchName}
                   onChange={(e) => setNewBranchName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setCreating(false) }}
-                  className="flex-1 min-w-0 bg-surface-5 border border-subtle rounded px-2 py-1 text-[11px] text-primary placeholder:text-muted focus:outline-none focus:border-subtle"
+                  className="flex-1 min-w-0 bg-surface-2 border border-subtle rounded-lg px-2 py-1 text-[11px] text-primary placeholder:text-muted focus:outline-none focus:border-subtle"
                   placeholder="New branch name..."
                   autoFocus
                 />
                 <Tooltip label="Create branch">
-                  <button onClick={handleCreate} aria-label="Create branch" className="p-0.5 rounded hover:bg-hover text-green-400/70"><Check size={13} /></button>
+                  <button onClick={handleCreate} aria-label="Create branch" className="p-0.5 rounded-lg hover:bg-hover text-green-400/70"><Check size={13} /></button>
                 </Tooltip>
                 <Tooltip label="Cancel">
-                  <button onClick={() => setCreating(false)} aria-label="Cancel" className="p-0.5 rounded hover:bg-hover text-muted"><X size={13} /></button>
+                  <button onClick={() => setCreating(false)} aria-label="Cancel" className="p-0.5 rounded-lg hover:bg-hover text-muted"><X size={13} /></button>
                 </Tooltip>
               </div>
             ) : (
@@ -317,13 +329,13 @@ const BranchPicker: React.FC<{
                 <input
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
-                  className="flex-1 min-w-0 bg-surface-5 border border-subtle rounded px-2 py-1 text-[11px] text-primary placeholder:text-muted focus:outline-none focus:border-subtle"
+                  className="flex-1 min-w-0 bg-surface-2 border border-subtle rounded-lg px-2 py-1 text-[11px] text-primary placeholder:text-muted focus:outline-none focus:border-subtle"
                   placeholder="Filter branches..."
                 />
                 <Tooltip label="New branch">
                   <button
                     onClick={() => setCreating(true)}
-                    className="p-0.5 rounded hover:bg-hover text-muted hover:text-primary"
+                    className="p-0.5 rounded-lg hover:bg-hover text-muted hover:text-primary"
                     aria-label="New branch"
                   >
                     <Plus size={13} />
@@ -341,7 +353,7 @@ const BranchPicker: React.FC<{
           {filtered(localBranches).map(b => (
             <div
               key={b.name}
-              className={`group flex items-center gap-1 px-3 py-[3px] cursor-pointer hover:bg-hover text-[12px] ${b.current ? 'text-primary' : 'text-secondary'}`}
+              className={`group flex items-center gap-1 mx-1.5 my-0.5 rounded-lg px-3 py-[3px] cursor-pointer hover:bg-hover text-[12px] ${b.current ? 'text-primary' : 'text-secondary'}`}
               onClick={() => handleCheckout(b.name)}
             >
               <GitBranch size={11} className="flex-shrink-0" />
@@ -350,7 +362,7 @@ const BranchPicker: React.FC<{
               {!b.current && (
                 <Tooltip label="Delete branch">
                   <button
-                    className="hidden group-hover:block p-0.5 rounded hover:bg-hover text-muted hover:text-red-400 flex-shrink-0"
+                    className="hidden group-hover:block p-0.5 rounded-lg hover:bg-hover text-muted hover:text-red-400 flex-shrink-0"
                     onClick={(e) => handleDelete(b.name, e)}
                     aria-label="Delete branch"
                   >
@@ -366,7 +378,7 @@ const BranchPicker: React.FC<{
               {filtered(remoteBranches).map(b => (
                 <div
                   key={b.name}
-                  className="flex items-center gap-1 px-3 py-[3px] cursor-pointer hover:bg-hover text-[12px] text-muted"
+                  className="flex items-center gap-1 mx-1.5 my-0.5 rounded-lg px-3 py-[3px] cursor-pointer hover:bg-hover text-[12px] text-muted"
                   onClick={() => handleCheckout(b.name)}
                 >
                   <GitBranch size={11} className="flex-shrink-0" />
@@ -382,14 +394,20 @@ const BranchPicker: React.FC<{
 }
 
 // ---------------------------------------------------------------------------
-// SourceControlView
+// RepoSourceControl — the full single-repo view (staged/changes/branches/log/
+// worktrees + commit box). Rendered standalone when the workspace root is
+// itself a repo, or once per discovered repo (nested) in a multi-repo
+// workspace. `nested` swaps the "Source Control" panel header for a
+// collapsible section headed by the repo's folder name.
 // ---------------------------------------------------------------------------
 
-interface SourceControlViewProps {
+interface RepoSourceControlProps {
   rootPath: string
+  nested?: boolean
 }
 
-export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }) => {
+const RepoSourceControl: React.FC<RepoSourceControlProps> = ({ rootPath, nested = false }) => {
+  const [sectionOpen, setSectionOpen] = useState(true)
   // status + worktrees come from the single per-workspace gitStatusStore (the
   // shared fsWatch + focus + branch-update loop). The Source Control list can
   // therefore no longer disagree with the Explorer / Search git tints. Only the
@@ -432,7 +450,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
     setActionError(null)
     gitStatusStore.refresh(rootPath)
     try {
-      const logResult = await window.electronAPI.gitLog(rootPath, 30)
+      const logResult = await window.electronAPI.gitLog(rootPath, 30, workspaceIdForRoot(rootPath))
       setLogEntries(logResult)
     } catch (err) {
       log.error('Git log error:', err)
@@ -450,8 +468,15 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
   // -------------------------------------------------------------------------
 
   const openFileDiff = useCallback((filePath: string, staged: boolean) => {
-    const fullPath = filePath.startsWith('/') ? filePath : `${rootPath}/${filePath}`
-    createDiffEditor(selectedWorkspaceId, fullPath, staged ? 'staged' : 'working')
+    // filePath is git-relative (POSIX). Join onto the DECODED host root and
+    // re-encode through formatLocator — concatenating onto the raw locator
+    // string corrupts remote filenames whose bytes collide with the percent
+    // encoding. For local roots formatLocator returns the bare path unchanged.
+    const { runtimeId, path: root } = parseLocator(rootPath)
+    const hostPath = filePath.startsWith('/')
+      ? filePath
+      : `${root.replace(/\/+$/, '')}/${filePath}`
+    createDiffEditor(selectedWorkspaceId, formatLocator({ runtimeId, path: hostPath }), staged ? 'staged' : 'working')
   }, [rootPath, selectedWorkspaceId, createDiffEditor])
 
   // -------------------------------------------------------------------------
@@ -459,18 +484,18 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
   // -------------------------------------------------------------------------
 
   const stageFile = useCallback(async (filePath: string) => {
-    await window.electronAPI.gitStage(rootPath, filePath)
+    await window.electronAPI.gitStage(rootPath, filePath, workspaceIdForRoot(rootPath))
     refresh()
   }, [rootPath, refresh])
 
   const unstageFile = useCallback(async (filePath: string) => {
-    await window.electronAPI.gitUnstage(rootPath, filePath)
+    await window.electronAPI.gitUnstage(rootPath, filePath, workspaceIdForRoot(rootPath))
     refresh()
   }, [rootPath, refresh])
 
   const discardFile = useCallback(async (filePath: string) => {
     try {
-      await window.electronAPI.gitDiscardFile(rootPath, filePath)
+      await window.electronAPI.gitDiscardFile(rootPath, filePath, workspaceIdForRoot(rootPath))
       refresh()
     } catch (err: any) {
       setActionError(errorMessage(err, 'Discard failed'))
@@ -479,14 +504,14 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
 
   const stageAll = useCallback(async (files: GitFileStatus[]) => {
     for (const f of files) {
-      await window.electronAPI.gitStage(rootPath, f.path)
+      await window.electronAPI.gitStage(rootPath, f.path, workspaceIdForRoot(rootPath))
     }
     refresh()
   }, [rootPath, refresh])
 
   const unstageAll = useCallback(async (files: GitFileStatus[]) => {
     for (const f of files) {
-      await window.electronAPI.gitUnstage(rootPath, f.path)
+      await window.electronAPI.gitUnstage(rootPath, f.path, workspaceIdForRoot(rootPath))
     }
     refresh()
   }, [rootPath, refresh])
@@ -496,7 +521,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
     setCommitting(true)
     setActionError(null)
     try {
-      await window.electronAPI.gitCommit(rootPath, commitMessage.trim())
+      await window.electronAPI.gitCommit(rootPath, commitMessage.trim(), workspaceIdForRoot(rootPath))
       setCommitMessage('')
       refresh()
     } catch (err: any) {
@@ -511,7 +536,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
     setPushing(true)
     setActionError(null)
     try {
-      await window.electronAPI.gitPush(rootPath)
+      await window.electronAPI.gitPush(rootPath, undefined, undefined, workspaceIdForRoot(rootPath))
       refresh()
     } catch (err: any) {
       setActionError(errorMessage(err, 'Push failed'))
@@ -525,7 +550,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
     setPulling(true)
     setActionError(null)
     try {
-      await window.electronAPI.gitPull(rootPath)
+      await window.electronAPI.gitPull(rootPath, undefined, undefined, workspaceIdForRoot(rootPath))
       refresh()
     } catch (err: any) {
       setActionError(errorMessage(err, 'Pull failed'))
@@ -539,7 +564,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
     setFetching(true)
     setActionError(null)
     try {
-      await window.electronAPI.gitFetch(rootPath)
+      await window.electronAPI.gitFetch(rootPath, undefined, workspaceIdForRoot(rootPath))
       refresh()
     } catch (err: any) {
       setActionError(errorMessage(err, 'Fetch failed'))
@@ -551,7 +576,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
   const stash = useCallback(async () => {
     setActionError(null)
     try {
-      await window.electronAPI.gitStash(rootPath)
+      await window.electronAPI.gitStash(rootPath, undefined, workspaceIdForRoot(rootPath))
       refresh()
     } catch (err: any) {
       setActionError(errorMessage(err, 'Stash failed'))
@@ -561,7 +586,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
   const stashPop = useCallback(async () => {
     setActionError(null)
     try {
-      await window.electronAPI.gitStashPop(rootPath)
+      await window.electronAPI.gitStashPop(rootPath, workspaceIdForRoot(rootPath))
       refresh()
     } catch (err: any) {
       setActionError(errorMessage(err, 'Stash pop failed'))
@@ -591,7 +616,9 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
+      // Floor at 72px (a comfortable multi-line box) and cap at 160 before the
+      // hidden overflow kicks in.
+      textareaRef.current.style.height = `${Math.min(Math.max(textareaRef.current.scrollHeight, 72), 160)}px`
     }
   }, [commitMessage])
 
@@ -607,6 +634,8 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
     )
   }
 
+  const repoName = repoDisplayName(rootPath)
+
   const branchSubtitle = (
     <span className="flex items-center gap-1.5">
       <GitBranch size={11} className="text-muted flex-shrink-0" />
@@ -620,43 +649,65 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
     </span>
   )
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden text-[12px]">
-      <SidebarSectionHeader
-        title="Source Control"
-        subtitle={branchSubtitle}
-        actions={
-          <>
-            <Tooltip label="Fetch from remote">
-              <SidebarHeaderButton onClick={fetch_} aria-label="Fetch from remote" disabled={fetching} spinning={fetching}>
-                <Download size={12} />
-              </SidebarHeaderButton>
-            </Tooltip>
-            <Tooltip label="Pull from remote">
-              <SidebarHeaderButton onClick={pull} aria-label="Pull from remote" disabled={pulling}>
-                <ArrowDown size={12} />
-              </SidebarHeaderButton>
-            </Tooltip>
-            <Tooltip label="Push to remote">
-              <SidebarHeaderButton onClick={push} aria-label="Push to remote" disabled={pushing}>
-                <ArrowUp size={12} />
-              </SidebarHeaderButton>
-            </Tooltip>
-            <Tooltip label="Refresh status">
-              <SidebarHeaderButton onClick={refresh} aria-label="Refresh status" spinning={loading}>
-                <ArrowClockwise size={12} />
-              </SidebarHeaderButton>
-            </Tooltip>
-          </>
-        }
-      />
+  const headerActions = (
+    <>
+      <Tooltip label="Fetch from remote">
+        <SidebarHeaderButton onClick={fetch_} aria-label="Fetch from remote" disabled={fetching} spinning={fetching}>
+          <Download size={12} />
+        </SidebarHeaderButton>
+      </Tooltip>
+      <Tooltip label="Pull from remote">
+        <SidebarHeaderButton onClick={pull} aria-label="Pull from remote" disabled={pulling}>
+          <ArrowDown size={12} />
+        </SidebarHeaderButton>
+      </Tooltip>
+      <Tooltip label="Push to remote">
+        <SidebarHeaderButton onClick={push} aria-label="Push to remote" disabled={pushing}>
+          <ArrowUp size={12} />
+        </SidebarHeaderButton>
+      </Tooltip>
+      <Tooltip label="Refresh status">
+        <SidebarHeaderButton onClick={refresh} aria-label="Refresh status" spinning={loading}>
+          <ArrowClockwise size={12} />
+        </SidebarHeaderButton>
+      </Tooltip>
+    </>
+  )
 
+  // In nested (multi-repo) mode the whole repo body collapses under a header
+  // labelled with the repo's folder name; standalone keeps the full panel.
+  const bodyVisible = !nested || sectionOpen
+
+  return (
+    <div className={nested ? 'flex flex-col text-[12px]' : 'flex flex-col h-full overflow-hidden text-[12px]'}>
+      {nested ? (
+        <div
+          className="flex items-center gap-1 mx-1.5 my-0.5 rounded-lg px-2 py-1 text-[11px] font-medium text-muted cursor-pointer hover:bg-hover select-none"
+          onClick={() => setSectionOpen((v) => !v)}
+        >
+          {sectionOpen ? <CaretDown size={12} /> : <CaretRight size={12} />}
+          <span className="truncate text-secondary flex-shrink-0 max-w-[45%]">{repoName}</span>
+          <span className="flex-1 min-w-0 font-normal normal-case">{branchSubtitle}</span>
+          <div className="flex items-center gap-0.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            {headerActions}
+          </div>
+        </div>
+      ) : (
+        <SidebarSectionHeader
+          title="Source Control"
+          subtitle={branchSubtitle}
+          actions={headerActions}
+        />
+      )}
+
+      {bodyVisible && (
+      <>
       {/* Error banner */}
       {actionError && (
         <div className="flex items-center gap-1 px-2 py-1 bg-red-500/[0.1] text-red-400/80 text-[11px] flex-shrink-0">
           <span className="flex-1 truncate">{actionError}</span>
           <Tooltip label="Dismiss">
-            <button onClick={() => setActionError(null)} aria-label="Dismiss" className="p-0.5 hover:bg-hover rounded">
+            <button onClick={() => setActionError(null)} aria-label="Dismiss" className="p-0.5 hover:bg-hover rounded-lg">
               <X size={12} />
             </button>
           </Tooltip>
@@ -667,7 +718,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
       <div className="px-2 pt-2 pb-2 flex-shrink-0">
         <textarea
           ref={textareaRef}
-          className="w-full bg-surface-5 border border-subtle rounded px-2 py-1.5 text-[12px] text-primary placeholder:text-muted resize-none focus:outline-none focus:border-subtle"
+          className="w-full bg-surface-2 border border-subtle rounded-lg px-2 py-1.5 text-[12px] text-primary placeholder:text-muted resize-none focus:outline-none focus:border-subtle min-h-[72px] no-scrollbar"
           placeholder="Commit message"
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
@@ -681,7 +732,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
         />
         <div className="flex gap-1 mt-1.5">
           <button
-            className="flex-1 py-1 rounded text-[11px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-surface-5 hover:bg-hover text-primary"
+            className="flex-1 py-1 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-surface-2 hover:bg-hover text-primary"
             disabled={!commitMessage.trim() || stagedFiles.length === 0 || committing}
             onClick={commit}
           >
@@ -689,7 +740,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
           </button>
           <Tooltip label="Stash changes" placement="top">
             <button
-              className="px-2 py-1 rounded text-[11px] transition-colors bg-surface-5 hover:bg-hover text-secondary"
+              className="px-2 py-1 rounded-lg text-[11px] transition-colors bg-surface-2 hover:bg-hover text-secondary"
               onClick={stash}
               aria-label="Stash changes"
             >
@@ -698,7 +749,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
           </Tooltip>
           <Tooltip label="Pop latest stash" placement="top">
             <button
-              className="px-2 py-1 rounded text-[11px] transition-colors bg-surface-5 hover:bg-hover text-secondary"
+              className="px-2 py-1 rounded-lg text-[11px] transition-colors bg-surface-2 hover:bg-hover text-secondary"
               onClick={stashPop}
               aria-label="Pop latest stash"
             >
@@ -708,8 +759,9 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
         </div>
       </div>
 
-      {/* Scrollable file sections */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* File sections — the standalone panel scrolls here; nested repos flow
+          into the wrapper's shared scroll container instead. */}
+      <div className={nested ? '' : 'flex-1 min-h-0 overflow-y-auto'}>
         {/* Staged Changes */}
         <Section
           title="Staged Changes"
@@ -717,7 +769,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
           actions={
             <Tooltip label="Unstage all">
               <button
-                className="p-0.5 rounded hover:bg-hover text-muted hover:text-primary"
+                className="p-0.5 rounded-lg hover:bg-hover text-muted hover:text-primary"
                 onClick={() => unstageAll(stagedFiles)}
                 aria-label="Unstage all"
               >
@@ -744,7 +796,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
           actions={
             <Tooltip label="Stage all">
               <button
-                className="p-0.5 rounded hover:bg-hover text-muted hover:text-primary"
+                className="p-0.5 rounded-lg hover:bg-hover text-muted hover:text-primary"
                 onClick={() => stageAll(changedFiles)}
                 aria-label="Stage all"
               >
@@ -773,7 +825,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
           actions={
             <Tooltip label="Stage all">
               <button
-                className="p-0.5 rounded hover:bg-hover text-muted hover:text-primary"
+                className="p-0.5 rounded-lg hover:bg-hover text-muted hover:text-primary"
                 onClick={() => stageAll(untrackedFiles)}
                 aria-label="Stage all"
               >
@@ -805,7 +857,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
           {logEntries.map((entry) => (
             <div
               key={entry.hash}
-              className="flex items-start gap-1.5 px-3 py-[4px] hover:bg-hover text-[11px]"
+              className="flex items-start gap-1.5 mx-1.5 my-0.5 rounded-lg px-3 py-[4px] hover:bg-hover text-[11px]"
             >
               <ClockCounterClockwise size={11} className="text-muted flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
@@ -830,7 +882,7 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
           {worktrees.filter((wt) => !wt.isOrphan).map((wt) => (
             <div
               key={wt.path}
-              className={`flex items-center gap-1.5 px-3 py-[3px] ${
+              className={`flex items-center gap-1.5 mx-1.5 my-0.5 rounded-lg px-3 py-[3px] ${
                 wt.isCurrent ? 'text-primary' : 'text-secondary'
               }`}
               title={wt.path}
@@ -850,6 +902,78 @@ export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }
             No changes detected
           </div>
         )}
+      </div>
+      </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SourceControlView — public entry. Discovers the git repos in the workspace
+// and renders the single-repo view directly when the root itself is a repo (or
+// exactly one repo lives under it, or none is found), or a stacked, collapsible
+// section per repo when the root is a multi-repo parent folder (issue #400).
+// ---------------------------------------------------------------------------
+
+interface SourceControlViewProps {
+  rootPath: string
+}
+
+export const SourceControlView: React.FC<SourceControlViewProps> = ({ rootPath }) => {
+  // null = discovery hasn't resolved yet; render the single view meanwhile so
+  // the common (root-is-a-repo) case never flashes an intermediate layout.
+  const [repos, setRepos] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    if (!rootPath) {
+      setRepos(null)
+      return
+    }
+    let cancelled = false
+    const discover = (): void => {
+      window.electronAPI
+        .gitFindRepos(rootPath, undefined, workspaceIdForRoot(rootPath))
+        .then((found) => { if (!cancelled) setRepos(found) })
+        .catch(() => { if (!cancelled) setRepos([]) })
+    }
+    discover()
+    // Re-scan on focus so a repo created/removed in a subfolder while the app
+    // was backgrounded appears without reopening the workspace. The scan is a
+    // cheap depth-1 directory read.
+    window.addEventListener('focus', discover)
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', discover)
+    }
+  }, [rootPath])
+
+  if (!rootPath) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted text-xs p-4">
+        No folder open
+      </div>
+    )
+  }
+
+  // Single-repo — the common case: root is the repo, one repo sits below it, or
+  // nothing was discovered (yet / at all). Render the full panel as before,
+  // targeting the discovered repo when it differs from the workspace root.
+  if (repos === null || repos.length <= 1) {
+    return <RepoSourceControl rootPath={repos && repos.length === 1 ? repos[0] : rootPath} />
+  }
+
+  // Multi-repo parent folder: one collapsible section per repo.
+  return (
+    <div className="flex flex-col h-full overflow-hidden text-[12px]">
+      <SidebarSectionHeader
+        title="Source Control"
+        subtitle={<span className="text-muted">{repos.length} repositories</span>}
+      />
+      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-subtle">
+        {repos.map((repo) => (
+          <RepoSourceControl key={repo} rootPath={repo} nested />
+        ))}
       </div>
     </div>
   )

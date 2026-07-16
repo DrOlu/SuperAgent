@@ -5,7 +5,7 @@ const releaseCanvasStoreForPanel = vi.fn()
 const release = vi.fn()
 const dispose = vi.fn()
 const disposeAgentPanel = vi.fn()
-const canvasNodes: Record<string, { id: string; panelId: string }> = {}
+const canvasNodes: Record<string, { id: string; dockLayout: { type: 'tabs'; id: string; panelIds: string[]; activeIndex: number } }> = {}
 // Per-id panel types resolved by the child agent-dispose lookup.
 const panelTypes: Record<string, string> = {}
 
@@ -31,11 +31,19 @@ vi.mock('../../../agent/renderer/agentSessionRegistry', () => ({
 
 vi.mock('../../stores/canvasStore', () => ({
   getOrCreateCanvasStoreForPanel: () => ({ getState: () => ({ nodes: canvasNodes }) }),
+  peekCanvasStoreForPanel: () => ({ getState: () => ({
+    nodes: canvasNodes,
+    zoomLevel: 1,
+    viewportOffset: { x: 0, y: 0 },
+  }) }),
   releaseCanvasStoreForPanel: (id: string) => releaseCanvasStoreForPanel(id),
 }))
 
-// Force the node.panelId fallback (no live mini-dock layout).
-vi.mock('../workspace/canvasAccess', () => ({ getNodeDockLayout: () => null }))
+// Force the persisted node dock layout path (no live mini-dock layout).
+vi.mock('../workspace/canvasAccess', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../workspace/canvasAccess')>()),
+  getNodeDockLayout: () => null,
+}))
 
 vi.mock('../terminal/terminalRegistry', () => ({
   terminalRegistry: {
@@ -49,7 +57,10 @@ import { removePanelFromWindow } from './removePanelFromWindow'
 function setCanvasNodes(children: string[]) {
   for (const k of Object.keys(canvasNodes)) delete canvasNodes[k]
   children.forEach((panelId, i) => {
-    canvasNodes[`n${i}`] = { id: `n${i}`, panelId }
+    canvasNodes[`n${i}`] = {
+      id: `n${i}`,
+      dockLayout: { type: 'tabs', id: `s${i}`, panelIds: [panelId], activeIndex: 0 },
+    }
   })
 }
 

@@ -15,7 +15,7 @@ import type { PanelType, Point, Size } from '../../shared/types'
 import { getCursorForEdge } from './resizeEdge'
 import type { ResizeEdge } from './resizeEdge'
 import { pinDocumentCursor } from '../lib/dom/pinDocumentCursor'
-import { acquireBodyClass, releaseBodyClass } from '../lib/dom/bodyClassRefcount'
+import { activeDockPanelId } from '../../shared/collectPanelIds'
 
 // Re-exported so existing importers (CanvasNode, useNodeResizeCursor,
 // NodeResizeOverlay) keep importing from this module unchanged.
@@ -111,11 +111,6 @@ export function useNodeResize(
       const resizeCursor = getCursorForEdge(edge)
       document.body.style.cursor = resizeCursor
       const unpinCursor = pinDocumentCursor(resizeCursor)
-      // Take a refcount on the shared `canvas-interacting` class (pinDocumentCursor
-      // already added it). This keeps a concurrent wheel-pan's ~150ms quiet timer
-      // from stripping the class — and the pointer-events overrides it carries —
-      // out from under the live resize.
-      acquireBodyClass('canvas-interacting')
 
       // Detect shared borders for cardinal edges
       if (isCardinalEdge(edge)) {
@@ -129,7 +124,8 @@ export function useNodeResize(
 
         neighborStartRef.current = borders.map((b) => {
           const neighbor = state.nodes[b.neighborId]
-          const neighborPanel = ws?.panels[neighbor.panelId]
+          const neighborPanelId = activeDockPanelId(neighbor.dockLayout)
+          const neighborPanel = neighborPanelId ? ws?.panels[neighborPanelId] : undefined
           const neighborPanelType = neighborPanel?.type ?? 'terminal'
           return {
             id: b.neighborId,
@@ -414,7 +410,6 @@ export function useNodeResize(
         window.removeEventListener('blur', handleBlur)
         document.body.style.cursor = previousBodyCursor
         unpinCursor()
-        releaseBodyClass('canvas-interacting')
       }
 
       const handleMouseUp = (ev: MouseEvent) => {

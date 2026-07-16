@@ -32,7 +32,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 const DEAD_ZONE_PX = 4
 
 // -----------------------------------------------------------------------------
-// Dispatcher state — owned by the DragSession (per-window). The default
+// Dispatcher state — owned by RendererSession (per-window). The default
 // singleton is used here; `useDragOp` will eventually thread the per-window
 // session in, but in Phase 3 the singleton covers every real-world case
 // (only one window has the cursor at any moment).
@@ -79,11 +79,10 @@ function specToDragSource(spec: DragOpSourceSpec): DragSource {
         kind: 'canvas-node',
         canvasStoreApi: spec.canvasStoreApi,
         nodeId: spec.nodeId,
+        startOrigin: spec.startOrigin,
+        members: spec.members,
       },
     }
-  }
-  if (spec.kind === 'panel-window') {
-    return { panelId: spec.panelId, origin: { kind: 'panel-window' } }
   }
   return {
     panelId: spec.panelId,
@@ -205,19 +204,6 @@ function measureDragGeometry(
     return measureCanvasNodeGrab(spec.canvasStoreApi, spec.nodeId, cursorClient, spec.panelType)
   }
 
-  if (spec.kind === 'panel-window') {
-    // Ghost mirrors the panel window itself — use the renderer's inner size
-    // so the receiving canvas/dock places a node of the same footprint.
-    const ghostSize: Size = {
-      width: Math.max(window.innerWidth, 200),
-      height: Math.max(window.innerHeight, 120),
-    }
-    const grab: Point = sourceRect
-      ? { x: cursorClient.x - sourceRect.left, y: cursorClient.y - sourceRect.top }
-      : { x: ghostSize.width / 2, y: 12 }
-    return { grab, ghostSize, ghostZoom: 1 }
-  }
-
   // dock-tab: when this tab lives in a per-canvas-node mini-dock, fall back to
   // the canvas-node measurement (DockTabStack normally re-dispatches as a
   // canvas-node spec before reaching here, so this only fires when the spec
@@ -277,16 +263,9 @@ function buildSnapshotFor(spec: DragOpSourceSpec): PanelTransferSnapshot | null 
 
   const drag = useDragStore.getState()
   const size = drag.ghostSize ?? PANEL_DEFAULT_SIZES[spec.panelType]
-  // panel-window: windowId is filled in by the main process during
-  // PANEL_RECEIVE routing; 0 is a placeholder ("the source detached window")
-  // that nothing reads back.
-  const location =
-    spec.kind === 'panel-window'
-      ? { type: 'detached' as const, windowId: 0 }
-      : { type: 'dock' as const, zone: spec.zone, stackId: spec.stackId }
   return createTransferSnapshot(
     panel,
-    location,
+    { type: 'dock', zone: spec.zone, stackId: spec.stackId },
     { origin: { x: 0, y: 0 }, size },
     { resolveChildPanel, workspaceRootPath: rootPath, worktrees },
   )
@@ -375,11 +354,9 @@ function runEffects(prevActive: ActiveDispatch, next: RuntimeState) {
   }
 }
 
-/** Resolve the workspace id that owns the dragged panel. In a main window this
- *  is the live selection. In a detached PANEL window selectedWorkspaceId is the
- *  in-window stub id (and may be '' before a panel is ensured), so callers pass
- *  the shell's effective id (`workspaceId || 'detached-panel-window'`) which we
- *  prefer over the (possibly empty/stub) store value. */
+/** Resolve the workspace id that owns the dragged panel. Detached dock windows
+ * pass their shell workspace id because their selected-workspace mirror may not
+ * be initialized when a drag begins. */
 function resolveOwningWorkspaceId(override?: string): string {
   if (override) return override
   return useAppStore.getState().selectedWorkspaceId
@@ -417,10 +394,15 @@ function onMouseMove(ev: MouseEvent) {
 
   const inside = cursorInsideWindow(client)
   // Build snapshot on the just-crossed boundary in case the runtime needs it
-  // to emit a cross-window-start effect.
+  // to emit a cross-window-start effect. A grouped canvas-node drag (multi-
+  // selection) can't detach — it's a pure in-window group reposition — so never
+  // build the snapshot for it: no snapshot means no cross-window native ghost,
+  // matching resolveDrop refusing every off-canvas target for grouped sources.
+  const isGrouped =
+    active.spec.kind === 'canvas-node' && !!active.spec.members?.length
   const wasInside = active.runtime.state.cursor?.insideWindow ?? true
   const snapshot =
-    wasInside && !inside && !active.runtime.crossWindowActive
+    !isGrouped && wasInside && !inside && !active.runtime.crossWindowActive
       ? buildSnapshotFor(active.spec)
       : null
 

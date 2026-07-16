@@ -1,9 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 
-// decideQuitPrompt is a pure function, but shutdown.ts imports the whole main
-// process graph (electron + native-backed siblings) at module load. Stub every
-// top-level import so the module evaluates in a plain node test env; none of
-// these are exercised by the function under test.
+// runHardExit takes its collaborators as arguments, but shutdown.ts imports the
+// whole main process graph (electron + native-backed siblings) at module load.
+// Stub every top-level import so the module evaluates in a plain node test env;
+// none of these are exercised by the function under test.
+//
+// The quit confirmation itself lives in ./quitConfirm — see quitConfirm.test.ts
+// for decideQuitPrompt and the guard's Cancel/Quit behavior.
 vi.mock('electron', () => {
   const e = { app: {}, BrowserWindow: {}, ipcMain: {}, dialog: {} }
   return { ...e, default: e }
@@ -16,6 +19,7 @@ vi.mock('../windowRegistry', () => ({
   sendToWindow: () => {},
   listDockWindowIds: () => [],
 }))
+vi.mock('../windowPanels', () => ({ getWindowPanels: () => [] }))
 vi.mock('../dockWindowFlush', () => ({ flushDockWindowsBeforeQuit: () => Promise.resolve() }))
 vi.mock('../ipc/terminal', () => ({ flushAllLoggers: () => {}, killAllTerminals: () => {} }))
 vi.mock('../ipc/shell', () => ({ getRunningTerminals: () => [] }))
@@ -26,50 +30,58 @@ vi.mock('../browserStateStore', () => ({ flushBrowserStateSync: () => {} }))
 vi.mock('../uiStateStore', () => ({ flushUIStateSync: () => {} }))
 vi.mock('../projectLock', () => ({ releaseAllProjectLocks: () => {} }))
 vi.mock('../runtime/runtimeManager', () => ({ runtimes: { disposeAll: () => Promise.resolve() } }))
+vi.mock('../extensions/ExtensionServerManager', () => ({
+  extensionServerManager: { disposeAll: () => Promise.resolve() },
+}))
+vi.mock('../extensions/storage', () => ({ flushAllPendingWritesSync: () => {} }))
 vi.mock('../auto-updater', () => ({ isUpdatePendingInstall: () => false }))
 
-const { decideQuitPrompt } = await import('./shutdown')
+const { runHardExit } = await import('./shutdown')
 
-describe('decideQuitPrompt', () => {
-  it('does not prompt when nothing is running and warn-before-quit is off', () => {
-    expect(decideQuitPrompt({ warnBeforeQuit: false, running: [] })).toBeNull()
+describe('runHardExit', () => {
+  it('prevents natural teardown, awaits dispose, then exits — in that order', async () => {
+    const order: string[] = []
+    const preventDefault = vi.fn(() => order.push('preventDefault'))
+    const disposeAll = vi.fn(
+      () =>
+        new Promise<void>((resolve) =>
+          setTimeout(() => {
+            order.push('disposed')
+            resolve()
+          }, 5),
+        ),
+    )
+    const exit = vi.fn(() => order.push('exit'))
+
+    await runHardExit({ preventDefault }, { disposeAll, exit, timeoutMs: 1000 })
+
+    expect(preventDefault).toHaveBeenCalledOnce()
+    expect(disposeAll).toHaveBeenCalledOnce()
+    expect(exit).toHaveBeenCalledWith(0)
+    // preventDefault must run before dispose is even started, and exit only after
+    // dispose settles.
+    expect(order).toEqual(['preventDefault', 'disposed', 'exit'])
   })
 
-  it('prompts a plain quit confirmation when warn-before-quit is on', () => {
-    const prompt = decideQuitPrompt({ warnBeforeQuit: true, running: [] })
-    expect(prompt).not.toBeNull()
-    expect(prompt!.message).toBe('Quit Cate?')
-    expect(prompt!.detail).toBeUndefined()
+  it('still exits when dispose exceeds the timeout (never hangs quit)', async () => {
+    const preventDefault = vi.fn()
+    // A dispose that never settles — the timeout must win and exit anyway.
+    const disposeAll = vi.fn(() => new Promise<void>(() => {}))
+    const exit = vi.fn()
+
+    await runHardExit({ preventDefault }, { disposeAll, exit, timeoutMs: 1 })
+
+    expect(preventDefault).toHaveBeenCalledOnce()
+    expect(exit).toHaveBeenCalledWith(0)
   })
 
-  it('warns about a single running terminal, naming the process', () => {
-    const prompt = decideQuitPrompt({
-      warnBeforeQuit: false,
-      running: [{ processName: 'npm run dev' }],
-    })
-    expect(prompt!.message).toBe('“npm run dev” is still running. Quit anyway?')
-    expect(prompt!.detail).toContain('process running in this terminal')
-  })
+  it('exits even if dispose rejects', async () => {
+    const preventDefault = vi.fn()
+    const disposeAll = vi.fn(() => Promise.reject(new Error('boom')))
+    const exit = vi.fn()
 
-  it('falls back to a generic message when the single process name is unknown', () => {
-    const prompt = decideQuitPrompt({ warnBeforeQuit: false, running: [{ processName: null }] })
-    expect(prompt!.message).toBe('A terminal is still running. Quit anyway?')
-  })
+    await runHardExit({ preventDefault }, { disposeAll, exit, timeoutMs: 1000 })
 
-  it('counts multiple running terminals', () => {
-    const prompt = decideQuitPrompt({
-      warnBeforeQuit: false,
-      running: [{ processName: 'vim' }, { processName: 'top' }],
-    })
-    expect(prompt!.message).toBe('2 terminals are still running. Quit anyway?')
-    expect(prompt!.detail).toContain('these terminals')
-  })
-
-  it('lets a running-terminal warning take precedence over the plain quit prompt', () => {
-    const prompt = decideQuitPrompt({
-      warnBeforeQuit: true,
-      running: [{ processName: 'vim' }],
-    })
-    expect(prompt!.message).toContain('still running')
+    expect(exit).toHaveBeenCalledWith(0)
   })
 })

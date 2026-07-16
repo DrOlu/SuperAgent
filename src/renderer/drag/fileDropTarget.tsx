@@ -10,8 +10,9 @@
 
 import React, { useEffect } from 'react'
 import { create } from 'zustand'
+import { CATE_FILE_MIME, CATE_FILES_MIME } from './fileDragPayload'
 
-export type FileDropKind = 'canvas' | 'dock' | 'agent' | 'terminal'
+export type FileDropKind = 'canvas' | 'dock' | 'agent' | 'terminal' | 'extension'
 
 interface FileDropTarget {
   kind: FileDropKind
@@ -33,8 +34,8 @@ function isFileDrag(e: DragEvent): boolean {
   const types = e.dataTransfer?.types
   if (!types) return false
   return (
-    types.includes('application/cate-file') ||
-    types.includes('application/cate-files') ||
+    types.includes(CATE_FILE_MIME) ||
+    types.includes(CATE_FILES_MIME) ||
     types.includes('Files')
   )
 }
@@ -87,6 +88,7 @@ const LABEL: Record<FileDropKind, string> = {
   dock: 'Drop to open here',
   agent: 'Drop file to add to chat',
   terminal: 'Drop to paste path',
+  extension: 'Drop file here',
 }
 
 /** Single indicator for the active file-drop target. Mirrors the internal

@@ -7,6 +7,8 @@ import { useCanvasStoreContext, useCanvasStoreApi, shallow } from '../stores/Can
 import { useWorkspacePanels, useAppStore } from '../stores/appStore'
 import { useAgentInfoByPanel } from '../hooks/useAgentPanelInfo'
 import { useUIStateStore } from '../stores/uiStateStore'
+import { useWorktreeMembership } from './worktree/useWorktreeMembership'
+import { activeDockPanelId } from '../../shared/collectPanelIds'
 
 // Default minimap size lives in DEFAULT_UI_STATE (shared/types); the floating
 // size is restored from ui-state.json.
@@ -56,6 +58,16 @@ const Minimap: React.FC<MinimapProps> = ({ mode = 'floating' }) => {
   // scope `useWorkspacePanels()` reads from, so they line up with the nodes.
   const workspaceId = useAppStore((s) => s.selectedWorkspaceId)
   const agentInfoByPanel = useAgentInfoByPanel(workspaceId)
+  // Worktree membership: which nodes belong to which parallel branch, and in
+  // what color. Empty (no outlines drawn) unless the workspace has 2+ worktrees
+  // — same gate the canvas terrace uses, so the minimap never disagrees.
+  const { groups } = useWorktreeMembership()
+  // nodeId → worktree color, so each node rect can carry its branch color.
+  const nodeColorById = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const g of groups) for (const id of g.nodeIds) map[id] = g.color
+    return map
+  }, [groups])
   const canvasApi = useCanvasStoreApi()
   const minimapRef = useRef<HTMLDivElement>(null)
   // Ref to the viewport indicator div — updated imperatively on pan
@@ -297,13 +309,17 @@ const Minimap: React.FC<MinimapProps> = ({ mode = 'floating' }) => {
 
       {/* Node rectangles */}
       {nodeList.map((node) => {
-        const panel = panels?.[node.panelId]
+        const panelId = activeDockPanelId(node.dockLayout)
+        const panel = panelId ? panels?.[panelId] : undefined
         const type = panel?.type || 'terminal'
         const rectW = Math.max(node.size.width * scale, 2)
         const rectH = Math.max(node.size.height * scale, 2)
         // Show the agent logo when an agent is open in this panel's terminal.
-        const agentLogo = agentInfoByPanel[node.panelId]?.logo ?? null
+        const agentLogo = panelId ? agentInfoByPanel[panelId]?.logo ?? null : null
         const iconSize = Math.min(rectW, rectH) - 2
+        // Outline the rect in its worktree color (if any) so each panel reads
+        // as belonging to a branch.
+        const worktreeColor = nodeColorById[node.id]
         return (
           <div
             key={node.id}
@@ -319,6 +335,10 @@ const Minimap: React.FC<MinimapProps> = ({ mode = 'floating' }) => {
               width: rectW,
               height: rectH,
               backgroundColor: themedPanelColor(type),
+              // Worktree color as a 2px ring drawn outside the rect, so it stays
+              // visible without eating into the small panel fill.
+              boxShadow: worktreeColor ? `0 0 0 2px ${worktreeColor}` : undefined,
+              boxSizing: 'border-box',
               borderRadius: 1,
               opacity: 1,
               cursor: 'pointer',

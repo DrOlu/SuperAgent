@@ -25,25 +25,29 @@ import {
   GraduationCap,
   PuzzlePiece,
   X,
-  MapTrifold,
   Selection,
   ArrowUUpLeft,
   ArrowUUpRight,
+  ChatCircle,
+  Eye,
+  CaretLeft,
+  CaretRight,
 } from '@phosphor-icons/react'
-import type { PanelType, MenuActionId } from '../../shared/types'
-import { CateLogo } from './CateLogo'
+import { browserPanelUrl, SHORTCUT_DISPLAY_NAMES, type PanelType, type MenuActionId, type ShortcutAction } from '../../shared/types'
 import { PaletteDialogShell } from './Modal'
 import { useUIStore } from '../stores/uiStore'
 import { useAppStore } from '../stores/appStore'
 import { useOtherWindowPanels } from '../stores/windowPanelStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { useCanvasStoreApi } from '../stores/CanvasStoreContext'
+import { useOptionalCanvasStoreApi } from '../stores/CanvasStoreContext'
 import { WindowTypeContext } from '../stores/WindowTypeContext'
 import { runAction } from '../lib/runAction'
 import { useWorkspacePanelTree } from '../lib/workspace/useWorkspacePanelTree'
 import { revealPanel } from '../lib/workspace/panelReveal'
 import { openFileAsPanel } from '../lib/fs/fileRouting'
 import { getRecentFiles } from '../lib/fs/recentFiles'
+import { pathDisplayName, relativeDisplayPath } from '../lib/fs/displayPath'
+import { cateAgentController } from '../cateAgent/cateAgentController'
 
 // -----------------------------------------------------------------------------
 // Command definitions
@@ -74,11 +78,13 @@ const ReloadIcon = () => <ArrowsClockwise size={ICON_SIZE} />
 const DeleteRuntimeIcon = () => <Trash size={ICON_SIZE} />
 const TutorialIcon = () => <GraduationCap size={ICON_SIZE} />
 const SkillsIcon = () => <PuzzlePiece size={ICON_SIZE} />
-const AgentIcon = () => <CateLogo size={ICON_SIZE} />
+const AgentIcon = () => <ChatCircle size={ICON_SIZE} />
+const ObserveIcon = () => <Eye size={ICON_SIZE} />
 const CloseIcon = () => <X size={ICON_SIZE} />
-const MinimapIcon = () => <MapTrifold size={ICON_SIZE} />
 const UndoIcon = () => <ArrowUUpLeft size={ICON_SIZE} />
 const RedoIcon = () => <ArrowUUpRight size={ICON_SIZE} />
+const PreviousWorkspaceIcon = () => <CaretLeft size={ICON_SIZE} />
+const NextWorkspaceIcon = () => <CaretRight size={ICON_SIZE} />
 
 // -----------------------------------------------------------------------------
 // Result types
@@ -117,7 +123,7 @@ export const CommandPalette: React.FC = () => {
   const showCommandPalette = useUIStore((s) => s.showCommandPalette)
   const setShowCommandPalette = useUIStore((s) => s.setShowCommandPalette)
   const selectedWorkspaceId = useAppStore((s) => s.selectedWorkspaceId)
-  const canvasApi = useCanvasStoreApi()
+  const canvasApi = useOptionalCanvasStoreApi()
   // Detached windows have no sidebar, so sidebar toggles are hidden there.
   const isMainWindow = useContext(WindowTypeContext) === 'main'
 
@@ -147,35 +153,49 @@ export const CommandPalette: React.FC = () => {
   // context-aware (drops onto the focused canvas or tabs into the focused dock
   // stack) exactly like ⌘T / ⌘⇧B do, instead of the old dock-center default.
   const run = useCallback(
-    (action: MenuActionId) => () => { void runAction(action, canvasApi) },
+    (action: MenuActionId) => () => { void runAction(action, canvasApi ?? undefined) },
     [canvasApi],
   )
+  const shortcutTitle = useCallback((action: ShortcutAction) => SHORTCUT_DISPLAY_NAMES[action], [])
 
   // Build command items
   const allCommands: CommandItem[] = useMemo(
     () => [
-      { id: 'newTerminal', title: 'New Terminal', icon: <TerminalIcon />, action: run('newTerminal') },
-      { id: 'newBrowser', title: 'New Browser', icon: <GlobeIcon />, action: run('newBrowser') },
-      { id: 'newEditor', title: 'New Editor', icon: <FileTextIcon />, action: run('newEditor') },
-      { id: 'newAgent', title: 'New SuperAgent Agent', icon: <AgentIcon />, action: run('newAgent') },
-      { id: 'newCanvas', title: 'New Canvas', icon: <LayoutIcon />, action: run('newCanvas') },
-      { id: 'closePanel', title: 'Close Panel', icon: <CloseIcon />, action: run('closePanel') },
-      { id: 'saveFile', title: 'Save File', icon: <SaveIcon />, action: run('saveFile') },
+      { id: 'newTerminal', title: shortcutTitle('newTerminal'), icon: <TerminalIcon />, action: run('newTerminal') },
+      { id: 'newBrowser', title: shortcutTitle('newBrowser'), icon: <GlobeIcon />, action: run('newBrowser') },
+      { id: 'newEditor', title: shortcutTitle('newEditor'), icon: <FileTextIcon />, action: run('newEditor') },
+      { id: 'newAgent', title: shortcutTitle('newAgent'), icon: <AgentIcon />, action: run('newAgent') },
+      {
+        id: 'observeNow',
+        title: 'Run Cate Agent Observer',
+        icon: <ObserveIcon />,
+        // Ensure the observer session is running (summon is idempotent — starts it
+        // if needed, returns early otherwise) then force one observe turn now.
+        action: () => {
+          const app = useAppStore.getState()
+          const wsId = app.selectedWorkspaceId
+          const ws = app.workspaces.find((w) => w.id === wsId)
+          if (!ws?.rootPath) return
+          void cateAgentController.summon(wsId, ws.rootPath).then(() => cateAgentController.observeNow(wsId))
+        },
+      },
+      { id: 'newCanvas', title: shortcutTitle('newCanvas'), icon: <LayoutIcon />, action: run('newCanvas') },
+      { id: 'closePanel', title: shortcutTitle('closePanel'), icon: <CloseIcon />, action: run('closePanel') },
+      { id: 'saveFile', title: shortcutTitle('saveFile'), icon: <SaveIcon />, action: run('saveFile') },
       // Sidebar toggles only exist in the main window; hidden in detached windows.
       ...(isMainWindow
         ? [
-            { id: 'toggleSidebar', title: 'Toggle Sidebar', icon: <SidebarIcon />, action: run('toggleSidebar') },
-            { id: 'toggleFileExplorer', title: 'Toggle File Explorer', icon: <FolderOpenIcon />, action: run('toggleFileExplorer') },
-            { id: 'toggleSearch', title: 'Toggle Search', icon: <SearchIcon />, action: run('toggleSearch') },
+            { id: 'toggleSidebar', title: shortcutTitle('toggleSidebar'), icon: <SidebarIcon />, action: run('toggleSidebar') },
+            { id: 'toggleFileExplorer', title: shortcutTitle('toggleFileExplorer'), icon: <FolderOpenIcon />, action: run('toggleFileExplorer') },
+            { id: 'toggleSearch', title: shortcutTitle('toggleSearch'), icon: <SearchIcon />, action: run('toggleSearch') },
           ]
         : []),
-      { id: 'toggleMinimap', title: 'Toggle Minimap', icon: <MinimapIcon />, action: run('toggleMinimap') },
-      { id: 'zoomReset', title: 'Reset Zoom', icon: <ZoomResetIcon />, action: run('zoomReset') },
-      { id: 'zoomToFit', title: 'Zoom to Fit', icon: <ZoomToFitIcon />, action: run('zoomToFit') },
-      { id: 'zoomToSelection', title: 'Zoom to Selection', icon: <ZoomSelectionIcon />, action: run('zoomToSelection') },
-      { id: 'autoLayout', title: 'Auto-Layout Canvas', icon: <LayersIcon />, action: run('autoLayout') },
-      { id: 'undo', title: 'Undo', icon: <UndoIcon />, action: run('undo') },
-      { id: 'redo', title: 'Redo', icon: <RedoIcon />, action: run('redo') },
+      { id: 'zoomReset', title: shortcutTitle('zoomReset'), icon: <ZoomResetIcon />, action: run('zoomReset') },
+      { id: 'zoomToFit', title: shortcutTitle('zoomToFit'), icon: <ZoomToFitIcon />, action: run('zoomToFit') },
+      { id: 'zoomToSelection', title: shortcutTitle('zoomToSelection'), icon: <ZoomSelectionIcon />, action: run('zoomToSelection') },
+      { id: 'autoLayout', title: shortcutTitle('autoLayout'), icon: <LayersIcon />, action: run('autoLayout') },
+      { id: 'undo', title: shortcutTitle('undo'), icon: <UndoIcon />, action: run('undo') },
+      { id: 'redo', title: shortcutTitle('redo'), icon: <RedoIcon />, action: run('redo') },
       { id: 'manageLayouts', title: 'Saved Layouts…', icon: <SaveIcon />, action: run('manageLayouts') },
       {
         id: 'skills',
@@ -193,6 +213,8 @@ export const CommandPalette: React.FC = () => {
           try { window.electronAPI?.trackFeatureUsed?.('onboarding_replayed') } catch { /* noop */ }
         },
       },
+      { id: 'previousWorkspace', title: shortcutTitle('previousWorkspace'), icon: <PreviousWorkspaceIcon />, action: run('previousWorkspace') },
+      { id: 'nextWorkspace', title: shortcutTitle('nextWorkspace'), icon: <NextWorkspaceIcon />, action: run('nextWorkspace') },
       { id: 'reloadWorkspace', title: 'Reload Workspace from Disk', icon: <ReloadIcon />, action: run('reloadWorkspace') },
       // Remote-only: delete the daemon from the host. Main re-probes to the
       // 'missing' phase; the canvas lock then offers "Install Runtime" for a
@@ -206,7 +228,7 @@ export const CommandPalette: React.FC = () => {
           }]
         : []),
     ],
-    [run, isMainWindow, isRemoteWorkspace, deleteRuntime, selectedWorkspaceId],
+    [run, shortcutTitle, isMainWindow, isRemoteWorkspace, deleteRuntime, selectedWorkspaceId],
   )
 
   // Open panels in the current workspace.
@@ -243,7 +265,7 @@ export const CommandPalette: React.FC = () => {
         panelId: panel.id,
         title,
         type: panel.type,
-        secondary: panel.filePath ?? panel.url ?? panel.type,
+        secondary: panel.filePath ?? browserPanelUrl(panel) ?? panel.type,
       })
     }
     for (const panel of otherWindowPanels) {
@@ -296,8 +318,8 @@ export const CommandPalette: React.FC = () => {
       .filter((p) => !openPaths.has(p))
       .map((p) => ({
         path: p,
-        name: p.split('/').pop() ?? p,
-        relativePath: rootPath && p.startsWith(rootPath) ? p.slice(rootPath.length).replace(/^\/+/, '') : p,
+        name: pathDisplayName(p) || p,
+        relativePath: relativeDisplayPath(p, rootPath ?? ''),
       }))
   }, [query, panels, selectedWorkspaceId, rootPath])
 
@@ -354,9 +376,10 @@ export const CommandPalette: React.FC = () => {
         panelId = existing?.id
       }
       if (!panelId) panelId = openFileAsPanel(wsId, file.path)
-      const cs = canvasApi.getState()
-      const node = panelId ? Object.values(cs.nodes).find((n) => n.panelId === panelId) : undefined
-      if (node) cs.focusAndCenter(node.id)
+      const cs = canvasApi?.getState()
+      if (!cs) return
+      const nodeId = panelId ? cs.nodeForPanel(panelId) : null
+      if (nodeId) cs.focusAndCenter(nodeId)
     },
     [canvasApi],
   )
@@ -562,6 +585,6 @@ function PanelIcon({ type }: { type: PanelType }) {
   if (type === 'terminal') return <span className={`${cls} text-emerald-400`}><Terminal size={ICON_SIZE} /></span>
   if (type === 'browser')  return <span className={`${cls} text-sky-400`}><Globe size={ICON_SIZE} /></span>
   if (type === 'editor' || type === 'document') return <span className={`${cls} text-orange-400`}><FileText size={ICON_SIZE} /></span>
-  if (type === 'agent')    return <span className={`${cls} text-[rgb(var(--agent-rgb))]`}><CateLogo size={ICON_SIZE} /></span>
+  if (type === 'agent')    return <span className={`${cls} text-[rgb(var(--agent-rgb))]`}><ChatCircle size={ICON_SIZE} /></span>
   return <span className={`${cls} text-violet-400`}><Square size={ICON_SIZE} /></span>
 }

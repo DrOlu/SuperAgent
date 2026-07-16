@@ -21,8 +21,9 @@ import {
   getWorkspaceCanvasPanelIds,
   getWorkspaceDockSnapshot,
 } from './canvasAccess'
-import { collectPanelIds } from '../canvas/collectPanelIds'
+import { collectPanelIds } from '../../../shared/collectPanelIds'
 import { partitionWorkspacePanels, buildColdStartCanvasChildOwners } from '../../sidebar/partitionWorkspacePanels'
+import { sortWorkspacePanels } from '../../sidebar/sortWorkspacePanels'
 
 const EMPTY_PANELS: Record<string, PanelState> = {}
 
@@ -45,9 +46,8 @@ export interface WorkspacePanelTree {
 
 // Subscribe to every canvas store in a workspace and return a map of
 // canvas-child panel id -> the canvas panel id that hosts it. A workspace can
-// host multiple canvas panels, and the legacy singleton `useCanvasStore` only
-// mirrors whichever canvas mounted first — so we scan ALL canvas panels in the
-// workspace. We record WHICH canvas owns each child (not merely THAT it lives
+// host multiple canvas panels, so we scan ALL canvas panels in the workspace.
+// We record WHICH canvas owns each child (not merely THAT it lives
 // on some canvas), so each child nests under its own canvas instead of
 // collapsing them all under the first one.
 function useWorkspaceCanvasChildOwners(workspaceId: string): Map<string, string> {
@@ -70,13 +70,12 @@ function useWorkspaceCanvasChildOwners(workspaceId: string): Map<string, string>
       const canvasPanelId = canvasPanelIds[i]
       for (const node of Object.values(stores[i].getState().nodes)) {
         // Each canvas node has its own mini-dock layout; a node may host several
-        // tabbed panels. `node.panelId` is only the seed — walk the full layout
-        // so additional tabs still classify as children of this canvas. Read the
+        // tabbed panels. Walk the full layout so every tab classifies as a child
+        // of this canvas. Read the
         // LIVE per-node DockStore (the runtime authority).
-        const ids = new Set<string>()
-        collectPanelIds(getNodeDockLayout(canvasPanelId, node.id), ids)
-        if (node.panelId) ids.add(node.panelId)
-        for (const id of ids) owners.set(id, canvasPanelId)
+        for (const id of collectPanelIds(getNodeDockLayout(canvasPanelId, node.id))) {
+          owners.set(id, canvasPanelId)
+        }
       }
     }
     return owners
@@ -103,16 +102,19 @@ export function useWorkspacePanelTree(workspaceId: string): WorkspacePanelTree {
     return ws?.panels ?? EMPTY_PANELS
   }))
 
-  // Sorted panel list grouped by type (canvas, terminal, editor, browser, …).
-  const panelList = useMemo(() => {
-    const TYPE_ORDER: Record<string, number> = { canvas: 0, terminal: 1, editor: 2, browser: 3 }
-    return Object.values(panels).slice().sort((a, b) => {
-      const ta = TYPE_ORDER[a.type] ?? 99
-      const tb = TYPE_ORDER[b.type] ?? 99
-      if (ta !== tb) return ta - tb
-      return (a.title || '').localeCompare(b.title || '')
-    })
-  }, [panels])
+  // Worktrees + rootPath drive the per-worktree grouping below. Read separately
+  // (and shallow) so a recolor/add doesn't churn the whole tree, only the order.
+  const { worktrees, rootPath } = useAppStore(useShallow((s) => {
+    const ws = s.workspaces.find((w) => w.id === workspaceId)
+    return { worktrees: ws?.worktrees, rootPath: ws?.rootPath }
+  }))
+
+  // Panel list grouped by worktree first (so a worktree's terminals/agents stay
+  // together), then by type (canvas, terminal, editor, browser, …), then title.
+  const panelList = useMemo(
+    () => sortWorkspacePanels(Object.values(panels), worktrees, rootPath),
+    [panels, worktrees, rootPath],
+  )
 
   // Set of panel ids living on this workspace's canvases. The reactive hook
   // covers every live canvas store; the resolver fills the cold-start gap for a
@@ -136,7 +138,9 @@ export function useWorkspacePanelTree(workspaceId: string): WorkspacePanelTree {
   // a real panel is never hidden. Read inline (not memoized) so a dock move that
   // re-renders via the canvas-owners subscription re-reads the latest placement.
   const dockSnapshot = getWorkspaceDockSnapshot(workspaceId)
-  const dockPlacedIds = dockSnapshot ? new Set(Object.keys(dockSnapshot.locations)) : null
+  const dockPlacedIds = dockSnapshot ? new Set(
+    Object.values(dockSnapshot.zones).flatMap((zone) => collectPanelIds(zone.layout)),
+  ) : null
   const { canvasPanels, childrenByCanvas, orphanCanvasChildren, freePanels } =
     partitionWorkspacePanels(panelList, canvasChildOwners, dockPlacedIds)
 

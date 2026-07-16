@@ -6,12 +6,24 @@ import type { SessionSnapshot, SidebarSession } from '../../../shared/types'
 // loaded snapshots on restore. Both are pure so they can be unit-tested without
 // the store or IPC.
 
+/** Keep one restored workspace per persisted root. Rootless snapshots remain
+ * distinct; canonical path aliases are caught later by main's create guard. */
+export function dedupeSnapshotsByRoot(snapshots: SessionSnapshot[]): SessionSnapshot[] {
+  const seen = new Set<string>()
+  return snapshots.filter((snapshot) => {
+    if (!snapshot.rootPath) return true
+    if (seen.has(snapshot.rootPath)) return false
+    seen.add(snapshot.rootPath)
+    return true
+  })
+}
+
 /** Snapshot the current sidebar order + active workspace as root paths. */
 export function deriveSidebarSession(
   workspaces: ReadonlyArray<{ id: string; rootPath: string }>,
   selectedId: string,
 ): SidebarSession {
-  const order = workspaces.filter((w) => w.rootPath).map((w) => w.rootPath)
+  const order = [...new Set(workspaces.filter((w) => w.rootPath).map((w) => w.rootPath))]
   const selected = workspaces.find((w) => w.id === selectedId)?.rootPath ?? ''
   return { order, selected }
 }

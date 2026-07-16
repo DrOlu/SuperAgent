@@ -1,17 +1,17 @@
-import { BrowserWindow, nativeImage, nativeTheme } from 'electron'
+import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron'
 import path from 'path'
 import log from '../logger'
 import { installRendererCrashRecovery } from './crashRecovery'
 import { revealWindow } from './reveal'
-import { anyWindowFullscreen } from './fullscreen'
 import { readBootSnapshot, writeBootSnapshot } from '../store'
 import {
   registerWindow,
   getWindowType,
   getActiveMainWindow,
+  listWindows,
+  sendToWindow,
 } from '../windowRegistry'
 import { stopWatchersForWindow } from '../ipc/filesystem'
-import { unregisterTerminalsForWindow } from '../ipc/shell'
 import { stopMonitorsForWindow } from '../ipc/git-monitor'
 import { stopSearchesForWindow } from '../ipc/search'
 import { clearFileGrantsForWindow, clearScopedWriteAllowancesForWindow, grantFileAccess } from '../ipc/pathValidation'
@@ -21,6 +21,7 @@ import {
   forwardClearScopedWriteAllowancesForWindow,
 } from '../runtime/runtimeManager'
 import { listPersistentGrants } from '../grantedPathStore'
+import { isQuitCommitted } from '../lifecycle/quitConfirm'
 import { rebuildApplicationMenu } from '../menu'
 import { disableRendererSandbox } from '../featureFlags'
 import { WINDOW_FULLSCREEN_STATE, WINDOW_MAXIMIZE_STATE, SESSION_FLUSH_SAVE } from '../../shared/ipc-channels'
@@ -31,6 +32,13 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
   const iconPath = path.join(__dirname, '../../build/icon-1024.png')
   const windowType = params?.type ?? 'main'
   const isDock = windowType === 'dock'
+
+  // Dev preview override: CATE_FAKE_PLATFORM=win32|linux|darwin lets you see the
+  // other platforms' window chrome from a Mac. It drives the native frame/traffic
+  // lights below and is forwarded to the renderer (?platform=) so IS_MAC matches.
+  const fakePlatform = process.env.CATE_FAKE_PLATFORM
+  const effectivePlatform = fakePlatform || process.platform
+  const isMacChrome = effectivePlatform === 'darwin'
 
   // Boot snapshot — used only for the main window. Lets us restore the user's
   // last window bounds + theme-matched background color synchronously, so the
@@ -67,20 +75,20 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
     // Windows/Linux: go fully frameless and draw our own window controls in the
     // renderer (WindowControls), so the chrome matches the theme. `titleBarStyle`
     // is irrelevant once `frame:false`.
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    // Align traffic lights with our 28px themed TitlebarStrip on macOS. Apple's
-    // standard NSWindow title bar is ~28pt with lights at y≈7; matching that
-    // here makes the themed bar visually identical to a native title bar.
-    trafficLightPosition: process.platform !== 'darwin'
+    titleBarStyle: isMacChrome ? 'hiddenInset' : 'default',
+    // Center the traffic lights on the 36px chrome line shared by the dock tab
+    // bar, the MacWindowChrome toggle, and the sidebar's top strip (y≈11 for a
+    // 36px row). Dock and main windows use the same line so they read alike.
+    trafficLightPosition: !isMacChrome
       ? undefined
       : isDock
         ? { x: 12, y: 11 }
         : windowType === 'main'
-          ? { x: 10, y: 6 }
+          ? { x: 10, y: 11 }
           : undefined,
     // macOS main windows keep a (hidden-inset) native frame; dock windows — and
     // every window on Windows/Linux — are frameless.
-    frame: process.platform === 'darwin' ? !isDock : false,
+    frame: isMacChrome ? !isDock : false,
     backgroundColor: bgColor,
     icon: nativeImage.createFromPath(iconPath),
     webPreferences: {
@@ -99,11 +107,22 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
     },
   })
 
-  // Show on ready-to-show so the first frame is fully painted before the
-  // window appears — eliminates the white flash from initial mount.
-  win.once('ready-to-show', () => {
+  // Capture ID before window is destroyed (win.id throws after 'closed')
+  const windowId = win.id
+  let windowRevealed = false
+  const revealOnce = (reason: string): void => {
+    if (windowRevealed || win.isDestroyed()) return
+    windowRevealed = true
+    log.info('Revealing window type=%s id=%d via %s', windowType, windowId, reason)
     revealWindow(win)
-  })
+  }
+
+  // Prefer ready-to-show so the first frame is painted before the window
+  // appears. did-finish-load is a safety net for startup paths where
+  // ready-to-show never arrives and the hidden window would otherwise stay
+  // invisible forever.
+  win.once('ready-to-show', () => revealOnce('ready-to-show'))
+  win.webContents.once('did-finish-load', () => revealOnce('did-finish-load'))
 
   // Persist main-window geometry to the boot snapshot so the next cold launch
   // restores bounds synchronously (no white flash). The store debounces, so
@@ -124,8 +143,6 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
   // Track this window in the registry with its type
   registerWindow(win, windowType, params?.workspaceId)
 
-  // Capture ID before window is destroyed (win.id throws after 'closed')
-  const windowId = win.id
   log.info('Creating window type=%s id=%d', windowType, windowId)
 
   // Recover from renderer crashes / hangs (OOM, GPU fault, native crash) that
@@ -162,13 +179,37 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
     }
   })()
 
-  // When the main window is closed, also close any detached dock windows so
-  // the app actually quits (otherwise they keep the process alive and
-  // `window-all-closed` never fires).
   if (windowType === 'main') {
-    win.on('close', () => {
-      for (const other of BrowserWindow.getAllWindows()) {
-        if (other.id === windowId || other.isDestroyed()) continue
+    win.on('close', (event) => {
+      // Closing the LAST main window IS quitting the app (`window-all-closed` →
+      // app.quit()), so route it through the real quit sequence FIRST — while
+      // this window and its renderer are still alive. app.quit() runs
+      // 'before-quit', which both confirms with the user and flushes the session
+      // (the renderer needs live PTYs to read terminal CWD/scrollback).
+      //
+      // Letting the window die first broke both of those: the confirmation had
+      // no window left to attach to, so Cancel left a running app with zero
+      // windows (indistinguishable from a quit) and the next 'activate' built a
+      // fresh window (which read as a restart) — and the session flush found no
+      // renderer and silently skipped, losing terminal CWD/scrollback.
+      //
+      // Once the attempt has cleared its gates, Electron closes the windows for
+      // real and this gate stands aside. "New Window" allows several main
+      // windows; closing a non-last one quits nothing, so it isn't gated.
+      const isLastMainWindow = !listWindows().some(
+        (other) =>
+          other.id !== windowId && !other.isDestroyed() && getWindowType(other.id) === 'main',
+      )
+      if (isLastMainWindow && !isQuitCommitted()) {
+        event.preventDefault()
+        app.quit()
+        return
+      }
+
+      // Close any detached dock windows so the app actually quits (otherwise
+      // they keep the process alive and `window-all-closed` never fires).
+      for (const other of listWindows()) {
+        if (other.id === windowId) continue
         const t = getWindowType(other.id)
         if (t === 'dock') {
           // Use close() rather than destroy() — destroy() tears down a
@@ -185,7 +226,6 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
   win.on('closed', () => {
     log.debug('Window closed id=%d', windowId)
     stopWatchersForWindow(windowId)
-    unregisterTerminalsForWindow(windowId)
     stopMonitorsForWindow(windowId)
     stopSearchesForWindow(windowId)
     clearScopedWriteAllowancesForWindow(windowId)
@@ -200,7 +240,7 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
     if (windowType !== 'main') {
       const mainWin = getActiveMainWindow()
       if (mainWin) {
-        mainWin.webContents.send(SESSION_FLUSH_SAVE)
+        sendToWindow(mainWin.id, SESSION_FLUSH_SAVE)
       }
     }
   })
@@ -212,32 +252,32 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
     })
   }
 
-  // Broadcast fullscreen state changes so the renderer can react
-  // (e.g., hide detach affordances). The authoritative check is a sync IPC
-  // handler registered once below, but these broadcasts cover the cache
-  // path used by any listener that wants push updates.
-  const broadcastFullscreen = (value: boolean): void => {
-    for (const w of BrowserWindow.getAllWindows()) {
-      if (w.isDestroyed()) continue
-      try { w.webContents.send(WINDOW_FULLSCREEN_STATE, value) } catch { /* noop */ }
-    }
+  // Push *this* window's own fullscreen state to *its own* renderer so each
+  // window's chrome (the macOS window-control island / dock tab-bar dot
+  // reservation) collapses only when that window itself is fullscreen — not
+  // when some other window is. Consumers that genuinely need "is ANY window
+  // fullscreen" (drag-to-detach refusal) use the sync `anyWindowFullscreen`
+  // getter instead. The authoritative sync IPC handler is registered once
+  // below; these pushes cover listeners that want live updates.
+  const sendFullscreen = (value: boolean): void => {
+    sendToWindow(win.id, WINDOW_FULLSCREEN_STATE, value)
   }
-  win.on('enter-full-screen', () => broadcastFullscreen(anyWindowFullscreen()))
-  win.on('leave-full-screen', () => broadcastFullscreen(anyWindowFullscreen()))
+  win.on('enter-full-screen', () => sendFullscreen(true))
+  win.on('leave-full-screen', () => sendFullscreen(false))
   // Fire at the *start* of the transition too so the renderer can hide the
-  // header drag-region before macOS begins its slide animation, instead of
+  // chrome drag-region before macOS begins its slide animation, instead of
   // waiting for the post-animation enter/leave events.
   // macOS-only events; cast to sidestep missing type overloads.
-  ;(win as unknown as { on: (e: string, fn: () => void) => void }).on('will-enter-full-screen', () => broadcastFullscreen(true))
-  ;(win as unknown as { on: (e: string, fn: () => void) => void }).on('will-leave-full-screen', () => broadcastFullscreen(false))
-  win.webContents.once('did-finish-load', () => broadcastFullscreen(anyWindowFullscreen()))
+  ;(win as unknown as { on: (e: string, fn: () => void) => void }).on('will-enter-full-screen', () => sendFullscreen(true))
+  ;(win as unknown as { on: (e: string, fn: () => void) => void }).on('will-leave-full-screen', () => sendFullscreen(false))
+  win.webContents.once('did-finish-load', () => sendFullscreen(win.isFullScreen()))
 
   // Push this window's own maximize state to its renderer so the custom window
   // controls (WindowControls, Windows/Linux) can swap the maximize/restore glyph.
   // Per-window (not broadcast): each window's maximize state is independent.
   const sendMaximizeState = (): void => {
     if (win.isDestroyed()) return
-    try { win.webContents.send(WINDOW_MAXIMIZE_STATE, win.isMaximized()) } catch { /* noop */ }
+    sendToWindow(win.id, WINDOW_MAXIMIZE_STATE, win.isMaximized())
   }
   win.on('maximize', sendMaximizeState)
   win.on('unmaximize', sendMaximizeState)
@@ -249,9 +289,10 @@ export function createWindow(params?: CateWindowParams): BrowserWindow {
   // Pass the themed boot background so the renderer can paint its loading splash
   // to match the window backdrop on the first frame (main window only).
   if (windowType === 'main') queryParts.push(`bg=${encodeURIComponent(bgColor)}`)
-  if (params?.panelType) queryParts.push(`panelType=${encodeURIComponent(params.panelType)}`)
-  if (params?.panelId) queryParts.push(`panelId=${encodeURIComponent(params.panelId)}`)
   if (params?.workspaceId) queryParts.push(`workspaceId=${encodeURIComponent(params.workspaceId)}`)
+  // Forward the dev platform override so the renderer's IS_MAC matches the
+  // native chrome chosen above.
+  if (fakePlatform) queryParts.push(`platform=${encodeURIComponent(effectivePlatform)}`)
   const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : ''
 
   // Defer loadURL until persisted grants are applied. Without this, the

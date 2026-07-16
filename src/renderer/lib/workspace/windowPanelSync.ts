@@ -17,7 +17,10 @@ import { selectAgentInfoByPanel } from '../../hooks/useAgentPanelInfo'
 import { terminalRegistry } from '../terminal/terminalRegistry'
 import { peekCanvasStoreForPanel, getAllCanvasStores } from '../../stores/canvasStore'
 import { getLiveNodeDockLayout } from '../../panels/nodeDockRegistry'
-import { buildColdStartCanvasChildOwners } from '../../sidebar/partitionWorkspacePanels'
+import { buildColdStartCanvasChildOwners, partitionWorkspacePanels } from '../../sidebar/partitionWorkspacePanels'
+import { getWorkspaceDockSnapshot } from './canvasAccess'
+import { collectPanelIds } from '../../../shared/collectPanelIds'
+import { panelRowLabel } from '../panelTitle'
 import type { WindowPanelReport } from '../../../shared/types'
 
 let cleanup: (() => void) | null = null
@@ -29,7 +32,8 @@ function panelsWithPorts(workspaceId: string): Set<string> {
   const ws = useStatusStore.getState().workspaces[workspaceId]
   const out = new Set<string>()
   if (!ws) return out
-  for (const [ptyId, ports] of Object.entries(ws.listeningPorts)) {
+  for (const [ptyId, terminal] of Object.entries(ws.terminals)) {
+    const ports = terminal.listeningPorts
     if (!ports.length) continue
     const pid = terminalRegistry.panelIdForPty(ptyId)
     if (pid) out.add(pid)
@@ -43,12 +47,10 @@ function panelsWithPorts(workspaceId: string): Set<string> {
 function statusSignature(): string {
   const parts: string[] = []
   for (const [wsId, ws] of Object.entries(useStatusStore.getState().workspaces)) {
-    for (const [k, st] of Object.entries(ws.agentState)) {
-      const name = ws.agentPresent[k] ? ws.agentName[k] ?? '' : ''
-      parts.push(`${wsId}:${k}:${st}:${name}`)
-    }
-    for (const [k, ports] of Object.entries(ws.listeningPorts)) {
-      if (ports.length) parts.push(`${wsId}:p:${k}`)
+    for (const [id, terminal] of Object.entries(ws.terminals)) {
+      const name = terminal.agentPresent ? terminal.agentName ?? '' : ''
+      parts.push(`${wsId}:${id}:${terminal.agentState}:${name}`)
+      if (terminal.listeningPorts.length) parts.push(`${wsId}:p:${id}`)
     }
   }
   return parts.sort().join('|')
@@ -61,8 +63,7 @@ function statusSignature(): string {
  *  that useWorkspaceCanvasChildOwners uses for the in-window tree — so the
  *  overview's "Other windows" section and the local tree can't disagree about
  *  which canvas hosts a panel. Reading the raw projection alone missed any panel
- *  living in a node's mini-dock that isn't the node's seed `panelId` (a second
- *  terminal added to a node, or a node whose seed was moved out). Canvases that
+ *  living in a node's mini-dock. Canvases that
  *  aren't mounted are skipped (their children report as top-level, matching how
  *  the overview already treats not-yet-loaded canvases). */
 function canvasChildMap(panels: Record<string, { id: string; type: string }>): Map<string, string> {
@@ -75,7 +76,7 @@ function canvasChildMap(panels: Record<string, { id: string; type: string }>): M
       canvasPanelId: p.id,
       nodes: Object.values(store.getState().nodes).map((node) => {
         const live = getLiveNodeDockLayout(p.id, node.id)
-        return { panelId: node.panelId, dockLayout: live !== undefined ? live : node.dockLayout }
+        return { dockLayout: live !== undefined ? live : node.dockLayout }
       }),
     })
   }
@@ -99,11 +100,29 @@ export function setupWindowPanelSync(): () => void {
       // rows.
       const agentInfo = selectAgentInfoByPanel(status, ws.id)
       const withPorts = panelsWithPorts(ws.id)
-      for (const p of Object.values(ws.panels)) {
+      // Report only PLACED panels, using the same partition rules as the local
+      // tree (ghost records — in ws.panels but referenced by no canvas or dock —
+      // would otherwise surface in other windows as phantom rows). Placement
+      // unknown at cold start → nothing is filtered, same as the local tree.
+      const dockSnapshot = getWorkspaceDockSnapshot(ws.id)
+      const dockPlacedIds = dockSnapshot
+        ? new Set(Object.values(dockSnapshot.zones).flatMap((zone) => collectPanelIds(zone.layout)))
+        : null
+      const { canvasPanels, childrenByCanvas, orphanCanvasChildren, freePanels } =
+        partitionWorkspacePanels(Object.values(ws.panels), childToCanvas, dockPlacedIds)
+      const placed = [
+        ...canvasPanels,
+        ...Object.values(childrenByCanvas).flat(),
+        ...orphanCanvasChildren,
+        ...freePanels,
+      ]
+      for (const p of placed) {
         report.push({
           panelId: p.id,
           type: p.type,
-          title: p.title,
+          // The derived label (basename / URL / type when there's no explicit
+          // title), so a panel reads the same in other windows as it does here.
+          title: panelRowLabel(p),
           workspaceId: ws.id,
           parentCanvasId: childToCanvas.get(p.id),
           worktreeId: p.worktreeId,

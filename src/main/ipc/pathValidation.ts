@@ -4,18 +4,12 @@
 // =============================================================================
 
 import fs from 'fs/promises'
+import { realpathSync } from 'fs'
 import path from 'path'
 import os from 'os'
 
-// Per-workspace ("scope") allowed-root registry. Each scopeId is a workspace id.
-// Phase 1 records which roots belong to which workspace and threads the scopeId
-// end-to-end (renderer -> IPC -> runtime -> daemon), but does NOT yet use it to
-// restrict access — isWithinAllowedRoots still checks the union of all scopes'
-// roots (pre-isolation behavior). Strict per-workspace enforcement is deferred to
-// Phase 3. Calls without a scopeId land under the LEGACY key (home/agent dirs,
-// daemon root, dev trust-scoping override) and stay globally allowed by design.
-const LEGACY_SCOPE = '__legacy_global__'
-const rootsByScope = new Map<string, Set<string>>()
+// scope -> (resolved root as registered -> every canonical form used for matching)
+const rootsByScope = new Map<string, Map<string, string[]>>()
 
 const scopedWriteAllowances = new Map<number, Map<string, ReturnType<typeof setTimeout>>>()
 const DEFAULT_WRITE_ALLOWANCE_TTL_MS = 60_000
@@ -39,28 +33,62 @@ export function pathCompareKey(p: string, platform: NodeJS.Platform = process.pl
 // location into the grant set.
 const persistentFileGrants = new Map<number, Set<string>>()
 
-export function addAllowedRoot(root: string, scopeId?: string): void {
-  const key = scopeId ?? LEGACY_SCOPE
-  const set = rootsByScope.get(key) ?? new Set<string>()
-  set.add(path.resolve(root))
-  rootsByScope.set(key, set)
-}
-
-export function removeAllowedRoot(root: string, scopeId?: string): void {
-  const key = scopeId ?? LEGACY_SCOPE
-  const set = rootsByScope.get(key)
-  if (!set) return
-  set.delete(path.resolve(root))
-  if (set.size === 0) rootsByScope.delete(key)
-}
-
-export function getAllowedRoots(): ReadonlySet<string> {
-  // Union of every scope's roots — some callers/tests want the global view.
-  const union = new Set<string>()
-  for (const set of rootsByScope.values()) {
-    for (const root of set) union.add(root)
+// A root must match both the lexical form callers pass around AND the
+// symlink-free form the strict (realpath-based) checks produce. The two can
+// differ even without user symlinks: macOS /tmp is a symlink to /private/tmp,
+// and Windows 8.3 short names (C:\Users\RUNNER~1) expand to long names via the
+// native realpath that validatePathStrict uses. Registering only the lexical
+// form would make the strict check reject paths that are genuinely inside the
+// root, so each root is stored with every canonical form we can compute.
+function canonicalForms(resolved: string): string[] {
+  try {
+    const real = realpathSync.native(resolved)
+    if (pathCompareKey(real) !== pathCompareKey(resolved)) return [resolved, real]
+  } catch {
+    // Root doesn't exist (yet) — lexical form only.
   }
-  return union
+  return [resolved]
+}
+
+export function addAllowedRoot(root: string, scopeId: string): void {
+  if (!scopeId) throw new Error('A path scope is required')
+  const map = rootsByScope.get(scopeId) ?? new Map<string, string[]>()
+  const resolved = path.resolve(root)
+  map.set(resolved, canonicalForms(resolved))
+  rootsByScope.set(scopeId, map)
+}
+
+export function removeAllowedRoot(root: string, scopeId: string): void {
+  if (!scopeId) throw new Error('A path scope is required')
+  const map = rootsByScope.get(scopeId)
+  if (!map) return
+  map.delete(path.resolve(root))
+  if (map.size === 0) rootsByScope.delete(scopeId)
+}
+
+/** Register a related root (for example a git worktree) under every scope that
+ *  owns `sourcePath`. The fallback is the daemon's own runtime scope, used when
+ *  the workspace-specific root has not reached the daemon yet. */
+export function addAllowedRootForRelatedPath(root: string, sourcePath: string, fallbackScopeId: string): void {
+  const sourceKey = pathCompareKey(path.resolve(sourcePath))
+  const matchingScopes: string[] = []
+  for (const [scopeId, roots] of rootsByScope) {
+    if ([...roots.values()].some((forms) => keyUnderRoots(sourceKey, forms))) {
+      matchingScopes.push(scopeId)
+    }
+  }
+  for (const scopeId of matchingScopes.length ? matchingScopes : [fallbackScopeId]) {
+    addAllowedRoot(root, scopeId)
+  }
+}
+
+/** Remove an exact related root from every scope it was propagated to. */
+export function removeAllowedRootFromAllScopes(root: string): void {
+  const resolved = path.resolve(root)
+  for (const [scopeId, roots] of rootsByScope) {
+    roots.delete(resolved)
+    if (roots.size === 0) rootsByScope.delete(scopeId)
+  }
 }
 
 // True if `key` (a pre-computed pathCompareKey) is the root itself or sits under
@@ -76,24 +104,22 @@ function keyUnderRoots(key: string, roots: Iterable<string>): boolean {
   return false
 }
 
+// os.tmpdir() in both lexical and realpath form (see canonicalForms), computed
+// once — it's checked on every validation and never changes within a process.
+let tmpDirForms: string[] | undefined
+
 function isWithinAllowedRoots(normalized: string, scopeId?: string): boolean {
+  if (!scopeId) return false
   const key = pathCompareKey(normalized)
-  const tmpKey = pathCompareKey(path.resolve(os.tmpdir()))
-  if (key === tmpKey || key.startsWith(tmpKey + path.sep)) {
+  tmpDirForms ??= canonicalForms(path.resolve(os.tmpdir()))
+  if (keyUnderRoots(key, tmpDirForms)) {
     return true
   }
 
-  // Phase 1 lands the SCOPE-THREADING INFRASTRUCTURE only: `scopeId` is recorded
-  // per workspace (see addAllowedRoot / rootsByScope) and is now carried end-to-end
-  // from the renderer through to this validator, but it is intentionally NOT used to
-  // restrict access yet. The check stays the pre-isolation "union of every open
-  // workspace's roots" so behavior is unchanged. Strict per-workspace enforcement
-  // (allow only `scopeId`'s own roots, denying cross-workspace access) is deferred to
-  // Phase 3, where each local workspace gets its own daemon rooted at its own root —
-  // see keyUnderRoots(key, rootsByScope.get(scopeId)) for the future strict branch.
-  void scopeId
-  for (const set of rootsByScope.values()) {
-    if (keyUnderRoots(key, set)) return true
+  const roots = rootsByScope.get(scopeId)
+  if (!roots) return false
+  for (const forms of roots.values()) {
+    if (keyUnderRoots(key, forms)) return true
   }
   return false
 }
@@ -276,9 +302,24 @@ export async function validatePathStrict(filePath: string, ownerWindowId?: numbe
  * Returns the safe absolute path (`realParent + baseName`).
  */
 export async function validatePathForCreation(filePath: string, ownerWindowId?: number, scopeId?: string): Promise<string> {
-  const normalized = path.resolve(filePath)
   const safeTarget = await normalizeCreationTarget(filePath)
-  if (isWithinAllowedRoots(normalized, scopeId) || isWithinAllowedRoots(safeTarget, scopeId)) {
+  // A creation/write target whose FINAL segment is an existing symlink is
+  // rejected outright: normalizeCreationTarget realpaths only the parent chain
+  // (the basename may not exist yet), so a symlink basename would otherwise let
+  // a write follow the link out of the allowed root. Mirrors statEntry /
+  // removeEntry, which likewise refuse to operate through a symlink.
+  const targetStat = await fs.lstat(safeTarget).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === 'ENOENT') return null // target doesn't exist yet — fine
+    throw err
+  })
+  if (targetStat?.isSymbolicLink()) {
+    throw new Error(`Access denied: "${filePath}" is a symbolic link`)
+  }
+  // Only the realpath-resolved target counts. Checking the lexical
+  // (pre-resolution) form as an alternative would defeat the parent symlink
+  // resolution above: a symlinked dir inside a root pointing outside it would
+  // pass on its lexical form.
+  if (isWithinAllowedRoots(safeTarget, scopeId)) {
     return safeTarget
   }
   if (hasGrantedFile(ownerWindowId, safeTarget)) {

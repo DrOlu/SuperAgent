@@ -26,7 +26,15 @@ import {
   TERMINAL_SCROLLBACK_SAVE,
   TERMINAL_SET_VISIBILITY,
   TERMINAL_CLIPBOARD_WRITE,
+  WEBGL_REQUEST_GRANT,
+  WEBGL_RELEASE_GRANT,
+  PANEL_TRANSFER_ACK,
 } from '../../shared/ipc-channels'
+import {
+  requestWebglGrant,
+  releaseWebglGrant,
+  reclaimWindowWebglGrants,
+} from '../webglBudget'
 import { getOrCreateLogger, removeLogger, flushAll as flushAllLoggers, disposeAll as disposeAllLoggers } from './terminalLogger'
 import log from '../logger'
 import { sendToWindow, windowFromEvent, onWindowClosed } from '../windowRegistry'
@@ -35,6 +43,7 @@ import { parseLocator, type RuntimeId } from '../runtime/locator'
 import { runtimes } from '../runtime/runtimeManager'
 import type { Runtime } from '../runtime/types'
 import { createStringDispatcher } from './batchedDispatcher'
+import { workspaceCateApi } from '../extensions/workspaceCateApi'
 
 // Set true during app shutdown so PTY data/exit callbacks no-op instead of
 // calling into a torn-down JS environment.
@@ -45,6 +54,20 @@ const terminalOwners: Map<string, number> = new Map()
 
 // Which runtime hosts each terminal — routes write/resize/kill/getCwd.
 const terminalRuntime: Map<string, RuntimeId> = new Map()
+const sessionListeners = new Set<() => void>()
+
+function emitSessionsChanged(): void {
+  for (const listener of sessionListeners) listener()
+}
+
+export function onTerminalSessionsChanged(listener: () => void): () => void {
+  sessionListeners.add(listener)
+  return () => { sessionListeners.delete(listener) }
+}
+
+export function getTerminalIds(): string[] {
+  return [...terminalRuntime.keys()]
+}
 
 function runtimeForTerminal(id: string): Runtime | null {
   const cid = terminalRuntime.get(id)
@@ -63,7 +86,7 @@ export function getRuntimeForTerminal(id: string): Runtime | null {
 }
 
 // =============================================================================
-// Terminal transfer buffering — holds PTY output during cross-window migration
+// Terminal transfer buffering — holds PTY output during cross-window handoff
 // =============================================================================
 
 interface TerminalTransferState {
@@ -199,6 +222,7 @@ export function reassignTerminalWindow(terminalId: string, newWindowId: number):
 function cleanupTerminal(id: string): void {
   terminalOwners.delete(id)
   terminalRuntime.delete(id)
+  emitSessionsChanged()
 }
 
 async function spawnTerminal(
@@ -208,12 +232,23 @@ async function spawnTerminal(
   const { runtimeId, path: cwdPath } = parseLocator(options.cwd ?? '')
   const runtime = runtimes.resolve(runtimeId)
 
-  // Resolve the cwd through the runtime: the local one validates against its
-  // allowed roots, the remote one trusts the locator path (its daemon validates).
-  // An empty cwd is defaulted to the host's home dir inside the ProcessHost, so
-  // there's nothing host-specific to decide here. The owning workspace id scopes
-  // validation to that workspace's roots when supplied.
-  const cwd = options.cwd ? runtime.validateCwd(cwdPath, ownerWindowId, options.workspaceId) : ''
+  // No client-side validation: the authoritative allowed-root check runs on
+  // the daemon inside process.create (a bad cwd rejects the create). An empty
+  // cwd is defaulted to the host's home dir inside the ProcessHost, so there's
+  // nothing host-specific to decide here.
+  const cwd = options.cwd ? cwdPath : ''
+
+  // First-party CATE_API endpoint: give this terminal CATE_API/CATE_TOKEN in its
+  // env so a `cate` CLI run inside it can reach the dispatch core. ensureEndpoint
+  // returns null when the CLI setting is disabled (the gate) or has no workspace
+  // to scope to — in which case we inject nothing (fail closed).
+  let cateApiEnv: Record<string, string> | undefined
+  if (options.workspaceId) {
+    const endpoint = await workspaceCateApi.ensureEndpoint(options.workspaceId)
+    if (endpoint) {
+      cateApiEnv = { CATE_API: `http://127.0.0.1:${endpoint.port}`, CATE_TOKEN: endpoint.token }
+    }
+  }
 
   // Instant-exit diagnostics (#401): a shell that exits cleanly within this
   // window without ever emitting a byte never became an interactive session
@@ -276,11 +311,12 @@ async function spawnTerminal(
   // for its own host (the local resolver, or the daemon's first-existing-of
   // [requested, $SHELL, bash, sh]) — so a path that only exists on the client is
   // handled there, not branched on here.
-  const handle = await runtime.process.create({ cols: options.cols, rows: options.rows, cwd, shell: options.shell }, onData, onExit)
+  const handle = await runtime.process.create({ cols: options.cols, rows: options.rows, cwd, shell: options.shell, env: cateApiEnv }, onData, onExit)
   resolvedShell = handle.shell ?? ''
 
   terminalRuntime.set(handle.id, runtimeId)
   terminalOwners.set(handle.id, ownerWindowId)
+  emitSessionsChanged()
   if (handle.notice) {
     try { sendToWindow(ownerWindowId, TERMINAL_DATA, handle.id, handle.notice) } catch { /* window gone */ }
   }
@@ -308,9 +344,29 @@ export function registerHandlers(): void {
   // running PTY's ownership follows the panel instead of orphaning on a dead window.
   onWindowClosed(handleWindowClosedTerminalTransfers)
 
+  // Reclaim a closed/crashed window's WebGL context grants — its renderer can no
+  // longer release them, and a leaked grant would permanently shrink the budget.
+  onWindowClosed(reclaimWindowWebglGrants)
+
+  ipcMain.handle(PANEL_TRANSFER_ACK, async (_event, ptyId?: string) => {
+    if (ptyId) acknowledgeTerminalTransfer(ptyId)
+  })
+
+  // Process-wide WebGL context budget (keyed by the sender window + panel).
+  ipcMain.handle(WEBGL_REQUEST_GRANT, (event, panelId: string): boolean => {
+    const win = windowFromEvent(event)
+    if (!win || typeof panelId !== 'string' || !panelId) return false
+    return requestWebglGrant(win.id, panelId)
+  })
+
+  ipcMain.handle(WEBGL_RELEASE_GRANT, (event, panelId: string): void => {
+    const win = windowFromEvent(event)
+    if (win && typeof panelId === 'string' && panelId) releaseWebglGrant(win.id, panelId)
+  })
+
   ipcMain.handle(
     TERMINAL_CREATE,
-    async (event, options: { cols: number; rows: number; cwd?: string; shell?: string }): Promise<string> => {
+    async (event, options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string }): Promise<string> => {
       const win = windowFromEvent(event)
       const windowId = win?.id ?? -1
       return spawnTerminal(options, windowId)

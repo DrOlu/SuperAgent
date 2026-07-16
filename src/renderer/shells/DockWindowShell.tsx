@@ -12,25 +12,23 @@ import { registerWorkspaceDockStore } from '../lib/workspace/dockRegistry'
 import DockZone from '../docking/DockZone'
 import { setupCrossWindowDragListeners } from '../drag'
 import { createRemoteDropHandler } from '../drag/crossWindow'
+import { useFileDropTracker, FileDropOverlay } from '../drag/fileDropTarget'
 import { captureTerminalScrollbacks } from './dockWindowSyncScrollback'
-import { terminalRestoreData } from '../lib/workspace/session'
+import { terminalRegistry } from '../lib/terminal/terminalRegistry'
 import { getOrCreateCanvasStoreForPanel } from '../stores/canvasStore'
 import { ensurePanelsInAppStore } from '../lib/canvas/applyCanvasChildPanels'
 import { hydrateReceivedPanel, hydrateCanvasState } from '../lib/panelTransfer'
-import { removePanelFromWindow } from '../lib/panels/removePanelFromWindow'
 import { useAppStore } from '../stores/appStore'
-import { confirmCloseDirtyPanels } from '../lib/confirmCloseDirty'
-import { confirmCloseRunningTerminals } from '../lib/confirmCloseTerminal'
+import { closeDockWindowPanel } from './dockWindowClosePanel'
 import { isDockEmpty } from './dockEmpty'
 import { shouldCloseDockWindow } from './shouldCloseDockWindow'
 import WindowControls from './WindowControls'
 import { useWindowRuntime } from '../lib/hooks/useWindowRuntime'
 import WindowChrome from './WindowChrome'
+import DockWindowTitlebar from './DockWindowTitlebar'
 
-import { renderPanelComponent, PANEL_REGISTRY } from '../panels/registry'
-import { PanelSuspense } from '../panels/PanelSuspense'
+import { PanelHost } from '../panels/PanelHost'
 import { IS_MAC } from '../lib/platform'
-const CanvasPanel = PANEL_REGISTRY.canvas.Component
 
 interface DockWindowShellProps {
   workspaceId?: string
@@ -54,6 +52,10 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
   const dockStore = useMemo(() => createDockStore(), [])
   const syncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const hadPanelsRef = useRef(false)
+
+  // Track file drags so docked extension panels can arm their webview drop overlay
+  // (mirrors the main window — App.tsx installs the same tracker there).
+  useFileDropTracker()
 
   // The detached window's own appStore is the single in-window source of truth
   // for panels: transferred panels are merged into a stub workspace (see
@@ -105,10 +107,7 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       if (payload.restore) {
         for (const panel of Object.values(payload.panels)) {
           if (panel.type !== 'terminal') continue
-          terminalRestoreData.set(panel.id, {
-            cwd: payload.terminalCwds?.[panel.id],
-            replayFromId: panel.id,
-          })
+          terminalRegistry.setPendingRestore(panel.id, payload.terminalCwds?.[panel.id])
         }
       }
       if (payload.canvasStates) {
@@ -124,7 +123,6 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
       // demand (dockStore.getPanelLocation), so there's nothing to rebuild.
       dockStore.getState().restoreSnapshot({
         zones: payload.dockState,
-        locations: {},
       })
       setReady(true)
     })
@@ -294,44 +292,10 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
     return cleanup
   }, [])
 
-  // Render panel content inside canvas nodes (used by CanvasPanel's renderPanelContent)
-  const renderPanelContent = useCallback(
-    (panelId: string, nodeId: string, zoom: number) => {
-      const panel = panels[panelId]
-      if (!panel) return null
-
-      const content = renderPanelComponent(panel, { workspaceId: wsId, nodeId, zoomLevel: zoom })
-      if (!content) return null
-
-      return <PanelSuspense>{content}</PanelSuspense>
-    },
-    [panels, wsId],
-  )
-
   // Render panel content for dock zones
   const renderPanel = useCallback(
-    (panelId: string) => {
-      const panel = panels[panelId]
-      if (!panel) return null
-
-      // Canvas panels get their own full canvas with renderPanelContent for nodes
-      if (panel.type === 'canvas') {
-        return (
-          <PanelSuspense>
-            <CanvasPanel
-              panelId={panelId}
-              workspaceId={wsId}
-              nodeId=""
-              renderPanelContent={renderPanelContent}
-            />
-          </PanelSuspense>
-        )
-      }
-
-      // All other panels render directly
-      return renderPanelContent(panelId, '', 1)
-    },
-    [panels, wsId, renderPanelContent],
+    (panelId: string) => <PanelHost panelId={panelId} panels={panels} workspaceId={wsId} />,
+    [panels, wsId],
   )
 
   const getPanelTitle = useCallback(
@@ -341,22 +305,13 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
 
   const handleClosePanel = useCallback(
     async (panelId: string) => {
-      if (!(await confirmCloseDirtyPanels([panels[panelId]]))) return
-      if (!(await confirmCloseRunningTerminals([panels[panelId]]))) return
-      // Undock from THIS shell's own dock store first (removePanelFromWindow
-      // never touches layout stores — the workspace dock registry would be the
-      // wrong tree for this shell), then tear down content + records with
-      // 'close' semantics: PTYs killed (including a canvas tab's children),
-      // xterms and pi sessions disposed, records dropped.
-      dockStore.getState().undockPanel(panelId)
-      const panel = panels[panelId]
-      if (panel) removePanelFromWindow(wsId, panelId, panel.type, 'close')
+      if (!(await closeDockWindowPanel(wsId, panelId, dockStore))) return
 
       if (isDockEmpty(dockStore.getState())) {
         window.close()
       }
     },
-    [dockStore, panels, wsId],
+    [dockStore, wsId],
   )
 
   const handlePanelRenamed = useCallback(
@@ -409,23 +364,30 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
   return (
     <DockStoreProvider store={dockStore}>
       <div className="dock-window-root relative h-screen w-screen flex flex-col bg-surface-4 overflow-hidden">
-        {/* Make the top tab bar the window drag region. On macOS reserve 78px on
-            the left for the traffic lights; on Windows/Linux reserve 132px on the
-            right for our custom WindowControls overlay (below). Override inside any
-            canvas-node ([data-node-id]) so nested mini-dock tab bars don't inherit
-            the indent or become drag handles. */}
+        {/* macOS: DockWindowTitlebar (below) is the header + drag region and owns
+            the traffic-light reservation, so the tab bar sits full-width beneath
+            it with no indent or drag behavior of its own. Windows/Linux keep the
+            tab bar AS the drag region and reserve 132px on the right for the
+            custom WindowControls overlay. Override inside any canvas-node
+            ([data-node-id]) so nested mini-dock tab bars don't inherit either. */}
         <style>{`
+          ${IS_MAC ? '' : `
           .dock-window-root .dock-tab-bar {
-            ${IS_MAC ? 'padding-left: 78px;' : 'padding-right: 132px;'}
+            padding-right: 132px;
             -webkit-app-region: drag;
           }
           .dock-window-root .dock-tab-bar > * { -webkit-app-region: no-drag; }
+          `}
           .dock-window-root [data-node-id] .dock-tab-bar {
             padding-left: 0;
             padding-right: 0;
             -webkit-app-region: no-drag;
           }
         `}</style>
+        {/* macOS: conventional header/title bar (unlike the main window's floating
+            island) — traffic-light reservation + drag region + active panel title.
+            Collapses in native fullscreen. */}
+        <DockWindowTitlebar workspaceId={wsId} />
         {/* Frameless Windows/Linux: custom window controls pinned to the top-right,
             over the tab bar's reserved right padding. */}
         {!IS_MAC && (
@@ -447,8 +409,8 @@ export default function DockWindowShell({ workspaceId: initialWorkspaceId }: Doc
           />
         </div>
         <WindowChrome />
+        <FileDropOverlay />
       </div>
     </DockStoreProvider>
   )
 }
-

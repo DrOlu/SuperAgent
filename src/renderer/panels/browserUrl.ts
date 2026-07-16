@@ -16,6 +16,9 @@ export function isUrl(input: string): boolean {
   if (trimmed.startsWith('file://') || trimmed.startsWith('/') || /^[A-Za-z]:[\\/]/.test(trimmed)) {
     return true
   }
+  // A remote-workspace locator is URL-shaped, not a search query — treating it
+  // as a search would leak the path to the search engine.
+  if (trimmed.startsWith('cate-runtime://')) return true
   // Has spaces — definitely a search query
   if (trimmed.includes(' ')) {
     return false
@@ -33,6 +36,22 @@ export function isUrl(input: string): boolean {
     return true
   }
   return false
+}
+
+/** Best-effort favicon URL for a page: the site's own `/favicon.ico`. Same-origin
+ *  (no third-party lookup service), so it only ever talks to a host the user is
+ *  already visiting. Returns undefined for non-web schemes (cate://newtab,
+ *  file://, about:) which have no favicon. Used as a fallback when the page
+ *  hasn't reported a favicon via page-favicon-updated (e.g. restored/inactive
+ *  tabs and bookmarks). The <img> falls back to a globe glyph if this 404s. */
+export function faviconForUrl(rawUrl: string): string | undefined {
+  try {
+    const u = new URL(rawUrl)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined
+    return `${u.origin}/favicon.ico`
+  } catch {
+    return undefined
+  }
 }
 
 /** Percent-encode the characters in a filesystem path that would otherwise be
@@ -58,6 +77,11 @@ export function normalizeUrl(input: string): string {
     return trimmed
   }
   if (trimmed.startsWith('file://')) return trimmed
+  // Remote-workspace locator: the embedded browser is a LOCAL Chromium and can
+  // never read a remote host's file. Pass it through untouched so the load
+  // fails visibly (unknown scheme) instead of being rewritten into a local
+  // file:// path or an https:// guess that points somewhere else entirely.
+  if (trimmed.startsWith('cate-runtime://')) return trimmed
   // Absolute POSIX path → file URL
   if (trimmed.startsWith('/')) return `file://${escapeFilePath(trimmed)}`
   // Absolute Windows path (e.g. C:\foo or C:/foo) → file URL with forward slashes

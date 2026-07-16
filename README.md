@@ -47,6 +47,10 @@ Download a prebuilt release. Don't build from source for daily use.
 - **AI agents:** in-app coding agent (Pi) with chat threads and per-chat model memory. Connect Anthropic, OpenAI Codex, GitHub Copilot, Gemini, OpenRouter, Groq, Mistral, DeepSeek, and more via OAuth or API key.
 - **Navigation:** canvas-wide search across files, terminal scrollback, and panel titles; command palette; panel-to-panel keyboard navigation.
 
+## Extensions
+
+Cate has an extension system for third-party panels (MCP servers, diagrams, and more), each served in its own isolated webview. Browse and build them in the companion repo: [0-AI-UG/cate-extensions](https://github.com/0-AI-UG/cate-extensions).
+
 ## Keyboard shortcuts
 
 macOS shown below; on Windows/Linux use `Ctrl` in place of `Cmd`.
@@ -128,12 +132,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Release-by-release history lives in the 
 
 ## Star history
 
-<a href="https://www.star-history.com/#0-AI-UG/cate&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=0-AI-UG/cate&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=0-AI-UG/cate&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=0-AI-UG/cate&type=Date" />
-  </picture>
+<a href="https://www.star-history.com/?repos=0-AI-UG%2Fcate&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=0-AI-UG/cate&type=date&theme=dark&legend=top-left&sealed_token=LE-sv5TdJtUmugufglkRue9ZJ6mVXcScJNurvXl9qwGAOHy-taiZA7-UfpBCAHbsxUZESm-1aSxX55u3DTth--kCTUty5gqe7XMhmI-dHz2IOkizZgAk26fW8iovuRbeMSyla3c2T9w9fAj6x2_SZZEGbmvonWJvvLcI-X35nHZFkQQIn_ueBO07uQZM" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=0-AI-UG/cate&type=date&legend=top-left&sealed_token=LE-sv5TdJtUmugufglkRue9ZJ6mVXcScJNurvXl9qwGAOHy-taiZA7-UfpBCAHbsxUZESm-1aSxX55u3DTth--kCTUty5gqe7XMhmI-dHz2IOkizZgAk26fW8iovuRbeMSyla3c2T9w9fAj6x2_SZZEGbmvonWJvvLcI-X35nHZFkQQIn_ueBO07uQZM" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=0-AI-UG/cate&type=date&legend=top-left&sealed_token=LE-sv5TdJtUmugufglkRue9ZJ6mVXcScJNurvXl9qwGAOHy-taiZA7-UfpBCAHbsxUZESm-1aSxX55u3DTth--kCTUty5gqe7XMhmI-dHz2IOkizZgAk26fW8iovuRbeMSyla3c2T9w9fAj6x2_SZZEGbmvonWJvvLcI-X35nHZFkQQIn_ueBO07uQZM" />
+ </picture>
 </a>
 
 ## License

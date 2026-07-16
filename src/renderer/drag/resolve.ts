@@ -90,6 +90,23 @@ export function resolveDrop(
   opts: ResolveOptions = {},
 ): DropTarget | null {
   const { env = defaultDropEnvironment, snap = false } = opts
+
+  // A grouped canvas-node drag (multi-selection) is a pure group reposition: it
+  // can't detach to a window or dock into a zone. Restrict it to the canvas
+  // surface so the ghost only ever resolves canvas-reposition; off-canvas yields
+  // no target → a no-op drop that leaves the group where it started.
+  const grouped =
+    source.origin.kind === 'canvas-node' && !!source.origin.members?.length
+  if (grouped) {
+    if (!cursor.insideWindow) return null
+    // A grouped drag may only reposition within its OWN canvas. Over a different
+    // canvas resolveCanvasHit yields `canvas-add`, whose commit moves only the
+    // anchor and strands the other members on the source canvas — so accept only
+    // a same-canvas reposition; anything else is a no-op that keeps the group put.
+    const target = resolveCanvasHit(cursor, source, grab, ghostSize, env, snap)
+    return target?.kind === 'canvas-reposition' ? target : null
+  }
+
   if (!cursor.insideWindow) {
     return { kind: 'detach', screen: cursor.screen }
   }
@@ -160,11 +177,16 @@ function resolveDockHit(
       source.origin.dockStoreApi === targetStore &&
       best.entry.stackId === source.origin.stackId
     if (isSelfStack) {
-      // Single-panel self-drops are trivial no-ops; multi-panel self-drops
-      // (center re-dock or edge split) produce real layout changes.
+      // A lone panel can't meaningfully split against its own stack (the other
+      // half would be empty), so suppress lone-panel self-splits. But dragging
+      // that lone tab back onto its own tab strip (center) is a valid no-op that
+      // should still preview as "+ new tab" — so let center fall through to the
+      // dock-tab target below. The commit treats it as a no-op (see commit.ts).
+      // Multi-panel self-drops (center re-dock or edge split) are real changes.
       const zones = (targetStore.getState() as { zones?: WindowDockState }).zones
       const stack = zones ? findTabStackAcrossZones(zones, best.entry.stackId) : null
-      if (!stack || stack.panelIds.length <= 1) return null
+      const lonePanel = !stack || stack.panelIds.length <= 1
+      if (lonePanel && edge !== 'center') return null
     }
     if (edge === 'center') {
       return { kind: 'dock-tab', dockStoreApi: targetStore, stackId: best.entry.stackId }

@@ -19,78 +19,40 @@ vi.mock('../lib/terminal/terminalRegistry', () => ({
   },
 }))
 
+const workspaceUpdate = vi.fn()
+const workspaceCreate = vi.fn()
+const runtimeConnect = vi.fn()
+
 beforeEach(() => {
+  workspaceCreate.mockReset().mockImplementation(async (input: { id?: string; name?: string; rootPath?: string }) => ({
+    ok: true,
+    workspace: { id: input.id ?? 'gen', name: input.name ?? 'Workspace', color: '', rootPath: input.rootPath ?? '' },
+  }))
+  workspaceUpdate.mockReset().mockImplementation(async (id: string, changes: { rootPath?: string; name?: string }) => ({
+    ok: true,
+    workspace: { id, name: changes.name ?? 'Workspace', color: '', rootPath: changes.rootPath ?? '' },
+  }))
+  runtimeConnect.mockReset()
   const g = globalThis as unknown as { window?: { electronAPI?: unknown } }
   g.window = g.window ?? {}
   g.window.electronAPI = {
-    workspaceCreate: vi.fn(async (input: { id?: string; name?: string; rootPath?: string }) => ({
-      ok: true,
-      workspace: { id: input.id ?? 'gen', name: input.name ?? 'Workspace', color: '', rootPath: input.rootPath ?? '' },
-    })),
-    workspaceUpdate: vi.fn(async (id: string, changes: { rootPath?: string; name?: string }) => ({
-      ok: true,
-      workspace: { id, name: changes.name ?? 'Workspace', color: '', rootPath: changes.rootPath ?? '' },
-    })),
+    workspaceCreate,
+    workspaceUpdate,
     workspaceRemove: vi.fn(async () => ({ ok: true })),
     recentProjectsAdd: vi.fn(),
     recentProjectsRemove: vi.fn(async () => undefined),
+    runtimeConnect,
+    runtimeEnsure: vi.fn(async () => ({ ok: true })),
   }
 })
 
-import { useAppStore } from './appStore'
+import { awaitWorkspaceSync, useAppStore } from './appStore'
 
 function reset() {
   for (const w of [...useAppStore.getState().workspaces]) {
     useAppStore.getState().removeWorkspace(w.id)
   }
 }
-
-describe('duplicateWorkspace preserves project identity', () => {
-  beforeEach(reset)
-
-  it('keeps the connection so a remote duplicate stays reconnectable', () => {
-    const connection = {
-      kind: 'server' as const,
-      runtimeId: 'comp-1',
-      host: 'box',
-      user: 'me',
-      remotePath: '/srv/repo',
-    }
-    const a = useAppStore.getState().addWorkspace('Remote', 'cate-runtime://comp-1/srv/repo', 'ws-a', connection)
-
-    const dupId = useAppStore.getState().duplicateWorkspace(a)
-
-    const dup = useAppStore.getState().workspaces.find((w) => w.id === dupId)
-    expect(dup?.connection).toEqual(connection)
-    // Not degraded to a broken local workspace.
-    expect(dup?.connection?.kind).toBe('server')
-    expect(dup?.rootPath).toBe('cate-runtime://comp-1/srv/repo')
-  })
-
-  it('preserves additionalRoots and worktrees in the duplicate', () => {
-    const a = useAppStore.getState().addWorkspace('A', '/tmp/repo', 'ws-a')
-    useAppStore.getState().addAdditionalRoot(a, '/tmp/other-repo')
-    useAppStore.setState((s) => ({
-      workspaces: s.workspaces.map((w) =>
-        w.id === a
-          ? { ...w, worktrees: [{ id: 'wt-1', path: '/tmp/repo/.cate/worktrees/feat', color: '#abc', label: 'feat' }] }
-          : w,
-      ),
-    }))
-
-    const dupId = useAppStore.getState().duplicateWorkspace(a)
-    const dup = useAppStore.getState().workspaces.find((w) => w.id === dupId)
-
-    expect(dup?.additionalRoots).toEqual(['/tmp/other-repo'])
-    expect(dup?.worktrees).toEqual([
-      { id: 'wt-1', path: '/tmp/repo/.cate/worktrees/feat', color: '#abc', label: 'feat' },
-    ])
-    // Deep-copied, not aliased — mutating the original must not touch the copy.
-    const original = useAppStore.getState().workspaces.find((w) => w.id === a)
-    expect(dup?.additionalRoots).not.toBe(original?.additionalRoots)
-    expect(dup?.worktrees).not.toBe(original?.worktrees)
-  })
-})
 
 describe('same-instance duplicate-root guard', () => {
   beforeEach(reset)
@@ -137,5 +99,90 @@ describe('same-instance duplicate-root guard', () => {
     expect(window.electronAPI.workspaceUpdate).toHaveBeenCalled()
     const ids = useAppStore.getState().workspaces.map((w) => w.id).sort()
     expect(ids).toEqual([a, b].sort())
+  })
+
+  it('rolls back an optimistic local root when main rejects a canonical duplicate', async () => {
+    const a = useAppStore.getState().addWorkspace('A', '/tmp/dup', 'ws-a')
+    const c = useAppStore.getState().addWorkspace('C', '/tmp/other', 'ws-c')
+    await useAppStore.getState().selectWorkspace(c)
+    await awaitWorkspaceSync()
+    workspaceUpdate.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: 'DUPLICATE_ROOT',
+        message: 'already open',
+        conflictingWorkspaceId: a,
+      },
+    })
+
+    const ok = await useAppStore.getState().setWorkspaceRootPath(c, '/tmp/alias-of-dup')
+
+    expect(ok).toBe(false)
+    expect(useAppStore.getState().selectedWorkspaceId).toBe(a)
+    expect(useAppStore.getState().workspaces.find((w) => w.id === c)).toMatchObject({
+      name: 'C',
+      rootPath: '/tmp/other',
+      rootPathError: 'already open',
+      isRootPathPending: false,
+    })
+  })
+
+  it('rolls back an optimistic remote root when registration is rejected', async () => {
+    const connection = {
+      kind: 'server' as const,
+      runtimeId: 'runtime-a',
+      host: 'box',
+      user: 'me',
+      remotePath: '/repo',
+    }
+    const rootPath = 'cate-runtime://runtime-a/repo'
+    const a = useAppStore.getState().addWorkspace('Remote A', rootPath, 'ws-a', connection)
+    const c = useAppStore.getState().addWorkspace('C', '/tmp/other', 'ws-c')
+    await useAppStore.getState().selectWorkspace(c)
+    await awaitWorkspaceSync()
+    runtimeConnect.mockResolvedValueOnce({ ok: true, runtimeId: 'runtime-a', rootPath, connection })
+    workspaceUpdate.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: 'DUPLICATE_ROOT',
+        message: 'already open',
+        conflictingWorkspaceId: a,
+      },
+    })
+
+    const ok = await useAppStore.getState().connectRemoteWorkspace(c, {
+      kind: 'server',
+      host: 'box',
+      user: 'me',
+      remotePath: '/repo',
+    })
+
+    expect(ok).toBe(false)
+    expect(useAppStore.getState().selectedWorkspaceId).toBe(a)
+    expect(useAppStore.getState().workspaces.find((w) => w.id === c)).toMatchObject({
+      name: 'C',
+      rootPath: '/tmp/other',
+    })
+  })
+
+  it('removes an optimistic workspace when main rejects its canonical root', async () => {
+    const a = useAppStore.getState().addWorkspace('A', '/tmp/dup', 'ws-a')
+    await awaitWorkspaceSync()
+    workspaceCreate.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: 'DUPLICATE_ROOT',
+        message: 'already open',
+        conflictingWorkspaceId: a,
+      },
+    })
+
+    const rejected = useAppStore.getState().addWorkspace('Alias', '/tmp/alias-of-dup', 'ws-alias')
+    await awaitWorkspaceSync()
+
+    expect(rejected).toBe('ws-alias')
+    expect(useAppStore.getState().workspaces.map((w) => w.id)).toEqual([a])
+    expect(useAppStore.getState().selectedWorkspaceId).toBe(a)
+    expect(window.electronAPI.recentProjectsRemove).toHaveBeenCalledWith('/tmp/alias-of-dup')
   })
 })

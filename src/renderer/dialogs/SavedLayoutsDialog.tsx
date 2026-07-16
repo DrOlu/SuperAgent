@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { FloppyDisk, Trash, FolderOpen, SquaresFour } from '@phosphor-icons/react'
 import { PaletteDialogShell } from '../ui/Modal'
 import { useUIStore } from '../stores/uiStore'
-import { useCanvasStoreApi } from '../stores/CanvasStoreContext'
+import { useOptionalCanvasStoreApi } from '../stores/CanvasStoreContext'
 import {
   listLayouts,
   saveLayout,
@@ -23,7 +23,7 @@ export function SavedLayoutsDialog() {
   const show = useUIStore((s) => s.showLayoutsDialog)
   const setShow = useUIStore((s) => s.setShowLayoutsDialog)
   const layoutsVersion = useUIStore((s) => s.layoutsVersion)
-  const canvasApi = useCanvasStoreApi()
+  const canvasApi = useOptionalCanvasStoreApi()
 
   const [names, setNames] = useState<string[]>([])
   const [selected, setSelected] = useState<string | null>(null)
@@ -60,6 +60,7 @@ export function SavedLayoutsDialog() {
     if (!name) { setError('Name is required'); return }
     setBusy(true); setError(null)
     try {
+      if (!canvasApi) return
       await saveLayout(name, canvasApi)
       setSaveName('')
       setSelected(name)
@@ -179,7 +180,7 @@ export function SavedLayoutsDialog() {
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(name) }}
                           disabled={busy}
-                          className="p-1.5 rounded-md text-muted hover:text-red-400 hover:bg-red-600/10"
+                          className="p-1.5 rounded-[10px] text-muted hover:text-red-400 hover:bg-red-600/10"
                           aria-label="Delete"
                         >
                           <Trash size={12} />

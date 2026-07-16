@@ -2,14 +2,14 @@
 // Git Monitor — polls git branch + dirty status per workspace
 // =============================================================================
 
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import log from '../logger'
 import {
   GIT_BRANCH_UPDATE,
   GIT_MONITOR_START,
   GIT_MONITOR_STOP,
 } from '../../shared/ipc-channels'
-import { sendToWindow, windowFromEvent } from '../windowRegistry'
+import { sendToWindow, windowFromEvent, isAnyWindowFocused } from '../windowRegistry'
 import { parseLocator } from '../runtime/locator'
 import { runtimes } from '../runtime/runtimeManager'
 import type { Runtime } from '../runtime/types'
@@ -47,8 +47,7 @@ const lastState: Map<string, { branch: string; isDirty: boolean; branchesKey: st
 let anyWindowFocused: boolean = false
 
 function refreshFocusState(): boolean {
-  const wins = BrowserWindow.getAllWindows()
-  anyWindowFocused = wins.some((w) => !w.isDestroyed() && w.isFocused())
+  anyWindowFocused = isAnyWindowFocused()
   return anyWindowFocused
 }
 
@@ -98,7 +97,7 @@ async function pollGitStatus(entry: MonitorEntry): Promise<boolean> {
   const epoch = ++entry.pollEpoch
 
   try {
-    const { branch, dirty: isDirty, branches } = await runtime.vcs.monitorStatus(rootPath)
+    const { branch, dirty: isDirty, branches } = await runtime.vcs.monitorStatus(rootPath, { scopeId: workspaceId })
 
     // Stale: a fresher poll started, or the monitor was torn down/restarted.
     if (entry.pollEpoch !== epoch || !activeMonitors.has(workspaceId)) return false
@@ -191,20 +190,17 @@ export function registerHandlers(): void {
   ipcMain.on(GIT_MONITOR_START, (event, workspaceId: string, rootPath: string) => {
     // `ipcMain.on` handlers have no promise boundary, so any throw inside
     // escapes as an uncaught exception and crashes the main process with a
-    // fatal Electron dialog. Path validation is legitimately expected to fail
-    // here during session restore (renderer requests monitoring before the
-    // workspace root has been registered as an allowed root), so treat a
-    // validation failure as "don't start monitoring" instead of a hard error.
-    // Resolve the target runtime off the locator, then validate. For the
-    // local runtime this is identical to the previous validateCwd(rootPath).
-    // The poll itself routes through runtime.vcs.monitorStatus, so a remote
-    // workspace's branch/dirty indicator reflects the remote repo.
+    // fatal Electron dialog. resolve() legitimately throws here during session
+    // restore (renderer requests monitoring before the workspace's runtime is
+    // registered), so treat that as "don't start monitoring" instead of a hard
+    // error. No client-side path validation: the daemon validates the root
+    // inside every monitorStatus poll / watch it serves, local and remote
+    // alike — so a remote workspace's branch/dirty indicator reflects the
+    // remote repo.
     const { runtimeId, path: rootP } = parseLocator(rootPath)
     let runtime: ReturnType<typeof runtimes.resolve>
-    let validRoot: string
     try {
       runtime = runtimes.resolve(runtimeId)
-      validRoot = runtime.validateCwd(rootP, undefined, workspaceId)
     } catch (err) {
       log.warn(
         '[git-monitor] skipping monitor for workspace %s: %s',
@@ -213,6 +209,7 @@ export function registerHandlers(): void {
       )
       return
     }
+    const validRoot = rootP
     const existing = activeMonitors.get(workspaceId)
     if (existing) {
       clearTimer(existing)
@@ -251,7 +248,7 @@ export function registerHandlers(): void {
         clearTimer(entry)
         void tick(entry)
       })
-    })
+    }, { scopeId: workspaceId })
 
     activeMonitors.set(workspaceId, entry)
 

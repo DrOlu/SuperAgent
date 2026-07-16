@@ -26,7 +26,6 @@ export default function DockResizeHandle({ direction, onResize, onDoubleClick }:
       unpinCursorRef.current = null
       if (dragging.current) {
         dragging.current = false
-        document.body.classList.remove('canvas-interacting')
         document.body.style.cursor = ''
         document.body.style.userSelect = ''
       }
@@ -62,7 +61,12 @@ export default function DockResizeHandle({ direction, onResize, onDoubleClick }:
         }
       }
 
-      const onMouseUp = () => {
+      // Shared teardown for the normal mouseup path and the blur-cancel path.
+      // A window blur with no matching mouseup happens on Cmd+Tab or a macOS
+      // Spaces swipe away mid-drag; without this the `pinDocumentCursor`
+      // `!important` override leaks onto the whole document and the OS cursor
+      // stays stuck until the next click. Mirrors useNodeResize's detach().
+      const endDrag = () => {
         dragging.current = false
         dragAbortRef.current?.abort()
         dragAbortRef.current = null
@@ -77,7 +81,8 @@ export default function DockResizeHandle({ direction, onResize, onDoubleClick }:
       dragAbortRef.current = controller
       const { signal } = controller
       document.addEventListener('mousemove', onMouseMove, { signal })
-      document.addEventListener('mouseup', onMouseUp, { signal })
+      document.addEventListener('mouseup', endDrag, { signal })
+      window.addEventListener('blur', endDrag, { signal })
       document.body.style.cursor = resizeCursor
       document.body.style.userSelect = 'none'
     },

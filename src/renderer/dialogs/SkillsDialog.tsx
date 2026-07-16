@@ -9,6 +9,7 @@
 //     click away in any workspace, even offline.
 //
 // Sections, all filtered together by the search box:
+//   • Cate      — Cate's own first-party skills, pinned to the top.
 //   • Installed — what's in this workspace now.
 //   • Saved     — your library, ready to re-add here.
 //   • Browse    — the catalog (curated index ∪ user repos), shown by default.
@@ -46,6 +47,11 @@ import {
 } from '../../shared/skills'
 
 const api = () => window.electronAPI
+
+// The list of repos the curated catalog is crawled from. Linked at the bottom so
+// anyone can PR a missing skill's source repo in (the CI crawler turns this into
+// skills-index.json).
+const SKILL_SOURCES_URL = 'https://github.com/0-AI-UG/cate/blob/main/registry/sources.json'
 
 function matches(entry: SkillEntry, terms: string[]): boolean {
   if (terms.length === 0) return true
@@ -189,17 +195,31 @@ export function SkillsDialog() {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [saved, installedIds, byId, terms],
   )
+  // Catalog entries not already saved or installed, matching the query — split
+  // into Cate's own (pinned to the top) and the rest (Browse), so each shows once.
+  const available = useCallback(
+    (e: SkillEntry) => !savedIds.has(e.id) && !installedIds.has(e.id) && matches(e, terms),
+    [savedIds, installedIds, terms],
+  )
+  const cateRows = useMemo(
+    () =>
+      index
+        .filter((e) => e.firstParty && available(e))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [index, available],
+  )
   const browseRows = useMemo(
     () =>
       index
-        .filter((e) => !savedIds.has(e.id) && !installedIds.has(e.id) && matches(e, terms))
+        .filter((e) => !e.firstParty && available(e))
         .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0) || a.name.localeCompare(b.name)),
-    [index, savedIds, installedIds, terms],
+    [index, available],
   )
 
   if (!show) return null
 
-  const empty = installedRows.length === 0 && savedRows.length === 0 && browseRows.length === 0
+  const empty =
+    cateRows.length === 0 && installedRows.length === 0 && savedRows.length === 0 && browseRows.length === 0
 
   // Key on id + path, not id alone: a repo can expose the same skill name at two
   // paths, which collide to one id. Duplicate React keys break list diffing, so
@@ -260,6 +280,13 @@ export function SkillsDialog() {
 
         {/* Lists */}
         <div className="flex-1 overflow-y-auto pb-2">
+          {cateRows.length > 0 && (
+            <>
+              <GroupLabel>Cate · {cateRows.length}</GroupLabel>
+              {cateRows.map((e) => renderRow(e, false))}
+            </>
+          )}
+
           {installedRows.length > 0 && (
             <>
               <GroupLabel>Installed · {installedRows.length}</GroupLabel>
@@ -290,6 +317,19 @@ export function SkillsDialog() {
           ) : (
             browseRows.map((e) => renderRow(e, false))
           )}
+        </div>
+
+        {/* Pinned footer — PR a missing skill into the curated index. Stays put
+            below the (possibly very long) scrolling list so it's always seen. */}
+        <div className="shrink-0 border-t border-subtle px-3.5 py-2 text-[11px] text-muted">
+          Missing a skill?{' '}
+          <button
+            onClick={() => window.electronAPI?.openExternalUrl(SKILL_SOURCES_URL)}
+            className="inline-flex items-center gap-0.5 text-secondary hover:text-primary underline decoration-dotted underline-offset-2"
+          >
+            Add its source
+            <ArrowSquareOut size={11} />
+          </button>
         </div>
     </PaletteDialogShell>
   )
@@ -352,7 +392,7 @@ function SkillRow({
         onClick={() => void toggleSave()}
         disabled={saveBusy}
         aria-label={saved ? 'Remove from your library' : 'Save to your library'}
-        className="shrink-0 w-6 h-6 flex items-center justify-center rounded disabled:opacity-50"
+        className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg disabled:opacity-50"
       >
         {saveBusy ? (
           <CircleNotch size={13} className="animate-spin text-muted" />
@@ -383,7 +423,7 @@ function SkillRow({
           <button
             onClick={() => window.electronAPI?.openExternalUrl(link)}
             aria-label="Open skill on GitHub"
-            className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted hover:text-secondary"
+            className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-muted hover:text-secondary"
           >
             <ArrowSquareOut size={14} />
           </button>
@@ -499,7 +539,7 @@ function AgentMenu({
             title={on ? 'Installed — click to remove' : 'Install here'}
           >
             <span className="w-3.5 shrink-0 flex items-center justify-center text-accent">
-              {working ? <CircleNotch size={11} className="animate-spin" /> : on ? <Check size={11} weight="bold" /> : null}
+              {working ? <CircleNotch size={11} className="animate-spin" /> : on ? <Check size={11} /> : null}
             </span>
             <span className="flex-1">{t.label}</span>
             {t.beta && <span className="text-[8px] uppercase opacity-60">beta</span>}
@@ -530,7 +570,7 @@ function IconBtn({
         type="button"
         aria-label={title}
         onClick={onClick}
-        className="flex items-center justify-center w-7 h-7 rounded-md text-muted hover:text-primary hover:bg-white/5 transition-colors"
+        className="flex items-center justify-center w-7 h-7 rounded-[10px] text-muted hover:text-primary hover:bg-white/5 transition-colors"
       >
         {children}
       </button>

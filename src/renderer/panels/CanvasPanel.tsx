@@ -1,7 +1,7 @@
 // =============================================================================
 // CanvasPanel — a full canvas workspace that lives as a panel in any dock zone.
 // Each instance gets its own CanvasStore for independent viewport/zoom/nodes.
-// The first canvas created uses the default singleton store for compatibility.
+// Every canvas panel resolves its store from the renderer session by panel id.
 // =============================================================================
 
 import React, { useMemo, useCallback, useEffect } from 'react'
@@ -13,14 +13,15 @@ import Canvas from '../canvas/Canvas'
 import CanvasNode from '../canvas/CanvasNode'
 import CanvasToolbar from '../canvas/CanvasToolbar'
 import WelcomePage from '../ui/WelcomePage'
+import { NodeErrorBoundary } from '../ui/NodeErrorBoundary'
 import { EmptyCanvasOverlay } from './EmptyCanvasOverlay'
-import type { PanelType, Point, DockLayoutNode, PanelLocation, WindowDockState } from '../../shared/types'
-import { useAppStore, useSelectedWorkspace, registerCanvasOps, unregisterCanvasOps, type PanelPlacement } from '../stores/appStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { useStore } from 'zustand'
+import type { PanelType, Point, DockLayoutNode, WindowDockState } from '../../shared/types'
+import { useAppStore, useSelectedWorkspace, type PanelPlacement } from '../stores/appStore'
+import { useCateAgentStore } from '../cateAgent/cateAgentStore'
+import { useStoreWithEqualityFn } from 'zustand/traditional'
 import type { StoreApi } from 'zustand'
+import { keepsMountedOffscreen } from '../../shared/panels'
 import { ensureWorkspaceFolder } from '../hooks/useShortcuts'
-import { createCanvasOps } from '../lib/canvas/canvasBridge'
 import { setActivePanel } from '../lib/activePanel'
 import { createDockStore, type DockStore } from '../stores/dockStore'
 import {
@@ -31,36 +32,45 @@ import {
   findNodeIdForDockStore,
 } from './nodeDockRegistry'
 import { getPanelDef } from '../panels/registry'
+import { inheritedWorktreeFromSelection } from '../lib/inheritWorktree'
+import { activeDockPanelId } from '../../shared/collectPanelIds'
 
 // Re-export the lookup helpers so existing callers (drag dispatcher, drop
 // resolver) keep working through the same import path. New code should import
 // directly from './nodeDockRegistry' to skip the heavy CanvasPanel module.
 export { findNodeDockStore, findNodeIdForDockStore }
 
-// ---------------------------------------------------------------------------
-// Helper — walk a DockLayoutNode tree and collect panel locations
-// ---------------------------------------------------------------------------
-function collectLocationsFromLayout(
-  layout: DockLayoutNode | null | undefined,
-  zone: 'center',
-): Record<string, PanelLocation> {
-  const locations: Record<string, PanelLocation> = {}
-  if (!layout) return locations
+// Same-membership equality for the keep-mounted set, so the selector below hands
+// back the SAME Set object whenever the ids are unchanged.
+function setEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a === b) return true
+  if (a.size !== b.size) return false
+  for (const v of a) if (!b.has(v)) return false
+  return true
+}
 
-  function walk(node: DockLayoutNode) {
-    if (node.type === 'tabs') {
-      for (const panelId of node.panelIds) {
-        locations[panelId] = { type: 'dock', zone, stackId: node.id }
+// The set of panel ids whose type must stay mounted off-screen (webview-backed
+// extensions). Derived from the workspace's panels with an equality-checked
+// selector so pure panel-state churn (a title edit, dirty flag, etc.) does NOT
+// produce a new Set — the cull's keep-alive cache is keyed on this set's identity,
+// so a stable identity means no re-render here and no per-frame recompute there.
+// Panel `type` is immutable after creation, so this only changes when a
+// keep-mounted panel is actually added or removed.
+function useKeepMountedPanelIds(workspaceId: string): ReadonlySet<string> {
+  return useStoreWithEqualityFn(
+    useAppStore,
+    (s) => {
+      const panels = s.workspaces.find((w) => w.id === workspaceId)?.panels
+      const ids = new Set<string>()
+      if (panels) {
+        for (const p of Object.values(panels)) {
+          if (keepsMountedOffscreen(p.type)) ids.add(p.id)
+        }
       }
-    } else {
-      for (const child of node.children) {
-        walk(child)
-      }
-    }
-  }
-
-  walk(layout)
-  return locations
+      return ids
+    },
+    setEqual,
+  )
 }
 
 interface CanvasPanelProps {
@@ -95,16 +105,13 @@ const CanvasNodeWrapper = React.memo(({ nodeId, canvasPanelId, renderPanelConten
     if (existing) return existing
 
     const dockLayout = node?.dockLayout ?? null
-    const initial: { zones: WindowDockState; locations: Record<string, PanelLocation> } = {
-      zones: {
-        left:   { position: 'left',   visible: false, size: 260, layout: null },
-        right:  { position: 'right',  visible: false, size: 260, layout: null },
-        bottom: { position: 'bottom', visible: false, size: 240, layout: null },
-        center: { position: 'center', visible: true,  size: 0,   layout: dockLayout },
-      },
-      locations: collectLocationsFromLayout(dockLayout, 'center'),
+    const zones: WindowDockState = {
+      left:   { position: 'left',   visible: false, size: 260, layout: null },
+      right:  { position: 'right',  visible: false, size: 260, layout: null },
+      bottom: { position: 'bottom', visible: false, size: 240, layout: null },
+      center: { position: 'center', visible: true,  size: 0,   layout: dockLayout },
     }
-    const store = createDockStore(initial)
+    const store = createDockStore({ zones })
     registerNodeDockStore(canvasPanelId, nodeId, store)
     return store
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -188,17 +195,19 @@ const CanvasNodeWrapper = React.memo(({ nodeId, canvasPanelId, renderPanelConten
 
   if (!node) return null
 
-  // Derive a fallback title from the seed panelId for CanvasNode's header
-  const firstPanel = currentWorkspace?.panels[node.panelId]
+  const firstPanelId = activeDockPanelId(node.dockLayout)
+  const firstPanel = firstPanelId ? currentWorkspace?.panels[firstPanelId] : undefined
 
   return (
-    <CanvasNode
-      nodeId={node.id}
-      isFocused={isFocused}
-      dockStoreApi={dockStoreApi}
-      renderPanel={renderPanel}
-      title={firstPanel?.title}
-    />
+    <NodeErrorBoundary nodeId={node.id}>
+      <CanvasNode
+        nodeId={node.id}
+        isFocused={isFocused}
+        dockStoreApi={dockStoreApi}
+        renderPanel={renderPanel}
+        title={firstPanel?.title}
+      />
+    </NodeErrorBoundary>
   )
 })
 
@@ -206,21 +215,14 @@ const CanvasNodeWrapper = React.memo(({ nodeId, canvasPanelId, renderPanelConten
 // CanvasPanel
 // ---------------------------------------------------------------------------
 
-export default function CanvasPanel({ panelId, workspaceId, nodeId, renderPanelContent }: CanvasPanelProps) {
+export default function CanvasPanel({ panelId, workspaceId, renderPanelContent }: CanvasPanelProps) {
   useRenderCount('CanvasPanel')
-  // Each canvas panel gets a stable, unique store keyed by panelId. The first
-  // canvas to register aliases the legacy singleton store for backward compat.
+  // Each canvas panel gets a stable, unique store keyed by panelId.
   const store = useMemo(() => getOrCreateCanvasStoreForPanel(panelId), [panelId])
 
-  // Register this canvas's operations so panel creation routes to the correct canvas
   useEffect(() => {
-    const ops = createCanvasOps(store)
-    registerCanvasOps(panelId, ops)
     setActivePanel(panelId)
-    return () => {
-      unregisterCanvasOps(panelId)
-    }
-  }, [panelId, store])
+  }, [panelId])
 
   const handlePointerDown = useCallback(() => {
     // A canvas IS the active panel (it's a center-zone dock tab). Runs on the
@@ -231,14 +233,32 @@ export default function CanvasPanel({ panelId, workspaceId, nodeId, renderPanelC
     setActivePanel(panelId)
   }, [panelId])
 
-  const zoomLevel = useStore(store, (s) => s.zoomLevel)
   // `nodeIds` is the full ordered list (used where we need to know about every
   // node regardless of visibility — e.g. the "canvas empty" welcome page).
   // `visibleNodeIds` is viewport-culled: we only mount CanvasNodeWrapper for
   // nodes whose bbox overlaps the visible canvas rect (plus a 1-screen margin),
   // so off-screen terminals/editors don't hold live xterm/Monaco instances.
+  // `keepMountedPanelIds` lets the cull exempt webview-backed nodes (extensions)
+  // so panning them off-screen doesn't unmount the guest and reset its session
+  // state. It's a stable, membership-keyed set (see useKeepMountedPanelIds) so
+  // unrelated panel churn (titles, dirty flags) never re-runs the cull.
   const nodeIds = useNodeIds(store)
-  const visibleNodeIds = useVisibleNodeIds(store)
+  const keepMountedPanelIds = useKeepMountedPanelIds(workspaceId)
+  // Terminals the Cate Agent is driving must also stay mounted off-view: they're
+  // placed beside the user's content without moving the camera, and an unmounted
+  // terminal can't boot its pty or render the screen the agent reads. Fold them
+  // into the same keep-mounted set the cull consults. Both inputs are
+  // identity-stable across pan/zoom, so the merged set is too (and when there are
+  // no controlled terminals we pass keepMountedPanelIds through unchanged, fully
+  // preserving the cull's identity-keyed keep-alive cache).
+  const controlledTerminals = useCateAgentStore((s) => s.byWs[workspaceId]?.controlledTerminals)
+  const mountedPanelIds = useMemo(() => {
+    if (!controlledTerminals || Object.keys(controlledTerminals).length === 0) return keepMountedPanelIds
+    const merged = new Set(keepMountedPanelIds)
+    for (const id of Object.keys(controlledTerminals)) merged.add(id)
+    return merged
+  }, [keepMountedPanelIds, controlledTerminals])
+  const visibleNodeIds = useVisibleNodeIds(store, mountedPanelIds)
   // Welcome page only shows on a brand-new workspace (no rootPath chosen yet).
   // After a folder is picked, deleting all panels leaves a blank canvas.
   const workspaceRootPath = useAppStore(
@@ -261,8 +281,14 @@ export default function CanvasPanel({ panelId, workspaceId, nodeId, renderPanelC
 
   const onNewTerminal = useCallback(async () => {
     const wsId = await ensureWorkspaceFolder(workspaceId)
-    if (wsId) useAppStore.getState().createTerminal(wsId, undefined, undefined, here())
-  }, [workspaceId, here])
+    if (!wsId) return
+    // Open the new terminal in the same worktree as the terminal/agent selected
+    // on this canvas (see inheritedWorktreeFromSelection).
+    const app = useAppStore.getState()
+    const wt = inheritedWorktreeFromSelection(store.getState(), app.getWorkspace(wsId)?.panels)
+    const newId = app.createTerminal(wsId, undefined, undefined, here(), wt.cwd)
+    if (newId && wt.worktreeId) app.setPanelWorktreeId(wsId, newId, wt.worktreeId)
+  }, [workspaceId, here, store])
 
   const onNewBrowser = useCallback(async () => {
     const wsId = await ensureWorkspaceFolder(workspaceId)
@@ -276,21 +302,12 @@ export default function CanvasPanel({ panelId, workspaceId, nodeId, renderPanelC
 
   const onNewAgent = useCallback(async () => {
     const wsId = await ensureWorkspaceFolder(workspaceId)
-    if (wsId) useAppStore.getState().createAgent(wsId, undefined, here())
-  }, [workspaceId, here])
-
-  const onZoomIn = useCallback(() => {
-    store.getState().animateZoomTo(zoomLevel + 0.1)
-  }, [zoomLevel, store])
-
-  const onZoomOut = useCallback(() => {
-    store.getState().animateZoomTo(zoomLevel - 0.1)
-  }, [zoomLevel, store])
-
-  const onNewCanvas = useCallback(async () => {
-    const wsId = await ensureWorkspaceFolder(workspaceId)
-    if (wsId) useAppStore.getState().createCanvas(wsId)
-  }, [workspaceId])
+    if (!wsId) return
+    const app = useAppStore.getState()
+    const wt = inheritedWorktreeFromSelection(store.getState(), app.getWorkspace(wsId)?.panels)
+    const newId = app.createAgent(wsId, undefined, here())
+    if (newId && wt.worktreeId) app.setPanelWorktreeId(wsId, newId, wt.worktreeId)
+  }, [workspaceId, here, store])
 
   return (
     <CanvasStoreProvider store={store}>
@@ -299,7 +316,7 @@ export default function CanvasPanel({ panelId, workspaceId, nodeId, renderPanelC
           z-50 escapes to the root stacking context and renders on top of the
           sidebars — visible when the toolbar overflows its inset box on small
           or split-view screens. Behind-the-sidebar is the intended layering. */}
-      <div className="relative w-full h-full isolate" onPointerDown={handlePointerDown}>
+      <div data-canvas-area className="relative w-full h-full isolate" onPointerDown={handlePointerDown}>
         {/* Welcome page only on a fresh, uninitialized workspace (no panels
             yet AND no rootPath). Once a folder is picked, the canvas stays
             blank when emptied — the start page does not return. */}
@@ -330,14 +347,10 @@ export default function CanvasPanel({ panelId, workspaceId, nodeId, renderPanelC
             canvasPanelId={panelId}
             workspaceId={workspaceId}
             rootPath={workspaceRootPath}
-            zoom={zoomLevel}
             onNewTerminal={onNewTerminal}
             onNewBrowser={onNewBrowser}
             onNewEditor={onNewEditor}
             onNewAgent={onNewAgent}
-            onNewCanvas={onNewCanvas}
-            onZoomIn={onZoomIn}
-            onZoomOut={onZoomOut}
           />
         )}
       </div>

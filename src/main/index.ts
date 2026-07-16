@@ -4,6 +4,7 @@ import path from 'path'
 import { registerHandlers as registerTerminalHandlers } from './ipc/terminal'
 import { runtimes } from './runtime/runtimeManager'
 import { registerRuntimeHandlers } from './ipc/runtime'
+import { registerExtensionHandlers } from './extensions/cateApiHandlers'
 import { registerHandlers as registerFilesystemHandlers } from './ipc/filesystem'
 import { registerHandlers as registerGitHandlers } from './ipc/git'
 import { registerHandlers as registerSearchHandlers } from './ipc/search'
@@ -12,38 +13,35 @@ import { registerHandlers as registerGitMonitorHandlers } from './ipc/git-monito
 import { registerHandlers as registerStoreHandlers, loadSettingsSyncFromDisk, getSettingSync, setSettingsFromMain } from './store'
 import { registerUIStateHandlers } from './uiStateStore'
 import { registerProjectStateHandlers } from './projectWorkspaceStore'
+import { registerProjectCateAgentHandlers } from './projectCateAgentStore'
+import { registerProjectChatsHandlers } from './projectChatsStore'
 import { registerHandlers as registerMenuHandlers } from './ipc/menu'
 import { registerHandlers as registerNotificationHandlers } from './ipc/notifications'
 import { registerAgentHandlers } from '../agent/main/ipcAgent'
 import { registerSkillHandlers } from '../skills/main/ipcSkills'
 import { registerAuthHandlers } from '../agent/main/ipcAuth'
 import { authManager } from '../agent/main/authManager'
-import { AgentManager } from '../agent/main/agentManager'
-
-// Shared singletons for pi agent + auth.
-const agentManager = new AgentManager(authManager)
+// Shared singletons for pi agent + auth (constructed at module load).
+import { agentManager } from '../agent/main/agentManager'
 import { registerWorkspaceHandlers } from './workspaceManager'
-import { addAllowedRoot } from './ipc/pathValidation'
 import { buildApplicationMenu, setNewMainWindowFn } from './menu'
 import { initShellEnv, getShellEnv } from './shellEnv'
 import { currentExclusionSet } from './ipc/filesystem'
 import { initAutoUpdater } from './auto-updater'
 import { initSentry, captureMainException, flushSentry } from './sentry'
 import { initAnalytics, devSimulateUpdateFrom, hasRunBefore } from './analytics'
-import { disableTrustScoping } from './featureFlags'
 import { startPerfMonitor, getLatestSnapshot } from './perf/perfMonitor'
 import { PERF_GET } from '../shared/ipc-channels'
 import { TELEMETRY_NOTICE_VERSION } from '../shared/types'
 import { installWebContentsSecurity } from './webSecurity'
 import { installProxyAuthHandler } from './browserProxy'
-import { installThemeSkill } from './installThemeSkill'
+import { installBundledSkill } from './installBundledSkill'
 
 import { createWindow } from './windows/windowFactory'
 import { IS_E2E } from './windows/reveal'
 import { registerDialogHandlers } from './ipc/dialogs'
 import { registerCaptureHandlers } from './ipc/capture'
 import { registerWindowControlHandlers } from './ipc/windowControls'
-import { registerPanelWindowHandlers } from './ipc/panelWindows'
 import { registerDockWindowHandlers } from './ipc/dockWindows'
 import { registerWindowPanelHandlers } from './ipc/windowPanels'
 import { registerDragHandlers } from './ipc/dragHandlers'
@@ -89,6 +87,8 @@ function registerCriticalHandlers(): void {
   registerStoreHandlers()
   registerUIStateHandlers()
   registerProjectStateHandlers()
+  registerProjectCateAgentHandlers()
+  registerProjectChatsHandlers()
   registerWorkspaceHandlers()
   registerFilesystemHandlers()
   registerTerminalHandlers()
@@ -99,7 +99,6 @@ function registerCriticalHandlers(): void {
   registerDialogHandlers()
   registerCaptureHandlers()
   registerWindowControlHandlers()
-  registerPanelWindowHandlers()
   registerDockWindowHandlers({ createWindow })
   registerWindowPanelHandlers()
   registerDragHandlers({ createWindow })
@@ -122,6 +121,7 @@ function registerDeferredHandlers(): void {
   registerAgentHandlers(authManager, agentManager)
   registerSkillHandlers()
   registerRuntimeHandlers()
+  registerExtensionHandlers()
 }
 
 // =============================================================================
@@ -343,26 +343,29 @@ app.whenReady().then(async () => {
   registerCriticalHandlers()
   log.info('Critical IPC handlers registered')
 
-  // Install the cate-theme authoring skill into ~/.claude/skills (copy-if-missing).
-  void installThemeSkill()
+  // Install the cate-theme skill into ~/.claude/skills (copy-if-missing) so the
+  // LOCAL Claude Code discovers theme authoring anywhere. The cate-cli skill is
+  // NOT installed globally — it is seeded per-workspace for every supported
+  // agent at workspace open (seedCateCliSkill), where the CLI actually works.
+  void installBundledSkill('cate-theme')
 
   const mainWin = createWindow({ type: 'main' })
   log.info('Main window created (id=%d)', mainWin.id)
 
-  if (disableTrustScoping()) {
-    addAllowedRoot(app.getPath('home'))
-    log.warn('[security] Trust scoping disabled via dev-only flag; home directory restored to allowed roots')
-  }
-
   // Check for a crash report from the previous session — shows an opt-in
-  // dialog if one exists. Deferred until after the window is ready so the
-  // dialog has a parent window and doesn't block startup.
-  mainWin.once('ready-to-show', () => {
+  // dialog if one exists. Deferred until the window is usable so the dialog has
+  // a parent window and doesn't block startup. did-finish-load is a fallback
+  // for hidden-window startup paths where ready-to-show never arrives.
+  let mainWindowReadyHandled = false
+  const markMainWindowReady = (reason: string): void => {
+    if (mainWindowReadyHandled || mainWin.isDestroyed()) return
+    mainWindowReadyHandled = true
+    log.info('Main window ready via %s', reason)
     setMainWindowReady(true)
     flushPendingOpenPaths()
     // Register deferred IPC handlers and start the auto-updater now that the
-    // first paint has landed. Anything not on the cold-launch critical path
-    // belongs here.
+    // first usable renderer load has landed. Anything not on the cold-launch
+    // critical path belongs here.
     registerDeferredHandlers()
     log.info('Deferred IPC handlers registered')
     initAutoUpdater()
@@ -377,7 +380,9 @@ app.whenReady().then(async () => {
           app.exit(1)
         })
     }
-  })
+  }
+  mainWin.once('ready-to-show', () => markMainWindowReady('ready-to-show'))
+  mainWin.webContents.once('did-finish-load', () => markMainWindowReady('did-finish-load'))
 })
 
 // Window lifecycle: window-all-closed, activate, and the before-quit / will-quit

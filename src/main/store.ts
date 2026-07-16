@@ -6,12 +6,11 @@
 // lives in dedicated hand-editable JSON files (see ./workspaceStateStore).
 // =============================================================================
 
-import { ipcMain, app, BrowserWindow, nativeTheme, session } from 'electron'
+import { ipcMain, app, nativeTheme, session } from 'electron'
 import log from './logger'
-import fsSync from 'fs'
-import path from 'path'
-import { writeJsonAtomic } from './writeJsonAtomic'
+import { listWindows, windowFromEvent } from './windowRegistry'
 import { isPlainObject } from './jsonUtils'
+import { createJsonStateFile } from './jsonStateFile'
 import {
   SETTINGS_GET,
   SETTINGS_SET,
@@ -108,44 +107,43 @@ async function pushLayoutNamesToMenu(names: string[]): Promise<void> {
  * native/daemon side effects.
  */
 async function applySettingSideEffect(key: keyof AppSettings, value: unknown): Promise<void> {
+  if (key === 'customShortcuts') {
+    try {
+      const { rebuildApplicationMenu } = await import('./menu')
+      rebuildApplicationMenu()
+    } catch (err) {
+      log.warn('Native shortcut menu rebuild failed: %O', err)
+    }
+  }
   // fileExclusions has one live consumer (the FileExplorer tree) that listens on
   // the SETTINGS_CHANGED invalidation channel and reloads. Broadcast it directly
   // (the only key that uses this channel today).
   if (key === 'fileExclusions') {
     broadcastToAll(SETTINGS_CHANGED, key, value)
   }
-  // Rebuild active fs watchers so their ignore globs match the new exclusions
-  // (dynamic import avoids a static store<->filesystem cycle). Also push the new
-  // set to the LOCAL runtime daemon, which captured its exclusions once at
-  // launch — without this the daemon's file tree / file-name search wouldn't
-  // honor the change until a restart. Only LOCAL: remote daemons get their
-  // config at connect time (out of scope here). Imports are dynamic to avoid
-  // store<->filesystem and store<->runtime cycles.
+  // Push the new set to EVERY connected runtime daemon (local and remote alike
+  // — each captured its exclusions once at launch); without this a daemon's
+  // file tree / file-name search / watchers wouldn't honor the change until a
+  // reconnect. Imports are dynamic to avoid store<->filesystem and
+  // store<->runtime cycles.
   if (key === 'fileExclusions') {
     try {
-      const { refreshWatcherIgnores } = await import('./ipc/filesystem')
-      refreshWatcherIgnores()
-    } catch (err) {
-      log.warn('Watcher ignore refresh failed: %O', err)
-    }
-    try {
       const { runtimes } = await import('./runtime/runtimeManager')
-      const { LOCAL_RUNTIME_ID } = await import('./runtime/locator')
-      if (runtimes.has(LOCAL_RUNTIME_ID)) {
-        runtimes.resolve(LOCAL_RUNTIME_ID).setExclusions(value as string[]).catch(() => {})
+      for (const id of runtimes.connectedIds()) {
+        runtimes.resolve(id).setExclusions(value as string[]).catch(() => {})
       }
     } catch (err) {
       log.warn('Runtime exclusions forward failed: %O', err)
     }
   }
-  // Push the idle-suspend toggle to the LOCAL runtime daemon, which gated its
-  // idle scanner once at launch — toggling otherwise needs a restart.
+  // Push the idle-suspend toggle to EVERY connected runtime daemon, each of
+  // which gated its idle scanner once at launch — toggling otherwise needs a
+  // reconnect. (POSIX-only inside the daemon; a win32 host ignores it.)
   if (key === 'autoSuspendIdleTerminals') {
     try {
       const { runtimes } = await import('./runtime/runtimeManager')
-      const { LOCAL_RUNTIME_ID } = await import('./runtime/locator')
-      if (runtimes.has(LOCAL_RUNTIME_ID)) {
-        runtimes.resolve(LOCAL_RUNTIME_ID).setIdleSuspend(value !== false).catch(() => {})
+      for (const id of runtimes.connectedIds()) {
+        runtimes.resolve(id).setIdleSuspend(value !== false).catch(() => {})
       }
     } catch (err) {
       log.warn('Runtime idle-suspend forward failed: %O', err)
@@ -230,51 +228,32 @@ export interface BootSnapshot {
   lastWorkspaceId?: string
 }
 
-function getBootSnapshotPath(): string {
-  return path.join(app.getPath('userData'), 'boot.json')
+// Backed by the shared jsonStateFile store, which gives boot.json everything the
+// hand-rolled writer here used to lack: corrupt-file quarantine on load and a
+// sync flush for will-quit (a geometry/theme write inside the debounce window
+// used to be lost on quit). Sync load + debounced serialized atomic writes come
+// with it. The in-memory copy is authoritative, so partial writes from the
+// several sources (settings theme cache, windowFactory geometry, the renderer's
+// BOOT_SNAPSHOT_WRITE) merge in memory instead of read-modify-writing the disk.
+const bootFile = createJsonStateFile<BootSnapshot>({
+  filename: 'boot.json',
+  defaults: {},
+  normalize: (parsed) => (isPlainObject(parsed) ? (parsed as BootSnapshot) : {}),
+})
+
+/** Read the boot snapshot synchronously. `{}` when absent/corrupt. */
+export function readBootSnapshot(): BootSnapshot {
+  return bootFile.get()
 }
 
-/** Read the boot snapshot synchronously. Returns null on any failure. */
-export function readBootSnapshot(): BootSnapshot | null {
-  try {
-    const p = getBootSnapshotPath()
-    if (!fsSync.existsSync(p)) return null
-    const raw = fsSync.readFileSync(p, 'utf-8')
-    const parsed = JSON.parse(raw)
-    if (isPlainObject(parsed)) {
-      return parsed as BootSnapshot
-    }
-    return null
-  } catch (err) {
-    log.warn('Boot snapshot read failed: %O', err)
-    return null
-  }
-}
-
-// Debounced trailing-edge writer — coalesces bursts of setting changes into
-// a single 250 ms flush so we never thrash the disk on rapid setting updates.
-let bootSnapshotPending: BootSnapshot | null = null
-let bootSnapshotTimer: ReturnType<typeof setTimeout> | null = null
-const BOOT_SNAPSHOT_DEBOUNCE_MS = 250
-
-async function flushBootSnapshot(): Promise<void> {
-  bootSnapshotTimer = null
-  if (!bootSnapshotPending) return
-  const next = { ...(readBootSnapshot() ?? {}), ...bootSnapshotPending }
-  bootSnapshotPending = null
-  try {
-    // boot.json is read sync at the very first frame, so keep it compact.
-    await writeJsonAtomic(getBootSnapshotPath(), next, { pretty: false })
-  } catch (err) {
-    log.warn('Boot snapshot write failed: %O', err)
-  }
-}
-
-/** Merge `partial` into the current boot snapshot and flush after a short debounce. */
+/** Merge `partial` into the current boot snapshot (debounced atomic write). */
 export function writeBootSnapshot(partial: Partial<BootSnapshot>): void {
-  bootSnapshotPending = { ...(bootSnapshotPending ?? {}), ...partial }
-  if (bootSnapshotTimer) return
-  bootSnapshotTimer = setTimeout(() => { void flushBootSnapshot() }, BOOT_SNAPSHOT_DEBOUNCE_MS)
+  bootFile.update((current) => ({ ...current, ...partial }))
+}
+
+/** Flush a pending debounced boot.json write synchronously (quit path). */
+export function flushBootSnapshotSync(): void {
+  bootFile.flushPendingWritesSync()
 }
 
 /**
@@ -351,15 +330,15 @@ export function registerHandlers(): void {
   // pointing at settings.json keeps working across launches.
   ipcMain.handle(SETTINGS_OPEN_IN_EDITOR, async (event) => {
     const filePath = await ensureSettingsFile()
-    const win = BrowserWindow.fromWebContents(event.sender)
+    const win = windowFromEvent(event)
     if (!win) return filePath
     try {
       const safePath = await grantFileAccess(win.id, filePath)
       await recordPersistentGrant(safePath)
       // Grant every currently-open window too, so a panel dragged to another
       // window keeps access (mirrors the Save-As grant fan-out).
-      for (const other of BrowserWindow.getAllWindows()) {
-        if (other.id === win.id || other.isDestroyed()) continue
+      for (const other of listWindows()) {
+        if (other.id === win.id) continue
         try { await grantFileAccess(other.id, safePath) } catch { /* best effort */ }
       }
       return safePath
@@ -380,6 +359,13 @@ export function registerHandlers(): void {
     broadcastSettingsReloaded()
   })
 
+  // Flush a pending debounced boot.json write before the process exits, so a
+  // window move / theme change just before quit survives to the next launch.
+  // Registered by boot.json's owner (like extension storage does) rather than
+  // shutdown.ts's flush list; will-quit listeners all run synchronously before
+  // the hard exit.
+  app.on('will-quit', () => flushBootSnapshotSync())
+
   // Boot snapshot — renderer pushes geometry/theme/etc. updates here. The
   // write is debounced internally; this handler returns immediately.
   ipcMain.handle(BOOT_SNAPSHOT_WRITE, async (event, partial: Partial<BootSnapshot>) => {
@@ -393,7 +379,7 @@ export function registerHandlers(): void {
     // so each window (main + detached panel/dock) updates its own chrome.
     if (typeof partial.backgroundColor === 'string') {
       try {
-        BrowserWindow.fromWebContents(event.sender)?.setBackgroundColor(partial.backgroundColor)
+        windowFromEvent(event)?.setBackgroundColor(partial.backgroundColor)
       } catch (err) {
         log.warn('Live window background update failed: %O', err)
       }

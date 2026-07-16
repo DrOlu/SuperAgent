@@ -14,6 +14,8 @@ import remarkGfm from 'remark-gfm'
 import type { EditorPanelProps } from './types'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useOptionalCanvasStoreContext } from '../stores/CanvasStoreContext'
+import { focusedNodeId } from '../stores/canvas/selectionModel'
 import {
   registerEditorSave,
   unregisterEditorSave,
@@ -287,8 +289,8 @@ function reconstructOriginalFromDiff(currentContent: string, diff: string): stri
 export default function EditorPanel({
   panelId,
   workspaceId,
-  nodeId,
   filePath,
+  nodeId,
 }: EditorPanelProps) {
   useRenderCount('EditorPanel')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -313,6 +315,26 @@ export default function EditorPanel({
       useAppStore.getState().setPanelMarkdownPreview(workspaceId, panelId, next),
     [workspaceId, panelId],
   )
+
+  // When this panel becomes the focused canvas node, move keyboard focus into
+  // the editor so typing works without a second click — matching TerminalPanel
+  // and BrowserPanel. (A panel with no CanvasStoreProvider — e.g. docked in a
+  // detached window — reads as not-focused.) Retries across a few frames because
+  // the Monaco instance is created asynchronously and may not exist yet when
+  // focus first lands. Skipped in markdown-preview mode (no text surface).
+  const isFocused = useOptionalCanvasStoreContext((s) => focusedNodeId(s) === nodeId, false)
+  useEffect(() => {
+    if (!isFocused || markdownPreview) return
+    let raf = 0
+    let tries = 0
+    const tryFocus = (): void => {
+      const editor = editorRef.current ?? diffEditorRef.current
+      if (editor) { editor.focus(); return }
+      if (tries++ < 10) raf = requestAnimationFrame(tryFocus)
+    }
+    raf = requestAnimationFrame(tryFocus)
+    return () => cancelAnimationFrame(raf)
+  }, [isFocused, markdownPreview])
   const rootPath = ws?.rootPath
   const isMarkdown = !!filePath && /\.mdx?$/i.test(filePath)
 
@@ -405,8 +427,8 @@ export default function EditorPanel({
         let originalContent = ''
         try {
           const diff = diffMode === 'staged'
-            ? await window.electronAPI.gitDiffStaged(rootPath, relativePath)
-            : await window.electronAPI.gitDiff(rootPath, relativePath)
+            ? await window.electronAPI.gitDiffStaged(rootPath, relativePath, workspaceId)
+            : await window.electronAPI.gitDiff(rootPath, relativePath, workspaceId)
           originalContent = reconstructOriginalFromDiff(modifiedContent, diff)
         } catch {
           originalContent = modifiedContent
@@ -745,26 +767,6 @@ export default function EditorPanel({
 
   return (
     <div className="w-full h-full flex flex-col">
-      {/* Markdown header strip — the Source/Preview toggle lives in its own
-          row instead of floating over the first line of content (#370). */}
-      {isMarkdown && !diffMode && (
-        <div
-          className="flex items-center justify-end shrink-0 px-1.5 py-1 border-b border-subtle"
-          style={{ backgroundColor: 'var(--node-chrome-bg, var(--surface-1))' }}
-        >
-          <button
-            onClick={() => setMarkdownPreview(!markdownPreview)}
-            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              markdownPreview
-                ? 'bg-agent/15 text-agent hover:bg-agent/25'
-                : 'bg-surface-3 text-secondary hover:bg-surface-4 hover:text-primary'
-            }`}
-            title={markdownPreview ? 'Show source' : 'Preview markdown'}
-          >
-            {markdownPreview ? 'Source' : 'Preview'}
-          </button>
-        </div>
-      )}
       {conflict && !diffMode && (
         <EditorConflictBanner
           kind={conflict.kind}
@@ -794,6 +796,23 @@ export default function EditorPanel({
           </div>
         )}
         <div ref={containerRef} className={`w-full h-full ${(markdownPreview && isMarkdown) || loadError ? 'hidden' : ''}`} />
+        {/* Source/Preview toggle — floats over the content's top-right instead
+            of taking a header row. right-3 (12px) clears Monaco's 8px vertical
+            scrollbar lane; z-40 keeps it above the diff (z-30) and load-error
+            (z-20) overlays, matching the reach it had as a header. */}
+        {isMarkdown && !diffMode && (
+          <button
+            onClick={() => setMarkdownPreview(!markdownPreview)}
+            className={`absolute top-1.5 right-3 z-40 px-2 py-0.5 rounded text-[11px] font-medium shadow-sm transition-colors ${
+              markdownPreview
+                ? 'bg-agent/15 text-agent hover:bg-agent/25'
+                : 'bg-surface-3 text-secondary hover:bg-surface-4 hover:text-primary'
+            }`}
+            title={markdownPreview ? 'Show source' : 'Preview markdown'}
+          >
+            {markdownPreview ? 'Source' : 'Preview'}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -824,7 +843,7 @@ function MarkdownCodeBlock({ children }: { children: ReactNode }) {
             window.setTimeout(() => setCopied(false), 1200)
           }}
           aria-label="Copy code"
-          className={`absolute top-1.5 right-1.5 p-1 rounded-md bg-surface-3 text-muted transition-opacity hover:text-primary hover:bg-hover-strong ${
+          className={`absolute top-1.5 right-1.5 p-1 rounded-[10px] bg-surface-3 text-muted transition-opacity hover:text-primary hover:bg-hover-strong ${
             copied ? 'opacity-100 text-primary' : 'opacity-0 group-hover:opacity-100'
           }`}
         >

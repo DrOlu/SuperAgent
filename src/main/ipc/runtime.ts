@@ -25,6 +25,7 @@ import {
   RUNTIME_SSH_HOSTS,
   RUNTIME_STATUS,
   RUNTIME_LOCAL_STATUS,
+  RUNTIME_RETRY_LOCAL,
   RUNTIME_PICK_SSH_KEY,
 } from '../../shared/ipc-channels'
 import { runtimes, RuntimeManager } from '../runtime/runtimeManager'
@@ -37,6 +38,10 @@ import type {
 } from '../../shared/types'
 import { broadcastToAll } from '../windowRegistry'
 import { formatLocator } from '../runtime/locator'
+// settingsFile, not ../store: getSettingSync is a re-export of this getSetting,
+// and store.ts's side-effect graph (analytics, menu, auto-updater) would bloat
+// every bundle of the buildTransport graph (see buildTransport.interop.test.ts).
+import { getSetting } from '../settingsFile'
 import type { RuntimeTransport } from '../runtime/transports/transport'
 import { SshTransport } from '../runtime/transports/sshTransport'
 import { WslTransport } from '../runtime/transports/wslTransport'
@@ -159,6 +164,11 @@ export async function buildTransport(runtimeId: string, spec: RemoteConnectSpec)
       distro: spec.distro,
       root: spec.distroPath,
       id: runtimeId,
+      // Same launch config the local daemon gets (main/index.ts) so a WSL host
+      // honors the exclusion + idle-suspend settings identically. Later live
+      // changes are forwarded to every connected runtime by the store.
+      exclusions: getSetting('fileExclusions'),
+      idleSuspend: getSetting('autoSuspendIdleTerminals'),
     })
   }
   // server (SSH): resolve stored secret + optional key file.
@@ -190,6 +200,11 @@ export async function buildTransport(runtimeId: string, spec: RemoteConnectSpec)
     privateKey,
     passphrase,
     agentSock: (spec.auth?.useAgent ?? secret?.useAgent) ? process.env.SSH_AUTH_SOCK : undefined,
+    // Same launch config the local daemon gets (main/index.ts) so an SSH host
+    // honors the exclusion + idle-suspend settings identically. Later live
+    // changes are forwarded to every connected runtime by the store.
+    exclusions: getSetting('fileExclusions'),
+    idleSuspend: getSetting('autoSuspendIdleTerminals'),
   })
 }
 
@@ -344,6 +359,18 @@ export function registerRuntimeHandlers(): void {
   // before a window subscribes to the RUNTIME_STATUS broadcast.
   ipcMain.handle(RUNTIME_LOCAL_STATUS, async () => {
     return runtimes.localStatus()
+  })
+
+  // Relaunch the built-in LOCAL daemon after a failed startup connect or crash —
+  // the renderer's Retry path (terminal create failure / lock overlay). Without
+  // this, a single failed local connect left the workspace dead until app
+  // restart: nothing re-ran ensureLocalRuntime and RUNTIME_ENSURE rejects
+  // local connections. Resolves once the connect settles; phases stream to the
+  // renderer via RUNTIME_STATUS as usual.
+  ipcMain.handle(RUNTIME_RETRY_LOCAL, async (): Promise<{ ok: boolean; error?: string }> => {
+    const res = await runtimes.retryLocal()
+    if (!res.ok) log.warn('[runtime:retry-local] %s', res.error ?? 'failed')
+    return res
   })
 
   ipcMain.handle(RUNTIME_WSL_DISTROS, async () => {

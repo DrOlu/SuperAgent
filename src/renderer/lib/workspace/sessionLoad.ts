@@ -5,14 +5,11 @@
 
 import log from '../logger'
 import { isLocalLocator } from '../../../main/runtime/locator'
-import { applySidebarSession } from './sidebarSession'
+import { applySidebarSession, dedupeSnapshotsByRoot } from './sidebarSession'
 import { projectFilesToSnapshot } from './sessionSerialize'
-import { createDefaultDockState } from '../../stores/dockStore'
-import { generateId } from '../../stores/canvas/helpers'
 import type {
   SessionSnapshot,
   MultiWorkspaceSession,
-  PanelWindowSnapshot,
   DetachedDockWindowSnapshot,
   ProjectWorkspaceFile,
   ProjectSessionFile,
@@ -23,33 +20,8 @@ export async function loadSession(): Promise<MultiWorkspaceSession | null> {
   return loadFromProjectFiles()
 }
 
-/**
- * Convert legacy single-panel `panelWindows` (removed) into the dock-window
- * shape so old session files still restore their detached panels. Each legacy
- * window becomes a one-tab dock window: a single visible center zone holding the
- * panel, all side zones hidden.
- */
-function migrateLegacyPanelWindows(sess: ProjectSessionFile | null): DetachedDockWindowSnapshot[] {
-  const legacy = (sess as (ProjectSessionFile & { panelWindows?: PanelWindowSnapshot[] }) | null)?.panelWindows
-  if (!legacy?.length) return []
-  const out: DetachedDockWindowSnapshot[] = []
-  for (const pw of legacy) {
-    const zones = createDefaultDockState()
-    zones.center.layout = { type: 'tabs', id: generateId(), panelIds: [pw.panel.id], activeIndex: 0 }
-    out.push({
-      dockState: { zones, locations: {} },
-      panels: { [pw.panel.id]: pw.panel },
-      bounds: pw.bounds,
-      workspaceId: pw.workspaceId ?? '',
-    })
-  }
-  return out
-}
-
-/** All detached dock windows for a session file: the persisted dockWindows plus
- *  any migrated from legacy panelWindows. */
 export function dockWindowsFromSession(sess: ProjectSessionFile | null): DetachedDockWindowSnapshot[] {
-  return [...(sess?.dockWindows ?? []), ...migrateLegacyPanelWindows(sess)]
+  return sess?.dockWindows ?? []
 }
 
 async function loadFromProjectFiles(): Promise<MultiWorkspaceSession | null> {
@@ -91,8 +63,7 @@ async function loadFromProjectFiles(): Promise<MultiWorkspaceSession | null> {
 
       snapshots.push(projectFilesToSnapshot(ws, sess, rootPath))
 
-      // Detached dock windows for this project (including any migrated from the
-      // legacy panelWindows shape).
+      // Detached dock windows for this project.
       dockWindows.push(...dockWindowsFromSession(sess))
     } catch (err) {
       log.warn('[session] Failed to load project state for %s: %s', rootPath, err)
@@ -103,11 +74,9 @@ async function loadFromProjectFiles(): Promise<MultiWorkspaceSession | null> {
   // connection), so no projectStateLoad is needed. Skip any whose connection
   // somehow went missing — without it ensureWorkspaceRuntime can't reconnect.
   for (const entry of remoteEntries) {
-    if (!entry?.snapshot || !entry.connection || entry.connection.kind === 'local') continue
-    const snap = entry.snapshot
-    // Ensure the connection rides on the snapshot even for entries persisted
-    // before connection was stored on the snapshot itself.
-    snapshots.push({ ...snap, connection: snap.connection ?? entry.connection })
+    const snap = entry?.snapshot
+    if (!snap?.connection || snap.connection.kind === 'local') continue
+    snapshots.push(snap)
   }
 
   if (snapshots.length === 0) return null
@@ -116,7 +85,10 @@ async function loadFromProjectFiles(): Promise<MultiWorkspaceSession | null> {
   // the active workspace. Falls back to recentProjects order / index 0 when no
   // arrangement is stored yet (first run after upgrade).
   const sidebarSession = await window.electronAPI.sidebarSessionGet().catch(() => null)
-  const { workspaces, selectedWorkspaceIndex } = applySidebarSession(snapshots, sidebarSession)
+  const { workspaces, selectedWorkspaceIndex } = applySidebarSession(
+    dedupeSnapshotsByRoot(snapshots),
+    sidebarSession,
+  )
 
   return {
     version: 2,

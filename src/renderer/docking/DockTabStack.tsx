@@ -8,6 +8,7 @@ import { useDockStoreApi } from '../stores/DockStoreContext'
 import { registerDropZone, useDragStore } from '../drag'
 import type { DockTabStack as DockTabStackType, PanelState, PanelType } from '../../shared/types'
 import { useAppStore } from '../stores/appStore'
+import { PanelChromeProvider, type PanelChromeApi } from '../panels/panelChrome'
 import { Columns, Plus } from '@phosphor-icons/react'
 import { DockTabBar } from './DockTabBar'
 import { WorktreePill } from '../canvas/WorktreePill'
@@ -17,7 +18,7 @@ import { useDockTabActions, useAcceptsPanelType } from './useDockTabActions'
 import { setActivePanel } from '../lib/activePanel'
 import { Tooltip } from '../ui/Tooltip'
 import { useDockTabDrag } from './useDockTabDrag'
-import { PANEL_DEFINITIONS } from '../../shared/panels'
+import { PANEL_DEFINITIONS, keepsMountedWhenTabHidden } from '../../shared/panels'
 
 // Human-readable labels for each panel type, used in tooltips and the split menu.
 const PANEL_TYPE_LABELS: Record<PanelType, string> = Object.fromEntries(
@@ -98,6 +99,11 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
   )
 
   const activePanel = activePanelId ? resolvePanel(activePanelId) : undefined
+
+  // Set while the visible panel's own UI covers its top-right corner (see the
+  // worktree chip below, which otherwise overlays exactly there).
+  const [cornerClaimed, setCornerClaimed] = useState(false)
+  const chromeApi = useMemo<PanelChromeApi>(() => ({ setCornerClaimed }), [])
 
   // Tab interaction actions (rename, click, context menus, add/split helpers).
   const actions = useDockTabActions({
@@ -209,6 +215,16 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
     return { draggedPanelId: dragSource.panelId, originalIndex: idx }
   }, [showTabPlaceholder, dragSource, stack.id, stack.panelIds])
 
+  // Center-zone tabs float over the panel body ONLY for a canvas, so the canvas
+  // grid shows through behind the chromeless header. For any other panel type a
+  // floating header would leave the panel's own content/toolbar (e.g. an editor's
+  // markdown Preview strip) sitting behind the tabs AND the window chrome
+  // (traffic-light island / sidebar toggles), which reads as a broken overlay. So
+  // non-canvas center stacks use a solid, in-flow strip that pushes content down —
+  // exactly like the docked side/bottom stacks.
+  const floatingCenterTabs =
+    !compact && zoneProp === 'center' && activePanel?.type === 'canvas'
+
   return (
     <div
       ref={stackRef}
@@ -232,9 +248,26 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
       {/* Tab bar — VS Code style: dark strip with active tab merging into the
           content area below via a top accent border. */}
       <div
-        className={`dock-tab-bar flex items-stretch overflow-hidden ${compact ? 'min-h-[26px]' : 'min-h-[36px]'}`}
+        className={`dock-tab-bar flex items-center overflow-hidden ${
+          // The canvas header floats: it's positioned absolutely so the canvas
+          // content fills the full height BEHIND it, and its background + divider
+          // stay transparent until hovered (see .dock-tab-bar-floating in
+          // globals.css) — so at rest only the tabs and buttons read against the
+          // canvas grid. Canvas-node mini-docks (compact) also go chromeless: no
+          // solid band, no divider — the tabs float directly on the panel body so
+          // the active pill nests into the node's rounded corner. Docked side/bottom
+          // stacks AND non-canvas center stacks keep the solid, in-flow chrome +
+          // divider (so their panel content isn't occluded — see floatingCenterTabs).
+          floatingCenterTabs
+            ? `dock-tab-bar-floating absolute top-0 left-0 right-0 z-20 ${showTabPlaceholder ? 'drop-active' : ''}`
+            : compact
+              ? ''
+              : 'border-b border-subtle'
+        } ${compact ? 'min-h-[26px] px-0.5' : 'min-h-[32px] px-1.5'}`}
         style={{
-          backgroundColor: 'var(--node-chrome-bg, var(--surface-1))',
+          ...(!compact && !floatingCenterTabs
+            ? { backgroundColor: 'var(--node-chrome-bg, var(--surface-1))' }
+            : null),
           ...(onTabBarMouseDown ? { cursor: 'grab' } : null),
         }}
         onContextMenu={onEmptyContextMenu}
@@ -270,7 +303,6 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
           setRenameValue={actions.setRenameValue}
           setRenameId={actions.setRenameId}
           commitRename={actions.commitRename}
-          beginRename={actions.beginRename}
           springLoadTimer={springLoadTimer}
           setActiveTab={actions.setActiveTab}
           onEmptyMouseDown={(e) => onTabBarMouseDown?.(e)}
@@ -284,7 +316,7 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
         {activePanel && (
           <Tooltip label={`New ${PANEL_TYPE_LABELS[activePanel.type] ?? 'Tab'}`}>
             <button
-              className={`flex items-center justify-center self-center rounded text-secondary hover:text-primary hover:bg-hover cursor-pointer ${compact ? 'mx-0.5 my-0.5 w-[18px] h-[18px]' : 'mx-1 my-1 w-[22px] h-[22px]'}`}
+              className={`flex items-center justify-center self-center rounded-[10px] text-muted hover:text-primary hover:bg-hover cursor-pointer ${compact ? 'mx-0.5 w-[22px] h-[22px]' : 'mx-1 w-6 h-6'}`}
               aria-label={`New ${PANEL_TYPE_LABELS[activePanel.type] ?? 'Tab'}`}
               onClick={() => actions.addTabOfType(activePanel.type)}
             >
@@ -299,7 +331,7 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
             <Tooltip label="Split (hold to choose type)">
               <button
                 ref={splitButtonRef}
-                className={`flex items-center justify-center rounded text-secondary hover:text-primary hover:bg-hover cursor-pointer ${compact ? 'w-[18px] h-[18px]' : 'w-[22px] h-[22px]'}`}
+                className={`flex items-center justify-center rounded-[10px] text-muted hover:text-primary hover:bg-hover cursor-pointer ${compact ? 'w-[22px] h-[22px]' : 'w-6 h-6'}`}
                 aria-label="Split (hold to choose type)"
                 onClick={handleSplitClick}
                 onMouseDown={handleSplitMouseDown}
@@ -330,15 +362,45 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
         )}
       </div>
 
-      {/* Active panel content. Keyed by panel id: switching between two tabs of
-          the SAME component type (canvas↔canvas, terminal↔terminal) must
-          remount the content, not reuse the instance with a swapped panelId —
-          panels wire store subscriptions in mount-only effects, so a reused
-          instance keeps driving the previous panel's store (visible canvas
-          transformed by the hidden canvas's zoom/offset). */}
+      {/* Panel content. Each panel gets its OWN stable keyed slot (keyed by panel
+          id): switching between two tabs of the SAME component type
+          (canvas↔canvas, terminal↔terminal) must remount the content, not reuse
+          the instance with a swapped panelId — panels wire store subscriptions in
+          mount-only effects, so a reused instance keeps driving the previous
+          panel's store (visible canvas transformed by the hidden canvas's
+          zoom/offset).
+
+          Ordinary panels render only while active and unmount otherwise (freeing
+          xterm/WebGL, Monaco, etc.). Webview-backed panels
+          (keepsMountedWhenTabHidden: browser/extension) instead stay MOUNTED but
+          hidden when inactive, so their live `<webview>` guest process survives a
+          tab switch — unmounting and remounting would reload the page and lose all
+          in-page state (#459). Because each keep-alive panel keeps its stable
+          keyed slot, toggling active only flips visibility rather than
+          remounting. */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
         {activePanelId ? (
-          <React.Fragment key={activePanelId}>{renderPanel(activePanelId)}</React.Fragment>
+          stack.panelIds.map((panelId) => {
+            const isActive = panelId === activePanelId
+            const keepAlive = keepsMountedWhenTabHidden(resolvePanel(panelId)?.type)
+            if (!isActive && !keepAlive) return null
+            return (
+              <div
+                key={panelId}
+                className="absolute inset-0"
+                // visibility:hidden (not display:none) keeps the hidden webview
+                // laid out at full size so it's ready the instant its tab is
+                // reselected; pointer-events:none stops the hidden layer from
+                // intercepting clicks meant for the active panel.
+                style={isActive ? undefined : { visibility: 'hidden', pointerEvents: 'none' }}
+                aria-hidden={isActive ? undefined : true}
+              >
+                <PanelChromeProvider api={chromeApi} enabled={isActive}>
+                  {renderPanel(panelId)}
+                </PanelChromeProvider>
+              </div>
+            )
+          })
         ) : (
           <div className="flex items-center justify-center h-full text-muted text-sm">
             No panel
@@ -347,8 +409,10 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
         {/* Worktree chip — overlaid on the panel's top-right rather than crammed
             into the tab strip (where it starved the title). Collapsed to its icon
             until hovered so it covers almost no content (#370). Self-hides for
-            non-terminal/agent panels and single-worktree workspaces. */}
-        {activePanel && effectiveWorkspaceId && (
+            non-terminal/agent panels and single-worktree workspaces, and stands
+            down while the panel claims the corner for its own UI (see
+            panelChrome) rather than sitting on top of it. */}
+        {activePanel && effectiveWorkspaceId && !cornerClaimed && (
           // right-3 (12px), not right-1.5: terminal/agent panels are xterm-backed
           // and always reserve a 6px scrollbar lane (overflow-y: scroll). Offset
           // past it so the chip clears the scrollbar and leaves a 6px gap that

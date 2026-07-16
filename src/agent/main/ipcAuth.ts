@@ -6,6 +6,7 @@ import { ipcMain } from 'electron'
 import {
   AUTH_LIST_PROVIDERS,
   AUTH_STATUS,
+  AUTH_VERIFY,
   AUTH_OAUTH_START,
   AUTH_OAUTH_PROMPT_REPLY,
   AUTH_SAVE_API_KEY,
@@ -21,6 +22,10 @@ export function registerAuthHandlers(authManager: AuthManager): void {
 
   ipcMain.handle(AUTH_STATUS, async () => {
     return authManager.status()
+  })
+
+  ipcMain.handle(AUTH_VERIFY, async (_event, providerId: string) => {
+    return authManager.verify(providerId)
   })
 
   ipcMain.handle(AUTH_OAUTH_START, async (event, providerId: string) => {

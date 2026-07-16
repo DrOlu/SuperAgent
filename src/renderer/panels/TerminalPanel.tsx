@@ -19,10 +19,15 @@ import { terminalRegistry } from '../lib/terminal/terminalRegistry'
 import { formatTerminalPaste, type DroppedRef } from './terminalDrop'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { useCanvasStoreContext, useCanvasStoreApi } from '../stores/CanvasStoreContext'
+import { useClaimPanelCorner } from './panelChrome'
+import { useOptionalCanvasStoreApi, useOptionalCanvasStoreContext } from '../stores/CanvasStoreContext'
 import { focusedNodeId } from '../stores/canvas/selectionModel'
 import { resolveTerminalFontSize } from '../lib/terminal/terminalSettings'
+import { shouldAdjustTerminalCoords } from '../lib/terminal/terminalCoordAdjust'
+import { useTerminalGlow } from '../cateAgent/cateAgentStore'
 import { resolveWorktree } from '../../shared/worktrees'
+import { CATE_FILE_MIME, readCateFileLocation, readCateFilePaths } from '../drag/fileDragPayload'
+import { parseLocator } from '../../main/runtime/locator'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -60,6 +65,7 @@ export default function TerminalPanel({
   const containerRef = useRef<HTMLDivElement>(null)
   const renderBoxRef = useRef<HTMLDivElement>(null)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
+  const glowColor = useTerminalGlow(workspaceId, panelId)
   const fitRafRef = useRef<number | null>(null)
   const fitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastFitSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 })
@@ -87,10 +93,25 @@ export default function TerminalPanel({
     return unsubscribe
   }, [panelId])
 
+  // A create failure usually means the host's runtime is down (the local
+  // daemon failed to start, or a remote dropped) — re-running create alone can
+  // never fix that. Re-kick the runtime first, then re-run create either way
+  // so the freshest error surfaces if it still fails.
+  const [retrying, setRetrying] = useState(false)
+  const retryRuntime = useAppStore((state) => state.retryRuntime)
   const handleRetry = useCallback(() => {
-    setCreateError(null)
-    setRetryKey((k) => k + 1)
-  }, [])
+    if (retrying) return
+    setRetrying(true)
+    void (async () => {
+      try {
+        await retryRuntime(workspaceId)
+      } finally {
+        setRetrying(false)
+        setCreateError(null)
+        setRetryKey((k) => k + 1)
+      }
+    })()
+  }, [retrying, retryRuntime, workspaceId])
 
   const workspaces = useAppStore((state) => state.workspaces)
   const panelCwd = useAppStore(
@@ -117,9 +138,9 @@ export default function TerminalPanel({
   const rootPathRef = useRef(rootPath)
   rootPathRef.current = rootPath
 
-  const isFocused = useCanvasStoreContext((s) => focusedNodeId(s) === nodeId)
-  const canvasApi = useCanvasStoreApi()
-  const zoomLevel = useCanvasStoreContext((s) => s.zoomLevel)
+  const isFocused = useOptionalCanvasStoreContext((s) => focusedNodeId(s) === nodeId, false)
+  const canvasApi = useOptionalCanvasStoreApi()
+  const zoomLevel = useOptionalCanvasStoreContext((s) => s.zoomLevel, 1)
 
   // -------------------------------------------------------------------------
   // Search handlers
@@ -150,6 +171,10 @@ export default function TerminalPanel({
     setSearchQuery('')
     terminalRegistry.clearSearch(panelId)
   }, [panelId])
+
+  // The search row sits in the panel's top-right, where the host overlays the
+  // worktree chip — claim the corner so the chip stands down while it's up.
+  useClaimPanelCorner(showSearch)
 
   // -------------------------------------------------------------------------
   // Keyboard shortcut: Cmd+F / Ctrl+F opens search; Escape closes it
@@ -405,7 +430,7 @@ export default function TerminalPanel({
 
     // Imperative subscription to focusEpoch — re-runs focus when the same node
     // is re-focused (no React re-render of this panel on unrelated focus actions).
-    const unsubscribe = canvasApi.subscribe((s, prev) => {
+    const unsubscribe = canvasApi?.subscribe((s, prev) => {
       if (s.focusEpoch === prev.focusEpoch) return
       if (focusedNodeId(s) !== nodeId) return
       stopRun?.()
@@ -415,7 +440,7 @@ export default function TerminalPanel({
     return () => {
       cancelled = true
       stopRun?.()
-      unsubscribe()
+      unsubscribe?.()
     }
   }, [isFocused, panelId, nodeId, canvasApi])
 
@@ -557,29 +582,22 @@ export default function TerminalPanel({
     // xterm computes hit-testing against its own DOM-space cell metrics, so we
     // must convert the incoming screen-space offset back into DOM space.
     const adjustCoords = (e: MouseEvent) => {
-      // Don't touch coordinates while a canvas gesture (panel resize / pan) is
-      // in flight. This handler runs in the capture phase and rewrites
-      // e.clientX/Y; the node-resize listener is on window (bubble phase) and
-      // would otherwise read the rewritten value, computing its delta from a
-      // moving target (screenEl's rect shifts as the panel resizes). On a
-      // zoomed canvas that feeds back every frame and the dragged edge runs
-      // away from the cursor — the terminal-only "right edge jumps right while
-      // dragging left" bug. xterm only needs adjusted coords for its own
-      // selection, which isn't happening during a resize/pan anyway.
-      if (document.body.classList.contains('canvas-interacting')) return
-
-      // A middle/right press starts a canvas pan, not an xterm selection. This
-      // capture handler runs before the canvas sets canvas-interacting, so the
-      // guard above can't catch the pan's opening mousedown — we'd rewrite its
-      // clientX/Y while every follow-up move (which lands on the now
-      // pointer-events:none terminal -> canvas) stays raw. The first pan delta
-      // would then be (raw - adjusted) and jump the camera on a zoomed canvas.
-      // xterm only needs adjusted coords for left-button selection, so leave
-      // non-left presses untouched.
-      if (e.type === 'mousedown' && e.button !== 0) return
-
+      // Whether to rewrite this event's clientX/Y lives in a pure helper so the
+      // middle-click-pan regression it prevents can be unit-tested. It skips the
+      // rewrite when a canvas gesture owns the pointer (canvas-interacting), for
+      // every event in a non-left-button gesture, and when the canvas isn't
+      // zoomed. See terminalCoordAdjust.ts for the full rationale.
       const effective = zoomLevel / renderScale
-      if (Math.abs(effective - 1.0) < 0.001) return
+      if (
+        !shouldAdjustTerminalCoords(
+          e.type,
+          e.button,
+          document.body.classList.contains('canvas-interacting'),
+          effective,
+          e.buttons,
+        )
+      )
+        return
 
       // Find xterm's screen element — the same element xterm uses for its
       // own getBoundingClientRect() call in getCoordsRelativeToElement()
@@ -614,7 +632,7 @@ export default function TerminalPanel({
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     // Accept drops from internal file explorer or external file drops
     if (
-      e.dataTransfer.types.includes('application/cate-file') ||
+      e.dataTransfer.types.includes(CATE_FILE_MIME) ||
       e.dataTransfer.types.includes('Files')
     ) {
       // Stop here so the app-root background handler doesn't override the drop
@@ -636,17 +654,14 @@ export default function TerminalPanel({
 
       // Internal file explorer / search drag. A search-line drag carries the
       // line number too — pasted as path:line (like a VS Code reference).
-      const catePath = e.dataTransfer.getData('application/cate-file')
+      const catePath = readCateFilePaths(e.dataTransfer)[0]
       if (catePath) {
-        let line: number | undefined
-        const lineRaw = e.dataTransfer.getData('application/cate-file-line')
-        if (lineRaw) {
-          try {
-            const lr = JSON.parse(lineRaw) as { path?: string; line?: number }
-            if (lr?.path === catePath) line = lr.line
-          } catch { /* ignore */ }
-        }
-        refs.push({ path: catePath, line })
+        const location = readCateFileLocation(e.dataTransfer)
+        const line = location?.path === catePath ? location.line : undefined
+        // Tree/search nodes carry locator-encoded paths (cate-runtime://… for a
+        // remote workspace). The shell runs ON that workspace's host, so paste
+        // the bare host path; for local paths parseLocator is a pass-through.
+        refs.push({ path: parseLocator(catePath).path, line })
       }
 
       // External OS file drop — use Electron's webUtils to get real paths
@@ -672,7 +687,14 @@ export default function TerminalPanel({
   // -------------------------------------------------------------------------
 
   return (
-    <div className="w-full h-full flex flex-col" style={{ padding: 0 }}>
+    <div className="relative w-full h-full flex flex-col" style={{ padding: 0 }}>
+      {glowColor && (
+        <div
+          className="cate-agent-terminal-glow absolute inset-0 z-20"
+          style={{ ['--cate-glow' as string]: glowColor }}
+          aria-hidden
+        />
+      )}
       {showSearch && (
         <div className="flex items-center gap-1 px-2 py-1 bg-surface-3 border-b border-subtle shrink-0">
           <input
@@ -687,7 +709,7 @@ export default function TerminalPanel({
               }
               if (e.key === 'Escape') handleCloseSearch()
             }}
-            className="flex-1 bg-surface-4 text-primary text-xs px-2 py-1 rounded border border-subtle outline-none focus:border-blue-500/50"
+            className="flex-1 bg-surface-4 text-primary text-xs px-2 py-1 rounded-lg border border-subtle outline-none focus:border-focus"
             placeholder="Search terminal..."
           />
           <button
@@ -758,9 +780,10 @@ export default function TerminalPanel({
               <button
                 type="button"
                 onClick={handleRetry}
-                className="px-3 py-1.5 rounded-md bg-[var(--focus-blue,#3b82f6)] text-white text-[12px] font-medium hover:brightness-110 active:scale-[0.97] focus:outline-none transition-all"
+                disabled={retrying}
+                className="px-3 py-1.5 rounded-md bg-[var(--focus-blue,#3b82f6)] text-white text-[12px] font-medium hover:brightness-110 active:scale-[0.97] focus:outline-none transition-all disabled:opacity-60 disabled:pointer-events-none"
               >
-                Retry
+                {retrying ? 'Reconnecting…' : 'Retry'}
               </button>
             </div>
           </div>

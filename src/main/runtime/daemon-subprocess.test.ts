@@ -5,7 +5,6 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { build } from 'esbuild'
 import { RuntimeManager } from './runtimeManager'
 import { LocalSubprocessTransport } from './transports/localTransport'
-import { addAllowedRoot, removeAllowedRoot } from '../ipc/pathValidation'
 
 // End-to-end through a REAL subprocess: esbuild-bundle the daemon, spawn it with
 // plain Node, and drive it via RemoteRuntime over actual OS stdio pipes. This
@@ -60,7 +59,6 @@ describe('cate-runtime daemon (real subprocess)', () => {
     // The daemon sandboxes to --root; on the client side we also allow it so the
     // client-side lexical checks (if any) agree. The daemon process has its own.
     workspace = await fs.realpath(await fs.mkdtemp(path.join(process.cwd(), 'cate-daemon-ws-')))
-    addAllowedRoot(workspace)
     await fs.writeFile(path.join(workspace, 'hello.ts'), 'export const x = 1\n')
     await fs.mkdir(path.join(workspace, 'pkg'))
     await fs.writeFile(path.join(workspace, 'pkg', 'data.bin'), Buffer.from([9, 8, 7, 0, 255]))
@@ -68,7 +66,6 @@ describe('cate-runtime daemon (real subprocess)', () => {
 
   afterAll(async () => {
     await mgr?.disposeAll()
-    removeAllowedRoot(workspace)
     await rmTemp(workspace)
   })
 
@@ -83,24 +80,24 @@ describe('cate-runtime daemon (real subprocess)', () => {
     const runtime = await mgr.connect('srv_subproc', transport)
 
     // file ops
-    const dir = await runtime.validatePathStrict(workspace)
+    const dir = await runtime.validatePathStrict(workspace, undefined, 'srv_subproc')
     const tree = await runtime.file.readDir(dir)
     expect(tree.map((n) => n.name).sort()).toEqual(['hello.ts', 'pkg'])
 
-    const file = await runtime.validatePathStrict(path.join(workspace, 'hello.ts'))
+    const file = await runtime.validatePathStrict(path.join(workspace, 'hello.ts'), undefined, 'srv_subproc')
     expect(await runtime.file.readFile(file)).toBe('export const x = 1\n')
 
-    const bin = await runtime.validatePathStrict(path.join(workspace, 'pkg', 'data.bin'))
+    const bin = await runtime.validatePathStrict(path.join(workspace, 'pkg', 'data.bin'), undefined, 'srv_subproc')
     expect([...(await runtime.file.readBinary(bin))]).toEqual([9, 8, 7, 0, 255])
 
     // write through the daemon, read back on this side
-    const target = await runtime.validatePathForCreation(path.join(workspace, 'written.txt'))
+    const target = await runtime.validatePathForCreation(path.join(workspace, 'written.txt'), undefined, 'srv_subproc')
     await runtime.file.writeFile(target, 'from the daemon\n')
     expect(await fs.readFile(path.join(workspace, 'written.txt'), 'utf-8')).toBe('from the daemon\n')
 
     // writeBinary over the wire (base64-encoded both ways): raw bytes round-trip.
     const bytes = Buffer.from([0, 1, 2, 250, 251, 255])
-    const binTarget = await runtime.validatePathForCreation(path.join(workspace, 'blob.bin'))
+    const binTarget = await runtime.validatePathForCreation(path.join(workspace, 'blob.bin'), undefined, 'srv_subproc')
     await runtime.file.writeBinary(binTarget, bytes)
     expect([...(await fs.readFile(path.join(workspace, 'blob.bin')))]).toEqual([...bytes])
     expect([...(await runtime.file.readBinary(binTarget))]).toEqual([...bytes])

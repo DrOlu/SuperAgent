@@ -15,28 +15,43 @@
 // =============================================================================
 
 import { shell, type WebContents } from 'electron'
-import fsp from 'fs/promises'
-import path from 'path'
-import {
-  findEnvKeys,
-  getModels,
-  type KnownProvider,
-  type OAuthCredentials,
-  type OAuthLoginCallbacks,
+import type {
+  OAuthCredentials,
+  OAuthLoginCallbacks,
 } from '@earendil-works/pi-ai'
-import { getOAuthProvider, getOAuthProviders } from '@earendil-works/pi-ai/oauth'
+// findEnvKeys/getEnvApiKey are only exported via the compat entry in pi-ai
+// 0.80; the new-style replacement is per-provider auth.resolve(), which needs
+// a Models collection + CredentialStore — not worth it for presence checks.
+import { findEnvKeys, getEnvApiKey } from '@earendil-works/pi-ai/compat'
+import { getBuiltinModels, getBuiltinProviders } from '@earendil-works/pi-ai/providers/all'
+import { getOAuthApiKey, getOAuthProvider, getOAuthProviders } from '@earendil-works/pi-ai/oauth'
 import { sharedAuthPath } from './agentDir'
-import { sharedAuthWriteQueue } from './writeQueue'
+import { readAgentConfigFile, updateAgentConfigFile } from './agentConfigLock'
 import { readCustomOpenAI } from './customModels'
 import log from '../../main/logger'
-import { isPlainObject } from '../../main/jsonUtils'
 import type {
   AgentModelDescriptor,
   AuthProviderDescriptor,
   AuthProviderStatus,
   OAuthFlowEvent,
+  ProviderVerification,
 } from '../../shared/types'
 import { AUTH_OAUTH_EVENT } from '../../shared/ipc-channels'
+
+// Only the fields listAvailableModels reads off a builtin model row.
+type BuiltinModelRow = {
+  provider: string
+  id: string
+  name?: string
+  contextWindow?: number
+  reasoning?: boolean
+}
+// getBuiltinModels is a generic keyed on pi's KnownProvider union. That union
+// can drift ahead of the generated model catalog (0.80.7 added providers with
+// no catalog entry), which makes the generic reject a plain KnownProvider arg.
+// The impl just indexes a static map and returns [] for unknown ids, so call it
+// through a widened, catalog-independent signature.
+const listBuiltinModels = getBuiltinModels as unknown as (provider: string) => BuiltinModelRow[]
 
 // ---------------------------------------------------------------------------
 // On-disk auth.json shape (mirrors pi's AuthStorageData)
@@ -55,33 +70,15 @@ function authJsonPath(): string {
 }
 
 async function readAuthJson(): Promise<AuthStorageData> {
-  try {
-    const raw = await fsp.readFile(authJsonPath(), 'utf-8')
-    const parsed = JSON.parse(raw)
-    if (isPlainObject(parsed)) {
-      return parsed as AuthStorageData
-    }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      log.warn('[authManager] failed to read auth.json: %O', err)
-    }
-  }
-  return {}
+  return ((await readAgentConfigFile(authJsonPath())) ?? {}) as AuthStorageData
 }
 
 // Fired after every successful write so AgentManager can mirror the shared
 // auth.json into open workspaces' pi-agent dirs.
 let onAuthChange: (() => void) | null = null
 
-async function writeAuthJson(data: AuthStorageData): Promise<void> {
-  await sharedAuthWriteQueue(async () => {
-    const p = authJsonPath()
-    await fsp.mkdir(path.dirname(p), { recursive: true, mode: 0o700 })
-    const tmp = p + '.tmp'
-    await fsp.writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
-    try { await fsp.chmod(tmp, 0o600) } catch { /* noop on platforms without modes */ }
-    await fsp.rename(tmp, p)
-  })
+async function updateAuthJson(update: (current: AuthStorageData) => AuthStorageData): Promise<void> {
+  await updateAgentConfigFile(authJsonPath(), (current) => update(current as AuthStorageData))
   try { onAuthChange?.() } catch (err) { log.warn('[authManager] onChange hook failed: %O', err) }
 }
 
@@ -89,35 +86,43 @@ async function writeAuthJson(data: AuthStorageData): Promise<void> {
 // Built-in provider catalog
 // ---------------------------------------------------------------------------
 
-interface BuiltInApiKeyProvider {
-  id: string
-  name: string
-  envVar: string
-  helpUrl?: string
-}
-
-/** Built-in API-key providers recognised by pi-ai. Order = UI order. The id
- *  must match pi-ai's `KnownProvider` union so credentials in auth.json are
- *  picked up by the spawned pi process. */
-const BUILTIN_API_KEY_PROVIDERS: BuiltInApiKeyProvider[] = [
-  { id: 'openai', name: 'OpenAI', envVar: 'OPENAI_API_KEY', helpUrl: 'https://platform.openai.com/api-keys' },
-  { id: 'anthropic', name: 'Anthropic (API key)', envVar: 'ANTHROPIC_API_KEY', helpUrl: 'https://console.anthropic.com/settings/keys' },
-  { id: 'openrouter', name: 'OpenRouter', envVar: 'OPENROUTER_API_KEY', helpUrl: 'https://openrouter.ai/keys' },
-  { id: 'google', name: 'Google Gemini', envVar: 'GEMINI_API_KEY', helpUrl: 'https://aistudio.google.com/app/apikey' },
-  { id: 'groq', name: 'Groq', envVar: 'GROQ_API_KEY', helpUrl: 'https://console.groq.com/keys' },
-  { id: 'xai', name: 'xAI', envVar: 'XAI_API_KEY', helpUrl: 'https://x.ai/api' },
-  { id: 'mistral', name: 'Mistral', envVar: 'MISTRAL_API_KEY', helpUrl: 'https://console.mistral.ai/api-keys' },
-  { id: 'deepseek', name: 'DeepSeek', envVar: 'DEEPSEEK_API_KEY', helpUrl: 'https://platform.deepseek.com' },
-  { id: 'moonshotai', name: 'Moonshot (Kimi)', envVar: 'MOONSHOT_API_KEY', helpUrl: 'https://platform.moonshot.ai' },
-  { id: 'zai', name: 'z.ai (Zhipu)', envVar: 'ZAI_API_KEY', helpUrl: 'https://z.ai' },
-  { id: 'minimax', name: 'MiniMax', envVar: 'MINIMAX_API_KEY', helpUrl: 'https://www.minimax.io' },
-  { id: 'cerebras', name: 'Cerebras', envVar: 'CEREBRAS_API_KEY', helpUrl: 'https://cloud.cerebras.ai' },
-  { id: 'together', name: 'Together', envVar: 'TOGETHER_API_KEY', helpUrl: 'https://api.together.xyz' },
-  { id: 'fireworks', name: 'Fireworks', envVar: 'FIREWORKS_API_KEY', helpUrl: 'https://fireworks.ai' },
-  { id: 'huggingface', name: 'HuggingFace', envVar: 'HF_TOKEN', helpUrl: 'https://huggingface.co/settings/tokens' },
-  { id: 'cloudflare-workers-ai', name: 'Cloudflare Workers AI', envVar: 'CLOUDFLARE_API_KEY', helpUrl: 'https://developers.cloudflare.com/workers-ai/' },
-  { id: 'vercel-ai-gateway', name: 'Vercel AI Gateway', envVar: 'AI_GATEWAY_API_KEY', helpUrl: 'https://vercel.com/ai-gateway' },
+/** Curated API-key providers, in UI order (OpenAI first). Each id must match
+ *  pi-ai's provider catalog so credentials in auth.json are picked up by the
+ *  spawned pi process. Deliberately an explicit allow-list rather than
+ *  getProviders() wholesale: pi's full catalog also contains providers a bare
+ *  API key cannot authenticate (azure-openai-responses, google-vertex,
+ *  cloudflare-ai-gateway), OAuth-only providers already in the OAuth list
+ *  (github-copilot), and regional/plan variants (moonshotai-cn,
+ *  xiaomi-token-plan-*) that would clutter the picker. */
+const BUILTIN_API_KEY_PROVIDERS: Array<Pick<AuthProviderDescriptor, 'id' | 'name' | 'helpUrl'>> = [
+  { id: 'openai', name: 'OpenAI', helpUrl: 'https://platform.openai.com/api-keys' },
+  { id: 'anthropic', name: 'Anthropic (API key)', helpUrl: 'https://console.anthropic.com/settings/keys' },
+  { id: 'openrouter', name: 'OpenRouter', helpUrl: 'https://openrouter.ai/keys' },
+  { id: 'google', name: 'Google Gemini', helpUrl: 'https://aistudio.google.com/app/apikey' },
+  { id: 'groq', name: 'Groq', helpUrl: 'https://console.groq.com/keys' },
+  { id: 'xai', name: 'xAI', helpUrl: 'https://x.ai/api' },
+  { id: 'mistral', name: 'Mistral', helpUrl: 'https://console.mistral.ai/api-keys' },
+  { id: 'deepseek', name: 'DeepSeek', helpUrl: 'https://platform.deepseek.com' },
+  { id: 'moonshotai', name: 'Moonshot (Kimi)', helpUrl: 'https://platform.moonshot.ai' },
+  { id: 'zai', name: 'z.ai (Zhipu)', helpUrl: 'https://z.ai' },
+  { id: 'minimax', name: 'MiniMax', helpUrl: 'https://www.minimax.io' },
+  { id: 'cerebras', name: 'Cerebras', helpUrl: 'https://cloud.cerebras.ai' },
+  { id: 'together', name: 'Together AI', helpUrl: 'https://api.together.xyz' },
+  { id: 'fireworks', name: 'Fireworks', helpUrl: 'https://fireworks.ai' },
+  { id: 'huggingface', name: 'Hugging Face', helpUrl: 'https://huggingface.co/settings/tokens' },
+  { id: 'cloudflare-workers-ai', name: 'Cloudflare Workers AI', helpUrl: 'https://developers.cloudflare.com/workers-ai/' },
+  { id: 'vercel-ai-gateway', name: 'Vercel AI Gateway', helpUrl: 'https://vercel.com/ai-gateway' },
 ]
+
+/** The curated list intersected with pi-ai's live catalog, so an id a pi
+ *  upgrade drops disappears instead of offering a provider the runtime can't
+ *  use. */
+function apiKeyProviders(): AuthProviderDescriptor[] {
+  const known = new Set<string>(getBuiltinProviders())
+  return BUILTIN_API_KEY_PROVIDERS
+    .filter((p) => known.has(p.id))
+    .map((p) => ({ ...p, kind: 'apiKey' as const }))
+}
 
 // ---------------------------------------------------------------------------
 // AuthManager
@@ -150,13 +155,7 @@ export class AuthManager {
         usesCallbackServer: p.usesCallbackServer === true,
       })
     }
-    const apiKey: AuthProviderDescriptor[] = BUILTIN_API_KEY_PROVIDERS.map((p) => ({
-      id: p.id,
-      name: p.name,
-      kind: 'apiKey',
-      envVar: p.envVar,
-      helpUrl: p.helpUrl,
-    }))
+    const apiKey = apiKeyProviders()
     return [...oauth, ...apiKey]
   }
 
@@ -177,14 +176,14 @@ export class AuthManager {
     }
 
     // Built-in API-key providers (auth.json + env vars)
-    for (const p of BUILTIN_API_KEY_PROVIDERS) {
+    for (const p of apiKeyProviders()) {
       const hasAuthJson = authData[p.id]?.type === 'api_key'
-      const hasEnv = !!findEnvKeys(p.id)
+      const hasEnv = !!getEnvApiKey(p.id)
       const connected = hasAuthJson || hasEnv
       result.push({
         id: p.id,
         connected,
-        source: hasAuthJson ? 'safeStorage' : hasEnv ? 'env' : undefined,
+        source: hasAuthJson ? 'config' : hasEnv ? 'env' : undefined,
         connectedAt: connected ? this.connectedAt.get(p.id) : undefined,
       })
     }
@@ -218,9 +217,12 @@ export class AuthManager {
 
     for (const providerId of connected) {
       if (providerId === 'custom-openai') continue
-      // getModels indexes a static catalog and returns [] for unknown ids, so
-      // the cast is safe even for providers pi doesn't recognise.
-      for (const m of getModels(providerId as KnownProvider)) {
+      // getBuiltinModels indexes a static catalog and returns [] for unknown
+      // ids, so calling it with any provider string is safe. pi's KnownProvider
+      // union can drift ahead of that catalog (0.80.7 widened the union past the
+      // generated model keys), so call through a widened, catalog-independent
+      // signature instead of the exported generic.
+      for (const m of listBuiltinModels(providerId)) {
         const key = `${m.provider}:${m.id}`
         if (seen.has(key)) continue
         seen.add(key)
@@ -245,6 +247,62 @@ export class AuthManager {
     }
 
     return out
+  }
+
+  // -------------------------------------------------------------------------
+  // Verification — is the credential usable right now?
+  //
+  // status() is presence-only. verify() adds the one check that presence can't
+  // give: whether an OAuth token can still be minted, or whether the user must
+  // re-authenticate. This lives in main because OAuth login/refresh already does
+  // (it drives the browser + local callback) — it is NOT model inference.
+  //
+  // We deliberately do NOT make a live model request here: inference runs through
+  // the runtime (pi, local or remote — see AgentManager), never the desktop
+  // process. Whether an API key actually works is proven by the real session on
+  // its first turn; here API-key / env / custom-openai credentials are reported
+  // by presence.
+  // -------------------------------------------------------------------------
+
+  async verify(providerId: string): Promise<ProviderVerification> {
+    const auth = await readAuthJson()
+    const cred = auth[providerId]
+
+    // OAuth: minting/refreshing the access token IS the reliable test — it proves
+    // the refresh token is still valid. A failure here means re-authentication.
+    const isOAuthProvider = getOAuthProviders().some((p) => p.id === providerId)
+    if (isOAuthProvider) {
+      if (cred?.type !== 'oauth') return { id: providerId, health: 'needsReauth' }
+      try {
+        const res = await getOAuthApiKey(providerId, { [providerId]: cred })
+        if (!res) return { id: providerId, health: 'needsReauth' }
+        const next = res.newCredentials
+        if (next && (next.access !== cred.access || next.expires !== cred.expires)) {
+          await updateAuthJson((current) => ({
+            ...current,
+            [providerId]: { type: 'oauth', ...next },
+          }))
+          this.connectedAt.set(providerId, new Date().toISOString())
+        }
+        return { id: providerId, health: 'ok' }
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err)
+        log.info('[authManager] OAuth verify needs re-auth for %s: %s', providerId, error)
+        return { id: providerId, health: 'needsReauth', error }
+      }
+    }
+
+    // custom-openai lives in models.json, not auth.json — presence only.
+    if (providerId === 'custom-openai') {
+      const custom = await readCustomOpenAI()
+      const connected = !!custom && !!custom.baseUrl && custom.models.length > 0
+      return { id: providerId, health: connected ? 'ok' : 'error' }
+    }
+
+    // API-key / env providers: presence only (the runtime session validates the
+    // key for real on first use).
+    const hasCredential = cred?.type === 'api_key' || !!findEnvKeys(providerId)
+    return { id: providerId, health: hasCredential ? 'ok' : 'error' }
   }
 
   // -------------------------------------------------------------------------
@@ -347,9 +405,10 @@ export class AuthManager {
 
     try {
       const credentials = await provider.login(callbacks)
-      const current = await readAuthJson()
-      current[providerId] = { type: 'oauth', ...credentials }
-      await writeAuthJson(current)
+      await updateAuthJson((current) => ({
+        ...current,
+        [providerId]: { type: 'oauth', ...credentials },
+      }))
       this.connectedAt.set(providerId, new Date().toISOString())
       send({ type: 'done' })
     } catch (err) {
@@ -388,18 +447,19 @@ export class AuthManager {
   // -------------------------------------------------------------------------
 
   async saveApiKey(providerId: string, key: string): Promise<void> {
-    const current = await readAuthJson()
-    current[providerId] = { type: 'api_key', key }
-    await writeAuthJson(current)
+    await updateAuthJson((current) => ({
+      ...current,
+      [providerId]: { type: 'api_key', key },
+    }))
     this.connectedAt.set(providerId, new Date().toISOString())
   }
 
   async deleteProvider(providerId: string): Promise<void> {
-    const auth = await readAuthJson()
-    if (providerId in auth) {
-      delete auth[providerId]
-      await writeAuthJson(auth)
-    }
+    await updateAuthJson((current) => {
+      const remaining = { ...current }
+      delete remaining[providerId]
+      return remaining
+    })
     this.connectedAt.delete(providerId)
   }
 

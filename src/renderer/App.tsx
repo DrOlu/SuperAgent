@@ -6,7 +6,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import log from './lib/logger'
 import { useAppStore, useSelectedWorkspace, setupWorkspaceSync, getWorkspaceCanvasStore } from './stores/appStore'
-import { useCanvasStore } from './stores/canvasStore'
 import { CanvasStoreProvider } from './stores/CanvasStoreContext'
 import { DockStoreProvider } from './stores/DockStoreContext'
 import { getOrCreateWorkspaceDockStore } from './lib/workspace/dockRegistry'
@@ -17,10 +16,11 @@ import { useBrowserStore } from './stores/browserStore'
 import { workspaceDisplayName } from './lib/fs/displayPath'
 import { useFileDropTracker, FileDropOverlay } from './drag/fileDropTarget'
 import { useProcessMonitor } from './hooks/useProcessMonitor'
+import { cateAgentController } from './cateAgent/cateAgentController'
+import { useCateHostActionResponder } from './hooks/useCateHostActionResponder'
+import { useCateAgentReady } from './stores/providerReadinessStore'
 import { Sidebar, RightSidebar } from './sidebar/Sidebar'
-import { renderPanelComponent, PANEL_REGISTRY } from './panels/registry'
-import { PanelSuspense } from './panels/PanelSuspense'
-const CanvasPanel = PANEL_REGISTRY.canvas.Component
+import { PanelHost } from './panels/PanelHost'
 import { RuntimeLockOverlay } from './ui/RuntimeLockOverlay'
 import WindowChrome from './shells/WindowChrome'
 import { PostUpdateFeedbackDialog } from './dialogs/PostUpdateFeedbackDialog'
@@ -29,12 +29,13 @@ import { WelcomeDialog } from './dialogs/WelcomeDialog'
 import { OnboardingTour } from './onboarding/OnboardingTour'
 import PerfHud from './ui/PerfHud'
 import { initPerfClient } from './lib/perf/perfClient'
-import { loadSession, restoreSession, restoreMultiWorkspaceSession, restoreDetachedWindows, setupAutoSave, saveSession } from './lib/workspace/session'
+import { loadSession, restoreMultiWorkspaceSession, restoreDetachedWindows, setupAutoSave } from './lib/workspace/session'
 import type { MultiWorkspaceSession } from '../shared/types'
-import { useDockStore } from './stores/dockStore'
+import { createDockStore } from './stores/dockStore'
 import MainWindowShell from './shells/MainWindowShell'
 import DockWindowShell from './shells/DockWindowShell'
 import TitlebarStrip from './shells/TitlebarStrip'
+import MacWindowChrome from './shells/MacWindowChrome'
 import { WindowTypeContext } from './stores/WindowTypeContext'
 import { setupCrossWindowDragListeners } from './drag'
 import { createRemoteDropHandler } from './drag/crossWindow'
@@ -51,12 +52,10 @@ import pkg from '../../package.json'
 // Query param parsing for window type routing
 // -----------------------------------------------------------------------------
 
-function getWindowParams(): { type: string; panelType?: string; panelId?: string; workspaceId?: string } {
+function getWindowParams(): { type: string; workspaceId?: string } {
   const params = new URLSearchParams(window.location.search)
   return {
     type: params.get('type') ?? 'main',
-    panelType: params.get('panelType') ?? undefined,
-    panelId: params.get('panelId') ?? undefined,
     workspaceId: params.get('workspaceId') ?? undefined,
   }
 }
@@ -107,6 +106,8 @@ function MainApp() {
   // Store state
   const currentWorkspace = useSelectedWorkspace()
   const selectedWorkspaceId = useAppStore((s) => s.selectedWorkspaceId)
+  const bootDockStoreRef = useRef<ReturnType<typeof createDockStore> | null>(null)
+  if (!bootDockStoreRef.current) bootDockStoreRef.current = createDockStore()
   // Reload epoch for the active workspace — part of the shell key so a from-disk
   // rebuild remounts the shell (and respawns terminals) cleanly.
   const reloadEpoch = useAppStore((s) => (selectedWorkspaceId ? s.reloadEpochs[selectedWorkspaceId] ?? 0 : 0))
@@ -117,13 +118,13 @@ function MainApp() {
   // panel changes), so a freshly-created center canvas is picked up.
   const activeDockStore = selectedWorkspaceId
     ? getOrCreateWorkspaceDockStore(selectedWorkspaceId)
-    : useDockStore
-  const activeCanvasStore = getWorkspaceCanvasStore(selectedWorkspaceId) ?? useCanvasStore
+    : bootDockStoreRef.current
+  const activeCanvasStore = getWorkspaceCanvasStore(selectedWorkspaceId)
 
   // Shared window runtime — theme/scale, settings load, keyboard shortcuts,
   // agent-screen detector, Cmd+, settings toggle, and the external-file-drop
   // guard. Every window type mounts this; main-only behavior stays below.
-  useWindowRuntime()
+  useWindowRuntime(activeCanvasStore ?? undefined)
 
   // E2E test harness — exposes window.__cateE2E only when launched by Playwright.
   useEffect(() => {
@@ -145,6 +146,33 @@ function MainApp() {
 
   // Main-only: terminal/agent activity → status bar + worktree sync.
   useProcessMonitor(selectedWorkspaceId)
+
+  // Tracks which workspace folders have had their Cate Agent restored this session.
+  const cateAgentRestoredRef = useRef<Set<string>>(new Set())
+
+  // Cate Agent — start the controller and restore each workspace's Cate Agent
+  // (re-summon if it was enabled in .cate/cateAgent.json) once its folder path is
+  // known. Guarded per rootPath so a re-render never re-summons. Main window only
+  // (this MainApp path is gated to the primary window, like useProcessMonitor above).
+  //
+  // Gated on provider readiness: with no usable provider (none connected, or its
+  // OAuth sign-in expired) the agent can't reach a model, so we don't bring up its
+  // observer session. When a usable provider connects (gate flips to 'ok') this
+  // effect re-runs and restore() summons it then.
+  const cateAgentReady = useCateAgentReady() === 'ok'
+  useEffect(() => {
+    cateAgentController.setEnabled(cateAgentReady)
+    const rootPath = currentWorkspace?.rootPath
+    if (!cateAgentReady || !rootPath || !selectedWorkspaceId) return
+    cateAgentController.start()
+    if (cateAgentRestoredRef.current.has(rootPath)) return
+    cateAgentRestoredRef.current.add(rootPath)
+    void cateAgentController.restore(selectedWorkspaceId, rootPath)
+  }, [cateAgentReady, currentWorkspace?.rootPath, selectedWorkspaceId])
+
+  // Extension reverse-API: execute cate.* host actions forwarded from extension
+  // webviews (open file / create panel / set title). Mounted once here.
+  useCateHostActionResponder()
 
   // Sync the OS window title to the active workspace name. On macOS this is
   // what each native tab in the title bar displays, so the user can tell
@@ -210,14 +238,9 @@ function MainApp() {
       let restored = false
       const session = await loadSession()
       if (session) {
-        if ((session as MultiWorkspaceSession).version === 2) {
-          restoredSession = session as MultiWorkspaceSession
-          await restoreMultiWorkspaceSession(restoredSession)
-          restored = true
-        } else {
-          await restoreSession(session as any, useAppStore.getState().selectedWorkspaceId)
-          restored = true
-        }
+        restoredSession = session
+        await restoreMultiWorkspaceSession(restoredSession)
+        restored = true
       }
 
       if (restored) {
@@ -303,32 +326,6 @@ function MainApp() {
   }, [])
 
   // ---------------------------------------------------------------------------
-  // Panel window dock-back (double-click title bar)
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    return window.electronAPI.onPanelWindowDockBack(({ snapshot }) => {
-      // The detached panel window asked to dock back. Its record was removed
-      // from this workspace at detach time, so we reconstruct it from the
-      // snapshot the panel window sent — mirroring the cross-window DROP
-      // re-integration: deposit any PTY transfer, hydrate canvas children, add
-      // the panel, then dock it into the center zone.
-      if (!snapshot) return
-
-      const wsId = useAppStore.getState().selectedWorkspaceId
-
-      // Deposit the PTY hand-off (so the terminal reconnects to the live PTY main
-      // armed home, not a fresh shell) + hydrate canvas children, before mount.
-      hydrateReceivedPanel(wsId, snapshot)
-
-      useAppStore.getState().addPanel(wsId, snapshot.panel)
-
-      // Dock into the active workspace's center zone.
-      const dockStore = wsId ? getOrCreateWorkspaceDockStore(wsId) : useDockStore
-      dockStore.getState().dockPanel(snapshot.panel.id, 'center')
-    })
-  }, [])
-
-  // ---------------------------------------------------------------------------
   // Cross-window drag support — accept panels dragged from dock windows
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -368,54 +365,26 @@ function MainApp() {
   // ---------------------------------------------------------------------------
   // Render panel content (used both in dock zones and inside canvas nodes)
   // ---------------------------------------------------------------------------
-  const renderPanelContent = useCallback(
-    (panelId: string, nodeId: string, zoom: number) => {
-      if (!currentWorkspace) return null
-      const panel = currentWorkspace.panels[panelId]
-      if (!panel) return null
-
-      // Canvas panels should not be nested on another canvas — they only live in dock zones
-      if (panel.type === 'canvas') return null
-
-      const content = renderPanelComponent(panel, { workspaceId: selectedWorkspaceId, nodeId, zoomLevel: zoom })
-      if (!content) return null
-
-      return <PanelSuspense>{content}</PanelSuspense>
-    },
-    [currentWorkspace, selectedWorkspaceId],
-  )
-
   /** Render a panel for use inside a dock zone (no canvas node wrapper) */
   const renderDockPanel = useCallback(
     (panelId: string) => {
       if (!currentWorkspace) return null
-      const panel = currentWorkspace.panels[panelId]
-      if (!panel) return null
-
-      // Canvas panels get their own full canvas with renderPanelContent for nodes
-      if (panel.type === 'canvas') {
-        return (
-          <PanelSuspense>
-            <CanvasPanel
-              panelId={panelId}
-              workspaceId={selectedWorkspaceId}
-              nodeId=""
-              renderPanelContent={renderPanelContent}
-            />
-          </PanelSuspense>
-        )
-      }
-
-      // All other panels render directly
-      return renderPanelContent(panelId, '', 1)
+      return <PanelHost panelId={panelId} panels={currentWorkspace.panels} workspaceId={selectedWorkspaceId} />
     },
-    [currentWorkspace, selectedWorkspaceId, renderPanelContent],
+    [currentWorkspace, selectedWorkspaceId],
   )
+
+  if (!activeCanvasStore) {
+    return <div className="h-screen w-screen bg-canvas-bg" />
+  }
 
   return (
     <CanvasStoreProvider store={activeCanvasStore}>
     <div className="h-screen w-screen flex flex-col bg-canvas-bg">
       <TitlebarStrip />
+      {/* macOS window-control island — floats over the top-left corner (traffic
+          lights + sidebar toggle); no dead header row above the canvas. */}
+      <MacWindowChrome />
       <div className="relative flex-1 min-h-0 min-w-0">
       {/* Layout row: left sidebar | shell | right sidebar. The sidebars are real
           flex items that push the shell rather than overlaying it; their own

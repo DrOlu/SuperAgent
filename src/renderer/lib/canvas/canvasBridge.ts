@@ -9,6 +9,7 @@ import type { CanvasStore } from '../../stores/canvasStore'
 import type { PanelType, Point, Size, CanvasNodeId, CanvasNodeState } from '../../../shared/types'
 import { findNodeDockStore } from '../../panels/nodeDockRegistry'
 import { collectPanelIds } from '../../../shared/collectPanelIds'
+import { removePanelFromTree } from '../../stores/dockStore'
 
 // -----------------------------------------------------------------------------
 // Canvas operations callback — the contract createCanvasOps implements, letting
@@ -17,7 +18,9 @@ import { collectPanelIds } from '../../../shared/collectPanelIds'
 // -----------------------------------------------------------------------------
 
 export interface CanvasOperations {
-  addNodeAndFocus: (panelId: string, panelType: PanelType, position?: Point, size?: Size) => void
+  /** Add a node and focus+center it. `focus: false` adds it in place without
+   *  touching focus or the viewport (background creates). */
+  addNodeAndFocus: (panelId: string, panelType: PanelType, position?: Point, size?: Size, focus?: boolean) => void
   /** Begin interactive ghost placement. Returns true if ghosts are shown (the
    *  caller must NOT also place the node). `onCancelled` rolls the panel back. */
   beginPlacement: (
@@ -42,9 +45,9 @@ export function createCanvasOps(storeApi: StoreApi<CanvasStore>): CanvasOperatio
   return {
     storeApi,
 
-    addNodeAndFocus(panelId: string, panelType: PanelType, position?: Point, size?: Size) {
+    addNodeAndFocus(panelId: string, panelType: PanelType, position?: Point, size?: Size, focus = true) {
       const nodeId = storeApi.getState().addNode(panelId, panelType, position, size)
-      storeApi.getState().focusAndCenter(nodeId)
+      if (focus) storeApi.getState().focusAndCenter(nodeId)
     },
 
     beginPlacement(
@@ -67,11 +70,16 @@ export function createCanvasOps(storeApi: StoreApi<CanvasStore>): CanvasOperatio
       // panel is interactively closed, so the node's mini-dock is mounted) and
       // fall back to the projection if the store isn't registered.
       const liveStore = findNodeDockStore(nodeId)
-      const layout = liveStore
-        ? liveStore.getState().zones.center.layout
-        : node.dockLayout
-      if (layout && collectPanelIds(layout).length > 0) return
-      state.removeNode(nodeId)
+      if (liveStore) {
+        liveStore.getState().undockPanel(panelId)
+        const layout = liveStore.getState().zones.center.layout
+        if (layout) state.setNodeDockLayout(nodeId, layout)
+        else state.removeNode(nodeId)
+        return
+      }
+      const layout = removePanelFromTree(node.dockLayout, panelId)
+      if (layout && collectPanelIds(layout).length > 0) state.setNodeDockLayout(nodeId, layout)
+      else state.removeNode(nodeId)
     },
 
     loadWorkspaceCanvas(

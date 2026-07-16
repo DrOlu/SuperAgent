@@ -11,6 +11,8 @@ function makeReal(overrides: Partial<Runtime> = {}): Runtime {
     agent: {} as Runtime['agent'],
     file: {} as Runtime['file'],
     vcs: {} as Runtime['vcs'],
+    server: {} as Runtime['server'],
+    tunnel: {} as Runtime['tunnel'],
     validatePath: (p) => p,
     validateCwd: (c) => c,
     validatePathStrict: async (p) => p,
@@ -48,7 +50,7 @@ describe('DeferredRuntime', () => {
 
     resolveReady(real)
     await expect(pending).resolves.toBe('contents:/a.txt')
-    expect(real.file.readFile).toHaveBeenCalledWith('/a.txt')
+    expect(real.file.readFile).toHaveBeenCalledWith('/a.txt', undefined)
   })
 
   test('async methods reject with the connect error if ready rejects', async () => {
@@ -87,7 +89,7 @@ describe('DeferredRuntime', () => {
     resolveReady(real)
     await ready
     await Promise.resolve()
-    expect(realWatch).toHaveBeenCalledWith('/root', cb)
+    expect(realWatch).toHaveBeenCalledWith('/root', cb, undefined)
 
     unsub()
     expect(realUnsub).toHaveBeenCalledTimes(1)

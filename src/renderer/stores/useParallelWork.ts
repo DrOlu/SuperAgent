@@ -1,7 +1,7 @@
 // =============================================================================
 // useParallelWork — the shared "do something with a worktree" layer.
 //
-// All the verbs a worktree card / row offers (launch a terminal or Cate agent,
+// All the verbs a worktree card / row offers (launch a terminal or Agent,
 // publish, open/create a PR, update from main, merge, rename, recolor, reveal,
 // discard, clean up orphans) live here so the sidebar's ParallelWorkTab and the
 // canvas toolbar's worktree drop-up share one implementation and one error /
@@ -18,6 +18,28 @@ import { useWorktreeActions } from './useWorktreeActions'
 import type { JoinedWorktree } from './useWorktrees'
 import type { PrListItem } from '../sidebar/CreateWorktreeForm'
 import type { NativeContextMenuItem } from '../../shared/electron-api'
+import { isLocalLocator } from '../../main/runtime/locator'
+
+/** Apply a color/label change to a worktree's UI metadata, creating the metadata
+ *  record when none exists yet (a worktree discovered only from git has its path
+ *  as its id and no appStore record, so setWorktreeColor — which matches by id —
+ *  would silently no-op and never persist). Matching by id OR path makes the
+ *  change stick and survive a reload. */
+function upsertWorktreeMeta(
+  workspaceId: string,
+  wt: JoinedWorktree,
+  patch: { color?: string; label?: string },
+): void {
+  const s = useAppStore.getState()
+  const ws = s.workspaces.find((w) => w.id === workspaceId)
+  const existing = ws?.worktrees?.find((w) => w.id === wt.id || w.path === wt.path)
+  s.upsertWorktree(workspaceId, {
+    id: existing?.id ?? wt.id,
+    path: wt.path,
+    color: patch.color ?? existing?.color ?? wt.color ?? '#888888',
+    label: 'label' in patch ? patch.label : existing?.label ?? wt.label,
+  })
+}
 
 export interface WorktreeStatus {
   branch: string
@@ -37,6 +59,9 @@ export interface CardCallbacks {
   onUpdateFromMain: () => void
   onMerge: () => void
   onDelete: () => void
+  /** Reveal opens the LOCAL Finder — false when the worktree lives on a remote
+   *  host, so menus omit the action instead of silently no-oping. */
+  canReveal: boolean
   onReveal: () => void
   onRename: (label: string | undefined) => void
   onRecolor: (color: string) => void
@@ -66,7 +91,7 @@ export async function runWorktreeContextMenu(opts: {
   items.push({ type: 'separator' })
   items.push({ id: 'rename', label: 'Rename…' })
   items.push({ id: 'color', label: 'Change color…' })
-  items.push({ id: 'reveal', label: 'Reveal in Finder' })
+  if (opts.cb.canReveal) items.push({ id: 'reveal', label: 'Reveal in Finder' })
   if (!opts.isPrimary) {
     items.push({ type: 'separator' })
     items.push({ id: 'delete', label: 'Discard this work…' })
@@ -88,7 +113,7 @@ export interface UseParallelWork {
   reconcile: () => void
   createWorktree: (rawName: string, baseRef?: string) => Promise<void>
   checkoutPr: (pr: PrListItem) => Promise<void>
-  /** Spawn a terminal or SuperAgent agent bound to a worktree. Pass `placement` to pin
+  /** Spawn a terminal or Agent bound to a worktree. Pass `placement` to pin
    *  it to a specific canvas (the toolbar does); omit for default placement. */
   launchInWorktree: (wt: JoinedWorktree, type: 'terminal' | 'agent', placement?: PanelPlacement) => void
   handlePublish: (wt: JoinedWorktree) => Promise<void>
@@ -106,13 +131,16 @@ export function useParallelWork(
   primaryLabel: string,
   opts: {
     setError: (v: string | null) => void
-    setNotice: (v: string | null) => void
     onPrCreated?: () => void
+    /** Called with a worktree id while a slow op (publish / PR / update / merge /
+     *  discard) runs on it, then null when it finishes, so the UI can show a
+     *  per-row loading spinner. */
+    setBusy?: (id: string | null) => void
   },
 ): UseParallelWork {
   const { createWorktree, checkoutPr } = useWorktreeActions(rootPath, workspaceId)
   const removeWorktree = useAppStore((s) => s.removeWorktree)
-  const { setError, setNotice, onPrCreated } = opts
+  const { setError, onPrCreated, setBusy } = opts
 
   const reconcile = useCallback(() => {
     if (rootPath) gitStatusStore.refresh(rootPath)
@@ -135,54 +163,48 @@ export function useParallelWork(
     async (wt: JoinedWorktree) => {
       if (!wt.branch) return
       setError(null)
-      setNotice(`Publishing ${wt.branch}…`)
+      setBusy?.(wt.id)
       try {
-        await window.electronAPI.gitPush(wt.path, 'origin', wt.branch)
-        setNotice(`Published ${wt.branch}`)
+        await window.electronAPI.gitPush(wt.path, 'origin', wt.branch, workspaceId ?? '')
         reconcile()
       } catch (err: any) {
-        setNotice(null)
         setError(`Publish failed: ${err?.message || err}`)
+      } finally {
+        setBusy?.(null)
       }
     },
-    [reconcile],
+    [reconcile, setBusy, setError, workspaceId],
   )
 
   const handleCreatePR = useCallback(
     async (wt: JoinedWorktree) => {
       if (!wt.branch) return
       setError(null)
-      setNotice(`Opening a pull request for ${wt.branch}…`)
+      setBusy?.(wt.id)
       try {
-        const res = await window.electronAPI.gitCreatePR(wt.path, wt.branch)
+        const res = await window.electronAPI.gitCreatePR(wt.path, wt.branch, workspaceId ?? '')
         if (res.ok) {
           window.electronAPI.openExternalUrl(res.url)
-          setNotice(
-            res.created
-              ? `Opened a pull request for ${wt.branch}`
-              : res.fallback
-                ? 'Opened GitHub to finish the pull request'
-                : `Pull request for ${wt.branch} already exists`,
-          )
           onPrCreated?.()
         } else {
-          setNotice(null)
           setError(res.message)
         }
       } catch (err: any) {
-        setNotice(null)
         setError(`Could not create pull request: ${err?.message || err}`)
+      } finally {
+        setBusy?.(null)
       }
     },
-    [onPrCreated],
+    [onPrCreated, setBusy, setError, workspaceId],
   )
 
   const handleUpdateFromMain = useCallback(
     async (wt: JoinedWorktree) => {
       if (wt.isPrimary || !wt.branch) return
       const target = primaryLabel
+      setBusy?.(wt.id)
       try {
-        const result = await window.electronAPI.gitWorktreeUpdateFrom(wt.path, target)
+        const result = await window.electronAPI.gitWorktreeUpdateFrom(wt.path, target, workspaceId ?? '')
         if (!result.ok) {
           setError(
             result.conflict
@@ -191,14 +213,15 @@ export function useParallelWork(
           )
         } else {
           setError(null)
-          setNotice(`Updated ${wt.branch} from ${target}`)
           reconcile()
         }
       } catch (err: any) {
         setError(err?.message || 'Update failed')
+      } finally {
+        setBusy?.(null)
       }
     },
-    [primaryLabel, reconcile],
+    [primaryLabel, reconcile, setBusy, setError, workspaceId],
   )
 
   const handleMerge = useCallback(
@@ -211,20 +234,22 @@ export function useParallelWork(
       }
       const ok = window.confirm(`Merge ${wt.branch} into ${target}?`)
       if (!ok) return
+      setBusy?.(wt.id)
       try {
-        const result = await window.electronAPI.gitWorktreeMergeTo(rootPath, wt.branch, target)
+        const result = await window.electronAPI.gitWorktreeMergeTo(rootPath, wt.branch, target, workspaceId ?? '')
         if (!result.ok) {
           setError(`Merge ${wt.branch} → ${target}: ${result.message}`)
         } else {
           setError(null)
-          setNotice(`Merged ${wt.branch} into ${target}`)
           reconcile()
         }
       } catch (err: any) {
         setError(err?.message || 'Merge failed')
+      } finally {
+        setBusy?.(null)
       }
     },
-    [rootPath, primaryLabel, reconcile],
+    [rootPath, primaryLabel, reconcile, setBusy, setError, workspaceId],
   )
 
   const handleDelete = useCallback(
@@ -235,7 +260,7 @@ export function useParallelWork(
       // which surface triggered the discard.
       let status: WorktreeStatus | null = null
       try {
-        status = await window.electronAPI.gitWorktreeStatus(wt.path)
+        status = await window.electronAPI.gitWorktreeStatus(wt.path, workspaceId)
       } catch {
         status = null
       }
@@ -259,11 +284,14 @@ export function useParallelWork(
           (branchAhead ? `\nWARNING: ${status?.ahead} unpublished commit(s) will be lost.` : ''),
       )
       if (!ok) return
+      // Removing a worktree shells out to git and can take several seconds, so
+      // flag the row as busy to drive its inline spinner.
+      setBusy?.(wt.id)
       try {
-        await window.electronAPI.gitWorktreeRemove(rootPath, wt.path, { force: dirty })
+        await window.electronAPI.gitWorktreeRemove(rootPath, wt.path, { force: dirty }, workspaceId)
         if (wt.branch) {
           try {
-            await window.electronAPI.gitBranchDelete(rootPath, wt.branch, true)
+            await window.electronAPI.gitBranchDelete(rootPath, wt.branch, true, workspaceId)
           } catch (err: any) {
             setError(`Removed, but branch ${wt.branch} could not be deleted: ${err?.message || err}`)
           }
@@ -272,20 +300,22 @@ export function useParallelWork(
         reconcile()
       } catch (err: any) {
         setError(err?.message || 'Discard failed')
+      } finally {
+        setBusy?.(null)
       }
     },
-    [rootPath, workspaceId, removeWorktree, reconcile],
+    [rootPath, workspaceId, removeWorktree, reconcile, setBusy, setError],
   )
 
   const handlePrune = useCallback(async () => {
     if (!rootPath || !workspaceId) return
     try {
-      await window.electronAPI.gitWorktreePrune(rootPath)
+      await window.electronAPI.gitWorktreePrune(rootPath, workspaceId)
       // `git worktree prune` only cleans entries git still tracks. The orphans
       // shown here are store metadata for worktrees git no longer lists, so
       // prune is a no-op for them — drop those stale entries from the store
       // explicitly, otherwise "Clean up" appears to do nothing.
-      const list = await window.electronAPI.gitWorktreeList(rootPath)
+      const list = await window.electronAPI.gitWorktreeList(rootPath, workspaceId)
       const livePaths = new Set(list.map((g) => g.path))
       const ws = useAppStore.getState().workspaces.find((w) => w.id === workspaceId)
       for (const w of ws?.worktrees ?? []) {
@@ -305,9 +335,10 @@ export function useParallelWork(
       onUpdateFromMain: () => handleUpdateFromMain(wt),
       onMerge: () => handleMerge(wt),
       onDelete: () => handleDelete(wt),
-      onReveal: () => window.electronAPI.shellShowInFolder(wt.path),
-      onRename: (label) => workspaceId && useAppStore.getState().setWorktreeLabel(workspaceId, wt.id, label),
-      onRecolor: (color) => workspaceId && useAppStore.getState().setWorktreeColor(workspaceId, wt.id, color),
+      canReveal: isLocalLocator(wt.path),
+      onReveal: () => window.electronAPI.shellShowInFolder(wt.path, workspaceId ?? undefined),
+      onRename: (label) => workspaceId && upsertWorktreeMeta(workspaceId, wt, { label: label?.trim() || undefined }),
+      onRecolor: (color) => workspaceId && upsertWorktreeMeta(workspaceId, wt, { color }),
       onOpenPr: (url) => window.electronAPI.openExternalUrl(url),
     }),
     [launchInWorktree, handlePublish, handleCreatePR, handleUpdateFromMain, handleMerge, handleDelete, workspaceId],

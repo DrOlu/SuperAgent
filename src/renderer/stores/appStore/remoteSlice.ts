@@ -67,11 +67,21 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
           const message = errorMessage(result?.error, 'Failed to update workspace root')
           set((state) => ({
             workspaces: state.workspaces.map((candidate) => (
-              candidate.id === wsId
-                ? { ...candidate, isRootPathPending: false, rootPathError: message }
+              candidate.id === wsId && candidate.rootPath === rootPath
+                ? {
+                    ...candidate,
+                    rootPath: ws.rootPath,
+                    name: ws.name,
+                    isRootPathPending: false,
+                    rootPathError: message,
+                  }
                 : candidate
             )),
           }))
+          const conflictingId = result?.error?.conflictingWorkspaceId
+          if (conflictingId && get().workspaces.some((candidate) => candidate.id === conflictingId)) {
+            void get().selectWorkspace(conflictingId)
+          }
           log.warn('[workspace-sync] Update rejected:', message)
           return false
         }
@@ -133,6 +143,17 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
         connection: res.connection,
       })
       if (!result?.ok) {
+        set((state) => ({
+          workspaces: state.workspaces.map((candidate) => (
+            candidate.id === wsId && candidate.rootPath === res.rootPath
+              ? { ...candidate, rootPath: ws.rootPath, name: ws.name }
+              : candidate
+          )),
+        }))
+        const conflictingId = result?.error?.conflictingWorkspaceId
+        if (conflictingId && get().workspaces.some((candidate) => candidate.id === conflictingId)) {
+          void get().selectWorkspace(conflictingId)
+        }
         log.warn('[runtime] register failed:', result?.error?.message ?? 'unknown')
         return false
       }
@@ -165,9 +186,22 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
       }
     },
 
-    // The lock overlay's "Retry"/"Reconnect" — re-probe the existing connection.
+    // The "Retry"/"Reconnect" actions (lock overlay, terminal create failure).
+    // Remote/WSL: re-probe the stored connection. LOCAL: relaunch the built-in
+    // daemon — the only recovery when its startup connect failed (nothing else
+    // re-runs it, so without this a local failure was dead until app restart).
     async retryRuntime(wsId) {
-      return get().ensureWorkspaceRuntime(wsId)
+      const ws = get().workspaces.find((w) => w.id === wsId)
+      if (ws?.connection && ws.connection.kind !== 'local') {
+        return get().ensureWorkspaceRuntime(wsId)
+      }
+      try {
+        const res = await window.electronAPI.runtimeRetryLocal()
+        return !!res?.ok
+      } catch (err) {
+        log.warn('[runtime] local retry failed:', err instanceof Error ? err.message : String(err))
+        return false
+      }
     },
 
     async installRuntime(wsId) {

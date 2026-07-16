@@ -8,7 +8,7 @@ export const visualStudioLight: Theme = {
   name: 'Visual Studio Light',
   type: 'light',
   builtIn: true,
-  author: 'Cate theme pack',
+  author: 'SuperAgent theme pack',
   bootBackground: '#ffffff',
   app: {
     'surface-0': '#ffffff',

@@ -54,7 +54,7 @@ export function parseRepo(repo: string): { owner: string; name: string } {
 function authHeaders(token?: string): Record<string, string> {
   const h: Record<string, string> = {
     'Accept': 'application/vnd.github+json',
-    'User-Agent': 'Cate-skills',
+    'User-Agent': 'SuperAgent-skills',
   }
   if (token) h['Authorization'] = `Bearer ${token}`
   return h
@@ -99,7 +99,7 @@ async function rawFetch(repo: string, ref: string, path: string, token: string |
   const segs = path.split('/').map(encodeURIComponent).join('/')
   const res = await fetchWithTimeout(
     `https://raw.githubusercontent.com/${owner}/${name}/${encodeURIComponent(ref)}/${segs}`,
-    token ? { 'Authorization': `Bearer ${token}`, 'User-Agent': 'Cate-skills' } : { 'User-Agent': 'Cate-skills' },
+    token ? { 'Authorization': `Bearer ${token}`, 'User-Agent': 'SuperAgent-skills' } : { 'User-Agent': 'SuperAgent-skills' },
   )
   if (!res.ok) throw new Error(`raw ${res.status} for ${path}`)
   return res

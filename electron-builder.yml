@@ -1,5 +1,5 @@
-appId: com.cate.app
-productName: Cate
+appId: ng.hyperspace.superagent
+productName: SuperAgent
 directories:
   output: release
 # The cate-runtime daemon is NOT bundled in the app. One self-contained
@@ -77,8 +77,8 @@ extraResources:
       - runtime-host*.tgz
 publish:
   provider: github
-  owner: 0-AI-UG
-  repo: cate
+  owner: DrOlu
+  repo: SuperAgent
   releaseType: release
 mac:
   icon: build/icon.icns
@@ -89,7 +89,7 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
   extendInfo:
-    NSMicrophoneUsageDescription: Cate needs microphone access so terminal-based tools (like Claude Code) can record audio for voice input.
+    NSMicrophoneUsageDescription: SuperAgent needs microphone access so terminal-based tools (like Claude Code) can record audio for voice input.
   target:
     - target: dmg
       arch:

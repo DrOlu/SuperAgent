@@ -46,9 +46,7 @@ import {
   type UpdateRecord,
 } from './updateState'
 
-const GITHUB_OWNER = '0-AI-UG'
-const GITHUB_REPO = 'cate'
-const RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`
+const RELEASES_URL = 'https://superagent.ng/downloads.html'
 const CHECK_INTERVAL_MS = 15 * 60 * 1000
 
 /** Persisted "what did we last stage, and how often has it failed to apply"

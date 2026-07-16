@@ -56,7 +56,7 @@ describe('WelcomeDialog', () => {
 
   it('shows for users below the current notice version (fresh install or update)', () => {
     act(() => root.render(<WelcomeDialog />))
-    expect(host.textContent).toContain('Welcome to Cate')
+    expect(host.textContent).toContain('Welcome to SuperAgent')
     expect(host.textContent).toContain('Privacy Policy')
     // No opt-in choice anymore.
     expect(host.querySelector('[role="switch"]')).toBeNull()

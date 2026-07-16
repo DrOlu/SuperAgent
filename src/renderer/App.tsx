@@ -181,7 +181,7 @@ function MainApp() {
     const name = currentWorkspace?.name?.trim()
     // Treat the default "Workspace" placeholder as no real name, so the title
     // is just "Cate" until the user actually renames the workspace.
-    const title = name && name !== 'Workspace' ? `${name} · Cate` : 'Cate'
+    const title = name && name !== 'Workspace' ? `${name} · SuperAgent` : 'SuperAgent'
     window.electronAPI?.windowSetTitle(title).catch(() => { /* noop */ })
   }, [currentWorkspace?.name])
 

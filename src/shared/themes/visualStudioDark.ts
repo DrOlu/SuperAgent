@@ -8,7 +8,7 @@ export const visualStudioDark: Theme = {
   name: 'Visual Studio Dark',
   type: 'dark',
   builtIn: true,
-  author: 'Cate theme pack',
+  author: 'SuperAgent theme pack',
   bootBackground: '#1e1e1e',
   app: {
     'surface-0': '#1e1e1e',

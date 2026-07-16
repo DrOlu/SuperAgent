@@ -283,15 +283,15 @@ export function buildApplicationMenu(): void {
       role: 'help',
       submenu: [
         {
-          label: 'Cate Documentation',
+          label: 'SuperAgent Documentation',
           click: (): void => {
-            shell.openExternal('https://github.com/0-AI-UG/cate')
+            shell.openExternal('https://github.com/DrOlu/SuperAgent')
           },
         },
         {
           label: 'Report Issue...',
           click: (): void => {
-            shell.openExternal('https://github.com/0-AI-UG/cate/issues')
+            shell.openExternal('https://github.com/DrOlu/SuperAgent/issues')
           },
         },
         { type: 'separator' },

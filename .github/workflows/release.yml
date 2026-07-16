@@ -127,6 +127,13 @@ jobs:
         run: |
           node scripts/build-runtime-tarball.mjs
           cp dist-runtime/cate-runtime-*.tgz dist-runtime/runtime-host.tgz
+          # macOS needs per-arch tarballs: runtime-host-arm64.tgz / runtime-host-x64.tgz
+          # because one .app can run on either CPU via Rosetta.
+          if [ "${{ matrix.platform }}" = "mac" ]; then
+            HOST_ARCH=$(node -e "console.log(process.arch)")
+            cp dist-runtime/runtime-host.tgz "dist-runtime/runtime-host-${HOST_ARCH}.tgz"
+            echo "Staged runtime-host-${HOST_ARCH}.tgz for macOS"
+          fi
 
       # Note: the functional + content-search e2e suite used to gate the macOS
       # release here, but the hosted mac runner flaked on the synthetic-mouse

@@ -47,16 +47,20 @@ vi.mock('electron', () => ({
 }))
 
 // --- window registry + panel union: the FAKE windows the forward targets. --------
-const { activeWindow, windowsById, windowPanelList } = vi.hoisted(() => ({
+const { activeWindow, windowsById, windowPanelList, upsertWindowPanel } = vi.hoisted(() => ({
   activeWindow: { value: undefined as unknown },
   windowsById: new Map<number, unknown>(),
   windowPanelList: { value: [] as Array<{ panelId: string; type: string; ownerWindowId: number }> },
+  upsertWindowPanel: vi.fn(),
 }))
 vi.mock('../windowRegistry', () => ({
   getActiveMainWindow: () => activeWindow.value,
   getWindow: (id: number) => windowsById.get(id),
 }))
-vi.mock('../windowPanels', () => ({ getWindowPanels: () => windowPanelList.value }))
+vi.mock('../windowPanels', () => ({
+  getWindowPanels: () => windowPanelList.value,
+  upsertWindowPanel,
+}))
 
 // --- remaining leaf boundaries cateApiHandlers imports (mirror its own test). -----
 vi.mock('./ExtensionManager', () => ({
@@ -121,7 +125,7 @@ interface CapturedForward {
 // CATE_HOST_FORWARD, it captures the payload and (unless told to stay silent)
 // drives the reply back through the SAME channel the real forwardToOwner listens
 // on — ipcMain.on(CATE_HOST_FORWARD_REPLY) — making the round-trip real.
-function makeWindow(opts: { replyResult?: unknown; reply?: boolean } = {}) {
+function makeWindow(opts: { id?: number; replyResult?: unknown; reply?: boolean } = {}) {
   const forwards: CapturedForward[] = []
   const send = vi.fn((channel: string, payload: CapturedForward) => {
     if (channel !== CATE_HOST_FORWARD) return
@@ -134,7 +138,7 @@ function makeWindow(opts: { replyResult?: unknown; reply?: boolean } = {}) {
       }
     })
   })
-  return { win: { isDestroyed: () => false, webContents: { send } }, send, forwards }
+  return { win: { id: opts.id ?? 1, isDestroyed: () => false, webContents: { send } }, send, forwards }
 }
 
 interface HttpReply { status: number; body: unknown }
@@ -203,9 +207,32 @@ beforeEach(() => {
   activeWindow.value = undefined
   windowsById.clear()
   windowPanelList.value = []
+  upsertWindowPanel.mockClear()
 })
 
 describe('browser-control integration — HTTP → real dispatch → forward → renderer reply', () => {
+  it('records a newly opened browser immediately so its returned id is routable', async () => {
+    const owner = makeWindow({ id: 77, replyResult: { panelId: 'new-browser', url: 'https://x.test' } })
+    activeWindow.value = owner.win
+
+    const { runtime, output } = makeRuntime()
+    const endpoint = firstPartySession(runtime, ['browser'])
+    const res = await request(endpoint, output, {
+      json: { method: 'cate.browser.open', args: { url: 'https://x.test' } },
+    })
+
+    expect(res.body).toEqual({ result: { panelId: 'new-browser', url: 'https://x.test' } })
+    expect(upsertWindowPanel).toHaveBeenCalledWith(77, {
+      panelId: 'new-browser',
+      type: 'browser',
+      title: 'https://x.test',
+      workspaceId: WS,
+      url: 'https://x.test',
+      focused: false,
+    })
+    endpoint.dispose()
+  })
+
   it('happy path: cate.browser.open reaches the owner renderer and the reply flows back as HTTP 200', async () => {
     // A browser panel 'b1' owned by the same fake window that is active.
     const owner = makeWindow({ replyResult: { ok: true, navigated: 'https://x.test' } })

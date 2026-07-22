@@ -1,20 +1,20 @@
 {
-  "name": "superagent",
-  "version": "1.5.1",
-  "productName": "SuperAgent",
+  "name": "cate",
+  "version": "1.5.3",
+  "productName": "Cate",
   "description": "An infinite zoomable canvas IDE",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DrOlu/SuperAgent.git"
+    "url": "https://github.com/0-AI-UG/cate.git"
   },
-  "homepage": "https://github.com/DrOlu/SuperAgent",
+  "homepage": "https://github.com/0-AI-UG/cate",
   "bugs": {
-    "url": "https://github.com/DrOlu/SuperAgent/issues"
+    "url": "https://github.com/0-AI-UG/cate/issues"
   },
   "author": {
-    "name": "Hyperspace",
-    "email": "superagent@hyperspace.ng"
+    "name": "0-AI UG",
+    "email": "hello@0-ai.org"
   },
   "main": "dist/main/index.js",
   "engines": {
@@ -37,6 +37,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:agent-contracts": "CATE_LIVE_AGENT_CLIS=1 vitest run --config vitest.live.config.ts agentHookContracts",
     "test:e2e": "playwright test",
     "test:e2e:ci": "E2E_SKIP_PERF=1 playwright test",
     "test:smoke:electron": "node scripts/run-electron-smoke.mjs",
@@ -65,9 +66,12 @@
     "protobufjs",
     "sharp"
   ],
+  "overrides": {
+    "node-gyp": "^12.4.0"
+  },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.80.6",
-    "@earendil-works/pi-ai": "0.80.6",
+    "@earendil-works/pi-agent-core": "^0.80.6",
+    "@earendil-works/pi-ai": "^0.80.6",
     "@parcel/watcher": "^2.5.1",
     "@phosphor-icons/react": "^2.1.10",
     "@sentry/electron": "^5.11.0",
@@ -94,7 +98,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.80.6",
+    "@earendil-works/pi-coding-agent": "^0.80.6",
     "@electron/rebuild": "^4.0.3",
     "@eslint/js": "^9.39.0",
     "@playwright/test": "^1.60.0",

@@ -18,26 +18,26 @@ import { getActivePanelId } from '../lib/activePanel'
 import { PANEL_REGISTRY } from '../panels/registry'
 import { openFileAsPanel } from '../lib/fs/fileRouting'
 import { revealPanel } from '../lib/workspace/panelReveal'
-import { placementForActivePanel } from '../lib/workspace/canvasAccess'
+import { placementForBackgroundPanel } from '../lib/workspace/canvasAccess'
 import { setPendingReveal } from '../lib/editor/editorReveal'
+import { closePanelWithConfirm } from '../lib/closePanelWithConfirm'
 import { toAbsolutePath, pathKey } from '../../shared/pathUtils'
 import { parseLocator, formatLocator } from '../../main/runtime/locator'
 import { handleBrowserMethod } from '../lib/browser/browserDriver'
+import { handleTerminalMethod } from '../lib/terminal/terminalDriver'
 import { browserPanelUrl, isStartPageUrl, type PanelType, type Point } from '../../shared/types'
 import type { PanelPlacement } from '../stores/appStore'
 
-// Reverse-API panel creation reuses the SAME placement the keyboard shortcuts
-// use (Cmd+T / Cmd+N): tab into the active dock stack, pin to the active canvas,
-// or fall back to the workspace's default (primary canvas) placement — honoring
-// the user's placement-picker setting just like a keybind. An explicit
-// { position } from the extension overrides that and lands the panel on the
-// canvas at that exact point.
-function placementFromArgs(args: Record<string, unknown>): PanelPlacement | undefined {
+// Host-API panel creation (CLI + extensions) is always non-interactive: callers
+// may add panels but must not open the placement picker, switch tabs, change
+// selection/focus, or move the user's camera. An explicit { position } still
+// chooses the canvas point while preserving those background semantics.
+function placementFromArgs(workspaceId: string, args: Record<string, unknown>): PanelPlacement | undefined {
   const p = args.position
   if (p && typeof p === 'object' && typeof (p as Point).x === 'number' && typeof (p as Point).y === 'number') {
-    return { target: 'canvas', position: p as Point }
+    return { ...placementForBackgroundPanel(workspaceId), position: p as Point }
   }
-  return placementForActivePanel()
+  return placementForBackgroundPanel(workspaceId)
 }
 
 interface HostActionPayload {
@@ -126,6 +126,16 @@ export function useCateHostActionResponder(): void {
             : reply(false, { error: outcome.error })
         }
 
+        // Terminal-control surface (cate.terminal.*): the terminal driver
+        // resolves the target terminal panel and reads its xterm buffer /
+        // writes to its PTY via the terminalRegistry.
+        if (method.startsWith('cate.terminal.')) {
+          const outcome = await handleTerminalMethod(workspaceId, method, args)
+          return outcome.ok
+            ? reply(true, outcome.result !== undefined ? { result: outcome.result } : undefined)
+            : reply(false, { error: outcome.error })
+        }
+
         switch (method) {
           case 'cate.editor.openFile': {
             const filePath = typeof args.path === 'string' ? args.path : undefined
@@ -134,10 +144,16 @@ export function useCateHostActionResponder(): void {
             // escapes it (absolute or traversal).
             const resolved = resolveWorkspacePath(workspaceId, filePath)
             if (!resolved) return reply(false, { error: 'path outside workspace' })
-            // Reuse the keybind placement (active dock stack / active canvas /
-            // default) so an extension-opened file lands exactly where a
-            // Cmd+N-opened one would, not always pinned to the center dock.
-            const newPanelId = openFileAsPanel(workspaceId, resolved, undefined, placementForActivePanel())
+            // Reject a nonexistent target instead of opening a healthy-looking
+            // panel on it — that silence hides typos from agent callers. (This
+            // verb opens existing files; it has no new-file semantics.)
+            try {
+              const stat = await window.electronAPI.fsStat(resolved, workspaceId)
+              if (stat.isDirectory) return reply(false, { error: 'path is a directory' })
+            } catch {
+              return reply(false, { error: 'file-not-found' })
+            }
+            const newPanelId = openFileAsPanel(workspaceId, resolved, undefined, placementForBackgroundPanel(workspaceId))
             if (!newPanelId) return reply(false, { error: 'open failed' })
             // Honor an optional { line } (and column) by stashing a one-shot
             // editor reveal — the SAME path search results and terminal file
@@ -147,15 +163,13 @@ export function useCateHostActionResponder(): void {
               const column = typeof args.column === 'number' ? args.column : undefined
               setPendingReveal(newPanelId, { line, ...(column !== undefined ? { column } : {}) })
             }
-            // Reveal/focus so the editor is brought to front.
-            void revealPanel(workspaceId, newPanelId).catch(() => { /* best effort */ })
             return reply(true, { result: { panelId: newPanelId } })
           }
 
           case 'cate.canvas.createPanel': {
             const type = typeof args.type === 'string' ? (args.type as PanelType) : undefined
             if (!type || !PANEL_REGISTRY[type]) return reply(false, { error: 'unknown panel type' })
-            const placement = placementFromArgs(args)
+            const placement = placementFromArgs(workspaceId, args)
             let newPanelId: string | null
             if (type === 'extension') {
               const extId = typeof args.extensionId === 'string' ? args.extensionId : payload.extensionId
@@ -177,7 +191,6 @@ export function useCateHostActionResponder(): void {
               })
             }
             if (!newPanelId) return reply(false, { error: 'panel creation failed' })
-            void revealPanel(workspaceId, newPanelId).catch(() => { /* best effort */ })
             return reply(true, { result: { panelId: newPanelId } })
           }
 
@@ -209,8 +222,20 @@ export function useCateHostActionResponder(): void {
               .getState()
               .workspaces.find((w) => w.id === workspaceId)?.panels?.[targetPanelId]
             if (!panel) return reply(false, { error: 'panel-not-in-window' })
-            await revealPanel(workspaceId, targetPanelId)
+            const revealed = await revealPanel(workspaceId, targetPanelId)
+            if (!revealed) return reply(false, { error: 'panel-not-revealable' })
             return reply(true)
+          }
+
+          case 'cate.panel.close': {
+            const targetPanelId = typeof args.panelId === 'string' ? args.panelId : payload.panelId
+            if (!targetPanelId) return reply(false, { error: 'panelId required' })
+            const panel = useAppStore
+              .getState()
+              .workspaces.find((w) => w.id === workspaceId)?.panels?.[targetPanelId]
+            if (!panel) return reply(false, { error: 'panel-not-in-window' })
+            const closed = await closePanelWithConfirm(workspaceId, targetPanelId)
+            return closed ? reply(true) : reply(false, { error: 'close-cancelled' })
           }
 
           case 'cate.panel.setTitle': {

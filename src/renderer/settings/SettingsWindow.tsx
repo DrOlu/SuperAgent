@@ -20,6 +20,7 @@ import { AppearanceSettings } from './AppearanceSettings'
 import { CanvasSettings } from './CanvasSettings'
 import { TerminalSettings } from './TerminalSettings'
 import { BrowserSettings } from './BrowserSettings'
+import { CliSettings } from './CliSettings'
 import { SidebarSettings } from './SidebarSettings'
 import { FileExplorerSettings } from './FileExplorerSettings'
 import { WorktreeSettings } from './WorktreeSettings'
@@ -27,6 +28,7 @@ import { ShortcutSettings } from './ShortcutSettings'
 import { NotificationSettings } from './NotificationSettings'
 import { UpdatesSettings } from './UpdatesSettings'
 import { ProvidersSettings } from './ProvidersSettings'
+import { AgentHooksSettings } from './AgentHooksSettings'
 import { CanvasCateAgentSettings } from './CanvasCateAgentSettings'
 import { SkillsSettings } from './SkillsSettings'
 import { ExtensionsSettings } from './ExtensionsSettings'
@@ -39,11 +41,13 @@ const SECTIONS = [
   { title: 'Canvas', component: CanvasSettings },
   { title: 'Terminal', component: TerminalSettings },
   { title: 'Browser', component: BrowserSettings },
+  { title: 'CLI', component: CliSettings },
   { title: 'Sidebar', component: SidebarSettings },
   { title: 'File Explorer', component: FileExplorerSettings },
   { title: 'Worktrees', component: WorktreeSettings },
   { title: 'Notifications', component: NotificationSettings },
   { title: 'Providers', component: ProvidersSettings },
+  { title: 'Agent Hooks', component: AgentHooksSettings },
   { title: 'Cate Agent', component: CanvasCateAgentSettings },
   { title: 'Skills', component: SkillsSettings },
   { title: 'Extensions', component: ExtensionsSettings },

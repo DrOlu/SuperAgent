@@ -21,7 +21,9 @@ import { buildColdStartCanvasChildOwners, partitionWorkspacePanels } from '../..
 import { getWorkspaceDockSnapshot } from './canvasAccess'
 import { collectPanelIds } from '../../../shared/collectPanelIds'
 import { panelRowLabel } from '../panelTitle'
-import type { WindowPanelReport } from '../../../shared/types'
+import { useActivePanelStore } from '../activePanel'
+import { parseLocator } from '../../../main/runtime/locator'
+import { browserPanelUrl, isStartPageUrl, type WindowPanelReport } from '../../../shared/types'
 
 let cleanup: (() => void) | null = null
 
@@ -100,6 +102,7 @@ export function setupWindowPanelSync(): () => void {
       // rows.
       const agentInfo = selectAgentInfoByPanel(status, ws.id)
       const withPorts = panelsWithPorts(ws.id)
+      const activePanelId = useActivePanelStore.getState().activePanelId
       // Report only PLACED panels, using the same partition rules as the local
       // tree (ghost records — in ws.panels but referenced by no canvas or dock —
       // would otherwise surface in other windows as phantom rows). Placement
@@ -124,6 +127,11 @@ export function setupWindowPanelSync(): () => void {
           // title), so a panel reads the same in other windows as it does here.
           title: panelRowLabel(p),
           workspaceId: ws.id,
+          ...(p.filePath ? { filePath: parseLocator(p.filePath).path } : {}),
+          ...(p.type === 'browser'
+            ? { url: isStartPageUrl(browserPanelUrl(p)) ? '' : (browserPanelUrl(p) ?? '') }
+            : {}),
+          focused: p.id === activePanelId,
           parentCanvasId: childToCanvas.get(p.id),
           worktreeId: p.worktreeId,
           agentState: agentInfo[p.id]?.state,
@@ -166,6 +174,7 @@ export function setupWindowPanelSync(): () => void {
     syncCanvasSubscriptions()
     schedule()
   })
+  const unsubscribeActivePanel = useActivePanelStore.subscribe(schedule)
   syncCanvasSubscriptions()
 
   // Re-report when agent state / ports change so detached rows track the owner's
@@ -182,6 +191,7 @@ export function setupWindowPanelSync(): () => void {
 
   cleanup = () => {
     unsubscribeApp()
+    unsubscribeActivePanel()
     unsubscribeStatus()
     for (const unsub of canvasSubs.values()) unsub()
     canvasSubs.clear()

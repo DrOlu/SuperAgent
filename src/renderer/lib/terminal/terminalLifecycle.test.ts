@@ -115,8 +115,6 @@ vi.mock('./terminalFileLinkProvider', () => ({
   resolveLinkRoot: () => undefined,
 }))
 vi.mock('../agent/agentScreenDetector', () => ({
-  noteAgentTitle: vi.fn(),
-  noteAgentSpinnerByte: vi.fn(),
   noteAgentPresence: vi.fn(),
   forgetAgentTracker: vi.fn(),
 }))
@@ -229,7 +227,7 @@ describe('spawn → wire → dispose happy path', () => {
     // One PTY spawn, standard 80x24 defaults (real fit happens on attach).
     expect(terminalCreate).toHaveBeenCalledTimes(1)
     expect(terminalCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ cols: 80, rows: 24, workspaceId: 'ws-1' }),
+      expect.objectContaining({ cols: 80, rows: 24, workspaceId: 'ws-1', panelId: 'panel-happy' }),
     )
 
     // Registry + identity bimap populated, entry alive.

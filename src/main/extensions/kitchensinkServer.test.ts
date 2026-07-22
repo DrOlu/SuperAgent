@@ -10,11 +10,12 @@
 //   POST /api/echo           — HTTP round-trip
 //   GET  /ws                 — WebSocket upgrade + echo (raw RFC6455 frames)
 //   POST /api/cate-roundtrip — the server calls BACK into Cate over CATE_API
-//   POST /api/agent-run      — the server delegates a turn to cate.agent.run
+//   POST /api/agent-run      — the server composes agent open -> send -> dispose
 //
 // A tiny stand-in CATE_API server implements storage.set/get/keys/delete,
-// ui.notify, version and agent.run so the reverse round-trip is asserted for
-// real, including that the server forwards CATE_TOKEN on every reverse call.
+// ui.notify, version and agent open/send/dispose so the reverse round-trip is
+// asserted for real, including that the server forwards CATE_TOKEN on every
+// reverse call.
 // =============================================================================
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
@@ -203,9 +204,12 @@ describe.skipIf(!HAS_EXT)('Kitchen Sink extension server (spawned)', () => {
         else if (body.method === 'cate.storage.delete') { cateApiStore.delete(String(body.args?.key)); result = { ok: true } }
         else if (body.method === 'cate.ui.notify') { result = { ok: true } }
         else if (body.method === 'cate.version') { result = 1 }
-        // Stand in for Cate's bundled agent: echo the prompt back as the run's
-        // final text, so the test can assert the server forwarded it verbatim.
-        else if (body.method === 'cate.agent.run') { result = { text: `agent ran: ${String(body.args?.prompt)}` } }
+        // Stand in for Cate's bundled agent (open -> send -> dispose): send
+        // echoes the prompt back as the turn's final text, so the test can
+        // assert the server forwarded it verbatim.
+        else if (body.method === 'cate.agent.open') { result = { sessionId: 'sess-1' } }
+        else if (body.method === 'cate.agent.send') { result = { text: `agent ran: ${String(body.args?.prompt)}` } }
+        else if (body.method === 'cate.agent.dispose') { result = { ok: true } }
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ result }))
       })
     })
@@ -286,7 +290,7 @@ describe.skipIf(!HAS_EXT)('Kitchen Sink extension server (spawned)', () => {
     expect(cateApiAuths.every((a) => a === `Bearer ${TOKEN}`)).toBe(true)
   })
 
-  it('delegates a turn to the bundled agent via cate.agent.run, forwarding CATE_TOKEN', async () => {
+  it('delegates a turn to the bundled agent (open -> send -> dispose), forwarding CATE_TOKEN', async () => {
     cateApiMethods.length = 0
     const r = await httpRequest(port, {
       method: 'POST',
@@ -298,8 +302,13 @@ describe.skipIf(!HAS_EXT)('Kitchen Sink extension server (spawned)', () => {
     expect(body.ok).toBe(true)
     // The server forwarded our prompt verbatim and surfaced the agent's text.
     expect(body.text).toBe('agent ran: build the thing')
-    expect(cateApiMethods).toContain('cate.agent.run')
-    // The reverse call carried the injected bearer like every other.
+    // One full session lifecycle, composed server-side (there is no agent.run).
+    // dispose fires in the server's finally AFTER the response is sent, so
+    // poll for it rather than asserting the instant the response lands.
+    await expect.poll(() => cateApiMethods.slice()).toEqual([
+      'cate.agent.open', 'cate.agent.send', 'cate.agent.dispose',
+    ])
+    // The reverse calls carried the injected bearer like every other.
     expect(cateApiAuths.every((a) => a === `Bearer ${TOKEN}`)).toBe(true)
   })
 
@@ -313,7 +322,7 @@ describe.skipIf(!HAS_EXT)('Kitchen Sink extension server (spawned)', () => {
     expect(r.status).toBe(400)
     expect((r.json as { ok: boolean }).ok).toBe(false)
     // No reverse call was made for an empty prompt.
-    expect(cateApiMethods).not.toContain('cate.agent.run')
+    expect(cateApiMethods).toEqual([])
   })
 
   it('404s an unknown authenticated route', async () => {

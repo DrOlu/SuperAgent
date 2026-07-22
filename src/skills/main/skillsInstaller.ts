@@ -21,8 +21,12 @@ import { ensureSkillName } from './frontmatter'
 import * as skillStore from './skillStore'
 import * as savedSkills from './savedSkills'
 import { getToken } from './skillSources'
-import { slugifySkillName, type InstalledSkill, type SkillEntry, type SkillTargetId } from '../../shared/skills'
+import {
+  isKnownSkillTarget, slugifySkillName,
+  type InstalledSkill, type SkillEntry, type SkillTargetId,
+} from '../../shared/skills'
 import { fetchSkillFiles, type SkillFile } from './githubCrawl'
+import { skillPathSegments } from './skillPath'
 
 // ---------------------------------------------------------------------------
 // Manifest (<workspace>/.cate/skills.json)
@@ -30,9 +34,11 @@ import { fetchSkillFiles, type SkillFile } from './githubCrawl'
 
 interface SkillsManifest {
   skills: InstalledSkill[]
-  /** Auto-seed markers ("<skillId>:<targetId>"). A bundled skill is seeded at
-   *  most once per target per workspace, so a later user uninstall sticks and
-   *  an edited copy is never overwritten by the next workspace open. */
+  /** Auto-seed markers ("<skillId>:<targetId>@<contentHash>"; older manifests
+   *  carry hash-less "<skillId>:<targetId>" markers). The hash records WHICH
+   *  bundle version was seeded, so a newer app can refresh an unedited copy
+   *  while a user uninstall still sticks and a user-edited copy is never
+   *  overwritten (see seedCateCliSkill for the policy). */
   seeded?: string[]
 }
 
@@ -45,7 +51,16 @@ async function readManifestData(runtime: Runtime, runtimeId: string, hostCwd: st
     const raw = await runtime.file.readFile(manifestPath(runtimeId, hostCwd))
     const parsed = JSON.parse(raw) as SkillsManifest
     return {
-      skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+      // Rows for targets this Cate no longer supports (e.g. `antigravity`,
+      // dropped with its agent) are filtered out on the way in: they would
+      // otherwise render as a phantom agent in the skills tree, and reaching
+      // targetInfo/skillsRootDir with one THROWS — which used to break
+      // installing any skill that had a stale row for the same skillId. The
+      // next manifest write persists the pruned list, so this self-heals.
+      // Only the tracking row goes; files already on disk are left alone.
+      skills: Array.isArray(parsed.skills)
+        ? parsed.skills.filter((s) => isKnownSkillTarget(s?.targetId))
+        : [],
       seeded: Array.isArray(parsed.seeded) ? parsed.seeded.filter((s) => typeof s === 'string') : [],
     }
   } catch {
@@ -69,11 +84,15 @@ export async function readSeededMarkers(runtime: Runtime, runtimeId: string, hos
   return (await readManifestData(runtime, runtimeId, hostCwd)).seeded ?? []
 }
 
-/** Record that a bundled skill was seeded for a target in this workspace. */
-export async function addSeededMarker(runtime: Runtime, runtimeId: string, hostCwd: string, marker: string): Promise<void> {
+/** Record that a bundled skill was seeded for a target in this workspace,
+ *  replacing any earlier marker for the same skill+target (the part before the
+ *  optional `@<hash>` version suffix). */
+export async function setSeededMarker(runtime: Runtime, runtimeId: string, hostCwd: string, marker: string): Promise<void> {
+  const base = marker.split('@')[0]
   const manifest = await readManifestData(runtime, runtimeId, hostCwd)
   if (manifest.seeded?.includes(marker)) return
-  await writeManifest(runtime, runtimeId, hostCwd, { ...manifest, seeded: [...(manifest.seeded ?? []), marker] })
+  const seeded = (manifest.seeded ?? []).filter((m) => m !== base && !m.startsWith(`${base}@`))
+  await writeManifest(runtime, runtimeId, hostCwd, { ...manifest, seeded: [...seeded, marker] })
 }
 
 // ---------------------------------------------------------------------------
@@ -133,10 +152,12 @@ export async function writeSkillToWorkspace(args: WriteSkillArgs): Promise<Write
   let installedHostPath: string
 
   if (info.layout === 'folder') {
+    // Validate the complete bundle before creating directories or writing files,
+    // so a malformed source cannot escape (or partially modify) the skill root.
+    const bundle = files.map((file) => ({ file, segments: skillPathSegments(file.relPath) }))
     const dir = hostJoin(runtimeId, root, slug)
     await mkdirp(runtime, runtimeId, hostCwd, dir)
-    for (const f of files) {
-      const segs = f.relPath.split('/')
+    for (const { file: f, segments: segs } of bundle) {
       const target = hostJoin(runtimeId, dir, ...segs)
       if (segs.length > 1) {
         await mkdirp(runtime, runtimeId, hostCwd, hostJoin(runtimeId, dir, ...segs.slice(0, -1)))
@@ -194,7 +215,7 @@ async function readDirRec(runtime: Runtime, runtimeId: string, dir: string, base
   return out
 }
 
-async function readWorkspaceSkillFiles(
+export async function readWorkspaceSkillFiles(
   runtime: Runtime,
   runtimeId: string,
   hostCwd: string,

@@ -176,7 +176,9 @@ interface DockStoreActions {
   setZoneSize: (position: DockZonePosition, size: number) => void
 
   // Panel placement
-  dockPanel: (panelId: string, zone: DockZonePosition, target?: DockDropTarget) => void
+  /** `activate: false` appends in the background without selecting the new tab
+   * or opening a hidden zone (used by host-API creates). */
+  dockPanel: (panelId: string, zone: DockZonePosition, target?: DockDropTarget, activate?: boolean) => void
   undockPanel: (panelId: string) => void
 
   // Tab management within a stack
@@ -235,7 +237,7 @@ export function createDockStore(initialState?: DockStateSnapshot) {
 
   // --- Panel placement ---
 
-  dockPanel(panelId, zone, target) {
+  dockPanel(panelId, zone, target, activate = true) {
     set((state) => {
       const zoneState = state.zones[zone]
       let newLayout = zoneState.layout
@@ -258,7 +260,7 @@ export function createDockStore(initialState?: DockStateSnapshot) {
           const updatedStack: DockTabStack = {
             ...stack,
             panelIds: newPanelIds,
-            activeIndex: insertIndex,
+            activeIndex: activate ? insertIndex : stack.activeIndex,
           }
           newLayout = newLayout
             ? replaceInTree(newLayout, stack.id, updatedStack)
@@ -313,7 +315,7 @@ export function createDockStore(initialState?: DockStateSnapshot) {
           newLayout = {
             ...newLayout,
             panelIds: [...newLayout.panelIds, panelId],
-            activeIndex: newLayout.panelIds.length,
+            activeIndex: activate ? newLayout.panelIds.length : newLayout.activeIndex,
           }
         } else {
           // Root is a split — find the first tab stack and append there
@@ -322,7 +324,7 @@ export function createDockStore(initialState?: DockStateSnapshot) {
             const updatedStack: DockTabStack = {
               ...firstStack,
               panelIds: [...firstStack.panelIds, panelId],
-              activeIndex: firstStack.panelIds.length,
+              activeIndex: activate ? firstStack.panelIds.length : firstStack.activeIndex,
             }
             newLayout = replaceInTree(newLayout, firstStack.id, updatedStack)
           }
@@ -334,7 +336,7 @@ export function createDockStore(initialState?: DockStateSnapshot) {
           ...state.zones,
           [zone]: {
             ...zoneState,
-            visible: true, // auto-show zone when docking
+            visible: activate ? true : zoneState.visible,
             layout: newLayout,
           },
         },

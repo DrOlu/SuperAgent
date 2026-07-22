@@ -59,7 +59,7 @@ class FakeWebSocket {
 function makeBridge() {
   return {
     version: vi.fn(async () => 1),
-    panel: { id: 'main', setTitle: vi.fn(async (_title: string) => {}) },
+    panel: { id: 'main', setTitle: vi.fn(async (_title: string) => {}), list: vi.fn(), focus: vi.fn(), close: vi.fn() },
     workspace: { get: vi.fn(async () => ({ rootPath: '/ws/root', branch: null, worktree: null })) },
     theme: {
       get: vi.fn(async () => ({

@@ -226,7 +226,7 @@ describe('cate CLI — real binary over a real socket', () => {
     const r = await runCli(['browser', 'reload'], { PATH: process.env.PATH ?? '' })
     expect(r.code).toBe(3)
     expect(r.stderr).toContain('CATE_API/CATE_TOKEN unset')
-    expect(r.stderr).toContain('Settings → Terminal')
+    expect(r.stderr).toContain('Settings → CLI')
     // Never reached the server.
     expect(lastRequest).toBeUndefined()
   }, 20_000)

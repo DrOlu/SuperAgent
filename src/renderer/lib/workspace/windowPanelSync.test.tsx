@@ -34,6 +34,7 @@ import { createDockStore } from '../../stores/dockStore'
 import { registerWorkspaceDockStore, releaseWorkspaceDockStore } from './dockRegistry'
 import { registerNodeDockStore, unregisterNodeDockStore } from '../../panels/nodeDockRegistry'
 import { setupWindowPanelSync } from './windowPanelSync'
+import { setActivePanel } from '../activePanel'
 import type { WindowPanelReport, PanelState } from '../../../shared/types'
 
 function panel(id: string, type: PanelState['type'], worktreeId?: string): PanelState {
@@ -232,7 +233,7 @@ describe('windowPanelSync — placed-only report + derived titles', () => {
     releaseWorkspaceDockStore(ws)
   })
 
-  it('stamps the derived label: a titleless browser reports its URL, a titleless editor its basename', async () => {
+  it('reports derived labels, routing metadata, and focus changes', async () => {
     const reports: WindowPanelReport[][] = []
     ;(window as any).electronAPI = {
       reportWindowPanels: vi.fn(async (r: WindowPanelReport[]) => { reports.push(r) }),
@@ -254,14 +255,27 @@ describe('windowPanelSync — placed-only report + derived titles', () => {
       } as any],
       selectedWorkspaceId: ws,
     } as any)
+    setActivePanel('b1')
 
     const stop = setupWindowPanelSync()
     await tick()
 
-    const byId = Object.fromEntries(reports[reports.length - 1].filter((r) => r.workspaceId === ws).map((r) => [r.panelId, r]))
+    let byId = Object.fromEntries(reports[reports.length - 1].filter((r) => r.workspaceId === ws).map((r) => [r.panelId, r]))
     expect(byId.b1?.title).toBe('https://example.com/docs')
+    expect(byId.b1?.url).toBe('https://example.com/docs')
+    expect(byId.b1?.focused).toBe(true)
     expect(byId.e1?.title).toBe('main.ts')
+    expect(byId.e1?.filePath).toBe('/x/src/main.ts')
+    expect(byId.e1?.focused).toBe(false)
+
+    reports.length = 0
+    setActivePanel('e1')
+    await new Promise((r) => setTimeout(r, 300))
+    byId = Object.fromEntries(reports[reports.length - 1].filter((r) => r.workspaceId === ws).map((r) => [r.panelId, r]))
+    expect(byId.b1?.focused).toBe(false)
+    expect(byId.e1?.focused).toBe(true)
 
     stop()
+    setActivePanel(null)
   })
 })

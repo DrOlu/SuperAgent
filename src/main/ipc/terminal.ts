@@ -39,6 +39,7 @@ import { getOrCreateLogger, removeLogger, flushAll as flushAllLoggers, disposeAl
 import log from '../logger'
 import { sendToWindow, windowFromEvent, onWindowClosed } from '../windowRegistry'
 import { countTerminalData } from '../perf/perfMonitor'
+import { getSetting } from '../settingsFile'
 import { parseLocator, type RuntimeId } from '../runtime/locator'
 import { runtimes } from '../runtime/runtimeManager'
 import type { Runtime } from '../runtime/types'
@@ -226,7 +227,7 @@ function cleanupTerminal(id: string): void {
 }
 
 async function spawnTerminal(
-  options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string },
+  options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string; panelId?: string },
   ownerWindowId: number,
 ): Promise<string> {
   const { runtimeId, path: cwdPath } = parseLocator(options.cwd ?? '')
@@ -246,7 +247,11 @@ async function spawnTerminal(
   if (options.workspaceId) {
     const endpoint = await workspaceCateApi.ensureEndpoint(options.workspaceId)
     if (endpoint) {
-      cateApiEnv = { CATE_API: `http://127.0.0.1:${endpoint.port}`, CATE_TOKEN: endpoint.token }
+      cateApiEnv = {
+        CATE_API: `http://127.0.0.1:${endpoint.port}`,
+        CATE_TOKEN: endpoint.token,
+        ...(options.panelId ? { CATE_PANEL_ID: options.panelId } : {}),
+      }
     }
   }
 
@@ -311,7 +316,18 @@ async function spawnTerminal(
   // for its own host (the local resolver, or the daemon's first-existing-of
   // [requested, $SHELL, bash, sh]) — so a path that only exists on the client is
   // handled there, not branched on here.
-  const handle = await runtime.process.create({ cols: options.cols, rows: options.rows, cwd, shell: options.shell, env: cateApiEnv }, onData, onExit)
+  // agentHooks: user terminals opt into agent hook injection (push-based agent
+  // status/session events — see src/runtime/capabilities/agentHooks.ts).
+  // agentHookConfig: this workspace's per-agent tri-state overrides (auto/on/off
+  // for the repo-local file writes; missing agents default to 'auto').
+  const agentHookConfig = options.workspaceId
+    ? getSetting('agentHookInjection')[options.workspaceId]
+    : undefined
+  const handle = await runtime.process.create(
+    { cols: options.cols, rows: options.rows, cwd, shell: options.shell, env: cateApiEnv, agentHooks: true, agentHookConfig },
+    onData,
+    onExit,
+  )
   resolvedShell = handle.shell ?? ''
 
   terminalRuntime.set(handle.id, runtimeId)

@@ -9,21 +9,30 @@
 // (updateWorkspace), and when a runtime (re)connects (replaySkillSeeds) — the
 // last one is what makes remote workspaces behave like local ones, since their
 // runtime connects only after create/attach.
-//   - gated by the cliSkillInstallEnabled setting (Settings → Terminal);
+//   - gated by the cliSkillInstallEnabled setting (Settings → CLI);
 //   - `cate-agent` is always seeded — it is Cate's own agent and `.cate/` is
 //     already Cate-managed;
-//   - every other target (claude-code, pi-native, opencode, codex, antigravity)
-//     is seeded only when its tool dir (`.claude`, `.agents`, …) already exists
-//     in the workspace, so repos don't grow dot-dirs for agents nobody uses
-//     there. A tool dir created later is picked up on a subsequent open.
-//   - each (skill, target) seeds AT MOST ONCE per workspace (a `seeded` marker
-//     in skills.json), so a user uninstall sticks and an edited copy is never
-//     overwritten. An already-installed copy just gets its marker.
+//   - every other target (one per agent CLI that declares `skills` in
+//     src/shared/agents.ts — claude-code, codex, cursor, grok, opencode,
+//     pi-native) is seeded only when its tool dir (`.claude`, `.agents`, …)
+//     already exists in the workspace, so repos don't grow dot-dirs for agents
+//     nobody uses there. A tool dir created later is picked up on a subsequent
+//     open. The loop is over SKILL_TARGETS, so a newly declared agent target is
+//     seeded with no change here.
+//   - a `seeded` marker in skills.json carries the CONTENT HASH of the bundle
+//     it wrote (`<skillId>:<target>@<hash>`). When a newer app ships a changed
+//     bundle, a copy still matching its marker's hash (unedited) is refreshed
+//     in place — a stale doc actively misleads every agent that loads it. A
+//     copy that no longer matches (user-edited) is never overwritten, and a
+//     user uninstall (manifest entry gone, marker kept) sticks across versions.
+//     Pre-hash markers can't distinguish an edit from an old bundle; they get
+//     one migration refresh, then carry hashes like everything else.
 //
 // Files come from the app bundle (skills/cate-cli, shipped via extraResources)
 // — not GitHub — so seeding works offline and always matches the app version.
 // =============================================================================
 
+import crypto from 'crypto'
 import fs from 'fs'
 import fsp from 'fs/promises'
 import path from 'path'
@@ -34,9 +43,10 @@ import { parseLocator } from '../../main/runtime/locator'
 import { runtimes } from '../../main/runtime/runtimeManager'
 import { hostJoin } from '../../agent/main/agentDir'
 import type { Runtime } from '../../main/runtime/types'
-import { SKILL_TARGETS, type SkillTargetId } from '../../shared/skills'
-import { toolDirSegment } from './targets'
-import { readManifest, readSeededMarkers, addSeededMarker, writeSkillToWorkspace } from './skillsInstaller'
+import { SKILL_TARGETS, slugifySkillName, type SkillTargetId } from '../../shared/skills'
+import { targetInfo, toolDirSegment } from './targets'
+import { ensureSkillName } from './frontmatter'
+import { readManifest, readSeededMarkers, setSeededMarker, writeSkillToWorkspace, readWorkspaceSkillFiles } from './skillsInstaller'
 import type { SkillFile } from './githubCrawl'
 
 // Matches the registry entry (registry/skills-index.json), so a modal install
@@ -81,6 +91,34 @@ async function dirExists(runtime: Runtime, hostPath: string): Promise<boolean> {
   }
 }
 
+/** What writeSkillToWorkspace would actually install for a target: single-file
+ *  layouts keep only SKILL.md, and SKILL.md gets the same frontmatter-name
+ *  normalization — so a hash of this compares byte-equal against a read-back of
+ *  an unedited install. */
+function expectedInstall(files: SkillFile[], targetId: SkillTargetId): SkillFile[] {
+  const slug = slugifySkillName(SKILL_NAME)
+  const withName = (f: SkillFile): SkillFile =>
+    f.relPath === 'SKILL.md' && f.text != null ? { relPath: f.relPath, text: ensureSkillName(f.text, slug) } : f
+  if (targetInfo(targetId).layout !== 'folder') {
+    const md = files.find((f) => f.relPath === 'SKILL.md')
+    return md ? [withName(md)] : []
+  }
+  return files.map(withName)
+}
+
+/** Order-independent content hash of a skill install (short — it only has to
+ *  distinguish bundle versions, not resist collisions). */
+function hashFiles(files: SkillFile[]): string {
+  const h = crypto.createHash('sha256')
+  for (const f of [...files].sort((a, b) => a.relPath.localeCompare(b.relPath))) {
+    h.update(f.relPath)
+    h.update('\0')
+    h.update(f.text ?? f.base64 ?? '')
+    h.update('\0')
+  }
+  return h.digest('hex').slice(0, 12)
+}
+
 /** Seed the bundled cate-cli skill into a workspace. Best effort and NEVER
  *  rejects (safe to call fire-and-forget at workspace open) — a failed target
  *  is retried on the next open or runtime connect, since no marker is written
@@ -112,14 +150,51 @@ async function seed(cwd: string): Promise<void> {
   }
 
   const seeded = await readSeededMarkers(runtime, runtimeId, hostCwd)
-  const targets = SKILL_TARGETS.map((t) => t.id).filter(
-    (t: SkillTargetId) => !seeded.includes(`${SKILL_ID}:${t}`),
-  )
-  if (targets.length === 0) return
-
-  let files: SkillFile[] | null = null
   const installed = await readManifest(runtime, runtimeId, hostCwd)
-  for (const targetId of targets) {
+  const bundled = await readBundledFiles(srcDir)
+
+  for (const target of SKILL_TARGETS) {
+    const targetId = target.id
+    const base = `${SKILL_ID}:${targetId}`
+    const marker = seeded.find((m) => m === base || m.startsWith(`${base}@`))
+    const expectedHash = hashFiles(expectedInstall(bundled, targetId))
+    const versioned = `${base}@${expectedHash}`
+    if (marker === versioned) continue // seeded and current — the common case
+
+    const entry = installed.find((m) => m.skillId === SKILL_ID && m.targetId === targetId)
+    const write = async (): Promise<void> => {
+      await writeSkillToWorkspace({ skillId: SKILL_ID, name: SKILL_NAME, targetId, cwd, files: bundled, origin: 'local' })
+      log.info('[skills-seed] seeded %s for %s in %s', SKILL_NAME, targetId, hostCwd)
+    }
+
+    if (marker !== undefined) {
+      // Seeded before, by an older bundle — this pass is only about refreshing.
+      if (!entry) {
+        // The user uninstalled it; that sticks. Move the marker forward so this
+        // (and every later) version stops re-checking.
+        await setSeededMarker(runtime, runtimeId, hostCwd, versioned)
+        continue
+      }
+      const installedHash = hashFiles(await readWorkspaceSkillFiles(runtime, runtimeId, hostCwd, targetId, entry.name))
+      if (installedHash !== expectedHash) {
+        const priorHash = marker.includes('@') ? marker.slice(base.length + 1) : null
+        if (priorHash !== null && installedHash !== priorHash) {
+          // Edited since the last seed — the user's copy wins. Keep the old
+          // marker so the next pass re-checks (a revert to the seeded bytes
+          // starts refreshing again).
+          continue
+        }
+        // An unedited copy of an older bundle — or a pre-hash install we can't
+        // tell apart from an edit, where refreshing wins: a stale doc actively
+        // misleads every agent that loads it.
+        await write()
+      }
+      await setSeededMarker(runtime, runtimeId, hostCwd, versioned)
+      continue
+    }
+
+    // Never seeded here: cate-agent always, other targets only once their tool
+    // dir exists (a dir created later is picked up on a subsequent open).
     if (
       targetId !== 'cate-agent' &&
       !(await dirExists(runtime, hostJoin(runtimeId, hostCwd, toolDirSegment(targetId))))
@@ -128,11 +203,7 @@ async function seed(cwd: string): Promise<void> {
     }
     // Already installed (e.g. manually via the modal before seeding existed):
     // don't rewrite over possible user edits — just record the marker.
-    if (!installed.some((m) => m.skillId === SKILL_ID && m.targetId === targetId)) {
-      files ??= await readBundledFiles(srcDir)
-      await writeSkillToWorkspace({ skillId: SKILL_ID, name: SKILL_NAME, targetId, cwd, files, origin: 'local' })
-      log.info('[skills-seed] seeded %s for %s in %s', SKILL_NAME, targetId, hostCwd)
-    }
-    await addSeededMarker(runtime, runtimeId, hostCwd, `${SKILL_ID}:${targetId}`)
+    if (!entry) await write()
+    await setSeededMarker(runtime, runtimeId, hostCwd, versioned)
   }
 }

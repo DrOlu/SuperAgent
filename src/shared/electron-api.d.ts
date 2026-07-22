@@ -2,8 +2,9 @@
 // Type declaration for window.electronAPI exposed via contextBridge
 // =============================================================================
 
-import type { AgentCreateOptions, AgentEventEnvelope, AgentExtensionUIResponse, AgentImageAttachment, AgentModelRef, AgentModelDescriptor, AgentRpcState, AgentSessionListEntry, AgentSessionStats, AgentSlashCommand, AgentThinkingLevel, AppSettings, AgentState, AuthProviderDescriptor, AuthProviderStatus, CustomOpenAIProvider, DockWindowInitPayload, DockWindowSyncState, DetachedDockWindowSnapshot, WindowPanelInfo, WindowPanelReport, FileSearchOptions, FileSearchResult, FileTreeNode, SearchOptions, SearchResultBatch, SearchDoneEvent, NotificationAction, OAuthFlowEvent, PanelTransferSnapshot, PerfSnapshot, Point, ProviderVerification, SidebarSession, TerminalActivity, WorkspaceInfo, WorkspaceMutationResult, RemoteConnectSpec, RuntimeConnectResult, RuntimeStatusEvent, RuntimeConnection, RuntimePhase, RemoteProjectEntry, SshHostEntry, UIState } from './types'
+import type { AgentCreateOptions, AgentEventEnvelope, AgentExtensionUIResponse, AgentImageAttachment, AgentModelRef, AgentModelDescriptor, AgentRpcState, AgentSessionListEntry, AgentSessionStats, AgentSlashCommand, AgentThinkingLevel, AppSettings, AgentState, AuthProviderDescriptor, AuthProviderStatus, CustomOpenAIProvider, DockWindowInitPayload, DockWindowSyncState, DetachedDockWindowSnapshot, WindowPanelInfo, WindowPanelReport, FileSearchOptions, FileSearchResult, FileTreeNode, SearchOptions, SearchResultBatch, SearchDoneEvent, NotificationAction, OAuthFlowEvent, PanelTransferSnapshot, PerfSnapshot, Point, ProviderVerification, SidebarSession, TerminalActivity, TerminalAgentSession, WorkspaceInfo, WorkspaceMutationResult, RemoteConnectSpec, RuntimeConnectResult, RuntimeStatusEvent, RuntimeConnection, RuntimePhase, RemoteProjectEntry, SshHostEntry, UIState } from './types'
 import type { SavedSkill, InstalledSkill, SkillEntry, SkillSource, SkillTargetId } from './skills'
+import type { AgentHookEvent, AgentHookAgentState } from './agentHooks'
 import type { ExtensionListEntry, ExtensionManifest } from './extensions'
 
 /** Lifecycle state of the auto-updater, surfaced to the renderer for the
@@ -56,6 +57,8 @@ export interface ElectronAPI {
     cwd?: string
     shell?: string
     workspaceId?: string
+    /** Owning Cate panel, exposed to the spawned shell as CATE_PANEL_ID. */
+    panelId?: string
   }): Promise<string>
 
   /** Write data (keystrokes) to a terminal. */
@@ -353,6 +356,21 @@ export interface ElectronAPI {
   /** Subscribe to port scan updates (main -> renderer). */
   onShellPortsUpdate(callback: (terminalId: string, ports: number[]) => void): () => void
 
+  /** Subscribe to agent-session stamps for terminal restore (main -> renderer).
+   *  `session` is the agent session currently open in the terminal, or null
+   *  when the agent exited (clears the persisted stamp). */
+  onShellAgentSessionUpdate(
+    callback: (terminalId: string, session: TerminalAgentSession | null) => void,
+  ): () => void
+
+  /** Subscribe to normalized agent-CLI hook events (push-based session
+   *  identity / turn status / permission-wait, ingested by the terminal's
+   *  runtime daemon and routed to the owning window). Mechanism only — the
+   *  status/notification/session features wire onto this stream. */
+  onShellAgentHookEvent(
+    callback: (terminalId: string, event: AgentHookEvent) => void,
+  ): () => void
+
   /** Subscribe to CWD updates (main -> renderer). */
   onShellCwdUpdate(callback: (terminalId: string, cwd: string) => void): () => void
 
@@ -388,6 +406,10 @@ export interface ElectronAPI {
 
   /** Set a single setting value. */
   settingsSet<K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void>
+
+  /** Inspect a workspace's per-agent hook-file injection state (for the
+   *  Settings UI). `locator` is the workspace's rootPath locator. */
+  agentHooksInspect(locator: string): Promise<AgentHookAgentState[]>
 
   /** Get all settings. */
   settingsGetAll(): Promise<AppSettings>
@@ -596,9 +618,10 @@ export interface ElectronAPI {
 
   /** Capture a webview's content and save as PNG. Returns file path + data URL or
    *  null. Pass `{ wantDataUrl: false }` (CLI/agent path) to skip the base64
-   *  encode and get back only the file path. */
-  webviewScreenshot(webContentsId: number, options: { wantDataUrl: false }): Promise<{ filePath: string } | null>
-  webviewScreenshot(webContentsId: number, options?: { wantDataUrl?: boolean }): Promise<{ filePath: string; dataUrl: string } | null>
+   *  encode and get back only the file path; `saveTo: 'temp'` writes into the OS
+   *  temp dir instead of the Desktop (default). */
+  webviewScreenshot(webContentsId: number, options: { wantDataUrl: false; saveTo?: 'desktop' | 'temp' }): Promise<{ filePath: string } | null>
+  webviewScreenshot(webContentsId: number, options?: { wantDataUrl?: boolean; saveTo?: 'desktop' | 'temp' }): Promise<{ filePath: string; dataUrl: string } | null>
 
   /** Configure the proxy for a browser panel's session partition (issue #241).
    *  Pass an empty/undefined proxyUrl to use a direct connection. */

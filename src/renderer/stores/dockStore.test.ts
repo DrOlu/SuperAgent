@@ -108,6 +108,21 @@ describe('createDefaultDockState', () => {
   })
 })
 
+describe('background docking', () => {
+  it('appends without activating the new tab or opening a hidden zone', () => {
+    const store = createDockStore()
+    store.getState().dockPanel('visible', 'bottom')
+    // Hide the populated zone, then add through the background API path.
+    store.getState().toggleZone('bottom')
+    store.getState().dockPanel('background', 'bottom', undefined, false)
+
+    const stack = rootStack(store, 'bottom')
+    expect(stack.panelIds).toEqual(['visible', 'background'])
+    expect(stack.activeIndex).toBe(0)
+    expect(store.getState().zones.bottom.visible).toBe(false)
+  })
+})
+
 describe('zone visibility and sizing', () => {
   it('toggleZone flips visibility', () => {
     const store = createDockStore()

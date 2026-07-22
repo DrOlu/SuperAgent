@@ -254,7 +254,8 @@ function placePanel(
   const dockStore = getOrCreateWorkspaceDockStore(workspaceId)
   // Canvas panels go to the center dock zone, not onto a canvas as a node
   if (panelType === 'canvas') {
-    dockStore.getState().dockPanel(panelId, 'center')
+    const activate = placement?.target !== 'canvas' || placement.focus !== false
+    dockStore.getState().dockPanel(panelId, 'center', undefined, activate)
     return
   }
   if (placement?.target === 'dock') {

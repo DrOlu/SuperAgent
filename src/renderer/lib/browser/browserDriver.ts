@@ -23,6 +23,7 @@
 import { useAppStore } from '../../stores/appStore'
 import { getActivePanelId } from '../activePanel'
 import { portalRegistry, type PortalWebview } from '../portalRegistry'
+import { placementForBackgroundPanel } from '../workspace/canvasAccess'
 
 export type BrowserOutcome = { ok: true; result?: unknown } | { ok: false; error: string }
 
@@ -68,6 +69,19 @@ function getWebview(panelId: string): { webview: PortalWebview } | { error: stri
   return { webview }
 }
 
+/** A background-created browser mounts on the next React commit. Wait for its
+ * portal registration before reporting `open` success so an autonomous caller
+ * can immediately follow with `wait`/`snapshot` instead of racing the render. */
+async function waitForWebview(panelId: string, timeoutMs = 3_000): Promise<PortalWebview | null> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const webview = portalRegistry.get(panelId)
+    if (webview) return webview
+    if (Date.now() >= deadline) return null
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+}
+
 // --- Injected DOM scripts ----------------------------------------------------
 // Never interpolate caller-supplied ref/text into the source string: pass them
 // as function arguments via JSON.stringify so a malicious value can't break out
@@ -94,13 +108,34 @@ const SNAPSHOT_JS = `(function () {
     var el = visible[i]
     var ref = '@e' + (i + 1)
     el.setAttribute('data-cate-ref', ref)
+    // Bare <input> tags all read alike, so expose the type (input:search vs
+    // input:submit) — it is what disambiguates a field from its submit button.
     var role = el.getAttribute('role') || el.tagName.toLowerCase()
-    var name = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.getAttribute('value') || '').trim().slice(0, 200)
+    if (role === 'input') role = 'input:' + (el.type || 'text').toLowerCase()
+    // Accessible-name fallbacks, most explicit first. An associated <label>
+    // beats textContent (which is empty for inputs anyway), and a <select>'s
+    // textContent is skipped — it is ALL of its options concatenated.
+    var name = el.getAttribute('aria-label') || ''
+    if (!name && el.labels && el.labels.length) name = el.labels[0].textContent || ''
+    if (!name && el.tagName !== 'SELECT') name = el.textContent || ''
+    if (!name) name = el.getAttribute('placeholder') || el.getAttribute('value') || ''
+    name = name.replace(/\\s+/g, ' ').trim().slice(0, 200)
     var value = 'value' in el ? el.value : undefined
     refs.push({ ref: ref, role: role, name: name, value: value })
   }
   return { url: location.href, title: document.title, refs: refs }
 })()`
+
+/** Canonical refs are the `@e<n>` tokens SNAPSHOT_JS mints. Accept the bare
+ *  `e<n>` a caller is likely to strip the sigil from, and reject anything else
+ *  up front — a malformed ref would otherwise come back as `stale-ref`, telling
+ *  the caller to re-snapshot when the fix is the argument itself. */
+function normalizeRef(raw: unknown): { ref: string } | { error: string } {
+  if (typeof raw !== 'string' || raw === '') return { error: 'ref-required' }
+  const ref = /^e\d+$/.test(raw) ? `@${raw}` : raw
+  if (!/^@e\d+$/.test(ref)) return { error: 'bad-ref: expected a snapshot ref like @e12' }
+  return { ref }
+}
 
 function elementByRefBody(): string {
   // Compare via getAttribute (not a built selector) so `ref` is never spliced
@@ -208,24 +243,45 @@ export async function handleBrowserMethod(
     const url = typeof args.url === 'string' ? args.url : undefined
     if (!url) return { ok: false, error: 'url-required' }
     const target = resolveTargetPanelId(workspaceId, args)
+    let panelId: string
     if ('error' in target) {
       if (target.error === 'no-browser') {
-        const panelId = useAppStore.getState().createBrowser(workspaceId, url)
-        return { ok: true, result: { panelId, url } }
+        panelId = useAppStore.getState().createBrowser(
+          workspaceId,
+          url,
+          undefined,
+          placementForBackgroundPanel(workspaceId),
+        )
+      } else {
+        return { ok: false, error: target.error }
       }
-      return { ok: false, error: target.error }
+    } else {
+      panelId = target.panelId
     }
-    const webview = portalRegistry.get(target.panelId)
-    // Mirror terminalUrlOpen: if the webview isn't attached yet, still update the
-    // stored URL so the panel navigates there on mount — a real success.
-    if (!webview) {
-      useAppStore.getState().updateBrowserActiveTabUrl(workspaceId, target.panelId, url)
-      return { ok: true, result: { panelId: target.panelId, url } }
+
+    useAppStore.getState().updateBrowserActiveTabUrl(workspaceId, panelId, url)
+    const webview = portalRegistry.get(panelId)
+    if (webview) {
+      try {
+        webview.loadURL(url)
+        return { ok: true, result: { panelId, url } }
+      } catch {
+        return { ok: false, error: 'webview-not-ready' }
+      }
     }
+    // No live webview: the panel was just created above, is still mounting, or
+    // sits on its start page — which renders INSTEAD of a webview and would
+    // never mount one on its own. The panel's registered navigator is the same
+    // entry point the URL bar uses; navigating leaves the start page, which
+    // mounts the webview. The loadURL after the wait covers the still-mounting
+    // case, whose seeded src is the panel's OLD page (redundant but harmless
+    // for the others — they mount already loading `url`).
+    portalRegistry.getNavigator(panelId)?.(url)
+    const mounted = await waitForWebview(panelId)
+    if (!mounted) return { ok: false, error: 'webview-not-ready' }
     try {
-      webview.loadURL(url)
-      useAppStore.getState().updateBrowserActiveTabUrl(workspaceId, target.panelId, url)
-      return { ok: true, result: { panelId: target.panelId, url } }
+      mounted.loadURL(url)
+      return { ok: true, result: { panelId, url } }
     } catch {
       return { ok: false, error: 'webview-not-ready' }
     }
@@ -249,10 +305,11 @@ export async function handleBrowserMethod(
       case 'screenshot': {
         const wcId = webview.getWebContentsId()
         // The CLI/agent path returns only the file path, so opt out of the
-        // full-page base64 encode the UI button needs.
+        // full-page base64 encode the UI button needs — and land in the temp
+        // dir, not the user's Desktop (agents screenshot constantly).
         let result: { filePath: string } | null
         try {
-          result = await window.electronAPI.webviewScreenshot(wcId, { wantDataUrl: false })
+          result = await window.electronAPI.webviewScreenshot(wcId, { wantDataUrl: false, saveTo: 'temp' })
         } catch {
           return { ok: false, error: 'screenshot-failed' }
         }
@@ -264,17 +321,17 @@ export async function handleBrowserMethod(
         return { ok: true, result: snap }
       }
       case 'click': {
-        const ref = typeof args.ref === 'string' ? args.ref : undefined
-        if (!ref) return { ok: false, error: 'ref-required' }
-        const res = (await webview.executeJavaScript(clickJs(ref))) as { ok?: true; error?: string }
+        const ref = normalizeRef(args.ref)
+        if ('error' in ref) return { ok: false, error: ref.error }
+        const res = (await webview.executeJavaScript(clickJs(ref.ref))) as { ok?: true; error?: string }
         if (res?.error) return { ok: false, error: res.error }
         return { ok: true }
       }
       case 'type': {
-        const ref = typeof args.ref === 'string' ? args.ref : undefined
-        if (!ref) return { ok: false, error: 'ref-required' }
+        const ref = normalizeRef(args.ref)
+        if ('error' in ref) return { ok: false, error: ref.error }
         const text = typeof args.text === 'string' ? args.text : ''
-        const res = (await webview.executeJavaScript(typeJs(ref, text))) as { ok?: true; error?: string }
+        const res = (await webview.executeJavaScript(typeJs(ref.ref, text))) as { ok?: true; error?: string }
         if (res?.error) return { ok: false, error: res.error }
         return { ok: true }
       }
@@ -288,9 +345,10 @@ export async function handleBrowserMethod(
         // Optional ref: focus the element first (Enter into a field, Tab from a
         // field). Without one the key goes to whatever the guest has focused —
         // that's how page-level keys (Escape, PageDown) work.
-        const ref = typeof args.ref === 'string' ? args.ref : undefined
-        if (ref) {
-          const res = (await webview.executeJavaScript(focusJs(ref))) as { ok?: true; error?: string }
+        if (typeof args.ref === 'string') {
+          const ref = normalizeRef(args.ref)
+          if ('error' in ref) return { ok: false, error: ref.error }
+          const res = (await webview.executeJavaScript(focusJs(ref.ref))) as { ok?: true; error?: string }
           if (res?.error) return { ok: false, error: res.error }
         }
         // keyDown + char + keyUp is the full trusted key sequence; the char event

@@ -62,11 +62,11 @@ jobs:
       - name: Install setuptools (needed by node-gyp)
         run: pip install setuptools
 
-      - name: Delete lockfile
-        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
-
+      # npm ci honors the committed package-lock.json so releases are built
+      # from pinned dependency versions, not whatever upstream published that
+      # day. Regenerate the lockfile with `npm install` locally to upgrade.
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate icons
         run: npm run icons
@@ -251,17 +251,18 @@ jobs:
         if: matrix.docker
         uses: docker/setup-qemu-action@v3
 
-      - name: Delete lockfile
-        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       # Stage node-pty from build/Release. macOS/Windows installs use a shipped
       # prebuild (build/Release empty) so compile from source; Linux ships no
       # prebuild, so `npm install` already built it from source. The --docker
       # linux-arm64 cross-build compiles node-pty in the container — all of these
       # Linux cases are exactly the ones runner.os != 'Linux' skips.
+      # The windows runner image ships Visual Studio 2026 (18.x), which node-gyp
+      # only learned to detect in 12.1.0 — hence the node-gyp override in
+      # package.json. Without it this step fails with "could not find any Visual
+      # Studio installation to use".
       - name: Compile node-pty from source (mac/win; Linux builds it at install)
         if: runner.os != 'Linux'
         run: npm rebuild node-pty --build-from-source
@@ -305,10 +306,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Delete lockfile
-        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Build pi tarball
         run: node scripts/build-pi-tarball.mjs
       - name: Upload pi tarball

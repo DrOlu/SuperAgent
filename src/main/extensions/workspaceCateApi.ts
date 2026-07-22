@@ -18,6 +18,7 @@ export const GRANTED_SCOPES: readonly string[] = [
   'editor',
   'canvas',
   'panel',
+  'terminal',
 ]
 
 export interface WorkspaceCateApiEndpoint {

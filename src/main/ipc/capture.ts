@@ -10,11 +10,13 @@ import { windowFromEvent } from '../windowRegistry'
 import { WEBVIEW_SCREENSHOT, BROWSER_SET_PROXY, NATIVE_FILE_DRAG } from '../../shared/ipc-channels'
 
 export function registerCaptureHandlers(): void {
-  // Capture a webview's visible content, save to Desktop, return dataUrl + path.
+  // Capture a webview's visible content, save to disk, return dataUrl + path.
   // `wantDataUrl` defaults to true for the manual UI button (it renders the
   // thumbnail); the CLI/agent screenshot path passes false so we skip the
-  // multi-MB base64 encode it would only discard.
-  ipcMain.handle(WEBVIEW_SCREENSHOT, wrapHandler(`[${WEBVIEW_SCREENSHOT}]`, async (event, webContentsId: number, options?: { wantDataUrl?: boolean }) => {
+  // multi-MB base64 encode it would only discard. `saveTo: 'temp'` (the CLI/
+  // agent path again) keeps the PNG out of the user's Desktop — agents shoot
+  // constantly and the files are read-once ephemera, not keepsakes.
+  ipcMain.handle(WEBVIEW_SCREENSHOT, wrapHandler(`[${WEBVIEW_SCREENSHOT}]`, async (event, webContentsId: number, options?: { wantDataUrl?: boolean; saveTo?: 'desktop' | 'temp' }) => {
     // Validate the webContentsId belongs to a webview guest of the calling window
     const callerWin = BrowserWindow.fromWebContents(event.sender)
     const wc = webContents.fromId(webContentsId)
@@ -34,7 +36,11 @@ export function registerCaptureHandlers(): void {
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const fileName = `screenshot-${timestamp}.png`
-    const filePath = path.join(app.getPath('desktop'), fileName)
+    const dir = options?.saveTo === 'temp'
+      ? path.join(app.getPath('temp'), 'cate-screenshots')
+      : app.getPath('desktop')
+    if (options?.saveTo === 'temp') await fs.promises.mkdir(dir, { recursive: true })
+    const filePath = path.join(dir, fileName)
     await fs.promises.writeFile(filePath, image.toPNG())
     if (callerWin) await grantFileAccess(callerWin.id, filePath)
 

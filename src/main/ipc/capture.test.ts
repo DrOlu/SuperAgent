@@ -19,7 +19,7 @@ const isEmpty = vi.fn(() => false)
 const capturePage = vi.fn(async () => ({ isEmpty, toPNG, toDataURL }))
 
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp' },
+  app: { getPath: (name: string) => (name === 'temp' ? '/tmp' : '/desktop') },
   ipcMain: {
     handle: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
       handlers.set(channel, fn)
@@ -42,7 +42,11 @@ vi.mock('./pathValidation', () => ({
 }))
 
 // Avoid touching the real filesystem for the PNG write.
-vi.mock('fs', () => ({ default: { promises: { writeFile: vi.fn(async () => {}) } } }))
+const { writeFile, mkdir } = vi.hoisted(() => ({
+  writeFile: vi.fn(async (..._a: unknown[]) => {}),
+  mkdir: vi.fn(async (..._a: unknown[]) => undefined),
+}))
+vi.mock('fs', () => ({ default: { promises: { writeFile, mkdir } } }))
 
 import { registerCaptureHandlers } from './capture'
 import { WEBVIEW_SCREENSHOT } from '../../shared/ipc-channels'
@@ -74,5 +78,18 @@ describe('WEBVIEW_SCREENSHOT dataUrl opt-out', () => {
     expect(toDataURL).toHaveBeenCalledTimes(1)
     expect(result.dataUrl).toBe('data:image/png;base64,ZmFrZQ==')
     expect(result.filePath).toContain('screenshot-')
+  })
+
+  it('saves to a cate-screenshots temp dir when saveTo is temp (CLI/agent path)', async () => {
+    const handler = handlers.get(WEBVIEW_SCREENSHOT)!
+    const result = (await handler(event, 7, { wantDataUrl: false, saveTo: 'temp' })) as { filePath: string }
+    expect(result.filePath.replace(/\\/g, '/')).toContain('/tmp/cate-screenshots/screenshot-')
+    expect(mkdir).toHaveBeenCalled()
+  })
+
+  it('keeps the Desktop for the default (manual) path', async () => {
+    const handler = handlers.get(WEBVIEW_SCREENSHOT)!
+    const result = (await handler(event, 7)) as { filePath: string }
+    expect(result.filePath.replace(/\\/g, '/')).toContain('/desktop/screenshot-')
   })
 })

@@ -26,18 +26,25 @@ const REMOTE_ROOT_LOCATOR = `cate-runtime://srv_a1${REMOTE_ROOT_BARE}`
 
 const h = vi.hoisted(() => ({
   openFileAsPanel: vi.fn(() => 'new-editor-id'),
-  revealPanel: vi.fn(async () => {}),
+  revealPanel: vi.fn(async () => true),
+  closePanelWithConfirm: vi.fn(async () => true),
   createExtensionPanel: vi.fn(() => 'new-ext-id'),
   updatePanelTitle: vi.fn(),
   editorCreate: vi.fn(() => 'reg-editor-id'),
-  placementForActivePanel: vi.fn(),
+  placementForBackgroundPanel: vi.fn(),
   setPendingReveal: vi.fn(),
   activePanelId: null as string | null,
 }))
 
+const terminalDriver = vi.hoisted(() => ({
+  handleTerminalMethod: vi.fn(async () => ({ ok: true as const, result: { panelId: 't1', alt: false, text: 'x' } })),
+}))
+vi.mock('../lib/terminal/terminalDriver', () => ({ handleTerminalMethod: terminalDriver.handleTerminalMethod }))
+
 vi.mock('../lib/fs/fileRouting', () => ({ openFileAsPanel: h.openFileAsPanel }))
 vi.mock('../lib/workspace/panelReveal', () => ({ revealPanel: h.revealPanel }))
-vi.mock('../lib/workspace/canvasAccess', () => ({ placementForActivePanel: h.placementForActivePanel }))
+vi.mock('../lib/workspace/canvasAccess', () => ({ placementForBackgroundPanel: h.placementForBackgroundPanel }))
+vi.mock('../lib/closePanelWithConfirm', () => ({ closePanelWithConfirm: h.closePanelWithConfirm }))
 vi.mock('../lib/editor/editorReveal', () => ({ setPendingReveal: h.setPendingReveal }))
 vi.mock('../lib/activePanel', () => ({ getActivePanelId: () => h.activePanelId }))
 vi.mock('../lib/logger', () => ({ default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
@@ -89,6 +96,9 @@ import { useCateHostActionResponder } from './useCateHostActionResponder'
 let actionCb: ((payload: unknown) => unknown) | null = null
 const replies: Array<{ requestId: string; ok: boolean; result?: unknown; error?: string }> = []
 
+// openFile stats its target before opening; default to "exists, is a file".
+const fsStat = vi.fn(async (_path: string, _workspaceId?: string) => ({ isDirectory: false, isFile: true }))
+
 function installElectronAPI(): void {
   ;(window as unknown as { electronAPI: unknown }).electronAPI = {
     onCateHostAction: (cb: (payload: unknown) => unknown) => {
@@ -98,6 +108,7 @@ function installElectronAPI(): void {
     cateHostActionReply: (payload: { requestId: string; ok: boolean; result?: unknown; error?: string }) => {
       replies.push(payload)
     },
+    fsStat,
   }
 }
 
@@ -123,14 +134,12 @@ async function fire(method: string, args: unknown, extra?: Partial<{ panelId: st
   })
 }
 
-// The placement a keybind (Cmd+T / Cmd+N) would compute for the active panel.
-// A distinctive non-center value proves the responder reuses placementForActivePanel
-// rather than the old hardcoded center dock.
-const ACTIVE_PLACEMENT = { target: 'dock', zone: 'left', stackId: 'stack-9' }
+const BACKGROUND_PLACEMENT = { target: 'canvas', canvasPanelId: 'canvas-1', focus: false }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  h.placementForActivePanel.mockReturnValue(ACTIVE_PLACEMENT)
+  fsStat.mockResolvedValue({ isDirectory: false, isFile: true })
+  h.placementForBackgroundPanel.mockReturnValue(BACKGROUND_PLACEMENT)
   h.activePanelId = null
   actionCb = null
   replies.length = 0
@@ -151,14 +160,12 @@ describe('useCateHostActionResponder', () => {
     expect(actionCb).toBeTypeOf('function')
   })
 
-  it('opens a file with the keybind placement (active panel), not a hardcoded dock', async () => {
+  it('opens a file with background placement and does not reveal/focus it', async () => {
     await fire('cate.editor.openFile', { path: 'package.json' })
 
-    // Relative path resolved against the workspace root, and placed exactly where
-    // a Cmd+N would put it (placementForActivePanel), not always center-dock.
-    expect(h.openFileAsPanel).toHaveBeenCalledWith(WS, `${ROOT}/package.json`, undefined, ACTIVE_PLACEMENT)
-    expect(h.placementForActivePanel).toHaveBeenCalled()
-    expect(h.revealPanel).toHaveBeenCalledWith(WS, 'new-editor-id')
+    expect(h.openFileAsPanel).toHaveBeenCalledWith(WS, `${ROOT}/package.json`, undefined, BACKGROUND_PLACEMENT)
+    expect(h.placementForBackgroundPanel).toHaveBeenCalled()
+    expect(h.revealPanel).not.toHaveBeenCalled()
     expect(replies).toContainEqual({ requestId: 'req-cate.editor.openFile', ok: true, result: { panelId: 'new-editor-id' } })
   })
 
@@ -172,13 +179,24 @@ describe('useCateHostActionResponder', () => {
     expect(h.setPendingReveal).not.toHaveBeenCalled()
   })
 
-  it('falls back to the default (undefined) placement when no panel is active', async () => {
-    // placementForActivePanel returns undefined → the create call gets the
-    // workspace's default (primary-canvas) placement, same as a keybind with
-    // nothing focused.
-    h.placementForActivePanel.mockReturnValue(undefined)
+  it('uses unpinned background canvas placement when no canvas is active', async () => {
+    h.placementForBackgroundPanel.mockReturnValue({ target: 'canvas', focus: false })
     await fire('cate.editor.openFile', { path: 'package.json' })
-    expect(h.openFileAsPanel).toHaveBeenCalledWith(WS, `${ROOT}/package.json`, undefined, undefined)
+    expect(h.openFileAsPanel).toHaveBeenCalledWith(WS, `${ROOT}/package.json`, undefined, { target: 'canvas', focus: false })
+  })
+
+  it('rejects openFile for a nonexistent path instead of opening an empty panel', async () => {
+    fsStat.mockRejectedValueOnce(new Error('ENOENT'))
+    await fire('cate.editor.openFile', { path: 'missing-file.txt' })
+    expect(h.openFileAsPanel).not.toHaveBeenCalled()
+    expect(replies).toContainEqual({ requestId: 'req-cate.editor.openFile', ok: false, error: 'file-not-found' })
+  })
+
+  it('rejects openFile for a directory', async () => {
+    fsStat.mockResolvedValueOnce({ isDirectory: true, isFile: false })
+    await fire('cate.editor.openFile', { path: 'src' })
+    expect(h.openFileAsPanel).not.toHaveBeenCalled()
+    expect(replies).toContainEqual({ requestId: 'req-cate.editor.openFile', ok: false, error: 'path is a directory' })
   })
 
   it('rejects an absolute openFile path that escapes the workspace root', async () => {
@@ -195,7 +213,7 @@ describe('useCateHostActionResponder', () => {
 
   it('allows an absolute openFile path that is inside the workspace root', async () => {
     await fire('cate.editor.openFile', { path: `${ROOT}/src/app.ts` })
-    expect(h.openFileAsPanel).toHaveBeenCalledWith(WS, `${ROOT}/src/app.ts`, undefined, ACTIVE_PLACEMENT)
+    expect(h.openFileAsPanel).toHaveBeenCalledWith(WS, `${ROOT}/src/app.ts`, undefined, BACKGROUND_PLACEMENT)
   })
 
   it('accepts an absolute path inside a REMOTE workspace (locator rootPath) and re-attaches the scheme', async () => {
@@ -209,7 +227,7 @@ describe('useCateHostActionResponder', () => {
       REMOTE_WS,
       `${REMOTE_ROOT_LOCATOR}/src/app.ts`,
       undefined,
-      ACTIVE_PLACEMENT,
+      BACKGROUND_PLACEMENT,
     )
     expect(replies).toContainEqual({ requestId: 'req-cate.editor.openFile', ok: true, result: { panelId: 'new-editor-id' } })
   })
@@ -223,16 +241,17 @@ describe('useCateHostActionResponder', () => {
   it('creates an extension panel via canvas.createPanel(extension)', async () => {
     await fire('cate.canvas.createPanel', { type: 'extension', extensionPanelId: 'main' })
 
-    expect(h.createExtensionPanel).toHaveBeenCalledWith(WS, 'cate.kitchensink', 'main', undefined, ACTIVE_PLACEMENT)
-    expect(h.revealPanel).toHaveBeenCalledWith(WS, 'new-ext-id')
+    expect(h.createExtensionPanel).toHaveBeenCalledWith(WS, 'cate.kitchensink', 'main', undefined, BACKGROUND_PLACEMENT)
+    expect(h.revealPanel).not.toHaveBeenCalled()
     expect(replies).toContainEqual({ requestId: 'req-cate.canvas.createPanel', ok: true, result: { panelId: 'new-ext-id' } })
   })
 
   it('honors an explicit { position } by placing on the canvas at that point', async () => {
     await fire('cate.canvas.createPanel', { type: 'extension', extensionPanelId: 'main', position: { x: 120, y: 80 } })
-    expect(h.createExtensionPanel).toHaveBeenCalledWith(WS, 'cate.kitchensink', 'main', undefined, { target: 'canvas', position: { x: 120, y: 80 } })
-    // An explicit position overrides the keybind placement entirely.
-    expect(h.placementForActivePanel).not.toHaveBeenCalled()
+    expect(h.createExtensionPanel).toHaveBeenCalledWith(WS, 'cate.kitchensink', 'main', undefined, {
+      ...BACKGROUND_PLACEMENT,
+      position: { x: 120, y: 80 },
+    })
   })
 
   it('rejects a createPanel(extension) with no extensionPanelId', async () => {
@@ -244,7 +263,7 @@ describe('useCateHostActionResponder', () => {
   it('resolves a relative filePath when createPanel spawns a non-extension type', async () => {
     await fire('cate.canvas.createPanel', { type: 'editor', filePath: 'src/index.ts' })
     expect(h.editorCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ workspaceId: WS, placement: ACTIVE_PLACEMENT, filePath: `${ROOT}/src/index.ts` }),
+      expect.objectContaining({ workspaceId: WS, placement: BACKGROUND_PLACEMENT, filePath: `${ROOT}/src/index.ts` }),
     )
   })
 
@@ -296,6 +315,35 @@ describe('useCateHostActionResponder', () => {
 
     await fire('cate.panel.focus', { panelId: 'detached-panel' })
     expect(replies).toContainEqual({ requestId: 'req-cate.panel.focus', ok: false, error: 'panel-not-in-window' })
+  })
+
+  it('panel.focus reports failure when the panel record cannot be revealed', async () => {
+    h.revealPanel.mockResolvedValueOnce(false)
+    await fire('cate.panel.focus', { panelId: 'ed-1' })
+    expect(replies).toContainEqual({ requestId: 'req-cate.panel.focus', ok: false, error: 'panel-not-revealable' })
+  })
+
+  it('panel.close closes through the confirmation path without revealing it', async () => {
+    await fire('cate.panel.close', { panelId: 'ed-1' })
+    expect(h.closePanelWithConfirm).toHaveBeenCalledWith(WS, 'ed-1')
+    expect(h.revealPanel).not.toHaveBeenCalled()
+    expect(replies).toContainEqual({ requestId: 'req-cate.panel.close', ok: true })
+  })
+
+  it('delegates cate.terminal.* to the terminal driver and relays its result', async () => {
+    await fire('cate.terminal.read', { panelId: 't1' })
+    expect(terminalDriver.handleTerminalMethod).toHaveBeenCalledWith(WS, 'cate.terminal.read', { panelId: 't1' })
+    expect(replies).toContainEqual({
+      requestId: 'req-cate.terminal.read',
+      ok: true,
+      result: { panelId: 't1', alt: false, text: 'x' },
+    })
+  })
+
+  it('relays a terminal-driver error verbatim', async () => {
+    terminalDriver.handleTerminalMethod.mockResolvedValueOnce({ ok: false, error: 'no-terminal-focused' } as never)
+    await fire('cate.terminal.read', {})
+    expect(replies).toContainEqual({ requestId: 'req-cate.terminal.read', ok: false, error: 'no-terminal-focused' })
   })
 
 })

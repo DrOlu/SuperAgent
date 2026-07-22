@@ -38,6 +38,9 @@ export function setWindowPanels(windowId: number, report: WindowPanelReport[]): 
       type: p.type,
       title: p.title || p.type,
       workspaceId: p.workspaceId,
+      filePath: p.filePath,
+      url: p.url,
+      focused: p.focused,
       ownerWindowId: windowId,
       ownerWindowType,
       parentCanvasId: p.parentCanvasId,
@@ -48,6 +51,52 @@ export function setWindowPanels(windowId: number, report: WindowPanelReport[]): 
     })),
   )
   broadcastWindowPanels()
+}
+
+/** Add or refresh one panel immediately, before the owning renderer's normal
+ * debounced full report arrives. Used for API-created browsers so the returned
+ * panel id can be routed by an immediate follow-up command. The next full
+ * report remains authoritative and replaces this provisional row. */
+export function upsertWindowPanel(windowId: number, panel: WindowPanelReport): void {
+  const ownerWindowType = getWindowType(windowId)
+  if (!ownerWindowType) return
+  const panels = windowPanels.get(windowId) ?? []
+  const next = {
+    panelId: panel.panelId,
+    type: panel.type,
+    title: panel.title || panel.type,
+    workspaceId: panel.workspaceId,
+    filePath: panel.filePath,
+    url: panel.url,
+    focused: panel.focused,
+    ownerWindowId: windowId,
+    ownerWindowType,
+    parentCanvasId: panel.parentCanvasId,
+    worktreeId: panel.worktreeId,
+    agentState: panel.agentState,
+    agentName: panel.agentName,
+    hasPorts: panel.hasPorts,
+  }
+  const index = panels.findIndex((candidate) => candidate.panelId === panel.panelId)
+  windowPanels.set(windowId, index < 0
+    ? [...panels, next]
+    : panels.map((candidate, candidateIndex) => candidateIndex === index ? next : candidate))
+  broadcastWindowPanels()
+}
+
+/** Drop one panel from the union immediately, before the owning renderer's next
+ * debounced report confirms the removal. The close-side mirror of
+ * upsertWindowPanel: without it, a close-then-list caller sees the stale row
+ * merged back in from here for the report interval and reads it as "still
+ * open". The next full report remains authoritative either way. */
+export function removeWindowPanel(panelId: string): void {
+  for (const [windowId, panels] of windowPanels.entries()) {
+    const next = panels.filter((p) => p.panelId !== panelId)
+    if (next.length === panels.length) continue
+    windowPanels.set(windowId, next)
+    broadcastWindowPanels()
+    return
+  }
 }
 
 /**
@@ -76,7 +125,7 @@ let lastWindowPanelSignature = ''
 export function broadcastWindowPanels(): void {
   const panels = getWindowPanels()
   const signature = panels
-    .map((p) => `${p.ownerWindowId}:${p.panelId}:${p.type}:${p.title}:${p.workspaceId}:${p.parentCanvasId ?? ''}:${p.worktreeId ?? ''}:${p.agentState ?? ''}:${p.agentName ?? ''}:${p.hasPorts ? 1 : 0}`)
+    .map((p) => `${p.ownerWindowId}:${p.panelId}:${p.type}:${p.title}:${p.workspaceId}:${p.filePath ?? ''}:${p.url ?? ''}:${p.focused ? 1 : 0}:${p.parentCanvasId ?? ''}:${p.worktreeId ?? ''}:${p.agentState ?? ''}:${p.agentName ?? ''}:${p.hasPorts ? 1 : 0}`)
     .sort()
     .join('|')
   if (signature === lastWindowPanelSignature) return

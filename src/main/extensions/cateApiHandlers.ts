@@ -14,6 +14,9 @@
 //     panel.focus
 //   - cate.browser.*: forwarded to the OWNER window of the target browser panel
 //     (args.panelId), or the active main window when unaddressed.
+//   - cate.terminal.*: same owner-window routing for terminal panels;
+//     first-party (CLI) callers only, with read and type/press each gated by
+//     their Settings → CLI toggle.
 //   - Anything else: { error: 'unsupported', method }
 //
 // Every invoke validates the extension is enabled before serving, EXCEPT
@@ -24,6 +27,12 @@ import { ipcMain, app, dialog, type WebContents } from 'electron'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import log from '../logger'
+import {
+  cliPermissionCellByKey,
+  cliPermissionDenied,
+  cliPermissionForMethod,
+  type CliPermissionKey,
+} from '../../shared/cliPermissions'
 import {
   EXTENSION_LIST,
   EXTENSION_ENABLE,
@@ -56,7 +65,7 @@ import { agentManager } from '../../agent/main/agentManager'
 import { getExtensionStorage } from './storage'
 import { getWorkspaceInfo } from '../workspaceManager'
 import { getActiveMainWindow, getWindow } from '../windowRegistry'
-import { getWindowPanels } from '../windowPanels'
+import { getWindowPanels, removeWindowPanel, revealWindowPanel, upsertWindowPanel } from '../windowPanels'
 import { parseLocator, LOCAL_RUNTIME_ID } from '../runtime/locator'
 import { getAllSettings, getSetting } from '../settingsFile'
 import { resolveActiveTheme } from '../themeBootCache'
@@ -72,6 +81,15 @@ import { showOsNotification } from '../ipc/notifications'
 const CATE_API_VERSION = 3
 
 const FORWARD_TIMEOUT_MS = 10_000
+
+/** Stable errors for CLI permission cells (Settings → CLI) that are off. Each
+ *  tells the caller how to get the feature enabled, not just that it is denied.
+ *  Derived from the matrix so the copy has one home. */
+const deniedFor = (key: CliPermissionKey): string => cliPermissionDenied(cliPermissionCellByKey(key))
+export const TERMINAL_INPUT_DISABLED = deniedFor('cliTerminalInputEnabled')
+export const TERMINAL_READ_DISABLED = deniedFor('cliTerminalReadEnabled')
+export const BROWSER_READ_DISABLED = deniedFor('cliBrowserReadEnabled')
+export const BROWSER_CONTROL_DISABLED = deniedFor('cliBrowserControlEnabled')
 
 interface InvokePayload {
   extensionId: string
@@ -181,25 +199,26 @@ export function forwardToActiveWindow(payload: InvokePayload): Promise<InvokeRes
 }
 
 /**
- * Resolve the webContents that should receive a cate.browser.* method: the
- * window that OWNS the addressed browser panel, or the active main window when
- * the caller doesn't address a specific panel. Unlike the state-mutating
- * forwards above, a browser method must reach the exact window hosting that
- * panel's webview, not just any active window.
+ * Resolve the webContents that should receive a cate.browser.* / cate.terminal.*
+ * method: the window that OWNS the addressed panel (of the required type), or
+ * the active main window when the caller doesn't address a specific panel.
+ * Unlike the state-mutating forwards above, these methods must reach the exact
+ * window hosting that panel's webview/xterm, not just any active window.
  */
-function resolveBrowserTargetWindow(
+function resolvePanelTargetWindow(
   panelId: string | undefined,
-): { wc: WebContents } | { error: string } {
+  type: 'browser' | 'terminal',
+): { wc: WebContents; ownerWindowId: number } | { error: string } {
   if (panelId) {
     const info = getWindowPanels().find((p) => p.panelId === panelId)
-    if (!info || info.type !== 'browser') return { error: 'no-such-browser' }
+    if (!info || info.type !== type) return { error: `no-such-${type}` }
     const win = getWindow(info.ownerWindowId)
     if (!win || win.isDestroyed()) return { error: 'no-host-window' }
-    return { wc: win.webContents }
+    return { wc: win.webContents, ownerWindowId: info.ownerWindowId }
   }
   const win = getActiveMainWindow()
   if (!win || win.isDestroyed()) return { error: 'no-host-window' }
-  return { wc: win.webContents }
+  return { wc: win.webContents, ownerWindowId: win.id }
 }
 
 // ---------------------------------------------------------------------------
@@ -209,9 +228,6 @@ function resolveBrowserTargetWindow(
 const FORWARDED_METHODS = new Set([
   'editor.openFile',
   'canvas.createPanel',
-  'panel.setTitle',
-  'panel.list',
-  'panel.focus',
 ])
 
 function unsupported(method: string): InvokeResult {
@@ -243,6 +259,7 @@ export function requiredScopeFor(method: string): string | null | undefined {
     // panels — they need an explicit `panel` grant.
     case 'cate.panel.list':
     case 'cate.panel.focus':
+    case 'cate.panel.close':
       return 'panel'
     default:
       // A panel controlling its own identity (id / title / badge) needs no scope.
@@ -252,6 +269,7 @@ export function requiredScopeFor(method: string): string | null | undefined {
       if (method.startsWith('cate.agent.')) return 'agent'
       if (method.startsWith('cate.editor.')) return 'editor.read'
       if (method.startsWith('cate.browser.')) return 'browser'
+      if (method.startsWith('cate.terminal.')) return 'terminal'
       return undefined
   }
 }
@@ -403,6 +421,25 @@ export async function dispatchCateInvoke(
   if (required !== null && !scopeGranted(declared, required)) {
     return { error: 'scope-denied', method }
   }
+  // panel.setTitle is scope-free only for a panel changing its own identity.
+  // Addressing another panel (the CLI's --panel form) requires the panel scope.
+  if (method === 'cate.panel.setTitle') {
+    const target = (args as { panelId?: unknown } | null)?.panelId
+    if (typeof target === 'string' && target !== panelId && !scopeGranted(declared, 'panel')) {
+      return { error: 'scope-denied', method }
+    }
+  }
+
+  // Security: the first-party CLI permission matrix (Settings → CLI) — one
+  // read/control cell per surface, checked before anything is touched. A method
+  // no row covers is governed by scopes alone. Extensions never reach this:
+  // their gate is manifest scopes plus, for browser/agent, a consent prompt.
+  if (scope.caller === 'first-party') {
+    const cell = cliPermissionForMethod(method)
+    if (cell && getSetting(cell.key) !== true) {
+      return { error: cliPermissionDenied(cell), method }
+    }
+  }
 
   // Storage (handled in main, backed by storage.ts). Routed by prefix — mirrors
   // requiredScopeFor's storage.* branch — so dispatchStorage's switch is the sole
@@ -416,13 +453,47 @@ export async function dispatchCateInvoke(
   // forwarded payload stays the caller's own origin panel (empty for terminals).
   if (method.startsWith('cate.browser.')) {
     const a = (args ?? {}) as { panelId?: string }
-    const target = resolveBrowserTargetWindow(typeof a.panelId === 'string' ? a.panelId : undefined)
+    const target = resolvePanelTargetWindow(typeof a.panelId === 'string' ? a.panelId : undefined, 'browser')
     if ('error' in target) return { error: target.error, method }
-    // Consent (extension callers only) gates the forward, mirroring the agent
-    // one-time-per-session prompt. First-party callers are trusted.
+    // Two flavors of the same gate: extensions get a one-time-per-session
+    // consent prompt (mirroring agent); the first-party CLI was already checked
+    // against its Browser read/control cells above, so it needs no prompt.
     if (scope.caller !== 'first-party' && !(await ensureConsent(extensionId, 'browser'))) {
       return { error: 'consent-denied', method }
     }
+    const result = await forwardToOwner(target.wc, { extensionId, workspaceId, panelId: panelId ?? '', method, args })
+    if (method === 'cate.browser.open' && !a.panelId && result && typeof result === 'object') {
+      const opened = result as { panelId?: unknown; url?: unknown }
+      if (typeof opened.panelId === 'string') {
+        upsertWindowPanel(target.ownerWindowId, {
+          panelId: opened.panelId,
+          type: 'browser',
+          title: typeof opened.url === 'string' ? opened.url : 'Browser',
+          workspaceId,
+          url: typeof opened.url === 'string' ? opened.url : '',
+          focused: false,
+        })
+      }
+    }
+    return result
+  }
+
+  // Terminal control: route to the OWNER window of the addressed terminal panel
+  // (args.panelId), or the active main window when unaddressed (`read` resolves
+  // the focused terminal renderer-side). Both halves are permission cells
+  // (Settings → CLI), checked above: Read (on by default — scrollback may hold
+  // printed secrets) and Control (OFF by default — keystrokes into a live shell).
+  if (method.startsWith('cate.terminal.')) {
+    // First-party (CLI) only for now: an extension's manifest scopes are
+    // self-declared, and the terminal consent story (prompt vs toggle) is
+    // deferred until a real extension consumer exists. Revisit alongside
+    // ConsentCapability if one appears.
+    if (scope.caller !== 'first-party') {
+      return { error: 'terminal-first-party-only', method }
+    }
+    const a = (args ?? {}) as { panelId?: string }
+    const target = resolvePanelTargetWindow(typeof a.panelId === 'string' ? a.panelId : undefined, 'terminal')
+    if ('error' in target) return { error: target.error, method }
     return forwardToOwner(target.wc, { extensionId, workspaceId, panelId: panelId ?? '', method, args })
   }
 
@@ -456,6 +527,69 @@ export async function dispatchCateInvoke(
       }
       log.info('[extensions] %s notify (%s): %s', extensionId, a.level ?? 'info', message)
       return { ok: true }
+    }
+
+    case 'cate.panel.list': {
+      // Read the active renderer synchronously so a just-created panel is
+      // visible before the 200ms cross-window discovery report lands, then add
+      // panels owned by detached/other windows from main's authoritative union.
+      const local = await scope.forward({ extensionId, workspaceId, panelId: panelId ?? '', method, args })
+      if (!Array.isArray(local)) return local
+      const rows = [...local] as Array<Record<string, unknown>>
+      const seen = new Set(rows.map((row) => row.panelId).filter((id): id is string => typeof id === 'string'))
+      for (const panel of getWindowPanels()) {
+        if (panel.workspaceId !== workspaceId || seen.has(panel.panelId)) continue
+        rows.push({
+          panelId: panel.panelId,
+          type: panel.type,
+          title: panel.title,
+          focused: panel.focused === true,
+          ...(panel.filePath ? { filePath: panel.filePath } : {}),
+          ...(panel.type === 'browser' ? { url: panel.url ?? '' } : {}),
+        })
+        seen.add(panel.panelId)
+      }
+      return rows
+    }
+
+    case 'cate.panel.focus': {
+      const a = (args ?? {}) as { panelId?: unknown }
+      const targetPanelId = typeof a.panelId === 'string' ? a.panelId : ''
+      if (!targetPanelId) return { error: 'bad-args', method }
+      const owner = getWindowPanels().find((p) => p.panelId === targetPanelId && p.workspaceId === workspaceId)
+      if (owner) {
+        return revealWindowPanel(targetPanelId) ? { ok: true } : { error: 'panel-not-revealable', method }
+      }
+      // Fresh local panels can beat the debounced cross-window report.
+      return scope.forward({ extensionId, workspaceId, panelId: panelId ?? '', method, args })
+    }
+
+    case 'cate.panel.setTitle':
+    case 'cate.panel.close': {
+      const a = (args ?? {}) as { panelId?: unknown }
+      const targetPanelId = typeof a.panelId === 'string' && a.panelId ? a.panelId : panelId ?? ''
+      if (!targetPanelId) return { error: 'bad-args', method }
+      const routedArgs = { ...((args ?? {}) as Record<string, unknown>), panelId: targetPanelId }
+      const owner = getWindowPanels().find((p) => p.panelId === targetPanelId && p.workspaceId === workspaceId)
+      const win = owner ? getWindow(owner.ownerWindowId) : undefined
+      const result = await (win && !win.isDestroyed()
+        ? forwardToOwner(win.webContents, {
+            extensionId,
+            workspaceId,
+            panelId: panelId ?? '',
+            method,
+            args: routedArgs,
+          })
+        // Same fresh-panel race as list/focus: try the active workspace renderer.
+        : scope.forward({ extensionId, workspaceId, panelId: panelId ?? '', method, args: routedArgs }))
+      // Evict a successfully closed panel from the cross-window union right
+      // away — the owner's debounced report would otherwise keep serving the
+      // stale row to panel.list, so a close-then-verify caller reads the panel
+      // as still open (the eviction mirror of upsertWindowPanel on create).
+      if (method === 'cate.panel.close' && !(result && typeof result === 'object' && 'error' in result)) {
+        removeWindowPanel(targetPanelId)
+      }
+      return result
     }
 
     // --- Agent: drive a pi session through the bundled pi --------------------

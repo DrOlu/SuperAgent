@@ -661,6 +661,18 @@ export default function BrowserPanel({
     // the proxyReady gate); without them the new element would have no handlers.
   }, [panelId, workspaceId, updatePanelTitle, updateBrowserActiveTabUrl, partition, proxyReady, recordVisit, patchActiveTab])
 
+  // Expose navigateTo to the reverse API for the panel's whole mounted lifetime
+  // (a webview only registers once a page is loaded, so a start-page panel is
+  // otherwise unreachable — `browser open` navigates it through this instead).
+  // Registered once per panelId via a ref so navigateTo's changing identity
+  // doesn't churn the registry.
+  const navigateToRef = useRef(navigateTo)
+  navigateToRef.current = navigateTo
+  useEffect(() => {
+    portalRegistry.registerNavigator(panelId, (url) => navigateToRef.current(url))
+    return () => portalRegistry.unregisterNavigator(panelId)
+  }, [panelId])
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------

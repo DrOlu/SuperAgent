@@ -38,6 +38,7 @@ const h = vi.hoisted(() => ({
   createBrowser: vi.fn(() => 'created-browser-id'),
   updateBrowserActiveTabUrl: vi.fn(),
   webviews: new Map<string, ReturnType<typeof makeWebview>>(),
+  navigators: new Map<string, (url: string) => void>(),
   screenshot: vi.fn(async () => ({ filePath: '/tmp/shot.png', dataUrl: 'data:image/png;base64,x' }) as { filePath: string; dataUrl: string } | null),
 }))
 
@@ -55,9 +56,15 @@ vi.mock('../activePanel', () => ({
   getActivePanelId: () => h.activePanelId,
 }))
 
+const BACKGROUND_PLACEMENT = { target: 'canvas', canvasPanelId: 'canvas-1', focus: false }
+vi.mock('../workspace/canvasAccess', () => ({
+  placementForBackgroundPanel: () => BACKGROUND_PLACEMENT,
+}))
+
 vi.mock('../portalRegistry', () => ({
   portalRegistry: {
     get: (panelId: string) => h.webviews.get(panelId) ?? null,
+    getNavigator: (panelId: string) => h.navigators.get(panelId) ?? null,
   },
 }))
 
@@ -69,6 +76,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   h.activePanelId = null
   h.webviews = new Map()
+  h.navigators = new Map()
   h.workspaces = [
     {
       id: WS,
@@ -143,8 +151,11 @@ describe('target resolution', () => {
 describe('open', () => {
   it('creates a browser panel when the workspace has none', async () => {
     h.workspaces[0].panels = { term: { id: 'term', type: 'terminal', title: 'Term' } }
+    const webview = makeWebview()
+    setTimeout(() => h.webviews.set('created-browser-id', webview), 10)
     const out = await handleBrowserMethod(WS, M('open'), { url: 'https://new/' })
-    expect(h.createBrowser).toHaveBeenCalledWith(WS, 'https://new/')
+    expect(h.createBrowser).toHaveBeenCalledWith(WS, 'https://new/', undefined, BACKGROUND_PLACEMENT)
+    expect(webview.loadURL).toHaveBeenCalledWith('https://new/')
     expect(out).toEqual({ ok: true, result: { panelId: 'created-browser-id', url: 'https://new/' } })
   })
 
@@ -157,15 +168,31 @@ describe('open', () => {
     expect(out).toEqual({ ok: true, result: { panelId: 'b1', url: 'https://go/' } })
   })
 
-  it('updates the active tab when the webview is not attached yet (succeeds)', async () => {
+  it('waits for an unattached webview before reporting success', async () => {
+    const webview = makeWebview()
+    setTimeout(() => h.webviews.set('b1', webview), 10)
     const out = await handleBrowserMethod(WS, M('open'), { url: 'https://later/' })
     expect(h.updateBrowserActiveTabUrl).toHaveBeenCalledWith(WS, 'b1', 'https://later/')
+    expect(webview.loadURL).toHaveBeenCalledWith('https://later/')
     expect(out).toEqual({ ok: true, result: { panelId: 'b1', url: 'https://later/' } })
   })
 
   it('requires a url', async () => {
     const out = await handleBrowserMethod(WS, M('open'), {})
     expect(out).toEqual({ ok: false, error: 'url-required' })
+  })
+
+  it('revives a start-page browser panel through its registered navigator', async () => {
+    // b1 is mounted but has NO webview (its start page renders instead); its
+    // registered navigator is what mounts one. Regression: open used to wait 3s
+    // for a webview that could never appear and fail webview-not-ready forever.
+    const navigate = vi.fn(() => {
+      setTimeout(() => h.webviews.set('b1', makeWebview()), 5)
+    })
+    h.navigators.set('b1', navigate)
+    const out = await handleBrowserMethod(WS, M('open'), { url: 'https://revive/' })
+    expect(navigate).toHaveBeenCalledWith('https://revive/')
+    expect(out).toEqual({ ok: true, result: { panelId: 'b1', url: 'https://revive/' } })
   })
 
   it('returns the resolved url alongside panelId for every branch (the { panelId, url } contract)', async () => {
@@ -177,13 +204,15 @@ describe('open', () => {
     const loaded = await handleBrowserMethod(WS, M('open'), { url: 'https://go/' })
     expect(loaded).toEqual({ ok: true, result: { panelId: 'b1', url: 'https://go/' } })
 
-    // Branch 2: existing browser panel whose webview is not attached yet.
+    // Branch 2: existing browser panel whose webview attaches on the next render.
     h.webviews = new Map()
+    setTimeout(() => h.webviews.set('b1', makeWebview()), 10)
     const pending = await handleBrowserMethod(WS, M('open'), { url: 'https://later/' })
     expect(pending).toEqual({ ok: true, result: { panelId: 'b1', url: 'https://later/' } })
 
     // Branch 3: no browser panel — the driver creates one.
     h.workspaces[0].panels = { term: { id: 'term', type: 'terminal', title: 'Term' } }
+    setTimeout(() => h.webviews.set('created-browser-id', makeWebview()), 10)
     const created = await handleBrowserMethod(WS, M('open'), { url: 'https://new/' })
     expect(created).toEqual({ ok: true, result: { panelId: 'created-browser-id', url: 'https://new/' } })
   })
@@ -209,8 +238,9 @@ describe('screenshot', () => {
     const wv = makeWebview()
     h.webviews.set('b1', wv)
     const out = await handleBrowserMethod(WS, M('screenshot'), {})
-    // Opts out of the base64 encode: the CLI path only uses the file path.
-    expect(h.screenshot).toHaveBeenCalledWith(99, { wantDataUrl: false })
+    // Opts out of the base64 encode and lands in the temp dir: the CLI path
+    // only uses the file path, and agents must not litter the Desktop.
+    expect(h.screenshot).toHaveBeenCalledWith(99, { wantDataUrl: false, saveTo: 'temp' })
     expect(out).toEqual({ ok: true, result: { path: '/tmp/shot.png' } })
   })
 
@@ -343,7 +373,7 @@ describe('injected page JS (jsdom)', () => {
     expect(result.title).toBe('Fixture')
     expect(result.refs).toEqual([
       { ref: '@e1', role: 'button', name: 'Save', value: '' },
-      { ref: '@e2', role: 'input', name: 'Email', value: '' },
+      { ref: '@e2', role: 'input:text', name: 'Email', value: '' },
       { ref: '@e3', role: 'a', name: 'Home', value: undefined },
     ])
     // The refs are written back onto the live DOM as data-cate-ref attributes.
@@ -418,12 +448,54 @@ describe('injected page JS (jsdom)', () => {
     expect(clicked).toHaveBeenCalledTimes(1)
   })
 
-  it('click on an unknown ref returns stale-ref', async () => {
+  it('click on a well-formed but unknown ref returns stale-ref', async () => {
+    document.body.innerHTML = '<button>Go</button>'
+    h.webviews.set('b1', evalWebview())
+    await handleBrowserMethod(WS, M('snapshot'), {})
+    const out = await handleBrowserMethod(WS, M('click'), { ref: '@e99' })
+    expect(out).toEqual({ ok: false, error: 'stale-ref' })
+  })
+
+  it('click accepts a bare e<n> ref (normalized to @e<n>)', async () => {
+    document.body.innerHTML = '<button>Go</button>'
+    const wv = evalWebview()
+    h.webviews.set('b1', wv)
+    await handleBrowserMethod(WS, M('snapshot'), {}) // assigns @e1
+    const clicked = vi.fn()
+    document.querySelector('button')!.addEventListener('click', clicked)
+    const out = await handleBrowserMethod(WS, M('click'), { ref: 'e1' })
+    expect(out).toEqual({ ok: true })
+    expect(clicked).toHaveBeenCalledTimes(1)
+  })
+
+  it('click on a malformed ref reports bad-ref, not stale-ref', async () => {
+    // Regression: `click nope` used to come back stale-ref, sending the caller
+    // off to re-snapshot when the argument itself was the problem.
     document.body.innerHTML = '<button>Go</button>'
     h.webviews.set('b1', evalWebview())
     await handleBrowserMethod(WS, M('snapshot'), {})
     const out = await handleBrowserMethod(WS, M('click'), { ref: '@nope' })
-    expect(out).toEqual({ ok: false, error: 'stale-ref' })
+    expect(out).toEqual({ ok: false, error: 'bad-ref: expected a snapshot ref like @e12' })
+  })
+
+  it('snapshot surfaces input types, label names, select names, and collapsed whitespace', async () => {
+    document.body.innerHTML =
+      '<label for="q">Search  the\n  web</label><input id="q" type="search" />' +
+      '<input type="submit" />' +
+      '<select><option>Alpha option text</option><option>Beta option text</option></select>'
+    h.webviews.set('b1', evalWebview())
+
+    const out = await handleBrowserMethod(WS, M('snapshot'), {})
+    expect(out.ok).toBe(true)
+    const refs = (out as { ok: true; result: { refs: Array<{ ref: string; role: string; name: string }> } }).result.refs
+    // The search field and its submit button are distinguishable by type, the
+    // field is named from its associated <label> (whitespace collapsed), and
+    // the <select> does NOT dump every option's text as its name.
+    expect(refs).toEqual([
+      expect.objectContaining({ ref: '@e1', role: 'input:search', name: 'Search the web' }),
+      expect.objectContaining({ ref: '@e2', role: 'input:submit', name: '' }),
+      expect.objectContaining({ ref: '@e3', role: 'select', name: '' }),
+    ])
   })
 
   it('type sets the value and dispatches input on a live ref', async () => {
@@ -443,11 +515,11 @@ describe('injected page JS (jsdom)', () => {
     expect(onInput).toHaveBeenCalledTimes(1)
   })
 
-  it('type on an unknown ref returns stale-ref', async () => {
+  it('type on a well-formed but unknown ref returns stale-ref', async () => {
     document.body.innerHTML = '<input type="text" />'
     h.webviews.set('b1', evalWebview())
     await handleBrowserMethod(WS, M('snapshot'), {})
-    const out = await handleBrowserMethod(WS, M('type'), { ref: '@nope', text: 'x' })
+    const out = await handleBrowserMethod(WS, M('type'), { ref: '@e99', text: 'x' })
     expect(out).toEqual({ ok: false, error: 'stale-ref' })
   })
 })

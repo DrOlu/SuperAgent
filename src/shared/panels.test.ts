@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolvePanelSize, keepsMountedWhenTabHidden } from './panels'
+import { resolvePanelSize, keepsMountedOffscreen, keepsMountedWhenTabHidden } from './panels'
 
 describe('resolvePanelSize', () => {
   it('returns the fixed per-type default', () => {
@@ -29,5 +29,13 @@ describe('keepsMountedWhenTabHidden', () => {
   it('is false for an unknown/undefined type', () => {
     expect(keepsMountedWhenTabHidden(undefined)).toBe(false)
     expect(keepsMountedWhenTabHidden('nope')).toBe(false)
+  })
+})
+
+describe('keepsMountedOffscreen', () => {
+  it('keeps browsers mounted so background API automation remains reachable', () => {
+    expect(keepsMountedOffscreen('browser')).toBe(true)
+    expect(keepsMountedOffscreen('extension')).toBe(true)
+    expect(keepsMountedOffscreen('editor')).toBe(false)
   })
 })

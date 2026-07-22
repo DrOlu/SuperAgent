@@ -63,7 +63,7 @@ describe('GRANTED_SCOPES contract', () => {
     expect(GRANTED_SCOPES).not.toContain('agent')
     // workspace.read/theme are extension-only: a terminal's cwd IS the
     // workspace root, so the CLI has no verbs (and thus no grants) for them.
-    expect([...GRANTED_SCOPES]).toEqual(['browser', 'ui', 'editor', 'canvas', 'panel'])
+    expect([...GRANTED_SCOPES]).toEqual(['browser', 'ui', 'editor', 'canvas', 'panel', 'terminal'])
   })
 })
 

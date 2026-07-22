@@ -46,8 +46,18 @@ export function createCanvasOps(storeApi: StoreApi<CanvasStore>): CanvasOperatio
     storeApi,
 
     addNodeAndFocus(panelId: string, panelType: PanelType, position?: Point, size?: Size, focus = true) {
+      // addNode selects the new node as part of its interactive-create contract.
+      // Background API creates must preserve the user's canvas selection too,
+      // not merely skip focusAndCenter (which only preserves the camera).
+      const previousSelection = focus
+        ? null
+        : {
+            selection: storeApi.getState().selection,
+            selectionActive: storeApi.getState().selectionActive,
+          }
       const nodeId = storeApi.getState().addNode(panelId, panelType, position, size)
       if (focus) storeApi.getState().focusAndCenter(nodeId)
+      else if (previousSelection) storeApi.setState(previousSelection)
     },
 
     beginPlacement(

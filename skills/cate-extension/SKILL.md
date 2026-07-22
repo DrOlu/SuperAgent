@@ -79,6 +79,7 @@ is always at the artifact root.
   "id": "acme.example",
   "name": "Example",
   "version": "1.0.0",
+  "category": "development",
   "description": "One-line catalog description.",
   "frontend": "dist/index.html",
   "panels": [
@@ -95,6 +96,7 @@ is always at the artifact root.
 | `id` | Required. Must match `^[A-Za-z0-9][A-Za-z0-9._-]*$` (it becomes a filesystem path). Convention: `publisher.name`, e.g. `cate.mermaid`. Invalid id rejects the whole manifest. |
 | `name` | Display name; falls back to `id`. |
 | `version` | SemVer-ish, must match `^[A-Za-z0-9][A-Za-z0-9.+_-]*$` or it is silently dropped (treated as `0.0.0`). The artifact is `<id>-<version>.tgz`; **bump it for every published change**. |
+| `category` | Functional group the catalog filters by: `ai`, `development`, `data`, `design`, `productivity`, `communication`, `sales`, `other`. Pick by what the extension is *for*, not how it is built. Missing or unknown files it under **Other**; the catalog build rejects an unknown value. |
 | `panels` | Required, non-empty. Every panel needs non-empty `id` and `label` or the whole manifest is rejected. `icon` is an inline SVG string. `defaultSize` needs both numbers. |
 | `frontend` | Entry HTML for frontend-only extensions. Ignored when `server` is present (the server serves its own frontend). |
 | `server` | Optional; makes the extension server-backed. `command` required; `readyPath` defaults to `/health`, `portEnv` to `PORT`. |
@@ -119,8 +121,14 @@ are shown to the user as the extension's permissions.
 | `editor.write` | `cate.editor.openFile()` |
 | `storage` | `cate.storage.*` |
 | `canvas` | `cate.canvas.createPanel()` |
+| `panel` | `cate.panel.list()` / `focus()` / `close()` (steer panels beyond your own) |
 | `files.drop` | `cate.files.onDrop()` |
 | `agent` | `cate.agent.*` (plus first-use user consent per app session; one run at a time per extension, concurrent runs get `{ error: 'agent-busy' }`) |
+| `browser` | `cate.browser.*` (plus first-use user consent per app session; acts on the user's real logged-in browser session) |
+
+There is no `terminal` scope for extensions: `cate.terminal.*` (read a terminal
+panel's screen, send keystrokes) serves the first-party `cate` CLI only and
+returns `{ error: 'terminal-first-party-only' }` for extension callers.
 
 ## Host API (`window.cate`)
 
@@ -132,6 +140,9 @@ synced into each extension's `src/_kit/`. Trust the `.d.ts` over any prose docs.
 cate.version(): Promise<number>                    // API version int, feature detection
 cate.panel.id: string                              // this panel instance's id (readonly)
 cate.panel.setTitle(title: string): Promise<void>
+cate.panel.list() => [{ panelId, type, title, focused, filePath?, url? }]  // panels across windows
+cate.panel.focus(panelId)                          // reveal/focus a panel
+cate.panel.close(panelId)                          // close without revealing first
 
 cate.workspace.get(): Promise<{ rootPath, branch, worktree }>   // branch/worktree may be null
 cate.theme.get(): Promise<{ id, type: 'dark'|'light', app, terminal }>
@@ -153,9 +164,17 @@ cate.storage.onChange(cb): () => void              // external edits + writes fr
 
 cate.agent.open({ resume? }) => { sessionId } | { error }
 cate.agent.send(sessionId, prompt) => { text, message } | { error }
-cate.agent.dispose(sessionId)
-cate.agent.run(prompt) => { text, message } | { error }   // one-shot open -> send -> dispose
+cate.agent.dispose(sessionId)                      // no one-shot run: compose open -> send -> dispose
 cate.agent.cancel()                                // abort this extension's in-flight turn
+
+cate.browser.open({ url, panelId? }) => { panelId, url }   // point a panel at url (or open one)
+cate.browser.reload({ panelId? }) => { ok: true }
+cate.browser.screenshot({ panelId? }) => { path }  // host filesystem path (OS temp dir)
+cate.browser.snapshot({ panelId? }) => { url, title, refs: [{ ref, role, name, value? }] }
+cate.browser.click({ ref, panelId? }) => { ok: true }      // ref from a recent snapshot
+cate.browser.type({ ref, text, panelId? }) => { ok: true }
+cate.browser.wait({ panelId?, timeoutMs? }) => { url, title, loading: false }  // load settled (cap 8s)
+cate.browser.press({ key, ref?, panelId? }) => { ok: true }   // TRUSTED key input (Enter submits)
 ```
 
 Agent turns are long-lived (minutes); they resolve on the agent's terminal

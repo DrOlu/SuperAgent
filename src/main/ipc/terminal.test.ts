@@ -457,7 +457,7 @@ describe('CATE_API env injection into spawned terminals', () => {
   // Spawn through the real TERMINAL_CREATE handler and return the env object
   // that spawnTerminal passed down to runtime.process.create (the PTY env).
   async function spawnAndGetEnv(
-    options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string },
+    options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string; panelId?: string },
   ): Promise<Record<string, string> | undefined> {
     diag.ptyCreate.mockResolvedValue({ id: 'pty-env', pid: 123, shell: '/bin/zsh' })
     const mod = await import('./terminal')
@@ -474,6 +474,18 @@ describe('CATE_API env injection into spawned terminals', () => {
 
     expect(cateApi.ensureEndpoint).toHaveBeenCalledWith('ws-1')
     expect(env).toEqual({ CATE_API: 'http://127.0.0.1:9876', CATE_TOKEN: 'tok-abc' })
+  })
+
+  it('injects CATE_PANEL_ID when the PTY belongs to a Cate terminal panel', async () => {
+    cateApi.ensureEndpoint.mockResolvedValue({ port: 9876, token: 'tok-abc' })
+
+    const env = await spawnAndGetEnv({ cols: 80, rows: 24, workspaceId: 'ws-1', panelId: 'panel-123' })
+
+    expect(env).toEqual({
+      CATE_API: 'http://127.0.0.1:9876',
+      CATE_TOKEN: 'tok-abc',
+      CATE_PANEL_ID: 'panel-123',
+    })
   })
 
   it('injects nothing (fail closed) when there is no workspaceId — ensureEndpoint is never consulted', async () => {

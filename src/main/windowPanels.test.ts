@@ -21,6 +21,8 @@ import {
 } from './windowRegistry'
 import {
   setWindowPanels,
+  upsertWindowPanel,
+  removeWindowPanel,
   getWindowPanels,
   revealWindowPanel,
   closeWindowPanel,
@@ -131,6 +133,66 @@ describe('cross-window panel discovery (main)', () => {
     expect(byId.leaf2.parentCanvasId).toBe('cv')
     expect(byId.cv.parentCanvasId).toBeUndefined()
     expect(byId.top.parentCanvasId).toBeUndefined()
+  })
+
+  it('passes through list metadata used by the cross-window Cate API', () => {
+    open(142, 'dock', 'ws-A')
+    setWindowPanels(142, [
+      {
+        panelId: 'browser-docs',
+        type: 'browser',
+        title: 'Docs',
+        workspaceId: 'ws-A',
+        url: 'https://docs.example/',
+        focused: true,
+      },
+      {
+        panelId: 'editor-file',
+        type: 'editor',
+        title: 'a.ts',
+        workspaceId: 'ws-A',
+        filePath: '/workspace/a.ts',
+        focused: false,
+      },
+    ])
+
+    const byId = Object.fromEntries(getWindowPanels().map((p) => [p.panelId, p]))
+    expect(byId['browser-docs']).toMatchObject({ url: 'https://docs.example/', focused: true })
+    expect(byId['editor-file']).toMatchObject({ filePath: '/workspace/a.ts', focused: false })
+  })
+
+  it('makes one provisional panel routable until the next full renderer report', () => {
+    open(143, 'main', 'ws-A')
+    setWindowPanels(143, [report('existing', 'terminal', 'Terminal')])
+
+    upsertWindowPanel(143, {
+      panelId: 'fresh-browser',
+      type: 'browser',
+      title: 'https://example.com',
+      workspaceId: 'ws-A',
+      url: 'https://example.com',
+      focused: false,
+    })
+    expect(getWindowPanels().map((panel) => panel.panelId)).toEqual(['existing', 'fresh-browser'])
+
+    setWindowPanels(143, [report('existing', 'terminal', 'Terminal')])
+    expect(getWindowPanels().map((panel) => panel.panelId)).toEqual(['existing'])
+  })
+
+  it('evicts a closed panel immediately, before the owner\'s next full report', () => {
+    // The close-side mirror of the provisional upsert: without eviction, a
+    // close-then-list caller sees the stale union row for a whole report
+    // interval and reads the panel as still open.
+    const main = open(144, 'main', 'ws-A')
+    setWindowPanels(144, [report('keep', 'terminal', 'Terminal'), report('doomed', 'browser', 'Web')])
+
+    const before = broadcastsTo(main).length
+    removeWindowPanel('doomed')
+    expect(getWindowPanels().map((panel) => panel.panelId)).toEqual(['keep'])
+    expect(broadcastsTo(main).length).toBeGreaterThan(before)
+
+    removeWindowPanel('unknown') // absent id: no change, no broadcast
+    expect(getWindowPanels().map((panel) => panel.panelId)).toEqual(['keep'])
   })
 
   it('passes through the panel worktreeId so the overview can tint detached rows', () => {

@@ -93,7 +93,9 @@ export const PANEL_DEFINITIONS: Record<PanelType, SharedPanelDefinition> = {
     minimumSize: { width: 400, height: 300 },
     ghostSvg: ghost('rgb(74,158,255)', '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
     canLiveOnCanvas: true,
-    keepMountedOffscreen: false,
+    // Browser automation must remain usable when an API caller creates the
+    // panel in the background without moving the user's camera.
+    keepMountedOffscreen: true,
     keepMountedWhenTabHidden: true,
   },
   editor: {
@@ -170,7 +172,11 @@ export function getSharedPanelDef(type: PanelType | string): SharedPanelDefiniti
 }
 
 /** True when a canvas node hosting this panel type must stay mounted even when
- *  scrolled off-screen (its live `<webview>` state can't survive a remount). */
+ *  scrolled off-screen (its live `<webview>` state can't survive a remount).
+ *
+ *  Per-TYPE answer only. Extension panels are refined per INSTANCE in
+ *  `renderer/panels/keepMountedPanels.ts`: url-mode extensions (remote SaaS
+ *  pages) are cullable because their session lives in a persistent partition. */
 export function keepsMountedOffscreen(type: PanelType | string | undefined): boolean {
   return !!type && getSharedPanelDef(type).keepMountedOffscreen
 }

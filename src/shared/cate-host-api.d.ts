@@ -49,13 +49,16 @@ export interface CatePanel {
   /** This panel instance's id. */
   readonly id: string
   setTitle(title: string): Promise<void>
-  /** List this window's panels (requires the `panel` scope). Panels detached
-   *  into other windows are not included. THE single enumeration surface: the
+  /** List panels across this workspace's windows (requires the `panel` scope).
+   *  THE single enumeration surface: the
    *  focused entry answers "what is the user looking at", and browser panels
    *  carry their `url` (there is no separate browser list). */
   list(): Promise<CatePanelInfo[]>
   /** Reveal/focus a panel by id (requires the `panel` scope). */
   focus(panelId: string): Promise<unknown>
+  /** Close a panel through its normal dirty/running confirmation path. Does not
+   *  reveal or focus the panel first (requires the `panel` scope). */
+  close(panelId: string): Promise<unknown>
 }
 
 /** One open panel, as reported by `cate.panel.list()`. `filePath` is the bare
@@ -116,12 +119,14 @@ export interface CateHost {
     get(): Promise<CateHostTheme>
   }
   editor: {
+    /** Opens in the background: no focus, selection, tab, or camera change. */
     openFile(path: string, opts?: { line?: number; column?: number }): Promise<unknown>
   }
   canvas: {
-    /** Open a new panel. Only the fields declared here are honored by the host;
-     *  `position` pins the panel to that canvas point (otherwise it follows the
-     *  user's Cmd+T/Cmd+N placement setting). `filePath` is confined to the
+    /** Open a new panel in the background without changing focus/selection,
+     *  switching tabs, or moving the camera. Only the fields declared here are
+     *  honored by the host; `position` pins the panel to that canvas point.
+     *  `filePath` is confined to the
      *  workspace root. For `type: 'extension'`, `extensionPanelId` is required and
      *  `extensionId` defaults to the calling extension. */
     createPanel(
@@ -172,7 +177,8 @@ export interface CateHost {
    *  filesystem `path` (see the note in docs/extensions.md — a webview guest can't
    *  read it directly; a server-backed extension can). */
   browser: {
-    /** Point a panel at `url` (or open a new one); returns the target panel + url.
+    /** Point a panel at `url` (or auto-place a new background panel); resolves
+     *  after the webview is mounted and returns the target panel + url.
      *  To enumerate open browser panels, use `cate.panel.list()`. */
     open(opts: { url: string; panelId?: string }): Promise<{ panelId: string; url: string }>
     /** Reload a panel. */

@@ -50,6 +50,7 @@ const api: CateHost = {
     setTitle: (title: string) => invoke('cate.panel.setTitle', { title }).then(() => undefined),
     list: () => invoke('cate.panel.list') as Promise<CatePanelInfo[]>,
     focus: (targetPanelId: string) => invoke('cate.panel.focus', { panelId: targetPanelId }),
+    close: (targetPanelId: string) => invoke('cate.panel.close', { panelId: targetPanelId }),
   },
 
   workspace: {

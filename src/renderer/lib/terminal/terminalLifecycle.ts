@@ -41,13 +41,16 @@ import { useStatusStore } from '../../stores/statusStore'
 import { awaitWorkspaceSync, useAppStore } from '../../stores/appStore'
 import { replayTerminalLog } from '../workspace/session'
 import { extractAgentTitleSegment, shellTitleBasename } from '../agent/agentTitleParser'
-import { titleIndicatesRunning, outputShowsBodySpinner } from '../agent/agentSpinner'
-import { noteAgentTitle, noteAgentSpinnerByte } from '../agent/agentScreenDetector'
 
 interface CreateOpts {
   workspaceId: string
   cwd?: string
   initialInput?: string
+  /** Terminal session-restore: a full agent resume command (e.g.
+   *  `claude --resume <id>`) typed into the fresh shell right after spawn, via
+   *  the real PTY input path. One-shot — the persisted stamp it came from is
+   *  cleared as soon as it is written. */
+  resumeCommand?: string
 }
 
 // A freshly-spawned shell that exits cleanly (code 0) within this window WITHOUT
@@ -195,7 +198,6 @@ export function wireTerminalListeners(args: {
     if (id === ptyId) {
       sawOutput = true
       terminal.write(data)
-      if (outputShowsBodySpinner(data)) noteAgentSpinnerByte(ptyId)
     }
   })
   cleanupListeners.push(removeDataListener)
@@ -223,12 +225,10 @@ export function wireTerminalListeners(args: {
   const titleDisposable = terminal.onTitleChange((raw) => {
     const parsed = extractAgentTitleSegment(raw)
     if (!parsed) return
-    const running = titleIndicatesRunning(parsed)
     // Defer to a microtask so OSC sequences arriving during xterm.write()
     // (e.g. scrollback replay on attach) don't run set() inside React's
     // commit phase, which would trip "Maximum update depth".
     queueMicrotask(() => {
-      noteAgentTitle(ptyId, running)
       applyOscTitleIfNoAgent(ptyId, opts.workspaceId, panelId, parsed)
     })
   })
@@ -346,6 +346,7 @@ export async function getOrCreate(panelId: string, opts: CreateOpts): Promise<Re
       cwd: resolvedCwd,
       shell: (shell as string) || undefined,
       workspaceId: opts.workspaceId,
+      panelId,
     })
 
     // If the entry was disposed while we were waiting, dispose() couldn't kill
@@ -369,6 +370,18 @@ export async function getOrCreate(panelId: string, opts: CreateOpts): Promise<Re
     //     fragile (slow systems) and unnecessary.
     if (opts.initialInput) {
       terminal.write(opts.initialInput)
+    }
+
+    // 11b. Resume a persisted agent session: type the resume command into the
+    //      PTY (kernel type-ahead — the shell reads it at its first prompt and
+    //      echoes it like user input). Clear the stamp immediately: if the
+    //      resume succeeds the process monitor re-probes and re-stamps; if the
+    //      id is stale the CLI errors visibly and the next restore is a plain
+    //      shell. Only fresh spawns reach this line, so a remount that reuses
+    //      a live registry entry never re-injects.
+    if (opts.resumeCommand) {
+      void electronAPI.terminalWrite(ptyId, opts.resumeCommand + '\r')
+      useAppStore.getState().setPanelAgentSession(opts.workspaceId, panelId, null)
     }
 
     // 12. Replay scrollback log if this terminal was restored from a session

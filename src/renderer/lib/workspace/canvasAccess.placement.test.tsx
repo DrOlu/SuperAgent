@@ -12,10 +12,12 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import {
   placementForActivePanel,
+  placementForBackgroundPanel,
   getActiveCanvasPanelId,
 } from './canvasAccess'
 import { setActivePanel } from '../activePanel'
 import { getOrCreateCanvasStoreForPanel, releaseCanvasStoreForPanel } from '../../stores/canvasStore'
+import { useAppStore } from '../../stores/appStore'
 
 const PRIMARY = 'canvas-primary'
 const SECONDARY = 'canvas-secondary'
@@ -24,6 +26,7 @@ afterEach(() => {
   releaseCanvasStoreForPanel(PRIMARY)
   releaseCanvasStoreForPanel(SECONDARY)
   setActivePanel(null)
+  useAppStore.setState({ selectedWorkspaceId: '' })
 })
 
 describe('placementForActivePanel with multiple canvases', () => {
@@ -59,5 +62,29 @@ describe('placementForActivePanel with multiple canvases', () => {
     setActivePanel(SECONDARY)
 
     expect(getActiveCanvasPanelId()).toBe(SECONDARY)
+  })
+
+  it('background placement pins the active canvas without requesting focus', () => {
+    getOrCreateCanvasStoreForPanel(PRIMARY)
+    getOrCreateCanvasStoreForPanel(SECONDARY)
+    setActivePanel(SECONDARY)
+    useAppStore.setState({ selectedWorkspaceId: 'ws-active' })
+
+    expect(placementForBackgroundPanel('ws-active')).toEqual({
+      target: 'canvas',
+      canvasPanelId: SECONDARY,
+      focus: false,
+    })
+  })
+
+  it('does not pin a visible canvas that belongs to another workspace', () => {
+    getOrCreateCanvasStoreForPanel(SECONDARY)
+    setActivePanel(SECONDARY)
+    useAppStore.setState({ selectedWorkspaceId: 'ws-visible' })
+
+    expect(placementForBackgroundPanel('ws-background')).toEqual({
+      target: 'canvas',
+      focus: false,
+    })
   })
 })

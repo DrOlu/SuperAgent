@@ -11,6 +11,7 @@ import { app } from 'electron'
 import fs from 'fs/promises'
 import path from 'path'
 import type { SkillFile } from './githubCrawl'
+import { skillPathSegments } from './skillPath'
 
 function storeRoot(): string {
   return path.join(app.getPath('userData'), 'skills-store')
@@ -66,10 +67,13 @@ export async function read(skillId: string): Promise<SkillFile[] | null> {
 /** Cache a skill's files (used when promoting a skill to global). */
 export async function cache(skillId: string, files: SkillFile[]): Promise<void> {
   const dir = skillDir(skillId)
+  // Validate before removing an existing good cache entry. Skill bundles can
+  // come from remote sources and must never write outside their cache root.
+  const writes = files.map((file) => ({ file, segments: skillPathSegments(file.relPath) }))
   await fs.rm(dir, { recursive: true, force: true })
   await fs.mkdir(dir, { recursive: true })
-  for (const f of files) {
-    const abs = path.join(dir, ...f.relPath.split('/'))
+  for (const { file: f, segments } of writes) {
+    const abs = path.join(dir, ...segments)
     await fs.mkdir(path.dirname(abs), { recursive: true })
     if (f.text != null) await fs.writeFile(abs, f.text, 'utf-8')
     else if (f.base64 != null) await fs.writeFile(abs, Buffer.from(f.base64, 'base64'))

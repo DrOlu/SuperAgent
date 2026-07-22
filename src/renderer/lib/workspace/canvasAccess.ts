@@ -89,6 +89,21 @@ export function placementForActivePanel(): PanelPlacement | undefined {
   return undefined
 }
 
+/** Placement for host-API creates (CLI + extensions). API callers may add
+ * panels to the canvas, but must not steal the user's focus/selection or move
+ * the camera. Pin to the canvas currently on screen when possible; otherwise
+ * the normal placement fallback resolves the workspace's primary canvas. */
+export function placementForBackgroundPanel(workspaceId: string): Extract<PanelPlacement, { target: 'canvas' }> {
+  const canvasPanelId = useAppStore.getState().selectedWorkspaceId === workspaceId
+    ? getActiveCanvasPanelId()
+    : null
+  return {
+    target: 'canvas',
+    focus: false,
+    ...(canvasPanelId ? { canvasPanelId } : {}),
+  }
+}
+
 function computeWorkspaceCanvasPanelId(workspaceId: string): string | null {
   const state = useAppStore.getState()
   const ws = state.workspaces.find((candidate) => candidate.id === workspaceId)

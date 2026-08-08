@@ -30,7 +30,7 @@
 
 <h1 align="center">
   <a href="https://github.com/DrOlu/SuperAgent/releases">
-    <img src="https://github.com/DrOlu/SuperAgent/blob/main/build/icon.png?raw=true" width="150" height="150" alt="banner" /><br>
+    <img src="https://raw.githubusercontent.com/DrOlu/SuperAgent/main/build/icon.png?v=superagent" width="150" height="150" alt="SuperAgent" /><br>
   </a>
 </h1>
 

@@ -11,7 +11,6 @@ on:
 permissions:
   contents: write
   actions: write
-  workflows: write
 
 concurrency:
   group: superagent-rebrand
@@ -91,7 +90,12 @@ jobs:
 
       - name: Commit and push
         id: commit
+        env:
+          SUPERAGENT_PAT: ${{ secrets.SUPERAGENT_PAT }}
         run: |
+          # Use a PAT with workflow scope — the default GITHUB_TOKEN cannot
+          # push commits that modify .github/workflows/*.yml files.
+          git remote set-url origin "https://x-access-token:${SUPERAGENT_PAT}@github.com/DrOlu/SuperAgent"
           git add -A
           git commit -m "Rebrand Cherry Studio -> SuperAgent (Hyperspace Technologies)" || echo "nothing to commit"
           git push origin HEAD:main

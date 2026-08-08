@@ -1,0 +1,4 @@
+interface:
+  display_name: "SuperAgent Code Review"
+  short_description: "Review code and architecture against project rules"
+  default_prompt: "Use $gh-pr-review to review the current branch against SuperAgent code and architecture rules."

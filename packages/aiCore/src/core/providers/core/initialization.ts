@@ -1,0 +1,355 @@
+/**
+ * Provider 
+ *  providers 
+ *  Extension 
+ */
+
+import type { AnthropicProvider, AnthropicProviderSettings } from '@ai-sdk/anthropic'
+import { createAnthropic } from '@ai-sdk/anthropic'
+import type { AzureOpenAIProvider, AzureOpenAIProviderSettings } from '@ai-sdk/azure'
+import { createAzure } from '@ai-sdk/azure'
+import type { DeepSeekProviderSettings } from '@ai-sdk/deepseek'
+import { createDeepSeek } from '@ai-sdk/deepseek'
+import type { GoogleGenerativeAIProvider, GoogleGenerativeAIProviderSettings } from '@ai-sdk/google'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import type { OpenAIProvider, OpenAIProviderSettings } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
+import type { OpenAICompatibleProviderSettings } from '@ai-sdk/openai-compatible'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import type { ProviderV3 } from '@ai-sdk/provider'
+import type { XaiProvider, XaiProviderSettings } from '@ai-sdk/xai'
+import { createXai } from '@ai-sdk/xai'
+import type { CherryInProvider, CherryInProviderSettings } from '@cherrystudio/ai-sdk-provider'
+import { createCherryIn } from '@cherrystudio/ai-sdk-provider'
+import type { OpenRouterProvider, OpenRouterProviderSettings } from '@openrouter/ai-sdk-provider'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import { customProvider, type LanguageModel } from 'ai'
+
+import { createOpenAICompatibleRerankingModel } from '../openaiCompatible/rerankingModel'
+import type {
+  ExtensionConfigToIdResolutionMap,
+  ExtractExtensionIds,
+  ProviderVariant,
+  UnionToIntersection
+} from '../types'
+import { extensionRegistry } from './ExtensionRegistry'
+import type { ProviderExtensionConfig } from './ProviderExtension'
+import { ProviderExtension } from './ProviderExtension'
+
+// ==================== Core Extensions ====================
+
+const AnthropicExtension = ProviderExtension.create({
+  name: 'anthropic',
+  aliases: ['claude'] as const,
+  supportsImageGeneration: false,
+  create: createAnthropic,
+  toolFactories: {
+    webSearch:
+      (provider) => (config: NonNullable<Parameters<AnthropicProvider['tools']['webSearch_20260209']>[0]>) => ({
+        tools: { webSearch: provider.tools.webSearch_20260209(config) }
+      }),
+    urlContext:
+      (provider) => (config: NonNullable<Parameters<AnthropicProvider['tools']['webFetch_20260209']>[0]>) => ({
+        tools: { urlContext: provider.tools.webFetch_20260209(config) }
+      })
+  }
+} as const satisfies ProviderExtensionConfig<AnthropicProviderSettings, AnthropicProvider, 'anthropic'>)
+
+/**
+ * Azure Extension
+ */
+const AzureExtension = ProviderExtension.create({
+  name: 'azure',
+  aliases: ['azure-openai'] as const,
+  supportsImageGeneration: true,
+  create: (settings): ProviderV3 => {
+    const provider = createAzure(settings)
+    // Default to chat mode (AI SDK defaults to responses API)
+    return customProvider({
+      fallbackProvider: {
+        ...provider,
+        languageModel: (modelId: string) => provider.chat(modelId)
+      }
+    })
+  },
+  toolFactories: {
+    webSearch:
+      (provider: AzureOpenAIProvider) =>
+      (config: NonNullable<Parameters<AzureOpenAIProvider['tools']['webSearchPreview']>[0]>) => ({
+        tools: { webSearch: provider.tools.webSearchPreview(config) }
+      })
+  },
+  variants: [
+    {
+      suffix: 'responses',
+      name: 'Azure OpenAI Responses',
+      // AI SDK defaults to responses API, so createAzure(settings) without
+      // the chat override (used in base `create`) gives us Responses API behavior.
+      transform: (_provider, settings) => createAzure(settings),
+      toolFactories: {
+        webSearch:
+          (provider: AzureOpenAIProvider) =>
+          (config: NonNullable<Parameters<AzureOpenAIProvider['tools']['webSearchPreview']>[0]>) => ({
+            tools: { webSearch: provider.tools.webSearchPreview(config) }
+          })
+      }
+    },
+    // Azure  Claude  Anthropic SDK
+    // https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry
+    {
+      suffix: 'anthropic',
+      name: 'Azure Anthropic',
+      transform: (_provider, settings) =>
+        createAnthropic({
+          baseURL: (settings?.baseURL ?? '') + '/anthropic/v1',
+          apiKey: settings?.apiKey ?? '',
+          headers: settings?.headers,
+          // Forward the caller-injected fetch (e.g. the proxy-aware customFetch). This
+          // variant rebuilds the provider from scratch, so without this the request
+          // silently falls back to the SDK default fetch and drops the wrapper.
+          fetch: settings?.fetch
+        }),
+      toolFactories: {
+        webSearch:
+          (provider) => (config: NonNullable<Parameters<AnthropicProvider['tools']['webSearch_20260209']>[0]>) => ({
+            tools: { webSearch: provider.tools.webSearch_20260209(config) }
+          }),
+        urlContext:
+          (provider) => (config: NonNullable<Parameters<AnthropicProvider['tools']['webFetch_20260209']>[0]>) => ({
+            tools: { urlContext: provider.tools.webFetch_20260209(config) }
+          })
+      }
+    } satisfies ProviderVariant<AzureOpenAIProviderSettings, AzureOpenAIProvider, AnthropicProvider>
+  ] as const
+} as const satisfies ProviderExtensionConfig<AzureOpenAIProviderSettings, AzureOpenAIProvider, 'azure'>)
+
+const CherryInExtension = ProviderExtension.create({
+  name: 'cherryin',
+  supportsImageGeneration: true,
+  create: createCherryIn,
+
+  variants: [
+    {
+      suffix: 'chat',
+      name: 'CherryIN Chat',
+      transform: (provider): ProviderV3 =>
+        customProvider({
+          fallbackProvider: {
+            ...provider,
+            languageModel: (modelId: string) => provider.chat(modelId)
+          }
+        })
+    }
+  ] as const
+} as const satisfies ProviderExtensionConfig<CherryInProviderSettings, CherryInProvider, 'cherryin'>)
+
+const DeepSeekExtension = ProviderExtension.create({
+  name: 'deepseek',
+  supportsImageGeneration: false,
+  create: createDeepSeek
+} as const satisfies ProviderExtensionConfig<DeepSeekProviderSettings, ProviderV3, 'deepseek'>)
+
+const GoogleExtension = ProviderExtension.create({
+  name: 'google',
+  aliases: ['google-ai', 'gemini', 'google-gemini'] as const,
+  supportsImageGeneration: true,
+  create: createGoogleGenerativeAI,
+  toolFactories: {
+    webSearch:
+      (provider: GoogleGenerativeAIProvider) =>
+      (config: NonNullable<Parameters<GoogleGenerativeAIProvider['tools']['googleSearch']>[0]>) => ({
+        tools: { webSearch: provider.tools.googleSearch(config) }
+      }),
+    urlContext: (provider) => (config) => ({
+      tools: {
+        urlContext: provider.tools.urlContext(config)
+      }
+    })
+  }
+} as const satisfies ProviderExtensionConfig<GoogleGenerativeAIProviderSettings, GoogleGenerativeAIProvider, 'google'>)
+
+const OpenAICompatibleExtension = ProviderExtension.create({
+  name: 'openai-compatible',
+  supportsImageGeneration: true,
+  create: (settings) => {
+    if (!settings) {
+      throw new Error('OpenAI Compatible provider requires settings')
+    }
+    return createOpenAICompatible(settings)
+  },
+  createRerankingModel: (modelId, settings) => {
+    if (!settings) {
+      throw new Error('OpenAI Compatible provider requires settings')
+    }
+    return createOpenAICompatibleRerankingModel(modelId, settings)
+  }
+} as const satisfies ProviderExtensionConfig<OpenAICompatibleProviderSettings, ProviderV3, 'openai-compatible'>)
+
+const OpenAIExtension = ProviderExtension.create({
+  name: 'openai',
+  aliases: ['openai-response'] as const,
+  supportsImageGeneration: true,
+  create: createOpenAI,
+  toolFactories: {
+    webSearch:
+      (provider: OpenAIProvider) => (config: NonNullable<Parameters<OpenAIProvider['tools']['webSearch']>[0]>) => ({
+        tools: { webSearch: provider.tools.webSearch(config) }
+      })
+  },
+
+  variants: [
+    {
+      suffix: 'chat',
+      name: 'OpenAI Chat',
+      resolveModel: (provider: OpenAIProvider, modelId: string): LanguageModel => provider.chat(modelId),
+      toolFactories: {
+        webSearch:
+          (provider: OpenAIProvider) =>
+          (config: NonNullable<Parameters<OpenAIProvider['tools']['webSearchPreview']>[0]>) => ({
+            tools: { webSearch: provider.tools.webSearchPreview(config) }
+          })
+      }
+    }
+  ] as const
+} as const satisfies ProviderExtensionConfig<OpenAIProviderSettings, OpenAIProvider, 'openai'>)
+
+const OpenRouterExtension = ProviderExtension.create({
+  name: 'openrouter',
+  supportsImageGeneration: true,
+  create: createOpenRouter,
+  toolFactories: {
+    webSearch:
+      (provider: OpenRouterProvider) =>
+      (config: NonNullable<Parameters<OpenRouterProvider['tools']['webSearch']>[0]>) => ({
+        tools: { webSearch: provider.tools.webSearch(config) }
+      }),
+    urlContext: (provider: OpenRouterProvider) => () => ({
+      tools: { urlContext: provider.tools.webFetch({}) }
+    })
+  }
+} as const satisfies ProviderExtensionConfig<OpenRouterProviderSettings, OpenRouterProvider, 'openrouter'>)
+
+const XaiExtension = ProviderExtension.create({
+  name: 'xai',
+  aliases: ['grok'] as const,
+  supportsImageGeneration: true,
+  create: createXai,
+  variants: [
+    {
+      suffix: 'responses',
+      name: 'xAI Responses',
+      resolveModel: (provider: XaiProvider, modelId: string) => provider.responses(modelId),
+      toolFactories: {
+        webSearch:
+          (provider: XaiProvider) =>
+          (config: {
+            webSearch?: Parameters<XaiProvider['tools']['webSearch']>[0]
+            xSearch?: Parameters<XaiProvider['tools']['xSearch']>[0]
+          }) => ({
+            tools: {
+              webSearch: provider.tools.webSearch(config?.webSearch ?? {}),
+              xSearch: provider.tools.xSearch(config?.xSearch ?? {})
+            }
+          })
+      }
+    }
+  ] as const
+} as const satisfies ProviderExtensionConfig<XaiProviderSettings, XaiProvider, 'xai'>)
+
+/**
+ *  provider extensions 
+ */
+type CoreExtensions = readonly [
+  typeof OpenAIExtension,
+  typeof AnthropicExtension,
+  typeof AzureExtension,
+  typeof GoogleExtension,
+  typeof XaiExtension,
+  typeof DeepSeekExtension,
+  typeof OpenRouterExtension,
+  typeof OpenAICompatibleExtension,
+  typeof CherryInExtension
+]
+
+export const coreExtensions: CoreExtensions = [
+  OpenAIExtension,
+  AnthropicExtension,
+  AzureExtension,
+  GoogleExtension,
+  XaiExtension,
+  DeepSeekExtension,
+  OpenRouterExtension,
+  OpenAICompatibleExtension,
+  CherryInExtension
+]
+
+/**
+ *  Provider IDs 
+ *  coreExtensions  provider IDs aliases  variants
+ *
+ */
+export type CoreProviderId = ExtractExtensionIds<(typeof coreExtensions)[number]>
+
+type ExtensionConfigs = (typeof coreExtensions)[number]['config']
+
+type ProviderIdsMap = UnionToIntersection<ExtensionConfigToIdResolutionMap<ExtensionConfigs>>
+
+export const registeredProviderIds: ProviderIdsMap = (() => {
+  const map = {} as ProviderIdsMap
+  coreExtensions.forEach((ext) => {
+    const config = ext.config as ProviderExtensionConfig<any, any, CoreProviderId>
+    const name = config.name
+    ;(map as Record<string, CoreProviderId>)[name] = name
+
+    if (config.aliases) {
+      config.aliases.forEach((alias) => {
+        ;(map as Record<string, CoreProviderId>)[alias] = name
+      })
+    }
+
+    if (config.variants) {
+      config.variants.forEach((variant) => {
+        ;(map as Record<string, CoreProviderId>)[`${name}-${variant.suffix}`] = name
+      })
+    }
+  })
+
+  return map
+})()
+
+// ====================  Extension Registry ====================
+
+/**
+ *  extensions  registry
+ * 
+ *
+ *  provider extensionsOpenAI, Anthropic, Google 
+ *  extensions 
+ */
+// register() is idempotent — safe to call on HMR / re-import
+extensionRegistry.registerAll(coreExtensions)
+
+/**
+ * Provider 
+ */
+class ProviderInitializationError extends Error {
+  constructor(
+    message: string,
+    public providerId?: string,
+    public cause?: Error
+  ) {
+    super(message)
+    this.name = 'ProviderInitializationError'
+  }
+}
+
+/**
+ *  Provider Extension
+ */
+export function hasProviderConfig(providerId: string): boolean {
+  return extensionRegistry.has(providerId)
+}
+
+// ====================  ====================
+
+export { ProviderInitializationError }

@@ -1,79 +1,170 @@
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import react from '@vitejs/plugin-react-swc'
+import { CodeInspectorPlugin } from 'code-inspector-plugin'
+import { defineConfig } from 'electron-vite'
 import { resolve } from 'path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 
-// Bake the Sentry DSN at build time from the SENTRY_DSN env var. End users
-// of a packaged build don't have that env var, so the value must be inlined.
-// At runtime, process.env.SENTRY_DSN still wins if set (used by dev:sentry).
-const sentryDefine = {
-  __SENTRY_DSN__: JSON.stringify(process.env.SENTRY_DSN ?? ''),
+// assert not supported by biome
+// import pkg from './package.json' assert { type: 'json' }
+import pkg from './package.json'
+import { uiContractPlugin } from './scripts/uiContract/vitePlugin'
+
+const visualizerPlugin = (type: 'renderer' | 'main') => {
+  return process.env[`VISUALIZER_${type.toUpperCase()}`] ? [visualizer({ open: true })] : []
+}
+
+const isDev = process.env.NODE_ENV === 'development'
+const isProd = process.env.NODE_ENV === 'production'
+
+// Bundle/externalize split for the main process: everything in `dependencies` is
+// marked `external` below (kept in node_modules of the packaged app), and everything
+// NOT in `dependencies` (i.e. in `devDependencies`) is bundled into the main bundle by
+// rollup. The API gateway's Elysia stack (`elysia`, `@elysia/*`) is intentionally in
+// `devDependencies` for exactly this reason — it is pure JS and bundles cleanly. Do NOT
+// move it to `dependencies`: that would externalize it, and since devDependencies are
+// pruned from production packages, the packaged app would fail at runtime with
+// MODULE_NOT_FOUND (no test catches this). See docs/references/api-gateway/README.md.
+const mainExternalDependencies = Object.keys(pkg.dependencies)
+const mainExternalModules = ['bufferutil', 'utf-8-validate', 'electron', ...mainExternalDependencies]
+
+export const isMainExternalModule = (id: string) => {
+  return mainExternalModules.some((moduleId) => id === moduleId || id.startsWith(`${moduleId}/`))
 }
 
 export default defineConfig({
   main: {
-    define: sentryDefine,
-    // Externalize node_modules EXCEPT pi packages — they are pure ESM and
-    // must be bundled inline so the CJS main process can load them.
-    plugins: [externalizeDepsPlugin({ exclude: ['@earendil-works/pi-ai', '@earendil-works/pi-agent-core', '@earendil-works/pi-coding-agent'] })],
-    build: {
-      outDir: 'dist/main',
-      rollupOptions: {
-        input: {
-          index: resolve(__dirname, 'src/main/index.ts')
-        }
+    plugins: [...visualizerPlugin('main')],
+    resolve: {
+      alias: {
+        '@main': resolve('src/main'),
+        '@application': resolve('src/main/core/application/Application'),
+        '@data': resolve('src/main/data'),
+        '@shared': resolve('src/shared'),
+        '@logger': resolve('src/main/core/logger/LoggerService'),
+        '@mcp-trace/trace-core': resolve('packages/mcp-trace/trace-core'),
+        '@mcp-trace/trace-node': resolve('packages/mcp-trace/trace-node'),
+        '@cherrystudio/ai-core/provider': resolve('packages/aiCore/src/core/providers'),
+        '@cherrystudio/ai-core/built-in/plugins': resolve('packages/aiCore/src/core/plugins/built-in'),
+        '@cherrystudio/ai-core': resolve('packages/aiCore/src'),
+        '@cherrystudio/ai-sdk-provider': resolve('packages/ai-sdk-provider/src'),
+        '@cherrystudio/provider-registry/node': resolve('packages/provider-registry/src/registry-loader'),
+        '@cherrystudio/provider-registry': resolve('packages/provider-registry/src'),
+        '@test-mocks': resolve('tests/__mocks__'),
+        '@test-helpers': resolve('tests/helpers')
       }
+    },
+    build: {
+      lib: { entry: resolve(__dirname, 'src/main/main.ts') },
+      rollupOptions: {
+        external: isMainExternalModule,
+        output: {
+          manualChunks: undefined, //  -  null 
+          inlineDynamicImports: true // 
+        },
+        onwarn(warning, warn) {
+          if (warning.code === 'COMMONJS_VARIABLE_IN_ESM') return
+          warn(warning)
+        }
+      },
+      sourcemap: isDev
+    },
+    esbuild: isProd ? { legalComments: 'none' } : {},
+    optimizeDeps: {
+      noDiscovery: isDev
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@earendil-works/pi-ai', '@earendil-works/pi-agent-core', '@earendil-works/pi-coding-agent'] })],
+    plugins: [
+      react({
+        tsDecorators: true
+      })
+    ],
+    resolve: {
+      alias: {
+        '@shared': resolve('src/shared'),
+        '@mcp-trace/trace-core': resolve('packages/mcp-trace/trace-core')
+      }
+    },
     build: {
-      outDir: 'dist/preload',
+      sourcemap: isDev,
       rollupOptions: {
+        // Unlike renderer which auto-discovers entries from HTML files,
+        // preload requires explicit entry point configuration for multiple scripts
         input: {
-          index: resolve(__dirname, 'src/preload/index.ts'),
-          // Minimal preload for ordinary browser guests. It reports only the
-          // focused password field's position/opaque marker to the host so
-          // Cate can render autofill suggestions outside untrusted page DOM.
-          browserGuest: resolve(__dirname, 'src/preload/browserGuest.ts'),
-          // Second preload injected into extension webview guests (the `cate`
-          // reverse-API bridge). Emitted alongside index.js in dist/preload/.
-          cateHost: resolve(__dirname, 'src/preload/cateHost.ts')
+          preload: resolve(__dirname, 'src/preload/preload.ts'),
+          simplest: resolve(__dirname, 'src/preload/simplest.ts') // Minimal preload
+        },
+        external: ['electron'],
+        output: {
+          entryFileNames: '[name].js',
+          format: 'cjs'
         }
       }
     }
   },
   renderer: {
-    root: '.',
-    define: sentryDefine,
-    // Don't let the dev server watch .cate/ — it holds Cate's own project state
-    // and, now, git worktrees (full repo checkouts under .cate/worktrees). When
-    // developing Cate-on-Cate, creating a worktree there would otherwise drop a
-    // duplicate index.html/tsconfig.json into the watched tree and force a full
-    // HMR reload. Anchored to `${root}/.cate` rather than a bare `**/.cate/**`:
-    // the latter matches against ABSOLUTE paths, so when dev runs FROM INSIDE a
-    // worktree (whose own path contains `/.cate/worktrees/…`) it would ignore the
-    // worktree's entire source tree and break HMR. (Merged with Vite's built-in
-    // .git/node_modules ignores.)
-    server: {
-      watch: {
-        ignored: [`${resolve(__dirname, '.cate')}/**`],
-      },
+    plugins: [
+      uiContractPlugin(),
+      tanstackRouter({
+        target: 'react',
+        autoCodeSplitting: true,
+        routesDirectory: resolve('src/renderer/routes'),
+        generatedRouteTree: resolve('src/renderer/routeTree.gen.ts')
+      }),
+      (async () => (await import('@tailwindcss/vite')).default())(),
+      react({
+        tsDecorators: true
+      }),
+      ...(isDev ? [CodeInspectorPlugin({ bundler: 'vite' })] : []), //  CodeInspectorPlugin
+      ...visualizerPlugin('renderer')
+    ],
+    resolve: {
+      alias: {
+        '@renderer': resolve('src/renderer'),
+        '@shared': resolve('src/shared'),
+        '@logger': resolve('src/renderer/services/LoggerService'),
+        '@data': resolve('src/renderer/data'),
+        '@mcp-trace/trace-core': resolve('packages/mcp-trace/trace-core'),
+        '@cherrystudio/ai-core/provider': resolve('packages/aiCore/src/core/providers'),
+        '@cherrystudio/ai-core/built-in/plugins': resolve('packages/aiCore/src/core/plugins/built-in'),
+        '@cherrystudio/ai-core': resolve('packages/aiCore/src'),
+        '@cherrystudio/extension-table-plus': resolve('packages/extension-table-plus/src'),
+        '@cherrystudio/ai-sdk-provider': resolve('packages/ai-sdk-provider/src'),
+        '@cherrystudio/provider-registry/node': resolve('packages/provider-registry/src/registry-loader'),
+        '@cherrystudio/provider-registry': resolve('packages/provider-registry/src'),
+        '@cherrystudio/ui/icons': resolve('packages/ui/src/components/icons'),
+        '@cherrystudio/ui': resolve('packages/ui/src'),
+        '@test-mocks': resolve('tests/__mocks__')
+      }
+    },
+    optimizeDeps: {
+      exclude: ['pyodide'],
+      esbuildOptions: {
+        target: 'esnext' // for dev
+      }
+    },
+    worker: {
+      format: 'es'
     },
     build: {
-      outDir: 'dist/renderer',
-      // Emit source maps in production so crash-report stacks point at real
-      // source locations instead of opaque bundled offsets like
-      // "index-DULzyrhX.js:33061:54".
-      sourcemap: true,
+      target: 'esnext', // for build
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'index.html')
+          index: resolve(__dirname, 'src/renderer/windows/main/index.html'),
+          quickAssistant: resolve(__dirname, 'src/renderer/windows/quickAssistant/index.html'),
+          selectionToolbar: resolve(__dirname, 'src/renderer/windows/selection/toolbar/index.html'),
+          selectionAction: resolve(__dirname, 'src/renderer/windows/selection/action/index.html'),
+          migrationV2: resolve(__dirname, 'src/renderer/windows/migrationV2/index.html'),
+          userDataRelocation: resolve(__dirname, 'src/renderer/windows/userDataRelocation/index.html'),
+          subWindow: resolve(__dirname, 'src/renderer/windows/subWindow/index.html')
+        },
+        onwarn(warning, warn) {
+          if (warning.code === 'COMMONJS_VARIABLE_IN_ESM') return
+          warn(warning)
         }
       }
     },
-    plugins: [react()],
-    css: {
-      postcss: './postcss.config.js'
-    }
+    esbuild: isProd ? { legalComments: 'none' } : {}
   }
 })

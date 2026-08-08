@@ -1,0 +1,153 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
+import type { AbsoluteFilePath } from '@shared/types/file'
+import { KB } from '@shared/utils/constants'
+import iconv from 'iconv-lite'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+import { decodeTextBufferIfText, getFileType, isTextByContent, mimeToExt } from '../metadata'
+
+// A chunk of UTF-8 text long enough for chardet to detect with high confidence.
+const TEXT_SAMPLE = '\n'.repeat(4)
+// Binary bytes (contains null) so isBinaryFile classifies it as non-text.
+const BINARY_SAMPLE = Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe, 0x00, 0x10])
+
+describe('getFileType', () => {
+  let tmp: string
+  beforeEach(async () => {
+    tmp = await mkdtemp(path.join(tmpdir(), 'cherry-fm-meta-test-'))
+  })
+  afterEach(async () => {
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  it('classifies image extension as image', async () => {
+    const f = path.join(tmp, 'pic.png')
+    await writeFile(f, Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+    expect(await getFileType(f as AbsoluteFilePath)).toBe('image')
+  })
+
+  it('classifies pdf as document', async () => {
+    const f = path.join(tmp, 'doc.pdf')
+    await writeFile(f, '%PDF-')
+    expect(await getFileType(f as AbsoluteFilePath)).toBe('document')
+  })
+
+  it('falls back to "other" for an unknown extension with binary content', async () => {
+    const f = path.join(tmp, 'mystery.xyz123')
+    await writeFile(f, BINARY_SAMPLE)
+    expect(await getFileType(f as AbsoluteFilePath)).toBe('other')
+  })
+
+  // Content-sniff upgrade: uncommon / extension-less text files must be
+  // recognized as text so users can attach them in chat (see metadata.ts).
+  it('upgrades an unknown extension with text content to "text"', async () => {
+    const f = path.join(tmp, 'mystery.xyz123')
+    await writeFile(f, TEXT_SAMPLE)
+    expect(await getFileType(f as AbsoluteFilePath)).toBe('text')
+  })
+
+  it('upgrades an extension-less text file to "text"', async () => {
+    const f = path.join(tmp, 'no-ext')
+    await writeFile(f, TEXT_SAMPLE)
+    expect(await getFileType(f as AbsoluteFilePath)).toBe('text')
+  })
+
+  // Extension wins on mismatch (deliberate — see getFileType's contract). A
+  // recognized extension is never content-sniffed, so the bytes are ignored.
+  it('keeps a recognized text extension as "text" even when the content is binary', async () => {
+    const f = path.join(tmp, 'mislabeled.txt')
+    await writeFile(f, BINARY_SAMPLE)
+    expect(await getFileType(f as AbsoluteFilePath)).toBe('text')
+  })
+
+  it('keeps a recognized non-text extension even when the content is text', async () => {
+    const f = path.join(tmp, 'mislabeled.png')
+    await writeFile(f, TEXT_SAMPLE)
+    expect(await getFileType(f as AbsoluteFilePath)).toBe('image')
+  })
+})
+
+describe('isTextByContent', () => {
+  let tmp: string
+  beforeEach(async () => {
+    tmp = await mkdtemp(path.join(tmpdir(), 'cherry-fm-meta-test-'))
+  })
+  afterEach(async () => {
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  it('returns true for text content regardless of extension', async () => {
+    const f = path.join(tmp, 'weird.bin')
+    await writeFile(f, TEXT_SAMPLE)
+    expect(await isTextByContent(f as AbsoluteFilePath)).toBe(true)
+  })
+
+  it('returns false for binary content', async () => {
+    const f = path.join(tmp, 'data.txt')
+    await writeFile(f, BINARY_SAMPLE)
+    expect(await isTextByContent(f as AbsoluteFilePath)).toBe(false)
+  })
+
+  // The 8 KB sniff window lands one byte into ``, so a window-sized sample
+  // decodes as invalid. Ported from the v1 `FileStorage._isTextFile` fix (#17551)
+  // — this function inherited the same fixed-window bug when it replaced it.
+  it('accepts UTF-8 text when the sniff window ends inside a multibyte character', async () => {
+    const f = path.join(tmp, 'split-character')
+    await writeFile(f, `${'a'.repeat(8 * KB - 1)}tail`)
+    expect(await isTextByContent(f as AbsoluteFilePath)).toBe(true)
+  })
+
+  it('accepts an extensionless GBK text file', async () => {
+    const f = path.join(tmp, 'gbk-no-ext')
+    await writeFile(f, iconv.encode(' GBK ', 'gbk'))
+    expect(await isTextByContent(f as AbsoluteFilePath)).toBe(true)
+  })
+
+  it('returns false (does not throw) for a missing file', async () => {
+    expect(await isTextByContent(path.join(tmp, 'nope') as AbsoluteFilePath)).toBe(false)
+  })
+})
+
+describe('decodeTextBufferIfText', () => {
+  it.each([
+    ['UTF-8', 'SuperAgent can read this extensionless text file.', 'utf8'],
+    ['GBK', '', 'gbk'],
+    ['Big5', '', 'big5'],
+    ['Shift-JIS', 'これはのないテキストファイルですコードをします', 'shift_jis']
+  ])('recognizes and decodes %s text', (_, text, encoding) => {
+    expect(decodeTextBufferIfText(iconv.encode(text, encoding))).toBe(text)
+  })
+
+  it.each([
+    ['PDF', Buffer.from('%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj')],
+    ['ZIP', Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00, 0x08, 0x00, 0xff, 0x00, 0x80, 0x01])],
+    ['binary data', Buffer.from([0x00, 0xff, 0x80, 0x01, 0x02, 0x03, 0xfe, 0x7f])]
+  ])('rejects %s bytes', (_, buffer) => {
+    expect(decodeTextBufferIfText(buffer)).toBeNull()
+  })
+
+  it.each([
+    ['GBK', '', 'gbk'],
+    ['Big5', '', 'big5'],
+    ['Shift-JIS', '', 'shift_jis']
+  ])('rejects ambiguous short %s bytes instead of returning mojibake', (_, text, encoding) => {
+    expect(decodeTextBufferIfText(iconv.encode(text, encoding))).toBeNull()
+  })
+})
+
+describe('mimeToExt', () => {
+  it('maps image/png to png (no leading dot)', () => {
+    expect(mimeToExt('image/png')).toBe('png')
+  })
+
+  it('maps application/pdf to pdf', () => {
+    expect(mimeToExt('application/pdf')).toBe('pdf')
+  })
+
+  it('returns undefined for unknown mime types', () => {
+    expect(mimeToExt('foo/bar-unknown-xyz')).toBeUndefined()
+  })
+})

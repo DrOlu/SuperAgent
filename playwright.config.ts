@@ -1,25 +1,64 @@
 import { defineConfig } from '@playwright/test'
 
+/**
+ * Playwright configuration for Electron e2e testing.
+ * See https://playwright.dev/docs/test-configuration
+ */
 export default defineConfig({
-  testDir: './e2e',
-  // perf-stress asserts FPS / spawn-rate thresholds that depend on the host's
-  // raw speed, so it's a local regression tool, not a CI gate. CI sets
-  // E2E_SKIP_PERF=1 to run only the functional (smoke/drag/dock) specs.
-  testIgnore: process.env.E2E_SKIP_PERF
-    ? ['**/perf-stress.spec.ts', '**/worktree-territory-perf.spec.ts']
-    : [],
-  // Generous per-test cap: the content-search specs do up to two cold-daemon
-  // settles (ripgrep spawn) of up to 30s each, which can stack under full-suite
-  // load on a busy CI runner.
-  timeout: 120_000,
-  expect: { timeout: 5_000 },
+  // Look for test files in the specs directory
+  testDir: './tests/e2e/specs',
+
+  // Global timeout for each test
+  timeout: 60000,
+
+  // Assertion timeout
+  expect: {
+    timeout: 10000
+  },
+
+  // Electron apps should run tests sequentially to avoid conflicts
   fullyParallel: false,
   workers: 1,
-  // The windowless e2e harness throttles the renderer's rAF loop, which makes a
-  // few node-creation / animation-settle waits timing-sensitive. Retry twice on
-  // CI so a transient timing flake doesn't redden an otherwise-green run; locally
-  // keep 0 so flakes surface immediately.
+
+  // Fail the build on CI if you accidentally left test.only in the source code
+  forbidOnly: !!process.env.CI,
+
+  // Retry on CI only
   retries: process.env.CI ? 2 : 0,
-  reporter: [['list']],
-  projects: [{ name: 'electron' }],
+
+  // Reporter configuration
+  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+
+  // Global setup and teardown
+  globalSetup: './tests/e2e/global-setup.ts',
+  globalTeardown: './tests/e2e/global-teardown.ts',
+
+  // Output directory for test artifacts
+  outputDir: './test-results',
+
+  // Shared settings for all tests
+  use: {
+    // Collect trace when retrying the failed test
+    trace: 'retain-on-failure',
+
+    // Take screenshot only on failure
+    screenshot: 'only-on-failure',
+
+    // Record video only on failure
+    video: 'retain-on-failure',
+
+    // Action timeout
+    actionTimeout: 15000,
+
+    // Navigation timeout
+    navigationTimeout: 30000
+  },
+
+  // Single project for Electron testing
+  projects: [
+    {
+      name: 'electron',
+      testMatch: '**/*.spec.ts'
+    }
+  ]
 })

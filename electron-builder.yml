@@ -1,141 +1,155 @@
-appId: ng.hyperspace.superagent
+appId: com.hyperspace.SuperAgent
 productName: SuperAgent
+electronLanguages:
+  - en-US
+  - ja # macOS/linux/win
+  - ru # macOS/linux/win
+  - en # for macOS
+  - de
 directories:
-  output: release
-# The cate-runtime daemon is NOT bundled in the app. One self-contained
-# tarball per target is built in CI and uploaded to the GitHub release
-# `v<version>`; on connect the remote pulls its own tarball (with a client-side
-# fallback). See runtimeArtifacts.ts + .github/workflows/release.yml.
-#
-# @earendil-works/pi-coding-agent (the agent runtime, ~271MB) is NO LONGER
-# bundled — it's a devDependency, shipped on demand as the cate-pi tarball and
-# run by the runtime (local or remote). See build-pi-tarball.mjs + ensurePi.ts.
-# @earendil-works/pi-ai stays a production dependency (authManager uses /oauth
-# for cate's own login flow) and is unpacked here. The @earendil-works glob now
-# only matches pi-ai + pi-agent-core. Its pure-JS SDK closure (AWS/Google/Mistral/
-# OpenAI, zod, yaml, protobufjs, etc.) is NOT unpacked: it loads fine from inside
-# app.asar. Unpacking the whole tree pushed codesign toward EMFILE on macOS
-# (issue #150) and left ~11k loose sealed files in the bundle, so asarUnpack is
-# kept to the native/WASM floor below.
+  buildResources: build
+
+protocols:
+  - name: SuperAgent
+    schemes:
+      - superagent
+files:
+  - "**/*"
+  - "!**/{.vscode,.yarn,.yarn-lock,.github,.cursorrules,.prettierrc}"
+  - "!electron.vite.config.{js,ts,mjs,cjs}}"
+  - "!.*"
+  - "!components.json"
+  - "!**/{.eslintignore,.eslintrc.js,.eslintrc.json,.eslintcache,root.eslint.config.js,eslint.config.js,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,eslint.config.mjs,dev-app-update.yml,CHANGELOG.md,README.md,biome.jsonc}"
+  - "!**/{.env,.env.*,.npmrc,pnpm-lock.yaml}"
+  - "!**/{tsconfig.json,tsconfig.tsbuildinfo,tsconfig.node.json,tsconfig.web.json}"
+  - "!**/{.editorconfig,.jekyll-metadata}"
+  - "!src"
+  - "!config"
+  - "!patches"
+  - "!**/node_modules/**/*.cpp"
+  - "!**/node_modules/node-addon-api/**"
+  - "!**/node_modules/prebuild-install/**"
+  - "!scripts"
+  - "!local"
+  - "!docs"
+  - "!packages"
+  - "!.swc"
+  - "!.bin"
+  - "!._*"
+  - "!*.log"
+  - "!stats.html"
+  - "!*.md"
+  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+  - "!**/*.{map,ts,tsx,jsx,less,scss,sass,css.d.ts,d.cts,d.mts,md,markdown,yaml,yml}"
+  - "!**/{test,tests,__tests__,powered-test,coverage}/**"
+  - "!**/{example,examples}/**"
+  - "!**/*.{spec,test}.{js,jsx,ts,tsx}"
+  - "!**/*.min.*.map"
+  - "!**/*.d.ts"
+  - "!**/dist/es6/**"
+  - "!**/dist/demo/**"
+  - "!**/amd/**"
+  - "!**/{.DS_Store,Thumbs.db,thumbs.db,__pycache__}"
+  - "!**/{LICENSE,license,LICENSE.*,*.LICENSE.txt,NOTICE.txt,README.md,readme.md,CHANGELOG.md}"
+  - "!node_modules/rollup-plugin-visualizer"
+  - "!node_modules/js-tiktoken"
+  - "!node_modules/@tavily/core/node_modules/js-tiktoken"
+  - "!node_modules/pdf-parse/lib/pdf.js/{v1.9.426,v1.10.88,v2.0.550}"
+  - "!node_modules/mammoth/{mammoth.browser.js,mammoth.browser.min.js}"
+  - "!node_modules/selection-hook/prebuilds/**/*" # we rebuild .node, don't use prebuilds
+  - "!node_modules/selection-hook/node_modules" # we don't need what in the node_modules dir
+  - "!node_modules/selection-hook/src" # we don't need source files
+  - "!node_modules/tesseract.js-core/{tesseract-core.js,tesseract-core.wasm,tesseract-core.wasm.js}" # we don't need source files
+  - "!node_modules/tesseract.js-core/{tesseract-core-lstm.js,tesseract-core-lstm.wasm,tesseract-core-lstm.wasm.js}" # we don't need source files
+  - "!node_modules/tesseract.js-core/{tesseract-core-simd-lstm.js,tesseract-core-simd-lstm.wasm,tesseract-core-simd-lstm.wasm.js}" # we don't need source files
+  - "!node_modules/onnxruntime-web/**" # transformers.js's browser/WASM backend; local inference always runs onnxruntime-node instead
+  - "!node_modules/@huggingface/transformers/node_modules/onnxruntime-web/**" # same package, nested copy
+  - "!node_modules/onnxruntime-node/bin/**" # native binary is downloaded on first use (Toolchain/onnxruntime), never bundled — see OnnxRuntimeBinaryService
+  - "!**/*.{h,iobj,ipdb,tlog,recipe,vcxproj,vcxproj.filters,Makefile,*.Makefile}" # filter .node build files
+  - "resources/**/*" # include all files in resources, and unpack them from asar for runtime access
+  - "!resources/devtools/**" # dev-only extensions are loaded from source in development
 asarUnpack:
-  - "node_modules/@earendil-works/**"
-  - "node_modules/.bin/pi"
-  - "node_modules/.bin/pi.cmd"
-  # Native + WASM modules only: these can't be dlopen'd / instantiated from inside
-  # app.asar. The pure-JS deps that used to be listed here (the AWS/Google/Mistral/
-  # OpenAI SDK closure, zod, yaml, protobufjs, etc.) load fine straight out of the
-  # asar, so packing them keeps ~10k loose sealed files out of the bundle.
-  - "node_modules/node-pty/**"
-  # @parcel/watcher (workspace-tree file watching, main process) + its per-platform
-  # prebuilt binary packages (@parcel/watcher-<platform>-<arch>[-glibc/musl], each
-  # shipping watcher.node). The .node binaries can't be dlopen'd from inside
-  # app.asar, so the whole family is unpacked. npm install on the build runner
-  # provides the host platform's package.
-  - "node_modules/@parcel/watcher/**"
-  - "node_modules/@parcel/watcher-*/**"
-  - "node_modules/koffi/**"
-  - "node_modules/fsevents/**"
-  - "node_modules/ssh2/**"
-  - "node_modules/cpu-features/**"
-  - "node_modules/iconv-corefoundation/**"
-  - "node_modules/@mariozechner/clipboard/**"
-  - "node_modules/@mariozechner/clipboard-darwin-arm64/**"
-  - "node_modules/@mariozechner/clipboard-darwin-universal/**"
-  - "node_modules/@silvia-odwyer/photon-node/**"
-  - "node_modules/@napi-rs/**"
-  - "node_modules/@img/**"
-  - "node_modules/sharp/**"
-  - "node_modules/pdfjs-dist/**"
-  # Required agent-browser native executables. The main process spawns the
-  # host-platform binary directly, so it must live outside app.asar.
-  - "node_modules/agent-browser/bin/agent-browser-*"
+  - resources/**
+  - "!resources/devtools/**"
+  - "**/*.{metal,exp,lib}"
+  - "node_modules/@img/sharp-*/**"
+  - "node_modules/@anthropic-ai/claude-agent-sdk-*/**" # native CLI binary must live on disk to be spawned
+  - "node_modules/@aiany/sqlite-vec-*/**" # sqlite-vec extension (.dylib/.so/.dll) is dlopen'd at runtime — must live on disk
+  - "node_modules/@node-rs/xxhash-*/**" # native N-API binary must be unpacked for runtime loading
+  - "node_modules/@firecrawl/anydoc-*/**" # native N-API binary must be unpacked for runtime loading
 extraResources:
-  # Ship bundled pi extensions (e.g. cate-plan-mode) into the packaged app so
-  # installPlanModeExtension can copy them into ~/.pi/agent/extensions/ on
-  # first use. The src/ tree itself isn't packaged, so we mirror the files
-  # under resources/cate-extensions/.
-  - from: src/cateAgent/extensions
-    to: cate-extensions
-    filter:
-      - "**/*"
-  # Pi ships its subagent tool as a supported example rather than a built-in.
-  # Cate installs these two source files into every workspace-scoped agent home.
-  - from: node_modules/@earendil-works/pi-coding-agent/examples/extensions/subagent
-    to: cate-subagent-runtime
-    filter:
-      - "index.ts"
-      - "agents.ts"
-  # Ship the cate-theme authoring skill so installThemeSkill can copy it into
-  # ~/.claude/skills/cate-theme/ on first launch.
-  - from: skills
-    to: skills
-    filter:
-      - "**/*"
-  # Ship the runtime daemon tarball(s) so the packaged LOCAL workspace runs the
-  # same daemon as remote hosts. Linux/Windows stage one host-arch
-  # runtime-host.tgz; macOS stages per-arch runtime-host-<arch>.tgz — release CI
-  # stages BOTH x64 (Intel) and arm64, local packaging just the host arch —
-  # because one .app can run on either CPU and the daemon's bundled node +
-  # node-pty are arch-specific (an arm64 daemon can't exec on Intel → terminal
-  # never opens). Resolved at runtime by shippedRuntimeTarball():
-  # resources/runtime-host-<arch>.tgz on macOS, resources/runtime-host.tgz
-  # elsewhere. The glob copies whatever this runner staged (scripts/package.mjs
-  # locally, release.yml in CI) without erroring on arches it didn't build.
-  - from: dist-runtime
-    to: .
-    filter:
-      - runtime-host*.tgz
-publish:
-  provider: github
-  owner: DrOlu
-  repo: SuperAgent
-  releaseType: release
-mac:
-  icon: build/icon.icns
-  category: public.app-category.developer-tools
-  hardenedRuntime: true
-  gatekeeperAssess: false
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
-  notarize: true
-  extendInfo:
-    NSMicrophoneUsageDescription: SuperAgent needs microphone access so terminal-based tools (like Claude Code) can record audio for voice input.
-  target:
-    - target: dmg
-      arch:
-        - x64
-        - arm64
-    - target: zip
-      arch:
-        - x64
-        - arm64
+  - from: "migrations/sqlite-drizzle"
+    to: "migrations/sqlite-drizzle"
+  - from: "packages/provider-registry/data"
+    to: "provider-registry"
 win:
-  icon: build/icon.ico
-  # Code signing is driven by CI env vars (CSC_LINK / CSC_KEY_PASSWORD), wired
-  # from the WINDOWS_CERTS / WINDOWS_CERTS_PASSWORD repo secrets in
-  # .github/workflows/release.yml. With them set, electron-builder signs the
-  # nsis installer + the app exe (no SmartScreen "unknown publisher" warning)
-  # and uses an RFC-3161 timestamp so the signature outlives the cert. Without
-  # them the build is simply unsigned — nothing here forces signing.
-  signtoolOptions:
-    rfc3161TimeStampServer: http://timestamp.digicert.com
+  executableName: SuperAgent
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+  extraResources:
+    - from: "node_modules/@aiany/sqlite-vec-windows-${arch}/vec0.dll"
+      to: "app.asar.unpacked/node_modules/@aiany/sqlite-vec-windows-${arch}/vec0.dll"
   target:
     - target: nsis
-      arch:
-        - x64
+    - target: portable
+  signtoolOptions:
+    sign: scripts/win-sign.js
+  verifyUpdateCodeSignature: false
+nsis:
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+  include: build/nsis-installer.nsh
+  buildUniversalInstaller: false
+  differentialPackage: false
+portable:
+  artifactName: ${productName}-${version}-${arch}-portable.${ext}
+  buildUniversalInstaller: false
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  target:
+    - target: dmg
     - target: zip
-      arch:
-        - x64
+dmg:
+  writeUpdateInfo: false
 linux:
-  icon: build/icon.png
-  category: Development
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  executableName: SuperAgent
   target:
     - target: AppImage
-      arch:
-        - x64
     - target: deb
-      arch:
-        - x64
-    - target: tar.gz
-      arch:
-        - x64
+    - target: rpm
+  maintainer: electronjs.org
+  category: Utility
+  desktop:
+    entry:
+      Name: SuperAgent
+      StartupWMClass: SuperAgent
+  mimeTypes:
+    - x-scheme-handler/superagent
+rpm:
+  # Workaround for electron build issue on rpm package:
+  # https://github.com/electron/forge/issues/3594
+  fpm: ["--rpm-rpmbuild-define=_build_id_links none"]
+publish:
+  provider: generic
+  url: https://releases.superagent.ng
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
+beforePack: scripts/before-pack.js
+afterPack: scripts/after-pack.js
+afterSign: scripts/notarize.js
+artifactBuildCompleted: scripts/artifact-build-completed.js
+releaseInfo:
+  releaseNotes: |
+  SuperAgent — rebranded and maintained by Hyperspace Technologies.
+  Built from an open-source AI assistant codebase under its original license.

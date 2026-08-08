@@ -1,24 +1,23 @@
 {
+  "tsDecorders": "legacy",
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    },
+    {
+      "path": "./tsconfig.web.json"
+    }
+  ],
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"],
       "@renderer/*": ["src/renderer/*"],
-      "@main/*": ["src/main/*"]
+      "@shared/*": ["src/shared/*"],
+      "@cherrystudio/provider-registry": ["packages/provider-registry/src/index.ts"]
     }
-  },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "electron.vite.config.ts"],
-  "exclude": ["node_modules", "dist", "src/cateAgent/extensions/subagent"]
+  }
 }

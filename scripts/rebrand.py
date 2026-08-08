@@ -35,6 +35,8 @@ TOKEN_REPLACEMENTS = [
     ("CherryStudio", "SuperAgent"),
     # Built-in default assistant display name (ships in agent.json + presets).
     ("Cherry Assistant", "SuperAgent Assistant"),
+    # zh-CN fallback branch in defaultAssistant.ts ("Cherry 助手").
+    ("Cherry 助手", "SuperAgent 助手"),
     # Specific FIRST: source-repo GitHub paths -> the new home.
     # Must precede the generic CherryHQ token so these become a valid
     # owner/repo pair (DrOlu/SuperAgent) instead of "Hyperspace Technologies/...".

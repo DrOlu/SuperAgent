@@ -42,7 +42,7 @@ jobs:
       do_release: ${{ steps.check.outputs.do_release }}
     steps:
       - name: Checkout SuperAgent
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -176,7 +176,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout SuperAgent (synced)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.sync.outputs.build_sha }}
           fetch-depth: 1

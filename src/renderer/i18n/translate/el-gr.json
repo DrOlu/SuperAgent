@@ -4708,7 +4708,7 @@
       "missing_model": "Ενεργοποιήστε τουλάχιστον ένα μοντέλο από τον ενεργοποιημένο πάροχο",
       "missing_provider": "Ενεργοποίηση παρόχου για συνέχιση",
       "next": "Επόμενο",
-      "subtitle": "Προσθέστε ένα κλειδί API ή συνδεθείτε με το CherryIN και, στη συνέχεια, ενεργοποιήστε έναν πάροχο.",
+      "subtitle": "Προσθέστε ένα κλειδί API ή συνδεθείτε με το SuperAgent και, στη συνέχεια, ενεργοποιήστε έναν πάροχο.",
       "title": "Επιλέξτε Πάροχο"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "Παράλειψη",
     "toast": {
       "complete_failed": "Αδυναμία ολοκλήρωσης της ρύθμισης. Παρακαλώ προσπαθήστε ξανά.",
-      "connected": "Συνδέθηκε επιτυχώς με το CherryIN"
+      "connected": "Συνδέθηκε επιτυχώς με το SuperAgent"
     },
     "welcome": {
-      "login_cherryin": "Σύνδεση με CherryIN",
+      "login_cherryin": "Σύνδεση με SuperAgent",
       "or_continue_with": "Ή ΣΥΝΕΧΕΙΑ ΜΕ",
       "other_provider": "Επιλέξτε Άλλους Παρόχους",
       "select_other_provider": "Επιλέξτε Άλλο Πάροχο",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "Αποτυχία ανάκτησης υπολοίπου",
         "button": "Σύνδεση με λογαριασμό {{provider}}",
         "cherryIn": {
-          "description": "Σύνδεση στο CherryIN μέσω OAuth 2.0",
+          "description": "Σύνδεση στο SuperAgent μέσω OAuth 2.0",
           "logged_in": "Σύνδεση μέσω OAuth",
-          "login_button": "Εξουσιοδότηση με CherryIN",
+          "login_button": "Εξουσιοδότηση με SuperAgent",
           "logout_button": "Αποσύνδεση",
           "not_logged_in": "Δεν έχετε συνδεθεί",
           "register_account": "Δημιουργία λογαριασμού",
-          "service_attribution": "Αυτή η υπηρεσία παρέχεται από το <link>open.cherryin.ai</link>",
+          "service_attribution": "Αυτή η υπηρεσία παρέχεται από το <link>superagent.ng</link>",
           "tagline": "Μετά τη σύνδεση μπορείτε να χρησιμοποιήσετε όλες τις υπηρεσίες μοντέλων",
           "title": "Σύνδεση μέσω OAuth",
           "use_api_key": "Χρήση κλειδιού API αντί αυτού"

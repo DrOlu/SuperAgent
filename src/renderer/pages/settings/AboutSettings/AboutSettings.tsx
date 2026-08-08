@@ -351,7 +351,7 @@ const AboutSettings: FC = () => {
           icon={<Globe className="size-4.5" />}
           title={t('settings.about.website.title')}
           actionLabel={t('settings.about.website.button')}
-          onAction={() => onOpenWebsite('https://superagent.ng')}
+          onAction={() => onOpenWebsite('https://superagent.ng/downloads.html')}
         />
         <Divider className="my-3" />
         <AboutActionRow

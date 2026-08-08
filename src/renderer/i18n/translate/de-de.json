@@ -4708,7 +4708,7 @@
       "missing_model": "Aktivieren Sie mindestens ein Modell vom aktivierten Anbieter",
       "missing_provider": "Aktivieren Sie einen Anbieter, um fortzufahren",
       "next": "Nächster",
-      "subtitle": "Fügen Sie einen API-Schlüssel hinzu oder melden Sie sich bei CherryIN an, und aktivieren Sie dann einen Anbieter.",
+      "subtitle": "Fügen Sie einen API-Schlüssel hinzu oder melden Sie sich bei SuperAgent an, und aktivieren Sie dann einen Anbieter.",
       "title": "Wählen Sie einen Anbieter"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "Überspringen",
     "toast": {
       "complete_failed": "Einrichtung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
-      "connected": "Erfolgreich mit CherryIN verbunden"
+      "connected": "Erfolgreich mit SuperAgent verbunden"
     },
     "welcome": {
-      "login_cherryin": "Mit CherryIN anmelden",
+      "login_cherryin": "Mit SuperAgent anmelden",
       "or_continue_with": "ODER WEITER MIT",
       "other_provider": "Andere Anbieter auswählen",
       "select_other_provider": "Wählen Sie einen anderen Anbieter",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "Fehler beim Abrufen des Guthabens",
         "button": "Mit {{provider}}-Konto anmelden",
         "cherryIn": {
-          "description": "Melden Sie sich über OAuth 2.0 bei CherryIN an.",
+          "description": "Melden Sie sich über OAuth 2.0 bei SuperAgent an.",
           "logged_in": "Über OAuth angemeldet",
-          "login_button": "Mit CherryIN autorisieren",
+          "login_button": "Mit SuperAgent autorisieren",
           "logout_button": "Abmelden",
           "not_logged_in": "Nicht angemeldet",
           "register_account": "Konto erstellen",
-          "service_attribution": "Dieser Dienst wird von <link>open.cherryin.ai</link> bereitgestellt",
+          "service_attribution": "Dieser Dienst wird von <link>superagent.ng</link> bereitgestellt",
           "tagline": "Nach der Anmeldung können Sie alle Modelldienste verwenden",
           "title": "OAuth-Anmeldung",
           "use_api_key": "Stattdessen API-Schlüssel verwenden"

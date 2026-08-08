@@ -318,7 +318,7 @@
         }
       },
       "info": {
-        "artifacts": "Deliverables",
+        "artifacts": "Outputs",
         "context_categories": {
           "autocompact_buffer": "Autocompact buffer",
           "custom_agents": "Custom agents",
@@ -334,7 +334,7 @@
         "context_usage": "Context usage",
         "label": "Session information",
         "more": "+{{count}} more",
-        "no_artifacts": "No declared deliverables",
+        "no_artifacts": "No declared outputs",
         "no_subagents": "No sub-agents",
         "shell_tasks": "Background commands",
         "subagents": "Sub-agents",
@@ -4708,7 +4708,7 @@
       "missing_model": "Enable at least one model from the enabled provider",
       "missing_provider": "Enable a provider to continue",
       "next": "Next",
-      "subtitle": "Add an API key or sign in with CherryIN, then enable a provider.",
+      "subtitle": "Add an API key or sign in with SuperAgent, then enable a provider.",
       "title": "Choose a Provider"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "Set up later",
     "toast": {
       "complete_failed": "Unable to complete setup. Please try again.",
-      "connected": "Successfully connected to CherryIN"
+      "connected": "Successfully connected to SuperAgent"
     },
     "welcome": {
-      "login_cherryin": "Connect CherryIN",
+      "login_cherryin": "Connect SuperAgent",
       "or_continue_with": "or",
       "other_provider": "Set up another provider",
       "select_other_provider": "Select Other Provider",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "Failed to fetch balance",
         "button": "Login with {{provider}}",
         "cherryIn": {
-          "description": "Login to CherryIN using OAuth 2.0",
+          "description": "Login to SuperAgent using OAuth 2.0",
           "logged_in": "Logged in via OAuth",
-          "login_button": "Authorize with CherryIN",
+          "login_button": "Obtain API Key",
           "logout_button": "Logout",
           "not_logged_in": "Not logged in",
           "register_account": "Create account",
-          "service_attribution": "This service is provided by <link>open.cherryin.ai</link>",
+          "service_attribution": "This service is provided by <link>superagent.ng</link>",
           "tagline": "After you sign in, you can use all model services",
           "title": "OAuth Login",
           "use_api_key": "Use API key instead"

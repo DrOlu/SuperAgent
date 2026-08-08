@@ -141,8 +141,9 @@ rpm:
   # https://github.com/electron/forge/issues/3594
   fpm: ["--rpm-rpmbuild-define=_build_id_links none"]
 publish:
-  provider: generic
-  url: https://releases.superagent.ng
+  provider: github
+  owner: DrOlu
+  repo: SuperAgent
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
 beforePack: scripts/before-pack.js

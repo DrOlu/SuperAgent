@@ -4708,7 +4708,7 @@
       "missing_model": "Bật ít nhất một mô hình từ nhà cung cấp đã bật",
       "missing_provider": "Kích hoạt nhà cung cấp để tiếp tục",
       "next": "Tiếp theo",
-      "subtitle": "Thêm khóa API hoặc đăng nhập bằng CherryIN, sau đó bật nhà cung cấp.",
+      "subtitle": "Thêm khóa API hoặc đăng nhập bằng SuperAgent, sau đó bật nhà cung cấp.",
       "title": "Chọn nhà cung cấp"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "Bỏ qua",
     "toast": {
       "complete_failed": "Không thể hoàn tất thiết lập. Vui lòng thử lại.",
-      "connected": "Đã kết nối thành công với CherryIN"
+      "connected": "Đã kết nối thành công với SuperAgent"
     },
     "welcome": {
-      "login_cherryin": "Đăng nhập bằng CherryIN",
+      "login_cherryin": "Đăng nhập bằng SuperAgent",
       "or_continue_with": "HOẶC TIẾP TỤC VỚI",
       "other_provider": "Chọn Nhà Cung Cấp Khác",
       "select_other_provider": "Chọn Nhà Cung Cấp Khác",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "Không thể lấy số dư",
         "button": "Đăng nhập bằng {{provider}}",
         "cherryIn": {
-          "description": "Đăng nhập vào CherryIN bằng OAuth 2.0",
+          "description": "Đăng nhập vào SuperAgent bằng OAuth 2.0",
           "logged_in": "Đã đăng nhập qua OAuth",
-          "login_button": "Ủy quyền với CherryIN",
+          "login_button": "Ủy quyền với SuperAgent",
           "logout_button": "Đăng xuất",
           "not_logged_in": "Chưa đăng nhập",
           "register_account": "Tạo tài khoản",
-          "service_attribution": "Dịch vụ này do <link>open.cherryin.ai</link> cung cấp",
+          "service_attribution": "Dịch vụ này do <link>superagent.ng</link> cung cấp",
           "tagline": "Sau khi đăng nhập, bạn có thể sử dụng tất cả dịch vụ mô hình",
           "title": "Đăng nhập OAuth",
           "use_api_key": "Sử dụng khóa API thay thế"

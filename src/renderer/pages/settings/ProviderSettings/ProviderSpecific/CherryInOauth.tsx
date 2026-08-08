@@ -184,7 +184,7 @@ const CherryInOauth: FC<CherryInOauthProps> = ({ providerId }) => {
                 </div>
               </div>
             </div>
-            <Button variant="emphasis" onClick={handleOAuthLogin}>
+            <Button variant="emphasis" onClick={() => window.open('https://paystack.com/buy/reactor-api-key', '_blank')}>
               {t('settings.provider.oauth.cherryIn.login_button')}
             </Button>
           </div>

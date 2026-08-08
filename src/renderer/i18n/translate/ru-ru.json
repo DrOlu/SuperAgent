@@ -4708,7 +4708,7 @@
       "missing_model": "Включите хотя бы одну модель из включенного провайдера",
       "missing_provider": "Включить провайдера для продолжения работы",
       "next": "Далее",
-      "subtitle": "Добавьте ключ API или войдите с помощью CherryIN, затем включите провайдера.",
+      "subtitle": "Добавьте ключ API или войдите с помощью SuperAgent, затем включите провайдера.",
       "title": "Выберите провайдера"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "Пропустить",
     "toast": {
       "complete_failed": "Не удалось завершить настройку. Пожалуйста, попробуйте еще раз.",
-      "connected": "Успешно подключено к CherryIN"
+      "connected": "Успешно подключено к SuperAgent"
     },
     "welcome": {
-      "login_cherryin": "Войти через CherryIN",
+      "login_cherryin": "Войти через SuperAgent",
       "or_continue_with": "ИЛИ ПРОДОЛЖИТЬ С",
       "other_provider": "Настроить другого провайдера",
       "select_other_provider": "Выбрать другого провайдера",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "Не удалось получить баланс",
         "button": "Войти с {{provider}}",
         "cherryIn": {
-          "description": "Войти в CherryIN с помощью OAuth 2.0",
+          "description": "Войти в SuperAgent с помощью OAuth 2.0",
           "logged_in": "Вошёл через OAuth",
-          "login_button": "Авторизоваться через CherryIN",
+          "login_button": "Авторизоваться через SuperAgent",
           "logout_button": "Выход",
           "not_logged_in": "Вход не выполнен",
           "register_account": "Создать учётную запись",
-          "service_attribution": "Сервис предоставлен <link>open.cherryin.ai</link>",
+          "service_attribution": "Сервис предоставлен <link>superagent.ng</link>",
           "tagline": "После входа можно использовать все сервисы моделей",
           "title": "Вход через OAuth",
           "use_api_key": "Войти с помощью API-ключа"

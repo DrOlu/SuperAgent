@@ -4708,7 +4708,7 @@
       "missing_model": "Activez au moins un modèle du fournisseur activé",
       "missing_provider": "Activer un fournisseur pour continuer",
       "next": "Suivant",
-      "subtitle": "Ajoutez une clé API ou connectez-vous avec CherryIN, puis activez un fournisseur.",
+      "subtitle": "Ajoutez une clé API ou connectez-vous avec SuperAgent, puis activez un fournisseur.",
       "title": "Choisissez un fournisseur"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "Passer",
     "toast": {
       "complete_failed": "Impossible de terminer la configuration. Veuillez réessayer.",
-      "connected": "Connecté avec succès à CherryIN"
+      "connected": "Connecté avec succès à SuperAgent"
     },
     "welcome": {
-      "login_cherryin": "Se connecter avec CherryIN",
+      "login_cherryin": "Se connecter avec SuperAgent",
       "or_continue_with": "OU CONTINUER AVEC",
       "other_provider": "Choisir d'autres fournisseurs",
       "select_other_provider": "Sélectionner un autre fournisseur",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "Échec de la récupération du solde",
         "button": "Se connecter avec {{provider}}",
         "cherryIn": {
-          "description": "Connectez-vous à CherryIN avec OAuth 2.0",
+          "description": "Connectez-vous à SuperAgent avec OAuth 2.0",
           "logged_in": "Connecté via OAuth",
-          "login_button": "Autoriser avec CherryIN",
+          "login_button": "Autoriser avec SuperAgent",
           "logout_button": "Déconnexion",
           "not_logged_in": "Non connecté",
           "register_account": "Créer un compte",
-          "service_attribution": "Ce service est fourni par <link>open.cherryin.ai</link>",
+          "service_attribution": "Ce service est fourni par <link>superagent.ng</link>",
           "tagline": "Une fois connecté, vous pouvez utiliser tous les services de modèles",
           "title": "Connexion OAuth",
           "use_api_key": "Utiliser plutôt une clé API"

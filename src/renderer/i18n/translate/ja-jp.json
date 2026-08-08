@@ -4708,7 +4708,7 @@
       "missing_model": "有効化されたプロバイダーから少なくとも1つのモデルを有効にしてください",
       "missing_provider": "プロバイダーを有効にして続行",
       "next": "次へ",
-      "subtitle": "APIキーを追加するか、CherryINでサインインしてから、プロバイダーを有効化してください。",
+      "subtitle": "APIキーを追加するか、SuperAgentでサインインしてから、プロバイダーを有効化してください。",
       "title": "プロバイダーを選択"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "スキップ",
     "toast": {
       "complete_failed": "セットアップを完了できませんでした。もう一度お試しください。",
-      "connected": "CherryINに正常に接続されました"
+      "connected": "SuperAgentに正常に接続されました"
     },
     "welcome": {
-      "login_cherryin": "CherryINでログイン",
+      "login_cherryin": "SuperAgentでログイン",
       "or_continue_with": "または続行",
       "other_provider": "他のプロバイダーを選択",
       "select_other_provider": "他のプロバイダーを選択",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "残高の取得に失敗しました",
         "button": "{{provider}} アカウントでログイン",
         "cherryIn": {
-          "description": "OAuth 2.0 を使用して CherryIN にログイン",
+          "description": "OAuth 2.0 を使用して SuperAgent にログイン",
           "logged_in": "OAuth経由でログインしました",
-          "login_button": "CherryINで認証",
+          "login_button": "SuperAgentで認証",
           "logout_button": "ログアウト",
           "not_logged_in": "未ログイン",
           "register_account": "アカウントを作成",
-          "service_attribution": "このサービスは <link>open.cherryin.ai</link> によって提供されています",
+          "service_attribution": "このサービスは <link>superagent.ng</link> によって提供されています",
           "tagline": "サインインすると、すべてのモデルサービスを利用できます",
           "title": "OAuthログイン",
           "use_api_key": "代わりに API キーを使用"

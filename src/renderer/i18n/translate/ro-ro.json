@@ -4708,7 +4708,7 @@
       "missing_model": "Activează cel puțin un model de la furnizorul activat",
       "missing_provider": "Activează un furnizor pentru a continua",
       "next": "Următorul",
-      "subtitle": "Adaugă o cheie API sau conectează-te cu CherryIN, apoi activează un furnizor.",
+      "subtitle": "Adaugă o cheie API sau conectează-te cu SuperAgent, apoi activează un furnizor.",
       "title": "Alege un furnizor"
     },
     "select_model": {
@@ -4720,10 +4720,10 @@
     "skip": "Sariți",
     "toast": {
       "complete_failed": "Nu s-a putut finaliza configurarea. Încearcă din nou.",
-      "connected": "Conectat cu succes la CherryIN"
+      "connected": "Conectat cu succes la SuperAgent"
     },
     "welcome": {
-      "login_cherryin": "Conectare cu CherryIN",
+      "login_cherryin": "Conectare cu SuperAgent",
       "or_continue_with": "SAU CONTINUAȚI CU",
       "other_provider": "Configurează un alt furnizor",
       "select_other_provider": "Selectează alt furnizor",
@@ -5259,7 +5259,7 @@
     "burncloud": "BurnCloud",
     "cerebras": "Cerebras AI",
     "cherryai": "CherryAI",
-    "cherryin": "CherryIN",
+    "cherryin": "SuperAgent",
     "claude-code": "Claude Code",
     "copilot": "GitHub Copilot",
     "dashscope": "Alibaba Cloud",
@@ -7918,13 +7918,13 @@
         "balance_error": "Nu s-a putut obține soldul",
         "button": "Conectare cu {{provider}}",
         "cherryIn": {
-          "description": "Autentifică-te în CherryIN folosind OAuth 2.0",
+          "description": "Autentifică-te în SuperAgent folosind OAuth 2.0",
           "logged_in": "Conectat prin OAuth",
-          "login_button": "Autorizează cu CherryIN",
+          "login_button": "Autorizează cu SuperAgent",
           "logout_button": "Deconectare",
           "not_logged_in": "Neautentificat",
           "register_account": "Creează un cont",
-          "service_attribution": "Acest serviciu este furnizat de <link>open.cherryin.ai</link>",
+          "service_attribution": "Acest serviciu este furnizat de <link>superagent.ng</link>",
           "tagline": "După autentificare, poți utiliza toate serviciile de modele",
           "title": "Autentificare OAuth",
           "use_api_key": "Folosește în schimb cheia API"

@@ -28,24 +28,24 @@ const deepSeekModels = ['deepseek-chat', 'deepseek-reasoner', 'deepseek-v3-1', '
 
 export default defineProvider({
   id: 'cherryin',
-  name: 'CherryIN',
+  name: 'SuperAgent',
   defaultChatEndpoint: 'openai-chat-completions',
   endpointConfigs: {
     'anthropic-messages': {
       adapterFamily: 'cherryin',
-      baseUrl: 'https://open.cherryin.net'
+      baseUrl: 'https://api.superagent.ng'
     },
     'google-generate-content': {
       adapterFamily: 'cherryin',
-      baseUrl: 'https://open.cherryin.net'
+      baseUrl: 'https://api.superagent.ng'
     },
     'openai-responses': {
       adapterFamily: 'cherryin',
-      baseUrl: 'https://open.cherryin.net'
+      baseUrl: 'https://api.superagent.ng'
     },
     'openai-chat-completions': {
       adapterFamily: 'cherryin',
-      baseUrl: 'https://open.cherryin.net',
+      baseUrl: 'https://api.superagent.ng',
       reasoningFormat: { type: 'openai-chat' }
     }
   },
@@ -70,10 +70,10 @@ export default defineProvider({
   ],
   metadata: {
     website: {
-      apiKey: 'https://open.cherryin.ai/console/token',
-      docs: 'https://open.cherryin.ai',
-      models: 'https://open.cherryin.ai/pricing',
-      official: 'https://open.cherryin.ai'
+      apiKey: 'https://paystack.com/buy/reactor-api-key',
+      docs: 'https://superagent.ng',
+      models: 'https://superagent.ng',
+      official: 'https://superagent.ng'
     }
   },
   overrides: deepSeekModels.map((modelId) => ({

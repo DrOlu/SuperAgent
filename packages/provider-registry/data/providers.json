@@ -2,38 +2,38 @@
   "providers": [
     {
       "defaultChatEndpoint": "openai-chat-completions",
-      "description": "CherryIN - AI model provider",
+      "description": "SuperAgent - AI model provider",
       "endpointConfigs": {
         "anthropic-messages": {
           "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net"
+          "baseUrl": "https://api.superagent.ng"
         },
         "google-generate-content": {
           "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net"
+          "baseUrl": "https://api.superagent.ng"
         },
         "openai-chat-completions": {
           "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net",
+          "baseUrl": "https://api.superagent.ng",
           "reasoningFormat": {
             "type": "openai-chat"
           }
         },
         "openai-responses": {
           "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net"
+          "baseUrl": "https://api.superagent.ng"
         }
       },
       "id": "cherryin",
       "metadata": {
         "website": {
-          "apiKey": "https://open.cherryin.ai/console/token",
-          "docs": "https://open.cherryin.ai",
-          "models": "https://open.cherryin.ai/pricing",
-          "official": "https://open.cherryin.ai"
+          "apiKey": "https://paystack.com/buy/reactor-api-key",
+          "docs": "https://superagent.ng",
+          "models": "https://superagent.ng",
+          "official": "https://superagent.ng"
         }
       },
-      "name": "CherryIN",
+      "name": "SuperAgent",
       "serverTools": [
         {
           "id": "web-search",

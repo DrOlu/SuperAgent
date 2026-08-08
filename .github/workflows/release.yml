@@ -32,10 +32,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p release
+          # Only real electron-builder installers + update manifests.
+          # Match by name prefix so bundled tooling exes (git.exe, sh.exe, …)
+          # that leak into the unpacked portable artifact are NOT published.
           find artifacts -type f \( \
-            -name "*.dmg" -o -name "*.zip" -o -name "*.exe" \
-            -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
-            -o -name "*.blockmap" -o -name "latest*.yml" \) \
+            -name "SuperAgent-*.dmg" -o -name "SuperAgent-*.zip" \
+            -o -name "SuperAgent-*-setup.exe" -o -name "SuperAgent-*-portable.exe" \
+            -o -name "SuperAgent-*.AppImage" -o -name "SuperAgent-*.deb" \
+            -o -name "SuperAgent-*.rpm" -o -name "SuperAgent-*.blockmap" \
+            -o -name "latest*.yml" \) \
             -exec cp {} release/ \;
           cd release && sha256sum * > SHA256SUMS.txt
           echo "=== release contents ==="

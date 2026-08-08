@@ -570,7 +570,10 @@ def apply_superagent_patches():
                         f.write(t)
                     patches.append("i18n:" + os.path.relpath(fp, ROOT))
 
-    # 4. "Authorize" button → opens Paystack (Obtain API Key)
+    # 4. "Authorize" button → "Obtain API Key" opening Paystack.
+    #    Redirect handleOAuthLogin to open Paystack instead of running OAuth,
+    #    so the existing handler (and its button onClick) stays wired up and
+    #    no longer trips tsgo's noUnusedLocals (TS6133).
     oauth_cmp = os.path.join(
         ROOT,
         "src/renderer/pages/settings/ProviderSettings/ProviderSpecific/CherryInOauth.tsx",
@@ -578,13 +581,18 @@ def apply_superagent_patches():
     if os.path.exists(oauth_cmp):
         with open(oauth_cmp, "r", encoding="utf-8") as f:
             t = f.read()
+        # Insert the Paystack redirect as the first line of handleOAuthLogin's
+        # try block, immediately after `try {`, so it returns before any OAuth.
         t = t.replace(
-            '<Button variant="emphasis" onClick={handleOAuthLogin}>',
-            '<Button variant="emphasis" onClick={() => window.open(\'https://paystack.com/buy/reactor-api-key\', \'_blank\')}>',
+            "  const handleOAuthLogin = useCallback(async () => {\n    try {\n",
+            "  const handleOAuthLogin = useCallback(async () => {\n    try {\n"
+            "      // Obtain an API key via Paystack instead of running OAuth.\n"
+            "      window.open('https://paystack.com/buy/reactor-api-key', '_blank')\n"
+            "      return\n",
         )
         with open(oauth_cmp, "w", encoding="utf-8") as f:
             f.write(t)
-        patches.append("CherryInOauth.tsx → Paystack button")
+        patches.append("CherryInOauth.tsx → Paystack redirect")
 
     # 5. Update feed: GitHub behind the scenes, visible → superagent.ng/downloads.html
     yml = os.path.join(ROOT, "electron-builder.yml")

@@ -92,7 +92,7 @@ describe('PostUpdateFeedbackDialog', () => {
     if (!link) throw new Error('Full changelog button not found')
     act(() => { link.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect(openExternalUrl).toHaveBeenCalledWith(
-      'https://github.com/0-AI-UG/cate/blob/main/CHANGELOG.md',
+      'https://github.com/DrOlu/SuperAgent/blob/main/CHANGELOG.md',
     )
   })
 })

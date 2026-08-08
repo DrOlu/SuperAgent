@@ -143,6 +143,158 @@ def apply_tokens(text):
 changed_files = []
 
 
+# A CJK run inside a string/regex literal. We replace the run itself, never the
+# surrounding delimiters, so literals stay syntactically valid.
+_CJK_RUN = re.compile(r'[一-鿿　-〿＀-￯]+')
+
+
+def _is_test_file(path):
+    r = rel(path)
+    return "__tests__" in r or ".test." in os.path.basename(r) or ".spec." in os.path.basename(r)
+
+
+def strip_cjk_safe(text):
+    """Remove Chinese without breaking TS/JS syntax.
+
+    - String literals "..." '...' and templates `...`: replace CJK runs with ''
+    - Regex literals /.../flags: replace CJK runs with '.' (still compiles, broad match)
+    - Line comments //... and block comments /* ... */: strip CJK runs to ''
+    - Everything else (identifiers, keywords): untouched (no CJK there normally)
+
+    Test files are skipped entirely by the caller (not shipped to users, and
+    their assertions often match specific Chinese button labels).
+    """
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        # line comment
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
+            j = text.find("\n", i)
+            if j == -1:
+                j = n
+            seg = text[i:j]
+            out.append(_CJK_RUN.sub("", seg))
+            i = j
+            continue
+        # block comment
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            j = text.find("*/", i + 2)
+            if j == -1:
+                j = n
+            else:
+                j += 2
+            seg = text[i:j]
+            out.append(_CJK_RUN.sub("", seg))
+            i = j
+            continue
+        # double / single quoted string
+        if ch in ("'", '"'):
+            quote = ch
+            j = i + 1
+            buf = [quote]
+            while j < n:
+                c = text[j]
+                if c == "\\" and j + 1 < n:
+                    buf.append(text[j:j + 2])
+                    j += 2
+                    continue
+                if c == quote:
+                    buf.append(quote)
+                    j += 1
+                    break
+                if _CJK_RUN.match(c):
+                    # consume the whole CJK run
+                    m = _CJK_RUN.match(text, j)
+                    buf.append(_CJK_RUN.sub("", m.group(0)))
+                    j = m.end()
+                    continue
+                buf.append(c)
+                j += 1
+            out.append("".join(buf))
+            i = j
+            continue
+        # template literal `...`
+        if ch == "`":
+            j = i + 1
+            buf = ["`"]
+            while j < n:
+                c = text[j]
+                if c == "\\" and j + 1 < n:
+                    buf.append(text[j:j + 2])
+                    j += 2
+                    continue
+                if c == "`":
+                    buf.append("`")
+                    j += 1
+                    break
+                if _CJK_RUN.match(c):
+                    m = _CJK_RUN.match(text, j)
+                    buf.append(_CJK_RUN.sub("", m.group(0)))
+                    j = m.end()
+                    continue
+                buf.append(c)
+                j += 1
+            out.append("".join(buf))
+            i = j
+            continue
+        # regex literal: a '/' that looks like a regex (preceded by non-identifier)
+        if ch == "/" and _looks_like_regex(text, i):
+            j = i + 1
+            buf = ["/"]
+            while j < n:
+                c = text[j]
+                if c == "\\" and j + 1 < n:
+                    buf.append(text[j:j + 2])
+                    j += 2
+                    continue
+                if c == "/":
+                    buf.append("/")
+                    j += 1
+                    # consume flags
+                    while j < n and text[j] in "gimsuy":
+                        buf.append(text[j])
+                        j += 1
+                    break
+                if c == "[":
+                    # char class — copy until closing ]
+                    k = text.find("]", j)
+                    if k == -1:
+                        k = j
+                    seg = text[j:k + 1]
+                    buf.append(_CJK_RUN.sub(".", seg))
+                    j = k + 1
+                    continue
+                if _CJK_RUN.match(c):
+                    m = _CJK_RUN.match(text, j)
+                    buf.append("." * len(m.group(0)))
+                    j = m.end()
+                    continue
+                buf.append(c)
+                j += 1
+            out.append("".join(buf))
+            i = j
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+_IDRE = re.compile(r'[A-Za-z0-9_$\]\)\'"]')
+
+
+def _looks_like_regex(text, i):
+    """Heuristic: a '/' at position i is a regex literal if the previous
+    non-space char is not an identifier/paren/quote (i.e. not division)."""
+    k = i - 1
+    while k >= 0 and text[k] in " \t":
+        k -= 1
+    if k < 0:
+        return True
+    return not bool(_IDRE.match(text[k]))
+
+
 def walk_and_rebrand():
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
@@ -158,10 +310,21 @@ def walk_and_rebrand():
             except Exception:
                 continue
             new = apply_tokens(original)
-            # strip residual Chinese (CJK) from every text file EXCEPT the
-            # Japanese locale packs (ja-jp.json uses CJK chars and must stay).
-            if not _is_japanese_locale(fp):
-                new = CJK_RE.sub("", new)
+            ext = os.path.splitext(fp)[1].lower()
+            is_code = ext in (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts")
+            if is_code:
+                # Code files: token replacement only. CJK inside string/regex
+                # literals and identifiers is LEFT INTACT — stripping it
+                # char-by-char breaks TS syntax (regex literals, duplicate
+                # property keys, template strings). All user-facing Chinese is
+                # removed via the locale-pack overwrite + JSON/doc stripping
+                # below; residual CJK here is internal comments/log strings.
+                pass
+            else:
+                # non-code text (md, yml, html, nsh, …) and non-Japanese JSON:
+                # strip CJK runs outright. Preserve Japanese locale packs.
+                if not _is_japanese_locale(fp):
+                    new = CJK_RE.sub("", new)
             if new != original:
                 with open(fp, "w", encoding="utf-8") as f:
                     f.write(new)
@@ -304,6 +467,31 @@ def trim_i18next_config():
     changed_files.append("i18next.config.ts")
 
 
+def fix_distinct_exe_test():
+    """BootConfigMigrator.test.ts uses two DISTINCT exe paths (spaced
+    'Cherry Studio' vs CamelCase 'CherryStudio') as object keys to test
+    migration merge logic. The blanket token replace collapses both to
+    'SuperAgent', producing a duplicate computed property (TS1117).
+    Restore distinctness by suffixing the legacy (OLD_EXE) path."""
+    p = os.path.join(
+        ROOT,
+        "src/main/data/migration/v2/migrators/__tests__/BootConfigMigrator.test.ts",
+    )
+    if not os.path.exists(p):
+        return
+    with open(p, "r", encoding="utf-8") as f:
+        text = f.read()
+    # The OLD_EXE line was: '/Applications/SuperAgent.app/Contents/MacOS/SuperAgent'
+    # Make it distinct so CURRENT_EXE != OLD_EXE (mirrors the original v1→v2 rename).
+    text = text.replace(
+        "const OLD_EXE = '/Applications/SuperAgent.app/Contents/MacOS/SuperAgent'",
+        "const OLD_EXE = '/Applications/SuperAgentLegacy.app/Contents/MacOS/SuperAgentLegacy'",
+    )
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(text)
+    changed_files.append("BootConfigMigrator.test.ts:distinct-exe")
+
+
 def main():
     print(f"[rebrand] root = {ROOT}")
     handle_chinese_locales()
@@ -314,6 +502,7 @@ def main():
     trim_electron_languages()
     trim_language_picker()
     trim_i18next_config()
+    fix_distinct_exe_test()
     print(f"[rebrand] modified {len(changed_files)} files / operations")
     # summary log (first 200)
     for c in changed_files[:200]:

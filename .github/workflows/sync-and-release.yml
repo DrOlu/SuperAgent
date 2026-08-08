@@ -24,7 +24,6 @@ on:
 permissions:
   contents: write
   actions: write
-  workflows: write
 
 concurrency:
   group: superagent-sync
@@ -144,7 +143,11 @@ jobs:
       - name: Commit and push
         id: commit
         if: steps.check.outputs.do_release == 'true'
+        env:
+          SUPERAGENT_PAT: ${{ secrets.SUPERAGENT_PAT }}
         run: |
+          # PAT with workflow scope — required to push commits touching .github/workflows/
+          git remote set-url origin "https://x-access-token:${SUPERAGENT_PAT}@github.com/DrOlu/SuperAgent"
           git add -A
           git commit -m "Sync upstream ${{ steps.upstream.outputs.sha }} -> SuperAgent ${{ steps.bump.outputs.version }}
 

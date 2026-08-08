@@ -500,6 +500,132 @@ def fix_distinct_exe_test():
     changed_files.append("BootConfigMigrator.test.ts:distinct-exe")
 
 
+# ---------------------------------------------------------------------------
+# SuperAgent provider / feature customizations (after generic rebrand)
+# ---------------------------------------------------------------------------
+def apply_superagent_patches():
+    """Targeted SuperAgent-specific changes beyond the generic Cherry→SuperAgent
+    token rebrand: provider rename, API host, OAuth→Paystack button, update feed,
+    in-app + provider logo, version bump."""
+    patches = []
+
+    # Read the SuperAgent logo SVG (copied into repo root by the workflow)
+    logo_svg_path = os.path.join(ROOT, "superagent_logo.svg")
+    logo_svg = ""
+    if os.path.exists(logo_svg_path):
+        with open(logo_svg_path, "r", encoding="utf-8") as f:
+            logo_svg = f.read()
+
+    # 1. CherryIN provider logo → SuperAgent logo (overwrite the SVG)
+    cherryin_svg = os.path.join(ROOT, "packages/ui/icons/providers/light/cherryin.svg")
+    if os.path.exists(cherryin_svg) and logo_svg:
+        sa = logo_svg.replace('width="32" height="32"', 'width="120" height="120"')
+        with open(cherryin_svg, "w", encoding="utf-8") as f:
+            f.write(sa)
+        patches.append("cherryin.svg → SuperAgent logo")
+
+    # 2. Provider display name CherryIN → SuperAgent + API host → api.superagent.ng
+    #    Also repoint console/docs/official URLs (open.cherryin.ai → SuperAgent).
+    for p in [
+        "packages/provider-registry/data/providers.json",
+        "packages/provider-registry/src/providers/cherryin.ts",
+    ]:
+        fp = os.path.join(ROOT, p)
+        if not os.path.exists(fp):
+            continue
+        with open(fp, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace('"name": "CherryIN"', '"name": "SuperAgent"')
+        t = t.replace("name: 'CherryIN'", "name: 'SuperAgent'")
+        t = t.replace("CherryIN - AI model provider", "SuperAgent - AI model provider")
+        t = t.replace("https://open.cherryin.net", "https://api.superagent.ng")
+        # console/token (get API key) → Paystack, consistent with the button
+        t = t.replace("https://open.cherryin.ai/console/token", "https://paystack.com/buy/reactor-api-key")
+        # docs / pricing / official → SuperAgent site
+        t = t.replace("https://open.cherryin.ai/pricing", "https://superagent.ng")
+        t = t.replace("https://open.cherryin.ai", "https://superagent.ng")
+        with open(fp, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append(p + " (name + API host + URLs)")
+
+    # 3. i18n: login_button → "Obtain API Key" (English first), then CherryIN → SuperAgent
+    i18n_dir = os.path.join(ROOT, "src/renderer/i18n")
+    if os.path.isdir(i18n_dir):
+        for dirpath, _dn, filenames in os.walk(i18n_dir):
+            for fn in filenames:
+                if not fn.endswith(".json"):
+                    continue
+                fp = os.path.join(dirpath, fn)
+                with open(fp, "r", encoding="utf-8") as f:
+                    t = f.read()
+                orig = t
+                # English login_button → "Obtain API Key" (before blanket replace)
+                t = t.replace('"Authorize with CherryIN"', '"Obtain API Key"')
+                # Remaining CherryIN → SuperAgent (display name, descriptions, etc.)
+                t = t.replace("CherryIN", "SuperAgent")
+                # service_attribution + any residual cherryin.ai → superagent.ng
+                t = t.replace("open.cherryin.ai", "superagent.ng")
+                if t != orig:
+                    with open(fp, "w", encoding="utf-8") as f:
+                        f.write(t)
+                    patches.append("i18n:" + os.path.relpath(fp, ROOT))
+
+    # 4. "Authorize" button → opens Paystack (Obtain API Key)
+    oauth_cmp = os.path.join(
+        ROOT,
+        "src/renderer/pages/settings/ProviderSettings/ProviderSpecific/CherryInOauth.tsx",
+    )
+    if os.path.exists(oauth_cmp):
+        with open(oauth_cmp, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace(
+            '<Button variant="emphasis" onClick={handleOAuthLogin}>',
+            '<Button variant="emphasis" onClick={() => window.open(\'https://paystack.com/buy/reactor-api-key\', \'_blank\')}>',
+        )
+        with open(oauth_cmp, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("CherryInOauth.tsx → Paystack button")
+
+    # 5. Update feed: GitHub behind the scenes, visible → superagent.ng/downloads.html
+    yml = os.path.join(ROOT, "electron-builder.yml")
+    if os.path.exists(yml):
+        with open(yml, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace(
+            "publish:\n  provider: generic\n  url: https://releases.superagent.ng",
+            "publish:\n  provider: github\n  owner: DrOlu\n  repo: SuperAgent",
+        )
+        with open(yml, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("electron-builder.yml publish → github DrOlu/SuperAgent")
+
+    about = os.path.join(ROOT, "src/renderer/pages/settings/AboutSettings/AboutSettings.tsx")
+    if os.path.exists(about):
+        with open(about, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace(
+            "onOpenWebsite('https://superagent.ng')",
+            "onOpenWebsite('https://superagent.ng/downloads.html')",
+        )
+        with open(about, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("AboutSettings.tsx → downloads.html visible")
+
+    # 6. Version bump 2.0.3 → 2.0.4
+    pkg = os.path.join(ROOT, "package.json")
+    if os.path.exists(pkg):
+        with open(pkg, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace('"version": "2.0.3"', '"version": "2.0.4"')
+        with open(pkg, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("package.json version → 2.0.4")
+
+    print(f"[patches] applied {len(patches)} SuperAgent-specific patches:")
+    for p in patches:
+        print("  - " + p)
+
+
 def main():
     print(f"[rebrand] root = {ROOT}")
     handle_chinese_locales()
@@ -511,6 +637,7 @@ def main():
     trim_language_picker()
     trim_i18next_config()
     fix_distinct_exe_test()
+    apply_superagent_patches()
     print(f"[rebrand] modified {len(changed_files)} files / operations")
     # summary log (first 200)
     for c in changed_files[:200]:

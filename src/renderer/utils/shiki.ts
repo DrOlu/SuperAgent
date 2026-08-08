@@ -45,7 +45,7 @@ function getLightThemeWhiteColorReplacements(theme: {
 }
 
 /**
- * shiki 
+ * shiki 初始化器，避免并发问题
  */
 const shikiInitializer = new AsyncInitializer(async () => {
   const shiki = await import('shiki')
@@ -53,14 +53,14 @@ const shikiInitializer = new AsyncInitializer(async () => {
 })
 
 /**
- *  shiki package
+ * 获取 shiki package
  */
 export async function getShiki() {
   return shikiInitializer.get()
 }
 
 /**
- * shiki highlighter 
+ * shiki highlighter 初始化器，避免并发问题
  */
 const highlighterInitializer = new AsyncInitializer(async (langs?: string[], themes?: string[]) => {
   const shiki = await getShiki()
@@ -71,17 +71,17 @@ const highlighterInitializer = new AsyncInitializer(async (langs?: string[], the
 })
 
 /**
- *  shiki highlighter
+ * 获取 shiki highlighter
  */
 export async function getHighlighter(langs?: string[], themes?: string[]) {
   return highlighterInitializer.get(langs, themes)
 }
 
 /**
- * 
+ * 加载语言
  * @param highlighter - shiki highlighter
- * @param language - 
- * @returns 
+ * @param language - 语言
+ * @returns 实际加载的语言
  */
 export async function loadLanguageIfNeeded(
   highlighter: HighlighterGeneric<any, any>,
@@ -109,10 +109,10 @@ export async function loadLanguageIfNeeded(
 }
 
 /**
- * 
+ * 加载主题
  * @param highlighter - shiki highlighter
- * @param theme - 
- * @returns 
+ * @param theme - 主题
+ * @returns 实际加载的主题
  */
 export async function loadThemeIfNeeded(highlighter: HighlighterGeneric<any, any>, theme: string): Promise<string> {
   const shiki = await getShiki()
@@ -124,7 +124,7 @@ export async function loadThemeIfNeeded(highlighter: HighlighterGeneric<any, any
       const themeData = await themeImportFn()
       await highlighter.loadTheme(themeData)
     } catch (error) {
-      //  one-light
+      // 回退到 one-light
       logger.debug(`Failed to load theme '${theme}', falling back to 'one-light':`, error as Error)
       const oneLightTheme = await shiki.bundledThemes['one-light']()
       await highlighter.loadTheme(oneLightTheme)
@@ -136,10 +136,10 @@ export async function loadThemeIfNeeded(highlighter: HighlighterGeneric<any, any
 }
 
 /**
- * Shiki token  React 
+ * Shiki token 样式转换为 React 样式对象
  *
  * @param token Shiki themed token
- * @returns React 
+ * @returns React 样式对象
  */
 export function getReactStyleFromToken(
   token: ThemedToken,
@@ -185,8 +185,8 @@ const mdInitializer = new AsyncInitializer(async () => {
 })
 
 /**
- *  markdown-it 
- * @param theme - 
+ * 获取 markdown-it 渲染器
+ * @param theme - 主题
  * @param markdown
  */
 export async function getMarkdownIt(theme: string, markdown: string) {
@@ -244,7 +244,7 @@ export async function getMarkdownIt(theme: string, markdown: string) {
 }
 
 /**
- * markdown
+ * 加载markdown中所有代码块语言类型
  * @param markdown
  * @param highlighter
  */

@@ -29,18 +29,18 @@ describe('TranslationBackend.persistAssistant', () => {
   it('strips any prior data-translation part and appends a fresh one', async () => {
     const existingParts: CherryMessagePart[] = [
       { type: 'text', text: 'hello world' } as CherryMessagePart,
-      { type: 'data-translation', data: { content: '', targetLanguage: 'zh-cn' } } as CherryMessagePart
+      { type: 'data-translation', data: { content: '旧译文', targetLanguage: 'zh-cn' } } as CherryMessagePart
     ]
     getByIdMock.mockReturnValue({ id: MESSAGE_ID, data: { parts: existingParts } })
 
     const backend = new TranslationBackend({ messageId: MESSAGE_ID, targetLanguage: TARGET })
-    backend.persistAssistant({ status: 'success', finalMessage: makeFinalMessage('') })
+    backend.persistAssistant({ status: 'success', finalMessage: makeFinalMessage('你好世界') })
 
     expect(updateMock).toHaveBeenCalledTimes(1)
     const [, dto] = updateMock.mock.calls[0]
     expect(dto.data.parts).toEqual([
       { type: 'text', text: 'hello world' },
-      { type: 'data-translation', data: { content: '', targetLanguage: TARGET } }
+      { type: 'data-translation', data: { content: '你好世界', targetLanguage: TARGET } }
     ])
   })
 
@@ -95,14 +95,14 @@ describe('TranslationBackend.persistAssistant', () => {
         id: 'final',
         role: 'assistant',
         parts: [
-          { type: 'text', text: '' },
-          { type: 'text', text: '' }
+          { type: 'text', text: '第一段' },
+          { type: 'text', text: '第二段' }
         ]
       } as CherryUIMessage
     })
 
     const [, dto] = updateMock.mock.calls[0]
-    expect(dto.data.parts[0].data.content).toBe('')
+    expect(dto.data.parts[0].data.content).toBe('第一段第二段')
   })
 
   it('preserves non-translation parts when writing back', async () => {
@@ -113,13 +113,13 @@ describe('TranslationBackend.persistAssistant', () => {
     getByIdMock.mockReturnValue({ id: MESSAGE_ID, data: { parts: existingParts } })
 
     const backend = new TranslationBackend({ messageId: MESSAGE_ID, targetLanguage: TARGET })
-    backend.persistAssistant({ status: 'success', finalMessage: makeFinalMessage('') })
+    backend.persistAssistant({ status: 'success', finalMessage: makeFinalMessage('翻译') })
 
     const [, dto] = updateMock.mock.calls[0]
     expect(dto.data.parts).toEqual([
       { type: 'text', text: 'original assistant reply' },
       { type: 'reasoning', text: 'inner thought' },
-      { type: 'data-translation', data: { content: '', targetLanguage: TARGET } }
+      { type: 'data-translation', data: { content: '翻译', targetLanguage: TARGET } }
     ])
   })
 })

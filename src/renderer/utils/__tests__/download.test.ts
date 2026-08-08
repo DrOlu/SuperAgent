@@ -5,7 +5,7 @@ vi.mock('@renderer/i18n/resolver', () => ({
   default: {
     t: vi.fn((key: string) => {
       const translations: Record<string, string> = {
-        'message.download.failed': ''
+        'message.download.failed': '下载失败'
       }
       return translations[key] || key
     })
@@ -14,7 +14,7 @@ vi.mock('@renderer/i18n/resolver', () => ({
 
 import { download } from '../download'
 
-// Mock DOM 
+// Mock DOM 方法
 const mockCreateElement = vi.fn()
 const mockAppendChild = vi.fn()
 const mockClick = vi.fn()
@@ -26,7 +26,7 @@ const mockRevokeObjectURL = vi.fn()
 // Mock fetch
 const mockFetch = vi.fn()
 
-// 
+// 辅助函数
 const waitForAsync = () => new Promise((resolve) => setTimeout(resolve, 10))
 const createMockResponse = (options = {}) => ({
   ok: true,
@@ -40,7 +40,7 @@ describe('download', () => {
     beforeEach(() => {
       vi.clearAllMocks()
 
-      //  DOM mock
+      // 设置 DOM mock
       const mockElement = {
         href: '',
         download: '',
@@ -103,7 +103,7 @@ describe('download', () => {
         expect(element.href).toBe(svgDataUrl)
         expect(element.download).toBe(`${now}_download.svg`)
         expect(mockClick).toHaveBeenCalled()
-        // data:image/svg+xml  fetch CSP connect-src 
+        // data:image/svg+xml 不应走 fetch，否则会被 CSP connect-src 阻止
         expect(mockFetch).not.toHaveBeenCalled()
       })
 
@@ -111,7 +111,7 @@ describe('download', () => {
         const now = Date.now()
         vi.spyOn(Date, 'now').mockReturnValue(now)
 
-        // image/pngimage/jpeg  image/svg+xml 
+        // image/png、image/jpeg 和 image/svg+xml 会直接下载
         const directDownloadTests = [
           { url: 'data:image/jpeg;base64,xxx', expectedExt: '.jpg' },
           { url: 'data:image/png;base64,xxx', expectedExt: '.png' },
@@ -125,7 +125,7 @@ describe('download', () => {
           expect(element.download).toBe(`${now}_download${expectedExt}`)
         })
 
-        //  fetch 
+        // 其他类型会通过 fetch 处理
         mockCreateElement.mockClear()
         mockFetch.mockResolvedValueOnce(
           createMockResponse({
@@ -159,10 +159,10 @@ describe('download', () => {
       })
 
       it('should handle URL encoded filenames', () => {
-        void download('file:///path/to/%E6%96%87%E6%A1%A3.pdf') // ".pdf"
+        void download('file:///path/to/%E6%96%87%E6%A1%A3.pdf') // 编码的"文档.pdf"
 
         const element = mockCreateElement.mock.results[0].value
-        expect(element.download).toBe('.pdf')
+        expect(element.download).toBe('文档.pdf')
       })
     })
 
@@ -186,7 +186,7 @@ describe('download', () => {
         void download('https://example.com/files/document.docx')
         await waitForAsync()
 
-        // 
+        // 验证下载被触发（具体文件名由实现决定）
         expect(mockClick).toHaveBeenCalled()
       })
 

@@ -214,7 +214,7 @@ beforeEach(() => {
   imagePreviewShowMock.mockReset()
   imagePreviewShowMock.mockResolvedValue(undefined)
   readPastedTextMock.mockReset()
-  readPastedTextMock.mockResolvedValue('\n')
+  readPastedTextMock.mockResolvedValue('第一段粘贴文本\n第二段粘贴文本')
   Object.defineProperty(window, 'api', {
     value: {
       ...window.api,
@@ -404,7 +404,7 @@ describe('ComposerToken', () => {
         imageIconPreview
         selected
         onRemove={onRemove}
-        removeLabel=""
+        removeLabel="删除"
         token={{
           id: 'file:image-icon-preview',
           kind: 'file',
@@ -433,7 +433,7 @@ describe('ComposerToken', () => {
     expect(thumbnail).toHaveAttribute('aria-hidden', 'true')
     expect(thumbnail).toHaveAttribute('draggable', 'false')
 
-    const removeButton = screen.getByRole('button', { name: '' })
+    const removeButton = screen.getByRole('button', { name: '删除' })
 
     const trigger = await openFileTokenPopover(container)
     expect(screen.getByAltText('avatar-preview.png')).toBeInTheDocument()
@@ -608,10 +608,10 @@ describe('ComposerToken', () => {
           token={{
             id: 'file:pasted-text',
             kind: 'file',
-            label: '.txt',
+            label: '已粘贴的文本.txt',
             payload: createFileMetadata({
               name: 'pasted_text.txt',
-              origin_name: '.txt',
+              origin_name: '已粘贴的文本.txt',
               path: '/tmp/pasted_text.txt',
               size: 23552,
               ext: '.txt',
@@ -620,10 +620,10 @@ describe('ComposerToken', () => {
             })
           }}
           onRemove={onRemove}
-          removeLabel=""
+          removeLabel="删除"
           tooltipActions={
             <button type="button" onClick={onShowInInput}>
-              
+              在文本框中显示
             </button>
           }
         />
@@ -637,10 +637,10 @@ describe('ComposerToken', () => {
     const trigger = getFileTokenTrigger(container)
     expect(trigger).toHaveAttribute('role', 'button')
     expect(trigger).toHaveAttribute('tabindex', '0')
-    expect(trigger).toHaveAccessibleName('.txt')
+    expect(trigger).toHaveAccessibleName('已粘贴的文本.txt')
     const removeButton = container.querySelector('[data-composer-token-remove]') as HTMLButtonElement
     expect(removeButton).toBeInTheDocument()
-    expect(removeButton).toHaveAttribute('aria-label', '')
+    expect(removeButton).toHaveAttribute('aria-label', '删除')
     expect(screen.getByTestId('composer-token-popover')).toHaveAttribute('data-open', 'false')
     const nativeEditorKeyDown = vi.fn()
     screen.getByTestId('editor-keydown-boundary').addEventListener('keydown', nativeEditorKeyDown)
@@ -659,24 +659,24 @@ describe('ComposerToken', () => {
     expect(screen.getByTestId('composer-token-popover')).toHaveAttribute('data-open', 'true')
     expect(nativeEditorKeyDown).not.toHaveBeenCalled()
     await waitFor(() =>
-      expect(screen.getByTestId('composer-token-popover-content')).toHaveTextContent('')
+      expect(screen.getByTestId('composer-token-popover-content')).toHaveTextContent('第一段粘贴文本')
     )
     expect(readPastedTextMock).toHaveBeenCalledWith('/tmp/pasted_text.txt')
-    expect(screen.getByTestId('composer-token-popover-content')).toHaveTextContent('')
-    expect(screen.getByTestId('composer-token-popover-content')).not.toHaveTextContent('.txt')
+    expect(screen.getByTestId('composer-token-popover-content')).toHaveTextContent('第二段粘贴文本')
+    expect(screen.getByTestId('composer-token-popover-content')).not.toHaveTextContent('已粘贴的文本.txt')
     expect(screen.getByTestId('composer-token-popover-content')).not.toHaveTextContent('TXT')
     expect(screen.getByTestId('composer-token-popover-content')).not.toHaveTextContent('23 KB')
     const textScrollbar = screen.getByTestId('composer-token-scrollbar')
     expect(textScrollbar).toHaveAttribute('data-file-token-text-scrollbar', '')
     const textPreview = textScrollbar.querySelector('pre')
-    expect(textPreview).toHaveTextContent('')
-    const showInInputButton = screen.getByRole('button', { name: '' })
+    expect(textPreview).toHaveTextContent('第一段粘贴文本')
+    const showInInputButton = screen.getByRole('button', { name: '在文本框中显示' })
     expect(showInInputButton).toBeInTheDocument()
     expect(showInInputButton).toHaveFocus()
     const actionContainer = document.querySelector('[data-file-token-actions]')!
     const actionButtons = Array.from(actionContainer.querySelectorAll('button'))
     expect(actionButtons).toHaveLength(1)
-    expect(actionButtons[0]).toHaveTextContent('')
+    expect(actionButtons[0]).toHaveTextContent('在文本框中显示')
 
     fireEvent.blur(trigger, { relatedTarget: showInInputButton })
     fireEvent.focus(showInInputButton)
@@ -711,7 +711,7 @@ describe('ComposerToken', () => {
               })
             }}
             onRemove={onRemove}
-            removeLabel=""
+            removeLabel="删除"
           />
         </>
       )
@@ -894,13 +894,13 @@ describe('ComposerToken', () => {
           promptText: 'Use the PDF Reader skill.'
         }}
         onRemove={onRemove}
-        removeLabel=""
+        removeLabel="删除"
       />
     )
 
     expectNoComposerTokenPopover(container)
     const removeButton = container.querySelector('[data-composer-token-remove]') as HTMLButtonElement
-    expect(removeButton).toHaveAttribute('aria-label', '')
+    expect(removeButton).toHaveAttribute('aria-label', '删除')
 
     fireEvent.click(removeButton)
     expect(onRemove).toHaveBeenCalledTimes(1)
@@ -918,7 +918,7 @@ describe('ComposerToken', () => {
           promptText: url
         }}
         onRemove={onRemove}
-        removeLabel=""
+        removeLabel="删除"
       />
     )
 
@@ -968,13 +968,13 @@ describe('ComposerToken', () => {
           }
         }}
         onRemove={onRemove}
-        removeLabel=""
+        removeLabel="删除"
       />
     )
 
     expectNoComposerTokenPopover(container)
     const removeButton = container.querySelector('[data-composer-token-remove]') as HTMLButtonElement
-    expect(removeButton).toHaveAttribute('aria-label', '')
+    expect(removeButton).toHaveAttribute('aria-label', '删除')
 
     fireEvent.click(removeButton)
     expect(onRemove).toHaveBeenCalledTimes(1)
@@ -1013,9 +1013,9 @@ describe('ComposerToken', () => {
   ])('lets keyboard users focus and activate the inline remove button for %s tokens', async (_label, token) => {
     const user = userEvent.setup()
     const onRemove = vi.fn()
-    render(<ComposerToken token={token} onRemove={onRemove} removeLabel="" />)
+    render(<ComposerToken token={token} onRemove={onRemove} removeLabel="删除" />)
 
-    const removeButton = screen.getByRole('button', { name: '' })
+    const removeButton = screen.getByRole('button', { name: '删除' })
 
     await user.tab()
     expect(removeButton).toHaveFocus()
@@ -1060,12 +1060,12 @@ describe('ComposerToken', () => {
     fireEvent.change(input, { target: { value: 'sh' } })
     expect(onPromptVariableCommit).not.toHaveBeenCalled()
 
-    fireEvent.change(input, { target: { value: '' } })
-    fireEvent.compositionEnd(input, { data: '' })
+    fireEvent.change(input, { target: { value: '上海' } })
+    fireEvent.compositionEnd(input, { data: '上海' })
     expect(onPromptVariableCommit).not.toHaveBeenCalled()
 
     fireEvent.blur(input)
-    expect(onPromptVariableCommit).toHaveBeenCalledWith('', 'blur', { dirty: true })
+    expect(onPromptVariableCommit).toHaveBeenCalledWith('上海', 'blur', { dirty: true })
   })
 
   it('lets prompt variable edit text wrap and grow without truncation', () => {
@@ -1078,7 +1078,7 @@ describe('ComposerToken', () => {
     expect(input.style.maxWidth).toBe('100%')
     expect(input.style.width).toBe('')
 
-    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.change(input, { target: { value: '上海市浦东新区世纪大道' } })
     expect(input.style.width).toBe('')
     expect(input.style.height).toBe('48px')
   })
@@ -1124,20 +1124,20 @@ describe('ComposerToken', () => {
 
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('${from}')))
     const fromInput = screen.getByLabelText('${from}') as HTMLTextAreaElement
-    fireEvent.change(fromInput, { target: { value: '' } })
+    fireEvent.change(fromInput, { target: { value: '上海' } })
     fireEvent.keyDown(fromInput, { key: 'Tab' })
 
-    await waitFor(() => expect(serializeComposerDocument(editor!).text).toBe('go  to ${to}'))
+    await waitFor(() => expect(serializeComposerDocument(editor!).text).toBe('go 上海 to ${to}'))
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('${to}')))
     const toInput = screen.getByLabelText('${to}') as HTMLTextAreaElement
 
-    fireEvent.change(toInput, { target: { value: '' } })
+    fireEvent.change(toInput, { target: { value: '北京' } })
     fireEvent.keyDown(toInput, { key: 'Tab', shiftKey: true })
 
-    await waitFor(() => expect(serializeComposerDocument(editor!).text).toBe('go  to '))
+    await waitFor(() => expect(serializeComposerDocument(editor!).text).toBe('go 上海 to 北京'))
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('${from}')))
     const previousInput = screen.getByLabelText('${from}') as HTMLTextAreaElement
-    expect(previousInput.value).toBe('')
+    expect(previousInput.value).toBe('上海')
   })
 
   it('removes an inserted quote token with Backspace without leaving quote newlines', async () => {

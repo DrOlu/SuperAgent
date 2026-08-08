@@ -1,6 +1,6 @@
 /**
  * Extension Registry
- *  Provider Extensions 
+ * 管理所有 Provider Extensions 的注册、查询和实例化
  */
 
 import type { ProviderV3 } from '@ai-sdk/provider'
@@ -10,44 +10,44 @@ import { type ProviderExtension } from './ProviderExtension'
 import { ProviderCreationError } from './utils'
 
 /**
- * Provider Extension 
+ * Provider Extension 注册表
  *
- * :
- * -  Provider Extensions
- * -  ID  Extension
- * -  provider 
+ * 职责:
+ * - 注册和管理 Provider Extensions
+ * - 根据 ID 查找对应的 Extension
+ * - 创建并注册 provider 实例（包括变体）
  *
  * @example
  * ```typescript
  * import { extensionRegistry } from '@cherrystudio/ai-core/provider'
  * import { OpenAIExtension } from './extensions/openai'
  *
- * //  extension
+ * // 注册 extension
  * extensionRegistry.register(OpenAIExtension)
  *
- * // 
+ * // 批量注册
  * extensionRegistry.registerAll([
  *   OpenAIExtension,
  *   AzureExtension,
  *   AnthropicExtension
  * ])
  *
- * //  provider 
+ * // 创建并注册 provider 实例
  * await extensionRegistry.createAndRegisterProvider('openai', {
  *   apiKey: 'sk-xxx'
  * })
  * ```
  */
 export class ExtensionRegistry {
-  /** Extension : name -> Extension */
+  /** Extension 存储: name -> Extension */
   private extensions: Map<string, ProviderExtension<any, any, any>> = new Map()
 
-  /** : alias -> name */
+  /** 别名映射: alias -> name */
   private aliasMap: Map<string, string> = new Map()
 
   /**
-   *  Extension
-   * 
+   * 注册单个 Extension
+   * 支持链式调用
    */
   register(extension: ProviderExtension<any, any, any>): this {
     const { name, aliases, variants } = extension.config
@@ -84,8 +84,8 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  Extensions
-   *  readonly  as const 
+   * 批量注册 Extensions
+   * 支持 readonly 数组（用于 as const 数组）
    */
   registerAll(extensions: readonly ProviderExtension<any, any, any>[]): this {
     for (const ext of extensions) {
@@ -95,7 +95,7 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  Extension
+   * 取消注册 Extension
    */
   unregister(name: string): boolean {
     const extension = this.extensions.get(name)
@@ -122,7 +122,7 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  Extension
+   * 获取 Extension（支持别名）
    */
   get(id: string): ProviderExtension<any, any, any> | undefined {
     if (this.extensions.has(id)) {
@@ -138,10 +138,10 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  Extension
+   * 获取 Extension
    *
-   * @param id - Provider ID RegisteredProviderId
-   * @returns Extension  undefined
+   * @param id - Provider ID（必须是 RegisteredProviderId）
+   * @returns Extension 或 undefined
    *
    * @example
    * ```typescript
@@ -158,22 +158,22 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  Extension 
+   * 检查 Extension 是否已注册
    */
   has(id: string): boolean {
     return this.extensions.has(id) || this.aliasMap.has(id)
   }
 
   /**
-   *  Extension
+   * 获取所有已注册的 Extension
    */
   getAll(): ProviderExtension<any, any, any>[] {
     return Array.from(this.extensions.values())
   }
 
   /**
-   *  provider IDs
-   *  RegisteredProviderId 
+   * 获取所有已注册的 provider IDs（包含变体）
+   * 返回类型安全的 RegisteredProviderId 数组，自动去重
    */
   getAllProviderIds(): RegisteredProviderId[] {
     const ids = new Set<string>()
@@ -189,75 +189,75 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  base ID + mode  provider ID
+   * 根据 base ID + mode 解析到完整的 provider ID
    *
-   *  baseId  ID
+   * 支持别名：如果 baseId 是别名，会先解析到规范 ID
    *
-   * @param baseId -  provider ID
-   * @param mode -  'chat', 'responses'
-   * @returns  provider ID null
+   * @param baseId - 基础 provider ID（可以是别名）
+   * @param mode - 模式（如 'chat', 'responses'）
+   * @returns 完整的 provider ID，如果无法解析则返回 null
    *
    * @example
    * ```typescript
    * resolveProviderIdWithMode('openai', 'chat')        // → 'openai-chat'
    * resolveProviderIdWithMode('azure', 'responses')    // → 'azure-responses'
-   * resolveProviderIdWithMode('gemini', 'chat')        // → null (google  chat )
-   * resolveProviderIdWithMode('openai')                // → 'openai' ( mode)
+   * resolveProviderIdWithMode('gemini', 'chat')        // → null (google 没有 chat 变体)
+   * resolveProviderIdWithMode('openai')                // → 'openai' (没有 mode)
    * ```
    */
   resolveProviderIdWithMode(baseId: string, mode?: string): string | null {
-    //  mode ID
+    // 如果没有 mode，直接返回解析后的 ID
     if (!mode) {
       const extension = this.get(baseId)
       return extension ? extension.config.name : null
     }
 
-    //  extension
+    // 获取 extension（支持别名）
     const extension = this.get(baseId)
     if (!extension) {
       return null
     }
 
-    // 
+    // 检查是否有对应的变体
     if (!extension.config.variants) {
       return null
     }
 
-    // 
+    // 查找匹配的变体
     const variant = extension.config.variants.find((v: { suffix: string }) => v.suffix === mode)
     if (!variant) {
       return null
     }
 
-    //  ID: ${name}-${suffix}
+    // 返回变体 ID: ${name}-${suffix}
     return `${extension.config.name}-${variant.suffix}`
   }
 
   /**
-   *  ID  base ID  mode
+   * 反向解析：从完整 ID 提取 base ID 和 mode
    *
-   *  extensions  `${name}-${suffix}` 
+   * 遍历所有 extensions 的变体，匹配 `${name}-${suffix}` 模式
    *
-   * @param providerId -  provider ID
-   * @returns  null
+   * @param providerId - 完整的 provider ID
+   * @returns 解析结果，如果无法解析返回 null
    *
    * @example
    * ```typescript
    * parseProviderId('openai-chat')        // → { baseId: 'openai', mode: 'chat', isVariant: true }
    * parseProviderId('azure-responses')    // → { baseId: 'azure', mode: 'responses', isVariant: true }
    * parseProviderId('openai')             // → { baseId: 'openai', isVariant: false }
-   * parseProviderId('oai')                // → { baseId: 'openai', isVariant: false } ()
+   * parseProviderId('oai')                // → { baseId: 'openai', isVariant: false } (别名)
    * parseProviderId('unknown')            // → null
    * ```
    */
   parseProviderId(providerId: string): { baseId: RegisteredProviderId; mode?: string; isVariant: boolean } | null {
-    //  extensions
+    // 先遍历所有 extensions，查找匹配的变体（优先于别名检查）
     for (const ext of this.extensions.values()) {
       if (!ext.config.variants) {
         continue
       }
 
-      // 
+      // 检查每个变体
       for (const variant of ext.config.variants) {
         const variantId = `${ext.config.name}-${variant.suffix}`
         if (variantId === providerId) {
@@ -270,25 +270,25 @@ export class ExtensionRegistry {
       }
     }
 
-    //  extension
+    // 再检查是否是已注册的 extension（直接或通过别名）
     const extension = this.get(providerId)
     if (extension) {
-      //  ID 
+      // 是基础 ID 或别名，不是变体
       return {
         baseId: extension.config.name as RegisteredProviderId,
         isVariant: false
       }
     }
 
-    // 
+    // 无法解析
     return null
   }
 
   /**
-   *  ID
+   * 检查是否为变体 ID
    *
    * @param id - Provider ID
-   * @returns  ID  true
+   * @returns 如果是变体 ID 返回 true
    *
    * @example
    * ```typescript
@@ -304,21 +304,21 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  provider ID
+   * 获取基础 provider ID
    *
-   * IDprovider ID
-   * IDprovider ID
-   * IDnull
+   * 对于变体ID，返回其基础provider ID；
+   * 对于基础ID或别名，返回规范的provider ID；
+   * 对于未知ID，返回null
    *
-   * @param id - Provider IDIDID
-   * @returns  provider ID null
+   * @param id - Provider ID（可以是基础ID、变体ID或别名）
+   * @returns 基础 provider ID，如果无法解析则返回 null
    *
    * @example
    * ```typescript
-   * getBaseProviderId('openai-chat')      // → 'openai' ()
-   * getBaseProviderId('azure-responses')  // → 'azure' ()
-   * getBaseProviderId('openai')           // → 'openai' (ID)
-   * getBaseProviderId('oai')              // → 'openai' ()
+   * getBaseProviderId('openai-chat')      // → 'openai' (变体)
+   * getBaseProviderId('azure-responses')  // → 'azure' (变体)
+   * getBaseProviderId('openai')           // → 'openai' (基础ID)
+   * getBaseProviderId('oai')              // → 'openai' (别名)
    * getBaseProviderId('unknown')          // → null
    * ```
    */
@@ -328,16 +328,16 @@ export class ExtensionRegistry {
   }
 
   /**
-   * /
+   * 获取变体的模式/后缀
    *
-   * @param variantId -  ID
-   * @returns / null
+   * @param variantId - 变体 ID
+   * @returns 模式/后缀，如果不是变体则返回 null
    *
    * @example
    * ```typescript
    * getVariantMode('openai-chat')      // → 'chat'
    * getVariantMode('azure-responses')  // → 'responses'
-   * getVariantMode('openai')           // → null ()
+   * getVariantMode('openai')           // → null (不是变体)
    * getVariantMode('unknown')          // → null
    * ```
    */
@@ -346,7 +346,7 @@ export class ExtensionRegistry {
     return parsed?.mode ?? null
   }
 
-  /**  variant  resolveModel  extension  */
+  /** 获取 variant 的 resolveModel 函数（类型安全在 extension 声明处保证） */
   getModelResolver(providerId: string): ((provider: ProviderV3, modelId: string) => any) | undefined {
     const parsed = this.parseProviderId(providerId)
     if (!parsed) return undefined
@@ -354,7 +354,7 @@ export class ExtensionRegistry {
     const extension = this.get(parsed.baseId)
     if (!extension) return undefined
 
-    // Variant resolveModel extension 
+    // Variant resolveModel（类型安全，在 extension 声明处校验）
     if (parsed.isVariant && parsed.mode) {
       const variant = extension.getVariant(parsed.mode)
       if (variant?.resolveModel) return variant.resolveModel
@@ -364,18 +364,18 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  provider  IDs
+   * 获取某个基础 provider 的所有变体 IDs
    *
-   * @param baseId -  provider ID
-   * @returns  ID 
+   * @param baseId - 基础 provider ID（可以是别名）
+   * @returns 变体 ID 数组，如果没有变体则返回空数组
    *
    * @example
    * ```typescript
    * getVariants('openai')   // → ['openai-chat']
    * getVariants('azure')    // → ['azure-responses']
    * getVariants('google')   // → ['google-chat']
-   * getVariants('xai')      // → [] ()
-   * getVariants('unknown')  // → [] ()
+   * getVariants('xai')      // → [] (没有变体)
+   * getVariants('unknown')  // → [] (未注册)
    * ```
    */
   getVariants(baseId: string): string[] {
@@ -387,7 +387,7 @@ export class ExtensionRegistry {
     return extension.config.variants.map((v: { suffix: string }) => `${extension.config.name}-${v.suffix}`)
   }
 
-  /**  provider  base */
+  /** 获取指定 provider 的工具工厂（变体优先，回退到 base） */
   getToolFactory(providerId: string, capability: ToolCapability): ToolFactory | undefined {
     const parsed = this.parseProviderId(providerId)
     if (!parsed) return undefined
@@ -409,24 +409,24 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  factory + provider 
+   * 解析工具能力：返回 factory + provider 实例
    *
-   * 1. Direct — provider  toolFactories
-   * 2. Aggregator fallback —  model.provider  "aihubmix.google" → google extension
+   * 1. Direct — provider 自己有 toolFactories
+   * 2. Aggregator fallback — 从 model.provider 段解析（如 "aihubmix.google" → google extension）
    */
   async resolveToolCapability(
     providerId: string,
     capability: ToolCapability,
     modelProvider?: string
   ): Promise<{ factory: ToolFactory; provider: ProviderV3 } | undefined> {
-    // 1. Direct: provider  toolFactories
+    // 1. Direct: provider 自己有 toolFactories
     const directFactory = this.getToolFactory(providerId, capability)
     if (directFactory) {
       const provider = await this.getToolProvider(providerId)
       if (provider) return { factory: directFactory, provider }
     }
 
-    // 2. Aggregator fallback:  model.provider  provider
+    // 2. Aggregator fallback: 从 model.provider 段解析真实 provider
     //    e.g., "aihubmix.google" → try "google" → found via google extension
     //    e.g., "cherryin.gemini" → try "gemini" → found via alias → google extension
     if (typeof modelProvider === 'string') {
@@ -465,7 +465,7 @@ export class ExtensionRegistry {
   }
 
   /**
-   * 
+   * 清空所有注册
    */
   clear(): void {
     this.extensions.clear()
@@ -473,15 +473,15 @@ export class ExtensionRegistry {
   }
 
   /**
-   *  provider 
+   * 创建 provider 实例
    *
-   * :
-   * 1.  -  provider ID
-   * 2.  -  ID provider
+   * 支持两种调用方式:
+   * 1. 类型安全版本 - 使用已注册的 provider ID，获得完整的类型推导
+   * 2. 动态版本 - 使用任意字符串 ID，用于测试或动态注册的 provider
    *
    * @param id - Provider ID
-   * @param settings - Provider 
-   * @returns Provider 
+   * @param settings - Provider 配置
+   * @returns Provider 实例
    */
   async createProvider<T extends RegisteredProviderId>(id: T, settings: CoreProviderSettingsMap[T]): Promise<ProviderV3>
   async createProvider(id: string, settings?: unknown): Promise<ProviderV3>
@@ -511,7 +511,7 @@ export class ExtensionRegistry {
 }
 
 /**
- *  Extension Registry 
- * 
+ * 全局 Extension Registry 实例
+ * 单例模式，确保整个应用只有一个注册表
  */
 export const extensionRegistry = new ExtensionRegistry()

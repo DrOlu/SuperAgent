@@ -81,7 +81,7 @@ describe('useTranslate', () => {
 
       let translated: string | undefined
       await act(async () => {
-        translated = await result.current.translate('', TARGET)
+        translated = await result.current.translate('源', TARGET)
       })
 
       expect(translated).toBe('Hello world')
@@ -102,7 +102,7 @@ describe('useTranslate', () => {
       const { result } = renderHook(() => useTranslate({ onResponse }))
 
       await act(async () => {
-        await result.current.translate('', TARGET)
+        await result.current.translate('源', TARGET)
       })
 
       expect(onResponse).toHaveBeenCalledTimes(2)
@@ -118,7 +118,7 @@ describe('useTranslate', () => {
       const { result } = renderHook(() => useTranslate())
 
       await act(async () => {
-        await result.current.translate('', TARGET)
+        await result.current.translate('源', TARGET)
       })
 
       const lastCall = translateTextMock.mock.calls[0]
@@ -133,7 +133,7 @@ describe('useTranslate', () => {
       const { result } = renderHook(() => useTranslate())
 
       act(() => {
-        void result.current.translate('', TARGET)
+        void result.current.translate('源', TARGET)
       })
 
       const handedSignal = translateTextMock.mock.calls[0][3] as AbortSignal
@@ -173,7 +173,7 @@ describe('useTranslate', () => {
       const { result, unmount } = renderHook(() => useTranslate())
 
       act(() => {
-        void result.current.translate('', TARGET)
+        void result.current.translate('源', TARGET)
       })
       const signal = translateTextMock.mock.calls[0][3] as AbortSignal
       expect(signal.aborted).toBe(false)
@@ -192,7 +192,7 @@ describe('useTranslate', () => {
 
       let translatePromise!: Promise<string | undefined>
       act(() => {
-        translatePromise = result.current.translate('', TARGET)
+        translatePromise = result.current.translate('源', TARGET)
       })
 
       // Hook flipped to "in flight" synchronously after translate() invocation.
@@ -230,7 +230,7 @@ describe('useTranslate', () => {
       const { result } = renderHook(() => useTranslate({ onResponse }))
 
       act(() => {
-        void result.current.translate('', TARGET)
+        void result.current.translate('源', TARGET)
       })
 
       act(() => {
@@ -264,7 +264,7 @@ describe('useTranslate', () => {
 
       let translated: string | undefined
       await act(async () => {
-        translated = await result.current.translate('', TARGET)
+        translated = await result.current.translate('源', TARGET)
       })
 
       expect(translated).toBeUndefined()
@@ -283,7 +283,7 @@ describe('useTranslate', () => {
 
       let translated: string | undefined
       await act(async () => {
-        translated = await result.current.translate('', TARGET)
+        translated = await result.current.translate('源', TARGET)
       })
 
       expect(translated).toBeUndefined()
@@ -300,7 +300,7 @@ describe('useTranslate', () => {
       const { result } = renderHook(() => useTranslate({ showErrorToast: false }))
 
       await act(async () => {
-        await result.current.translate('', TARGET)
+        await result.current.translate('源', TARGET)
       })
 
       expect(loggerErrorSpy).toHaveBeenCalledTimes(1)
@@ -315,7 +315,7 @@ describe('useTranslate', () => {
 
       let caught: unknown
       await act(async () => {
-        await result.current.translate('', TARGET).catch((e) => {
+        await result.current.translate('源', TARGET).catch((e) => {
           caught = e
         })
       })
@@ -330,7 +330,7 @@ describe('useTranslate', () => {
       const { result } = renderHook(() => useTranslate({ errorPrefixI18nKey: 'custom.prefix.key' }))
 
       await act(async () => {
-        await result.current.translate('', TARGET)
+        await result.current.translate('源', TARGET)
       })
 
       expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('t(custom.prefix.key)'))
@@ -375,7 +375,7 @@ describe('useTranslate', () => {
 
       let translatePromise!: Promise<string | undefined>
       act(() => {
-        translatePromise = result.current.translate('', TARGET)
+        translatePromise = result.current.translate('源', TARGET)
       })
 
       unmount()
@@ -407,7 +407,7 @@ describe('useTranslate', () => {
       const { result, unmount } = renderHook(() => useTranslate({ onResponse }))
 
       act(() => {
-        void result.current.translate('', TARGET)
+        void result.current.translate('源', TARGET)
       })
 
       unmount()

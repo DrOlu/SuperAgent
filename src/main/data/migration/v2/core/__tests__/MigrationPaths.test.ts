@@ -273,7 +273,7 @@ describe('selectLegacyUserData', () => {
     expect(result).toEqual({ kind: 'default' })
   })
 
-  it(': default dir holds the real (more recent) data + a stale custom entry → keeps default', () => {
+  it('小王: default dir holds the real (more recent) data + a stale custom entry → keeps default', () => {
     const result = selectLegacyUserData({
       currentUserData: DEFAULT_USER_DATA,
       entries: [{ executablePath: '/old/exe', dataPath: '/stale/custom' }],

@@ -26,7 +26,7 @@ export function BashTool({
     label: <ToolHeader toolName={AgentToolsType.Bash} args={input} variant="collapse-label" showStatus={false} />,
     children: (
       <div className="flex flex-col gap-3">
-        {/* Command  */}
+        {/* Command 输入区域 */}
         {command && (
           <div>
             <div className="mb-1 font-medium text-muted-foreground text-xs">{t('message.tools.sections.command')}</div>
@@ -34,7 +34,7 @@ export function BashTool({
           </div>
         )}
 
-        {/* Output  */}
+        {/* Output 输出区域 */}
         {truncatedOutput ? (
           <div>
             <div className="mb-1 font-medium text-muted-foreground text-xs">{t('message.tools.sections.output')}</div>

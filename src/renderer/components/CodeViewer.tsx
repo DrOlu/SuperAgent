@@ -77,10 +77,10 @@ interface CodeViewerProps {
 }
 
 /**
- * Shiki 
- * -  shiki tokenizer 
- * - 
- * - 
+ * Shiki 流式代码高亮组件
+ * - 通过 shiki tokenizer 处理流式响应，高性能
+ * - 使用虚拟滚动和按需高亮，改善页面内有大量长代码块时的响应
+ * - 并发安全
  */
 const CodeViewer = ({
   value,
@@ -127,13 +127,13 @@ const CodeViewer = ({
     }
   }, [autoScrollToBottom, expanded])
 
-  // 
+  // 计算行号数字位数
   const gutterDigits = useMemo(
     () => (lineNumbers ? Math.max(rawLines.length.toString().length, 1) : 0),
     [lineNumbers, rawLines.length]
   )
 
-  //  pre 
+  // 设置 pre 标签属性
   useLayoutEffect(() => {
     let mounted = true
     const shikiTheme = shikiThemeRef.current
@@ -149,13 +149,13 @@ const CodeViewer = ({
       const shikiTheme = shikiThemeRef.current
       if (shikiTheme) {
         shikiTheme.className = `${properties.class || 'shiki'} code-viewer ${className ?? ''}`
-        //  shiki 
+        // 滚动条适应 shiki 主题变化而非应用主题
         shikiTheme.classList.add(isShikiThemeDark ? 'shiki-dark' : 'shiki-light')
 
         if (properties.style) {
           shikiTheme.style.cssText += `${properties.style}`
         }
-        // FIXME:  SelectionToolbar 
+        // FIXME: 临时解决 SelectionToolbar 无法弹出，走剪贴板回退的问题
         // shikiTheme.tabIndex = properties.tabindex
       }
     })
@@ -164,7 +164,7 @@ const CodeViewer = ({
     }
   }, [language, getShikiPreProperties, isShikiThemeDark, className, highlight])
 
-  // 
+  // 保存当前选区的逻辑位置
   const saveSelection = useCallback((): SavedSelection | null => {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
@@ -180,15 +180,15 @@ const CodeViewer = ({
     const scroller = scrollerRef.current
     if (!scroller) return null
 
-    // 
+    // 查找选区起始和结束位置对应的行号
     const findLineAndOffset = (node: Node, offset: number): { line: number; offset: number } | null => {
-      //  data-index 
+      // 向上查找包含 data-index 属性的元素
       let element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
 
-      // 
+      // 跳过行号元素，找到实际的行内容
       while (element) {
         if (element.classList?.contains('line-number')) {
-          //  line-content
+          // 如果在行号上，移动到同级的 line-content
           const lineContainer = element.parentElement
           const lineContent = lineContainer?.querySelector('.line-content')
           if (lineContent) {
@@ -216,7 +216,7 @@ const CodeViewer = ({
       // Calculate character offset within the line
       let charOffset = 0
       if (node.nodeType === Node.TEXT_NODE) {
-        // 
+        // 遍历该行的所有文本节点，找到当前节点的位置
         const walker = document.createTreeWalker(lineContent as Node, NodeFilter.SHOW_TEXT)
         let currentNode: Node | null
         while ((currentNode = walker.nextNode())) {
@@ -227,7 +227,7 @@ const CodeViewer = ({
           charOffset += currentNode.textContent?.length || 0
         }
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        // 
+        // 如果是元素节点，计算之前所有文本的长度
         const textBefore = (node as Element).textContent?.slice(0, offset) || ''
         charOffset = textBefore.length
       }
@@ -266,7 +266,7 @@ const CodeViewer = ({
     }
   }, [selectionBelongsToViewer])
 
-  // 
+  // 滚动事件处理：保存选择用于复制，但不恢复（避免选择高亮问题）
   const handleScroll = useCallback(() => {
     const scroller = scrollerRef.current
     if (scroller && autoScrollToBottom && !expanded) {
@@ -274,7 +274,7 @@ const CodeViewer = ({
       shouldStickToBottomRef.current = distanceToBottom <= 8
     }
 
-    // 
+    // 只保存选择状态用于复制，不在滚动时恢复选择
     const saved = saveSelection()
     if (saved) {
       savedSelectionRef.current = saved
@@ -285,7 +285,7 @@ const CodeViewer = ({
     }
   }, [autoScrollToBottom, expanded, saveSelection])
 
-  // 
+  // 处理复制事件，确保跨虚拟滚动的复制能获取完整内容
   const handleCopy = useCallback(
     (event: ClipboardEvent) => {
       const selection = window.getSelection()
@@ -331,16 +331,16 @@ const CodeViewer = ({
             const line = rawLines[i] || ''
 
             if (i === startLine && i === endLine) {
-              // 
+              // 单行选择
               selectedLines.push(line.slice(startOffset, endOffset))
             } else if (i === startLine) {
-              //  startOffset 
+              // 第一行，从 startOffset 到行尾
               selectedLines.push(line.slice(startOffset))
             } else if (i === endLine) {
-              //  endOffset
+              // 最后一行，从行首到 endOffset
               selectedLines.push(line.slice(0, endOffset))
             } else {
-              // 
+              // 中间的完整行
               selectedLines.push(line)
             }
           }
@@ -368,13 +368,13 @@ const CodeViewer = ({
     [selectionBelongsToViewer, expanded, saveSelection, rawLines]
   )
 
-  // Virtualizer 
+  // Virtualizer 配置
   const getScrollElement = useCallback(() => scrollerRef.current, [])
   const getItemKey = useCallback((index: number) => `${callerId}-${index}`, [callerId])
-  // `line-height: 1.6` 
+  // `line-height: 1.6` 为全局样式，但是为了避免测量误差在这里取整
   const estimateSize = useCallback(() => Math.round(fontSize * 1.6), [fontSize])
 
-  //  virtualizer 
+  // 创建 virtualizer 实例
   const virtualizer = useVirtualizer({
     count: rawLines.length,
     getScrollElement,
@@ -386,14 +386,14 @@ const CodeViewer = ({
   const virtualItems = virtualizer.getVirtualItems()
   const totalSize = virtualizer.getTotalSize()
 
-  //  Hook
+  // 使用代码高亮 Hook
   const { tokenLines, highlightLines, resetHighlight } = useCodeHighlight({
     rawLines,
     language,
     callerId
   })
 
-  // 
+  // 防抖高亮提高流式响应的性能，数字大一点也不会影响用户体验
   const debouncedHighlightLines = useMemo(() => debounce(highlightLines, 300), [highlightLines])
 
   useEffect(() => {
@@ -415,7 +415,7 @@ const CodeViewer = ({
     }
   }, [debouncedHighlightLines])
 
-  // 
+  // 渐进式高亮
   useEffect(() => {
     if (!highlight) return
     if (virtualItems.length > 0 && shikiThemeRef.current) {
@@ -542,7 +542,7 @@ const CodeViewer = ({
 
 CodeViewer.displayName = 'CodeViewer'
 
-//  shiki “”
+// 渐进式高亮时，尚未被 shiki 覆盖到的内容用淡化样式提示“高亮即将到来”
 const dimmedTokenStyle = {
   color: 'inherit',
   bgColor: 'inherit',
@@ -551,7 +551,7 @@ const dimmedTokenStyle = {
   }
 }
 
-// streaming
+// 关闭高亮（streaming）时，直接以正常不透明度渲染原始文本
 const plainTokenStyle = {
   color: 'inherit',
   bgColor: 'inherit',
@@ -571,7 +571,7 @@ interface VirtualizedRowData {
 }
 
 /**
- * 
+ * 单行代码渲染
  */
 const VirtualizedRow = memo(
   ({
@@ -584,12 +584,12 @@ const VirtualizedRow = memo(
     index,
     isDarkTheme
   }: VirtualizedRowData & { index: number }) => {
-    //  tokens
+    // 补全代码行 tokens，把原始内容拼接到高亮内容之后，确保渲染出整行来。
     const completeTokenLine = useMemo(() => {
-      // 
+      // 关闭高亮时按原始文本渲染，不淡化；开启高亮时用淡化样式提示尚未覆盖到的内容
       const fallbackTokenStyle = highlightEnabled ? dimmedTokenStyle : plainTokenStyle
 
-      // 
+      // 如果出现空行，补一个空元素保证行高
       if (rawLine.length === 0) {
         return [
           {
@@ -603,12 +603,12 @@ const VirtualizedRow = memo(
       const currentTokens = tokenLine ?? []
       const themedContentLength = currentTokens.reduce((acc, token) => acc + token.content.length, 0)
 
-      // 
+      // 已有内容已经全部高亮，直接返回
       if (themedContentLength >= rawLine.length) {
         return currentTokens
       }
 
-      // 
+      // 补全剩余内容
       return [
         ...currentTokens,
         {

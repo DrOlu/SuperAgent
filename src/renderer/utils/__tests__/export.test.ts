@@ -171,14 +171,14 @@ describe('export', () => {
   describe('getTitleFromString', () => {
     // These tests are independent of message structure and remain unchanged
     it('should extract first line before punctuation', () => {
-      expect(getTitleFromString('')).toBe('')
-      expect(getTitleFromString('')).toBe('')
-      expect(getTitleFromString('.')).toBe('')
-      expect(getTitleFromString(',')).toBe('')
+      expect(getTitleFromString('标题。其余内容')).toBe('标题')
+      expect(getTitleFromString('标题，其余内容')).toBe('标题')
+      expect(getTitleFromString('标题.其余内容')).toBe('标题')
+      expect(getTitleFromString('标题,其余内容')).toBe('标题')
     })
 
     it('should extract first line if no punctuation', () => {
-      expect(getTitleFromString('\n')).toBe('')
+      expect(getTitleFromString('第一行\n第二行')).toBe('第一行')
     })
 
     it('should truncate if too long', () => {
@@ -187,7 +187,7 @@ describe('export', () => {
 
     it('should fall back to the original input when no title remains', () => {
       expect(getTitleFromString('', 5)).toBe('')
-      expect(getTitleFromString('', 5)).toBe('')
+      expect(getTitleFromString('。', 5)).toBe('。')
       expect(getTitleFromString('   ', 2)).toBe('  ')
     })
   })

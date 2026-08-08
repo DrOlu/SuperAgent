@@ -5,7 +5,7 @@ import { Notification as ElectronNotification } from 'electron'
 
 class NotificationService {
   public async sendNotification(notification: Notification) {
-    //  Electron Notification API
+    // 使用 Electron Notification API
     const electronNotification = new ElectronNotification({
       title: notification.title,
       body: notification.message

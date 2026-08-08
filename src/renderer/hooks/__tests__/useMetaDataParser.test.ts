@@ -24,7 +24,7 @@ describe('useMetaDataParser', () => {
         <!doctype html>
         <html>
           <head>
-            <title></title>
+            <title>习近平总书记的深情寄望鼓舞新时代少年儿童成长成才</title>
             <meta name="description" content="Baijiahao article summary">
             <meta property="og:imageAlt" content="Article cover image">
             <link rel="preload" as="image" href="/cover.png">
@@ -48,7 +48,7 @@ describe('useMetaDataParser', () => {
 
     await waitFor(() => {
       expect(result.current.metadata).toEqual({
-        title: '',
+        title: '习近平总书记的深情寄望鼓舞新时代少年儿童成长成才',
         description: 'Baijiahao article summary',
         'og:imageAlt': 'Article cover image',
         image: 'https://baijiahao.baidu.com/cover.png'

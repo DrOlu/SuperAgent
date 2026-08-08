@@ -29,7 +29,7 @@ const ImagePreviewLayout = ({
   enableToolbar,
   className
 }: ImagePreviewLayoutProps) => {
-  // 
+  // 使用通用图像工具
   const { pan, zoom, copy, download, dialog } = useImageTools(imageRef, {
     imgSelector: 'svg',
     prefix: source ?? 'svg',

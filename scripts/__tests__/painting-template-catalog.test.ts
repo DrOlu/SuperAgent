@@ -48,15 +48,15 @@ const genericVariableLabels = new Set([
   'theme',
   'title',
   'traveler',
-  '',
-  '',
-  '',
-  '',
-  '',
-  '',
-  '',
-  '',
-  ''
+  '人物',
+  '动作',
+  '场景',
+  '年龄',
+  '手持物',
+  '新人姓名',
+  '服装',
+  '标题',
+  '配色'
 ])
 
 const isConcreteVariableValue = (value: string) =>
@@ -174,10 +174,10 @@ describe('painting template catalog contract', () => {
       expect(chineseVariables.every(isConcreteVariableValue)).toBe(true)
       expect(english.prompt).not.toMatch(/\{argument\b|\[[A-Z][A-Z_ ]+\]/)
       expect(chinese.prompt).not.toMatch(/\{argument\b|\[[A-Z][A-Z_ ]+\]/)
-      expect(english.prompt).not.toMatch(/\$\{[^{}\r\n]*[.!?]\}[.!?]/u)
-      expect(chinese.prompt).not.toMatch(/\$\{[^{}\r\n]*[.!?]\}[.!?]/u)
+      expect(english.prompt).not.toMatch(/\$\{[^{}\r\n]*[.!?。！？]\}[.!?。！？]/u)
+      expect(chinese.prompt).not.toMatch(/\$\{[^{}\r\n]*[.!?。！？]\}[.!?。！？]/u)
       expect(english.prompt).not.toContain('Suggested defaults')
-      expect(chinese.prompt).not.toContain('')
+      expect(chinese.prompt).not.toContain('建议默认')
 
       englishVariableCount += englishVariables.length
       chineseVariableCount += chineseVariables.length
@@ -190,7 +190,7 @@ describe('painting template catalog contract', () => {
     expect(englishTemplates['birthday-poster'].prompt).toContain('${2}')
     expect(chineseTemplates['birthday-poster'].prompt).toContain('${2}')
     expect(variableValues(englishTemplates['storyboard-sketch'].prompt)[2]).toContain('watching the horizon')
-    expect(variableValues(chineseTemplates['storyboard-sketch'].prompt)[2]).toContain('')
+    expect(variableValues(chineseTemplates['storyboard-sketch'].prompt)[2]).toContain('眺望远方')
   })
 
   it('keeps the painting showcase translated for every app locale', () => {

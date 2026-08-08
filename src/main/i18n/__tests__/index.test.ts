@@ -33,7 +33,7 @@ describe('main i18n', () => {
   describe('t', () => {
     it('resolves a key in the current language', () => {
       MockMainPreferenceServiceUtils.setPreferenceValue('app.language', 'zh-CN')
-      expect(t('dialog.save_file')).toBe('')
+      expect(t('dialog.save_file')).toBe('保存文件')
     })
 
     it('selects the catalog from the preference language', () => {
@@ -65,7 +65,7 @@ describe('main i18n', () => {
       // The API gateway's docs render one translation per requested language,
       // independent of the app's own language — this is what makes that possible.
       MockMainPreferenceServiceUtils.setPreferenceValue('app.language', 'en-US')
-      expect(t('dialog.save_file', undefined, 'zh-CN')).toBe('')
+      expect(t('dialog.save_file', undefined, 'zh-CN')).toBe('保存文件')
       expect(t('dialog.save_file')).toBe('Save File')
     })
   })
@@ -78,7 +78,7 @@ describe('main i18n', () => {
 
     it('returns the { translation } subtree for an explicit language argument', () => {
       MockMainPreferenceServiceUtils.setPreferenceValue('app.language', 'en-US')
-      expect(getI18n('zh-CN').translation.appMenu.about).toBe('')
+      expect(getI18n('zh-CN').translation.appMenu.about).toBe('关于')
     })
   })
 

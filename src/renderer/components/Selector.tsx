@@ -18,9 +18,9 @@ interface BaseSelectorProps<V = string | number> {
   placeholder?: string
   placement?: 'topLeft' | 'topCenter' | 'topRight' | 'bottomLeft' | 'bottomCenter' | 'bottomRight' | 'top' | 'bottom'
   style?: CSSProperties
-  /**  */
+  /** 字体大小 */
   size?: number
-  /**  */
+  /** 是否禁用 */
   disabled?: boolean
 }
 

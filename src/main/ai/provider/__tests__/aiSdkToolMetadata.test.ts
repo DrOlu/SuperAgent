@@ -7,10 +7,10 @@ import * as z from 'zod'
 const TOOL_METADATA = {
   cherry: {
     tool: {
-      name: '',
-      description: ' MCP ',
+      name: '原始工具名',
+      description: '测试 MCP 工具',
       serverId: 'server-1',
-      serverName: '',
+      serverName: '测试服务器',
       type: 'mcp'
     }
   }

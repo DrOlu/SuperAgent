@@ -5,7 +5,7 @@ import { useParams } from '@tanstack/react-router'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
-//  provider  /settings/mcp/:providerKey
+// 通配符路由：捕获 provider 页面 /settings/mcp/:providerKey
 const ProviderPage = () => {
   const params = useParams({ strict: false })
   const providerKey = params._splat

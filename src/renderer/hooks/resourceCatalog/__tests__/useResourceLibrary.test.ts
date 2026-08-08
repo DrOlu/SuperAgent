@@ -42,7 +42,7 @@ vi.mock('@renderer/hooks/useGroups', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => (key === 'agent.builtin.cherry_assistant.description' ? 'Advisor  helper' : key)
+    t: (key: string) => (key === 'agent.builtin.cherry_assistant.description' ? 'Advisor 诊断 helper' : key)
   })
 }))
 
@@ -92,8 +92,8 @@ const agentListItem = {
 
 const skillListItem = {
   id: 'skill-1',
-  name: '',
-  description: '',
+  name: '网页摘要',
+  description: '自动提取网页核心内容',
   folderName: 'web-summary',
   source: 'marketplace',
   sourceUrl: null,
@@ -178,9 +178,9 @@ describe('useResourceLibrary', () => {
       ])
     )
 
-    const { result } = renderResourceLibrary({ resourceType: 'agent', search: '' })
+    const { result } = renderResourceLibrary({ resourceType: 'agent', search: '诊断' })
 
-    expect(mocks.useAgentList).toHaveBeenCalledWith({ enabled: true, search: '' })
+    expect(mocks.useAgentList).toHaveBeenCalledWith({ enabled: true, search: '诊断' })
     expect(result.current.resources.map((resource) => resource.id)).toEqual(['agent-1'])
   })
 
@@ -243,7 +243,7 @@ describe('useResourceLibrary', () => {
         {
           ...skillListItem,
           id: 'skill-filtered',
-          description: ' /skills ',
+          description: '由 /skills 返回',
           folderName: 'backend-filtered',
           contentHash: 'filtered-hash'
         }
@@ -267,8 +267,8 @@ describe('useResourceLibrary', () => {
       listResult([
         {
           id: 'prompt-filtered',
-          title: '',
-          content: ' ${task}',
+          title: '日报模板',
+          content: '今日完成 ${task}',
           orderKey: 'b',
           createdAt: '2026-04-27T00:00:00.000Z',
           updatedAt: '2026-04-27T00:00:00.000Z'
@@ -279,16 +279,16 @@ describe('useResourceLibrary', () => {
     const { result } = renderResourceLibrary({
       resourceType: 'prompt',
       activeGroupId: '11111111-1111-4111-8111-111111111111',
-      search: '  '
+      search: ' 日报 '
     })
 
-    expect(mocks.usePromptList).toHaveBeenCalledWith({ enabled: true, search: '' })
+    expect(mocks.usePromptList).toHaveBeenCalledWith({ enabled: true, search: '日报' })
     expect(result.current.resources).toMatchObject([
       {
         id: 'prompt-filtered',
         type: 'prompt',
-        name: '',
-        description: ' ${task}',
+        name: '日报模板',
+        description: '今日完成 ${task}',
         avatar: 'Aa'
       }
     ])

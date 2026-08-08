@@ -589,7 +589,7 @@ describe('OnboardingPage', () => {
     expect(languageTrigger).toHaveClass('nodrag')
     expect(languageSelector?.nextElementSibling).toBe(skipButton)
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '中文' }))
 
     expect(i18nMock.changeLanguage).toHaveBeenCalledWith('zh-CN')
     await waitFor(() => expect(MockUsePreferenceUtils.getPreferenceValue('app.language')).toBe('zh-CN'))

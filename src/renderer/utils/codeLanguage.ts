@@ -44,9 +44,9 @@ function buildExtensionCache(): Map<string, string> {
 }
 
 /**
- * 
- * @param extension 
- * @returns 
+ * 根据文件扩展名获取语言名称
+ * @param extension 文件扩展名（带或不带点）
+ * @returns 语言名称，如果未找到则返回扩展名本身
  */
 export function getLanguageByExtension(extension: string): string {
   if (!extension) return 'text'
@@ -62,9 +62,9 @@ export function getLanguageByExtension(extension: string): string {
 }
 
 /**
- * 
- * @param filePath 
- * @returns 
+ * 根据文件路径获取语言名称
+ * @param filePath 文件路径
+ * @returns 语言名称
  */
 export function getLanguageByFilePath(filePath: string): string {
   if (!filePath) return 'text'
@@ -76,35 +76,35 @@ export function getLanguageByFilePath(filePath: string): string {
 }
 
 /**
- * 
- * - 
- * - 
- * @param language 
- * @returns 
+ * 根据语言名称获取文件扩展名
+ * - 先精确匹配，再忽略大小写，最后匹配别名
+ * - 返回第一个扩展名
+ * @param language 语言名称
+ * @returns 文件扩展名
  */
 export function getExtensionByLanguage(language: string): string {
   const lowerLanguage = language.toLowerCase()
 
-  // 
+  // 精确匹配语言名称
   const directMatch = codeLanguages[language]
   if (directMatch?.extensions?.[0]) {
     return directMatch.extensions[0]
   }
 
-  // 
+  // 大小写不敏感的语言名称匹配
   for (const [langName, data] of Object.entries(codeLanguages)) {
     if (langName.toLowerCase() === lowerLanguage && data.extensions?.[0]) {
       return data.extensions[0]
     }
   }
 
-  // 
+  // 通过别名匹配
   for (const [, data] of Object.entries(codeLanguages)) {
     if (data.aliases?.some((alias) => alias.toLowerCase() === lowerLanguage)) {
       return data.extensions?.[0] || `.${language}`
     }
   }
 
-  // 
+  // 回退到语言名称
   return `.${language}`
 }

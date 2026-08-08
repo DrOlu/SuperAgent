@@ -103,10 +103,10 @@ vi.mock('react-i18next', async (importOriginal) => {
 vi.mock('@renderer/utils/routeTitle', async () => {
   const actual = await vi.importActual<typeof RouteTitle>('@renderer/utils/routeTitle')
   const titles: Record<string, Record<string, string>> = {
-    '/app/agents': { en: 'Agent', zh: '' },
-    '/app/chat': { en: 'Chat', zh: '' },
-    '/app/files': { en: 'Files', zh: '' },
-    '/app/launchpad': { en: 'Launchpad', zh: '' }
+    '/app/agents': { en: 'Agent', zh: '代理' },
+    '/app/chat': { en: 'Chat', zh: '聊天' },
+    '/app/files': { en: 'Files', zh: '文件' },
+    '/app/launchpad': { en: 'Launchpad', zh: '启动台' }
   }
   return {
     ...actual,
@@ -342,7 +342,7 @@ describe('TabsProvider', () => {
     currentLanguage = 'zh'
     rerender(renderUi())
 
-    await waitFor(() => expect(screen.getByTestId('files-title')).toHaveTextContent(''))
+    await waitFor(() => expect(screen.getByTestId('files-title')).toHaveTextContent('文件'))
   })
 
   it('keeps isPinned on a tab materialized in a sub-window so it round-trips on re-attach', async () => {

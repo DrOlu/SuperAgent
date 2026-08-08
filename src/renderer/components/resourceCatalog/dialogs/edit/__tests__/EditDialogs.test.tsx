@@ -315,7 +315,7 @@ vi.mock('react-i18next', async (importOriginal) => {
           'library.config.agent.section.tools.search_placeholder': 'Search tools',
           'library.config.agent.section.tools.skills_require_save': 'Save before skills',
           'library.config.agent.section.tools.tab.mcp': 'MCP',
-          'library.config.agent.section.tools.tab.skills': '',
+          'library.config.agent.section.tools.tab.skills': '技能',
           'library.config.agent.section.tools.tab.tools': 'Built-in tools',
           'library.config.agent.model_config': 'Model',
           'library.config.basic.field.description.hint': 'Short assistant summary.',
@@ -878,7 +878,7 @@ describe('edit dialogs', () => {
       refreshing: false
     }
     rerender(<AgentEditDialog {...props} />)
-    selectTab('')
+    selectTab('技能')
     await waitFor(() => {
       expect(screen.getByRole('switch', { name: 'Skill One' })).toBeChecked()
       expect(screen.getByRole('switch', { name: 'Skill One' })).toBeEnabled()
@@ -1177,7 +1177,7 @@ describe('edit dialogs', () => {
     selectTab('MCP')
     expect(screen.getByText('MCP One')).toBeInTheDocument()
 
-    selectTab('')
+    selectTab('技能')
     expect(screen.getByText('Skill One')).toBeInTheDocument()
   })
 
@@ -1228,7 +1228,7 @@ describe('edit dialogs', () => {
   it('opens the agent edit dialog directly on the requested initial tab', () => {
     render(<AgentEditDialog open resource={AGENT} onOpenChange={vi.fn()} initialTab="tools.skills" />)
 
-    expect(screen.getByRole('tab', { name: '' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: '技能' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('Skill One')).toBeInTheDocument()
   })
 
@@ -1236,7 +1236,7 @@ describe('edit dialogs', () => {
     const onOpenChange = vi.fn()
     render(<AgentEditDialog open resource={AGENT} onOpenChange={onOpenChange} />)
 
-    selectTab('')
+    selectTab('技能')
 
     const manageSkillsButton = screen.getByRole('button', { name: 'Manage Skills' })
 
@@ -1310,7 +1310,7 @@ describe('edit dialogs', () => {
   it('auto-saves agent skill toggles after a debounce', async () => {
     render(<AgentEditDialog open resource={AGENT} onOpenChange={vi.fn()} />)
 
-    selectTab('')
+    selectTab('技能')
 
     fireEvent.click(screen.getByRole('switch', { name: 'Skill One' }))
     // Not persisted synchronously — the debounce is still pending.

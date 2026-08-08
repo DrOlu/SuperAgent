@@ -509,7 +509,7 @@ function buildProviderModels(
   const rows: any[] = []
   const variantsKey = (o: any): string => (o.modelVariants ?? []).slice().sort().join(',')
   // Overrides key on `apiModelId` too, so one provider can serve the SAME canonical model under several
-  // apiModelIds (e.g. tokenhub's dated  variants alongside the undated id) — `listProviderRegistryModels`
+  // apiModelIds (e.g. tokenhub's dated 原厂直供 variants alongside the undated id) — `listProviderRegistryModels`
   // turns each surviving row into a distinct selectable model (its unique id derives from apiModelId).
   const addOverride = (raw: any): void => {
     const o = splitOverrideWireId(raw)

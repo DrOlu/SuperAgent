@@ -667,7 +667,7 @@ describe('useFileEditSession', () => {
   })
 
   it('surfaces an unsupported status for invalid UTF-8', async () => {
-    // GBK bytes for "" are not valid UTF-8.
+    // GBK bytes for "你好" are not valid UTF-8.
     ipcMocks.request.mockResolvedValueOnce(readResult(new Uint8Array([0xc4, 0xe3, 0xba, 0xc3])))
     const { result } = renderSession()
     await waitFor(() => expect(result.current.status).toBe('unsupported'))

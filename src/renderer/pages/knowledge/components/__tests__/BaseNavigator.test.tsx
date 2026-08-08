@@ -443,30 +443,30 @@ vi.mock('react-i18next', () => ({
     t: (key: string, options?: { count?: number }) =>
       (
         ({
-          'common.add': '',
-          'common.cancel': '',
-          'common.delete': '',
-          'common.clear': '',
-          'common.loading': '',
-          'common.more': '',
-          'knowledge.title': '',
-          'knowledge.add.title': '',
-          'knowledge.search': '',
-          'knowledge.empty': '',
-          'common.no_results': '',
-          'knowledge.groups.add': '',
-          'knowledge.groups.create_base_here': '',
-          'knowledge.groups.default': '',
-          'knowledge.groups.delete': '',
-          'knowledge.groups.delete_confirm_description': '',
-          'knowledge.groups.delete_confirm_title': '',
-          'knowledge.context.rename': '',
-          'knowledge.context.move_to': '',
-          'knowledge.context.delete': '',
-          'knowledge.context.delete_confirm_title': '',
-          'knowledge.context.delete_confirm_description': '',
-          'knowledge.status.completed': '',
-          'knowledge.status.failed': ''
+          'common.add': '添加',
+          'common.cancel': '取消',
+          'common.delete': '删除',
+          'common.clear': '清除',
+          'common.loading': '加载中',
+          'common.more': '更多',
+          'knowledge.title': '知识库',
+          'knowledge.add.title': '新建知识库',
+          'knowledge.search': '搜索知识库',
+          'knowledge.empty': '暂无知识库',
+          'common.no_results': '无结果',
+          'knowledge.groups.add': '新建分组',
+          'knowledge.groups.create_base_here': '在此分组新建',
+          'knowledge.groups.default': '默认',
+          'knowledge.groups.delete': '删除分组',
+          'knowledge.groups.delete_confirm_description': '删除后，该分组下的知识库将移至默认分组。',
+          'knowledge.groups.delete_confirm_title': '确认删除分组',
+          'knowledge.context.rename': '重命名',
+          'knowledge.context.move_to': '移动到',
+          'knowledge.context.delete': '删除知识库',
+          'knowledge.context.delete_confirm_title': '确认删除知识库',
+          'knowledge.context.delete_confirm_description': '删除后无法恢复',
+          'knowledge.status.completed': '就绪',
+          'knowledge.status.failed': '失败'
         }) as Record<string, string>
       )[key] ?? (typeof options?.count === 'number' ? `${options.count}` : key)
   })
@@ -510,7 +510,7 @@ const getGroupMoreButton = (groupName: string) => {
     throw new Error(`Missing group row for ${groupName}`)
   }
 
-  return within(groupRow).getByRole('button', { name: '' })
+  return within(groupRow).getByRole('button', { name: '更多' })
 }
 
 const getMenuButton = (name: string) => {
@@ -554,8 +554,8 @@ describe('BaseNavigator', () => {
   it('shows loading before the base query settles', () => {
     render(<BaseNavigator {...baseProps} bases={[]} isLoading />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.queryByText('')).toBeNull()
+    expect(screen.getByText('加载中')).toBeInTheDocument()
+    expect(screen.queryByText('无结果')).toBeNull()
   })
 
   it('does not render a knowledge base search box', () => {
@@ -571,7 +571,7 @@ describe('BaseNavigator', () => {
       />
     )
 
-    expect(screen.queryByPlaceholderText('...')).toBeNull()
+    expect(screen.queryByPlaceholderText('搜索知识库...')).toBeNull()
     expect(screen.getByRole('button', { name: /Delta/ })).toBeInTheDocument()
   })
 
@@ -623,7 +623,7 @@ describe('BaseNavigator', () => {
       />
     )
 
-    expect(within(screen.getByRole('button', { name: // })).queryByText('1')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: /默认/ })).queryByText('1')).not.toBeInTheDocument()
     expect(within(screen.getByRole('button', { name: /Research/ })).queryByText('1')).not.toBeInTheDocument()
   })
 
@@ -679,7 +679,7 @@ describe('BaseNavigator', () => {
 
     expect(screen.getByRole('button', { name: /Alpha/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Beta/ })).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('默认')).not.toBeInTheDocument()
   })
 
   it('expands a group section that appears after mount', () => {
@@ -747,7 +747,7 @@ describe('BaseNavigator', () => {
 
     // The unknown-group section still needs a header to make sense of, so the
     // flat layout does not apply.
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('默认')).toBeInTheDocument()
     expect(screen.getByText('ghost-group')).toBeInTheDocument()
   })
 
@@ -774,8 +774,8 @@ describe('BaseNavigator', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }), { clientX: 240, clientY: 320 })
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    fireEvent.click(getMenuButton(''))
+    expect(screen.getByText('移动到')).toBeInTheDocument()
+    fireEvent.click(getMenuButton('默认'))
 
     await waitFor(() => {
       expect(onMoveBase).toHaveBeenCalledWith('base-1', null)
@@ -808,10 +808,10 @@ describe('BaseNavigator', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }), { clientX: 240, clientY: 320 })
 
-    expect(screen.getByRole('button', { name: '' })).not.toBeDisabled()
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重命名' })).not.toBeDisabled()
+    expect(screen.getByText('移动到')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /Research/ })).toHaveLength(1)
-    expect(getMenuButton('')).toBeInTheDocument()
+    expect(getMenuButton('默认')).toBeInTheDocument()
     expect(
       screen
         .getAllByRole('button', { name: 'Archive' })
@@ -853,10 +853,10 @@ describe('BaseNavigator', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }), { clientX: 240, clientY: 320 })
 
-    expect(screen.queryByText('')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.queryByText('移动到')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除知识库' })).toBeInTheDocument()
 
-    fireEvent.click(getMenuButton(''))
+    fireEvent.click(getMenuButton('新建分组'))
 
     // The context menu defers item actions to a microtask, so wait for it.
     await waitFor(() => expect(onCreateGroup).toHaveBeenCalledWith('base-1'))
@@ -885,9 +885,9 @@ describe('BaseNavigator', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }), { clientX: 240, clientY: 320 })
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('移动到')).toBeInTheDocument()
 
-    fireEvent.click(getMenuButton(''))
+    fireEvent.click(getMenuButton('新建分组'))
 
     await waitFor(() => expect(onCreateGroup).toHaveBeenCalledWith('base-1'))
   })
@@ -913,8 +913,8 @@ describe('BaseNavigator', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }), { clientX: 240, clientY: 320 })
 
-    expect(screen.getByRole('button', { name: '' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重命名' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: '删除知识库' })).toBeInTheDocument()
   })
 
   it('keeps context menus anchored to the pointer position on right click', () => {
@@ -938,7 +938,7 @@ describe('BaseNavigator', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }), { clientX: 240, clientY: 320 })
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重命名' })).toBeInTheDocument()
   })
 
   it('calls onRenameBase with the current knowledge base id and name', async () => {
@@ -963,7 +963,7 @@ describe('BaseNavigator', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }), { clientX: 240, clientY: 320 })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '重命名' }))
 
     await waitFor(() => {
       expect(onRenameBase).toHaveBeenCalledWith({
@@ -995,12 +995,12 @@ describe('BaseNavigator', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Alpha/ }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除知识库' }))
 
-    await waitFor(() => expect(screen.getByText('')).toBeInTheDocument())
-    expect(screen.getByText('')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('确认删除知识库')).toBeInTheDocument())
+    expect(screen.getByText('删除后无法恢复')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
       expect(onDeleteBase).toHaveBeenCalledWith('base-1')
@@ -1028,8 +1028,8 @@ describe('BaseNavigator', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Research/ }))
 
-    expect(screen.getByRole('button', { name: '' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重命名' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: '删除分组' })).toBeInTheDocument()
   })
 
   it('calls onRenameGroup with the current group id and name', async () => {
@@ -1054,7 +1054,7 @@ describe('BaseNavigator', () => {
     )
 
     fireEvent.click(getGroupMoreButton('Research'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '重命名' }))
 
     await waitFor(() => {
       expect(onRenameGroup).toHaveBeenCalledWith({
@@ -1088,7 +1088,7 @@ describe('BaseNavigator', () => {
     fireEvent.click(getGroupMoreButton('Research'))
 
     expect(screen.getByRole('button', { name: /Alpha/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除分组' })).toBeInTheDocument()
   })
 
   it('opens a group delete confirmation dialog from the menu and confirms deletion', async () => {
@@ -1113,12 +1113,12 @@ describe('BaseNavigator', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Research/ }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除分组' }))
 
-    await waitFor(() => expect(screen.getByText('')).toBeInTheDocument())
-    expect(screen.getByText('')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('确认删除分组')).toBeInTheDocument())
+    expect(screen.getByText('删除后，该分组下的知识库将移至默认分组。')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
       expect(onDeleteGroup).toHaveBeenCalledWith('group-1')
@@ -1147,7 +1147,7 @@ describe('BaseNavigator', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Research/ }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '在此分组新建' }))
 
     await waitFor(() => expect(onCreateBase).toHaveBeenCalledWith('group-1'))
   })
@@ -1172,10 +1172,10 @@ describe('BaseNavigator', () => {
     )
 
     expect(screen.getByRole('button', { name: /Alpha/ })).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('默认')).not.toBeInTheDocument()
     // No group header/section chrome in the flat layout; each base row still carries its own
     // hover "more" button (the same menu as right-click), so one is present for the single base.
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更多' })).toBeInTheDocument()
   })
 
   it('highlights the selected base and forwards selection clicks', () => {
@@ -1234,10 +1234,10 @@ describe('BaseNavigator', () => {
       />
     )
 
-    const createButton = screen.getByRole('button', { name: '' })
+    const createButton = screen.getByRole('button', { name: '新建知识库' })
 
     // The sidebar no longer repeats the page title above the create action.
-    expect(screen.queryByRole('heading', { name: '' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: '知识库' })).toBeNull()
 
     fireEvent.click(createButton)
 

@@ -97,7 +97,7 @@ describe('ConfigList', () => {
   })
 
   it('passes the promo description only to the unified-gateway card', () => {
-    const gateway = { id: CLI_API_GATEWAY_PROVIDER_ID, name: '' } as Provider
+    const gateway = { id: CLI_API_GATEWAY_PROVIDER_ID, name: '统一网关' } as Provider
     render(
       <ConfigList
         selectedCliTool={CodeCli.CLAUDE_CODE}

@@ -181,7 +181,7 @@ describe('BootConfigMigrator', () => {
     // would miss its own migrated directory. The migrator must MERGE, keeping
     // existing (pinned) entries.
     const CURRENT_EXE = '/Applications/SuperAgent.app/Contents/MacOS/SuperAgent'
-    const OLD_EXE = '/Applications/SuperAgent.app/Contents/MacOS/SuperAgent'
+    const OLD_EXE = '/Applications/SuperAgentLegacy.app/Contents/MacOS/SuperAgentLegacy'
     const RECOVERED_DIR = '/Volumes/Ext/CherryData'
 
     it('merges the legacy record with an existing entry keyed by a different exe', async () => {

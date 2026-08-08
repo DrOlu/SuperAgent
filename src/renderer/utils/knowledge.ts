@@ -4,7 +4,7 @@ import type { CherryMessagePart } from '@shared/data/types/message'
 import type { CodePartData, ErrorPartData, TranslationPartData } from '@shared/data/types/uiParts'
 
 /**
- * 
+ * 内容类型常量定义
  */
 export const CONTENT_TYPES = {
   TEXT: 'text',
@@ -21,46 +21,46 @@ export const CONTENT_TYPES = {
 export type ContentType = (typeof CONTENT_TYPES)[keyof typeof CONTENT_TYPES]
 
 /**
- * 
+ * 消息内容统计
  */
 export interface MessageContentStats {
-  text: number // 
-  code: number // 
-  thinking: number // 
-  images: number // 
-  files: number // 
-  tools: number // 
-  citations: number // 
-  translations: number // 
-  errors: number // 
+  text: number // 主文本块数量
+  code: number // 代码块数量
+  thinking: number // 思考块数量
+  images: number // 图片数量
+  files: number // 文件数量
+  tools: number // 工具调用数量
+  citations: number // 引用数量
+  translations: number // 翻译数量
+  errors: number // 错误数量
 }
 
 /**
- * 
+ * 话题内容统计（包含消息数量）
  */
 export interface TopicContentStats extends MessageContentStats {
-  messages: number // 
+  messages: number // 消息数量
 }
 
 /**
- * 
+ * 消息预处理结果
  */
 export interface MessagePreprocessResult {
-  // 
+  // 合并后的文本内容
   text: string
 
-  // 
+  // 文件列表
   files: FileMetadata[]
 }
 
 /**
- * 
+ * 话题预处理结果
  */
 export interface TopicPreprocessResult {
-  // 
+  // 合并后的文本内容（包含话题名称）
   text: string
 
-  // 
+  // 文件列表
   files: FileMetadata[]
 }
 
@@ -103,7 +103,7 @@ function isImageFilePart(part: FilePartLike): boolean {
 }
 
 /**
- * 
+ * 分析消息内容，统计各类型内容数量
  */
 export function analyzeMessageContent(message: ExportableMessage): MessageContentStats {
   const stats: MessageContentStats = {
@@ -151,8 +151,8 @@ export function analyzeMessageContent(message: ExportableMessage): MessageConten
 }
 
 /**
- * 
- * 
+ * 根据选择的内容类型，处理消息内容
+ * 将选中的文本类型合并为字符串，提取文件列表
  */
 export function processMessageContent(
   message: ExportableMessage,
@@ -161,17 +161,17 @@ export function processMessageContent(
   const textParts: string[] = []
   const files: FileMetadata[] = []
 
-  // 
+  // 提高查找效率
   const selectedTypeSet = new Set(selectedTypes)
 
   getParts(message).forEach((part, index) => {
-    // 
+    // 处理文本内容
     const textContent = processTextlikePart(part, index, message.id, selectedTypeSet)
     if (textContent.trim()) {
       textParts.push(textContent)
     }
 
-    // 
+    // 处理文件内容
     if (selectedTypeSet.has(CONTENT_TYPES.FILE)) {
       const fileContent = filePartToMetadata(part)
       if (fileContent) {
@@ -187,7 +187,7 @@ export function processMessageContent(
 }
 
 /**
- * 
+ * 处理所选类型的文本内容
  */
 function processTextlikePart(
   part: CherryMessagePart,
@@ -238,7 +238,7 @@ function processTextlikePart(
         }
         return `<image id="${partId}" />`
       }
-      // files
+      // 文件信息在文本中只作为元信息记录，实际文件在files数组中
       if (!selectedTypes.has(CONTENT_TYPES.FILE)) return ''
       if (!filePart.url) return ''
       return `<file id="${partId}" filename="${filePart.filename ?? ''}" type="${filePart.mediaType ?? ''}" />`
@@ -257,7 +257,7 @@ function processTextlikePart(
 }
 
 /**
- *  part 
+ * 将非图片文件 part 转换为文件元信息（图片不计入文件列表）
  */
 function filePartToMetadata(part: CherryMessagePart): FileMetadata | null {
   if (part.type !== 'file') return null

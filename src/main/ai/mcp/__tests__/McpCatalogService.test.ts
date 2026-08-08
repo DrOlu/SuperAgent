@@ -109,7 +109,7 @@ describe('McpCatalogService', () => {
 
   it('mints distinct ids for non-ASCII server names with the same readable slug', async () => {
     getById.mockImplementation((id: string) =>
-      id === 'server-a' ? server({ id, name: 'mysql_' }) : server({ id, name: 'mysql_' })
+      id === 'server-a' ? server({ id, name: 'mysql_报销' }) : server({ id, name: 'mysql_电梯' })
     )
     listTools.mockResolvedValue({ tools: [sdkTool('executeSql')] })
 
@@ -126,7 +126,7 @@ describe('McpCatalogService', () => {
 
   it('mints distinct ids for non-ASCII tool names from one server', async () => {
     getById.mockReturnValue(server({ id: 'ocr-server', name: 'ocr' }))
-    listTools.mockResolvedValue({ tools: [sdkTool(''), sdkTool('')] })
+    listTools.mockResolvedValue({ tools: [sdkTool('识别身份证'), sdkTool('识别发票')] })
 
     const service = new McpCatalogService()
     await service.refreshTools('ocr-server')

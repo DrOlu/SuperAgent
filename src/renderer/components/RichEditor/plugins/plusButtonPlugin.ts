@@ -95,8 +95,8 @@ export const PlusButtonPlugin = ({
     const newNode = nodeType.create(insertNodeAttrs)
     const tr = editor.state.tr.insert(insertPos, newNode)
 
-    // 
-    const newNodePos = insertPos + 1 // 
+    // 设置光标位置到新插入的节点内部
+    const newNodePos = insertPos + 1 // 进入新节点内部
     tr.setSelection(TextSelection.near(tr.doc.resolve(newNodePos)))
 
     editor.view.dispatch(tr)
@@ -129,7 +129,7 @@ export const PlusButtonPlugin = ({
             }
 
             if (view.state.doc.eq(prevState.doc) && currentNodePos !== -1) {
-              // 
+              // 只要鼠标位置没有变化，就不必重新定位
               return
             }
             if (currentNodePos === -1) {
@@ -148,7 +148,7 @@ export const PlusButtonPlugin = ({
             const outerNodePos = getOuterNodePos(editor.state.doc, view.posAtDOM(domNode, 0))
             const outerNode = getOuterNode(editor.state.doc, outerNodePos)
 
-            // 
+            // 若外层节点没有变化则不必重复处理
             if (outerNode === currentNode && outerNodePos === currentNodePos) {
               return
             }
@@ -169,10 +169,10 @@ export const PlusButtonPlugin = ({
         // Add any additional editor props if needed
         handleDOMEvents: {
           mousemove(view, e) {
-            // 
+            // 当编辑器不可编辑或按钮已被锁定时直接返回
             if (!editor.isEditable) return false
 
-            // 
+            // 通过坐标向右寻找最近的块级元素
             const result = findElementNextToCoords({
               editor,
               x: e.clientX,
@@ -181,7 +181,7 @@ export const PlusButtonPlugin = ({
             })
 
             if (!result.resultNode || result.pos === null) {
-              //  → 
+              // 没有匹配到块 → 隐藏按钮
               hideButton()
               currentNode = null
               currentNodePos = -1
@@ -189,7 +189,7 @@ export const PlusButtonPlugin = ({
               return false
             }
 
-            //  DOM
+            // 取到块对应的 DOM
             let domNode = result.resultElement as HTMLElement
             domNode = getOuterDomNode(view, domNode)
 
@@ -198,25 +198,25 @@ export const PlusButtonPlugin = ({
               return false
             }
 
-            //  DOM →  → 
+            // 通过 DOM → 文档位置 → 最外层块位置
             const outerPos = getOuterNodePos(editor.state.doc, view.posAtDOM(domNode, 0))
             const outerNode = getOuterNode(editor.state.doc, outerPos)
 
-            // 
+            // 若目标块未改变直接返回
             if (outerNode === currentNode && outerPos === currentNodePos) {
               return false
             }
 
-            // 
+            // 更新缓存并回调
             currentNode = outerNode
             currentNodePos = outerPos
             onNodeChange?.({ editor, node: currentNode, pos: currentNodePos })
 
-            // 
+            // 重新定位按钮并显示
             repositionPlusButton(domNode as Element)
             showButton()
 
-            return false //  mousemove 
+            return false // 继续向下传播其它 mousemove 处理器
           },
 
           // Hide button when typing/input events occur
@@ -242,9 +242,9 @@ export const PlusButtonPlugin = ({
             return false
           },
 
-          // 
+          // 当鼠标离开编辑器区域时隐藏按钮
           mouseleave(_view, e) {
-            //  wrapper
+            // 如果指针正好在 wrapper（按钮）上则不隐藏
             if (wrapper.contains(e.relatedTarget as HTMLElement)) return false
             hideButton()
             currentNode = null

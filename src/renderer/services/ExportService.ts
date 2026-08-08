@@ -47,31 +47,31 @@ const setExportingState = (isExporting: boolean) => {
 }
 
 /**
- *  HTML  <br>
+ * 安全地处理思维链内容，保留安全的 HTML 标签如 <br>，移除危险内容
  *
- * 
- * - br, p, div, span, h1-h6, blockquote
- * - strong, b, em, i, u, s, del, mark, small, sup, sub
- * - ul, ol, li
- * - code, pre, kbd, var, samp
- * - table, thead, tbody, tfoot, tr, td, th
+ * 支持的标签：
+ * - 结构：br, p, div, span, h1-h6, blockquote
+ * - 格式：strong, b, em, i, u, s, del, mark, small, sup, sub
+ * - 列表：ul, ol, li
+ * - 代码：code, pre, kbd, var, samp
+ * - 表格：table, thead, tbody, tfoot, tr, td, th
  *
- * @param content 
- * @returns 
+ * @param content 原始思维链内容
+ * @returns 安全处理后的内容
  */
 const sanitizeReasoningContent = (content: string): string => {
-  //  <br>
+  // 先处理换行符转换为 <br>
   const contentWithBr = content.replace(/\n/g, '<br>')
 
-  //  DOMPurify 
+  // 使用 DOMPurify 清理内容，保留常用的安全标签和属性
   return DOMPurify.sanitize(contentWithBr, {
     ALLOWED_TAGS: [
-      // 
+      // 换行和基础结构
       'br',
       'p',
       'div',
       'span',
-      // 
+      // 文本格式化
       'strong',
       'b',
       'em',
@@ -81,29 +81,29 @@ const sanitizeReasoningContent = (content: string): string => {
       'del',
       'mark',
       'small',
-      // 
+      // 上标下标（数学公式、引用等）
       'sup',
       'sub',
-      // 
+      // 标题
       'h1',
       'h2',
       'h3',
       'h4',
       'h5',
       'h6',
-      // 
+      // 引用
       'blockquote',
-      // 
+      // 列表
       'ul',
       'ol',
       'li',
-      // 
+      // 代码相关
       'code',
       'pre',
       'kbd',
       'var',
       'samp',
-      // AI
+      // 表格（AI输出中可能包含表格）
       'table',
       'thead',
       'tbody',
@@ -111,28 +111,28 @@ const sanitizeReasoningContent = (content: string): string => {
       'tr',
       'td',
       'th',
-      // 
+      // 分隔线
       'hr'
     ],
     ALLOWED_ATTR: [
-      // 
+      // 安全的通用属性
       'class',
       'title',
       'lang',
       'dir',
-      // code 
+      // code 标签的语言属性
       'data-language',
-      // 
+      // 表格属性
       'colspan',
       'rowspan',
-      // 
+      // 列表属性
       'start',
       'type'
     ],
-    KEEP_CONTENT: true, // 
+    KEEP_CONTENT: true, // 保留被移除标签的文本内容
     RETURN_DOM: false,
     SANITIZE_DOM: true,
-    // 
+    // 允许的协议（预留，虽然目前没有允许链接标签）
     ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i
   })
 }
@@ -175,14 +175,14 @@ const getRoleText = async (
 }
 
 /**
- * Markdown
- * @param citations 
- * @returns Markdown
+ * 标准化引用内容为Markdown脚注格式
+ * @param citations 引用列表
+ * @returns Markdown脚注格式的引用内容
  */
 const formatCitationsAsFootnotes = (citations: string): string => {
   if (!citations.trim()) return ''
 
-  // 
+  // 将引用列表转换为脚注格式
   const lines = citations.split('\n\n')
   const footnotes = lines.map((line) => {
     const match = line.match(/^\[(\d+)\]\s*(.+)/)
@@ -219,7 +219,7 @@ const createBaseMarkdown = async (
       } else if (reasoningContent.startsWith('<think>')) {
         reasoningContent = reasoningContent.substring(7)
       }
-      //  DOMPurify 
+      // 使用 DOMPurify 安全地处理思维链内容
       reasoningContent = sanitizeReasoningContent(reasoningContent)
       // The model cites its sources while reasoning too, but the `[N]` numbering below
       // belongs to the answer body — strip rather than resolve, so no internal marker
@@ -248,7 +248,7 @@ const createBaseMarkdown = async (
 
   let processedContent = forceDollarMathInMarkdown ? convertMathFormula(content) : content
 
-  // 
+  // 处理引用标记
   if (excludeCitations) {
     processedContent = processCitations(processedContent, 'remove')
   } else if (normalizeCitations) {
@@ -501,10 +501,10 @@ const convertThinkingToNotionBlocks = async (thinkingContent: string): Promise<a
   }
 
   try {
-    // HTML<br>
+    // 预处理思维链内容：将HTML的<br>标签转换为真正的换行符
     const processedContent = thinkingContent.replace(/<br\s*\/?>/g, '\n')
 
-    //  markdownToBlocks 
+    // 使用 markdownToBlocks 处理思维链内容
     const childrenBlocks = markdownToBlocks(processedContent)
 
     return [
@@ -529,7 +529,7 @@ const convertThinkingToNotionBlocks = async (thinkingContent: string): Promise<a
     ]
   } catch (error) {
     logger.error('failed to process reasoning content:', error as Error)
-    // 
+    // 发生错误时，回退到简单的段落处理
     return [
       {
         object: 'block',
@@ -594,7 +594,7 @@ const executeNotionExport = async (title: string, allBlocks: any[]): Promise<boo
 
   setExportingState(true)
 
-  // 
+  // 限制标题长度
   if (title.length > 32) {
     title = title.slice(0, 29) + '...'
   }
@@ -623,7 +623,7 @@ const executeNotionExport = async (title: string, allBlocks: any[]): Promise<boo
     toast.success(i18n.t('message.success.notion.export'))
     return true
   } catch (error: any) {
-    // loading
+    // 清理可能存在的loading消息
 
     logger.error('Notion export failed:', error)
     toast.error(i18n.t('message.error.notion.export'))
@@ -667,11 +667,11 @@ export const exportMessagesToNotion = async (title: string, messages: Exportable
 
   const titleBlocks = await convertMarkdownToNotionBlocks(`# ${title}`)
 
-  // blocks
+  // 为每个消息创建blocks
   const allBlocks: any[] = [...titleBlocks]
 
   for (const message of messages) {
-    // markdown
+    // 将单个消息转换为markdown
     const messageMarkdown = await messageToMarkdown(message, excludeCitationsInExport)
     const messageBlocks = await convertMarkdownToNotionBlocks(messageMarkdown)
 
@@ -727,7 +727,7 @@ export const exportMarkdownToYuque = async (title: string, content: string): Pro
       },
       body: JSON.stringify({
         title: title,
-        slug: Date.now().toString(), // slug
+        slug: Date.now().toString(), // 使用时间戳作为唯一slug
         format: 'markdown',
         body: content
       })
@@ -770,15 +770,15 @@ export const exportMarkdownToYuque = async (title: string, content: string): Pro
 }
 
 /**
- * MarkdownObsidian
- * @param attributes 
- * @param attributes.title 
- * @param attributes.created 
- * @param attributes.source 
- * @param attributes.tags 
- * @param attributes.processingMethod 
- * @param attributes.folder 
- * @param attributes.vault Vault
+ * 导出Markdown到Obsidian
+ * @param attributes 文档属性
+ * @param attributes.title 标题
+ * @param attributes.created 创建时间
+ * @param attributes.source 来源
+ * @param attributes.tags 标签
+ * @param attributes.processingMethod 处理方式
+ * @param attributes.folder 选择的文件夹路径或文件路径
+ * @param attributes.vault 选择的Vault名称
  */
 export const exportMarkdownToObsidian = async (attributes: any): Promise<boolean> => {
   if (getExportState()) {
@@ -789,7 +789,7 @@ export const exportMarkdownToObsidian = async (attributes: any): Promise<boolean
   setExportingState(true)
 
   try {
-    // Vault
+    // 从参数获取Vault名称
     const obsidianVault = attributes.vault
     let obsidianFolder = attributes.folder || ''
     let isMarkdownFile = false
@@ -804,24 +804,24 @@ export const exportMarkdownToObsidian = async (attributes: any): Promise<boolean
       return false
     }
 
-    // .md
+    // 检查是否选择了.md文件
     if (obsidianFolder && obsidianFolder.endsWith('.md')) {
       isMarkdownFile = true
     }
 
     let filePath = ''
 
-    // .md
+    // 如果是.md文件，直接使用该文件路径
     if (isMarkdownFile) {
       filePath = obsidianFolder
     } else {
-      // 
-      // / 
+      // 否则构建路径
+      //构建保存路径添加以 / 结尾
       if (obsidianFolder && !obsidianFolder.endsWith('/')) {
         obsidianFolder = obsidianFolder + '/'
       }
 
-      //
+      //构建文件名
       const fileName = transformObsidianFileName(attributes.title)
       filePath = obsidianFolder + fileName + '.md'
     }
@@ -849,7 +849,7 @@ export const exportMarkdownToObsidian = async (attributes: any): Promise<boolean
 }
 
 /**
- * Obsidian, Obsidian  Web Clipper ,
+ * 生成Obsidian文件名,源自 Obsidian  Web Clipper 官方实现,修改了一些细节
  * @param fileName
  * @returns
  */
@@ -858,34 +858,34 @@ function transformObsidianFileName(fileName: string): string {
   const isWin = /win/i.test(platform)
   const isMac = /mac/i.test(platform)
 
-  // Obsidian 
+  // 删除Obsidian 全平台无效字符
   let sanitized = fileName.replace(/[#|\\^\\[\]]/g, '')
 
   if (isWin) {
-    // Windows 
+    // Windows 的清理
     sanitized = sanitized
-      .replace(/[<>:"\\/\\|?*]/g, '') // 
-      .replace(/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i, '_$1$2') // 
-      .replace(/[\s.]+$/, '') // 
+      .replace(/[<>:"\\/\\|?*]/g, '') // 移除无效字符
+      .replace(/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i, '_$1$2') // 避免保留名称
+      .replace(/[\s.]+$/, '') // 移除结尾的空格和句点
   } else if (isMac) {
-    // Mac 
+    // Mac 的清理
     sanitized = sanitized
-      .replace(/[<>:"\\/\\|?*]/g, '') // 
-      .replace(/^\./, '_') // 
+      .replace(/[<>:"\\/\\|?*]/g, '') // 移除无效字符
+      .replace(/^\./, '_') // 避免以句点开头
   } else {
-    // Linux 
+    // Linux 或其他系统
     sanitized = sanitized
-      .replace(/[<>:"\\/\\|?*]/g, '') // 
-      .replace(/^\./, '_') // 
+      .replace(/[<>:"\\/\\|?*]/g, '') // 移除无效字符
+      .replace(/^\./, '_') // 避免以句点开头
   }
 
-  // 
+  // 所有平台的通用操作
   sanitized = sanitized
-    .replace(/^\.+/, '') // 
-    .trim() // 
-    .slice(0, 245) //  245  ' 1.md'
+    .replace(/^\.+/, '') // 移除开头的句点
+    .trim() // 移除前后空格
+    .slice(0, 245) // 截断为 245 个字符，留出空间以追加 ' 1.md'
 
-  // 
+  // 确保文件名不为空
   if (sanitized.length === 0) {
     sanitized = 'Untitled'
   }
@@ -923,7 +923,7 @@ export const exportMarkdownToJoplin = async (
   } else if (Array.isArray(contentOrMessages)) {
     content = await messagesToMarkdown(contentOrMessages, joplinExportReasoning, excludeCitationsInExport)
   } else {
-    // Message
+    // 单条Message
     content = joplinExportReasoning
       ? await messageToMarkdownWithReasoning(contentOrMessages, excludeCitationsInExport)
       : await messageToMarkdown(contentOrMessages, excludeCitationsInExport)
@@ -964,9 +964,9 @@ export const exportMarkdownToJoplin = async (
 }
 
 /**
- * Markdown
- * @param title 
- * @param content 
+ * 导出Markdown到思源笔记
+ * @param title 笔记标题
+ * @param content 笔记内容
  */
 export const exportMarkdownToSiyuan = async (title: string, content: string): Promise<void> => {
   const { siyuanApiUrl, siyuanToken, siyuanBoxId, siyuanRootPath } = await preferenceService.getMultiple({
@@ -999,7 +999,7 @@ export const exportMarkdownToSiyuan = async (title: string, content: string): Pr
     })
 
     if (!testResponse.ok) {
-      throw new Error('API')
+      throw new Error('API请求失败')
     }
 
     const testData = await testResponse.json()
@@ -1007,14 +1007,14 @@ export const exportMarkdownToSiyuan = async (title: string, content: string): Pr
       throw new Error(`${testData.msg || i18n.t('message.error.unknown')}`)
     }
 
-    // /
+    // 确保根路径以/开头
     const rootPath = siyuanRootPath?.startsWith('/') ? siyuanRootPath : `/${siyuanRootPath || 'SuperAgent'}`
     const renderedRootPath = await renderSprigTemplate(siyuanApiUrl, siyuanToken, rootPath)
-    // 
+    // 创建文档
     const docTitle = `${title.replace(/[#|\\^\\[\]]/g, '')}`
     const docPath = `${renderedRootPath}/${docTitle}`
 
-    // 
+    // 创建文档
     await createSiyuanDoc(siyuanApiUrl, siyuanToken, siyuanBoxId, docPath, content)
 
     toast.success(i18n.t('message.success.siyuan.export'))
@@ -1026,11 +1026,11 @@ export const exportMarkdownToSiyuan = async (title: string, content: string): Pr
   }
 }
 /**
- *   Sprig 
- * @param apiUrl  API 
- * @param token  API Token
- * @param template Sprig 
- * @returns 
+ * 渲染 思源笔记 Sprig 模板字符串
+ * @param apiUrl 思源 API 地址
+ * @param token 思源 API Token
+ * @param template Sprig 模板
+ * @returns 渲染后的字符串
  */
 async function renderSprigTemplate(apiUrl: string, token: string, template: string): Promise<string> {
   const response = await fetch(`${apiUrl}/api/template/renderSprig`, {
@@ -1051,7 +1051,7 @@ async function renderSprigTemplate(apiUrl: string, token: string, template: stri
 }
 
 /**
- * 
+ * 创建思源笔记文档
  */
 async function createSiyuanDoc(
   apiUrl: string,
@@ -1088,15 +1088,15 @@ const saveContentToNotes = async (title: string, content: string, folderPath: st
 }
 
 const handleNotesExportError = (error: unknown): void => {
-  logger.error(':', error as Error)
+  logger.error('导出到笔记失败:', error as Error)
   toast.error(i18n.t('message.error.notes.export'))
 }
 
 /**
- * 
- * @param title 
- * @param content 
- * @param folderPath 
+ * 导出任意文本内容到笔记工作区
+ * @param title 笔记标题
+ * @param content 笔记内容
+ * @param folderPath 目标笔记文件夹
  */
 export const exportContentToNotes = async (title: string, content: string, folderPath: string): Promise<void> => {
   try {
@@ -1108,7 +1108,7 @@ export const exportContentToNotes = async (title: string, content: string, folde
 }
 
 /**
- * 
+ * 导出消息到笔记工作区
  * @param title
  * @param content
  * @param folderPath
@@ -1119,8 +1119,8 @@ export const exportMessageToNotes = async (title: string, content: string, folde
 }
 
 /**
- * 
- * @param topic 
+ * 导出话题到笔记工作区
+ * @param topic 要导出的话题
  * @param folderPath
  */
 export const exportTopicToNotes = async (topic: Topic, folderPath: string): Promise<void> => {

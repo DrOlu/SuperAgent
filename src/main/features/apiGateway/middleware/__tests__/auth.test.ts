@@ -152,7 +152,7 @@ describe('authorizeApiRequest', () => {
       // Same UTF-16 char count as the 17-char key but more UTF-8 bytes (each CJK
       // char is 1 code unit / 3 bytes) — comparing byte lengths must short-circuit
       // to 403 rather than letting timingSafeEqual throw on unequal buffer sizes.
-      const multibyte = ''.repeat(validApiKey.length)
+      const multibyte = '中'.repeat(validApiKey.length)
       expect(multibyte.length).toBe(validApiKey.length)
       expect(Buffer.byteLength(multibyte)).not.toBe(Buffer.byteLength(validApiKey))
       expect(authorizeApiRequest(multibyte, undefined)).toEqual({ status: 403, error: 'Forbidden' })

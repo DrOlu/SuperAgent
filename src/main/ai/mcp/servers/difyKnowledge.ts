@@ -169,7 +169,7 @@ class DifyKnowledgeServer {
     } catch (error) {
       logger.error('Error fetching knowledge list:', error as Error)
       const errorMessage = error instanceof Error ? error.message : String(error)
-      //  MCP 
+      // 返回包含错误信息的 MCP 响应
       return {
         content: [{ type: 'text', text: `Accessing Knowledge Error: ${errorMessage}` }],
         isError: true

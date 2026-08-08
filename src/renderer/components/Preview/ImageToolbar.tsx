@@ -16,10 +16,10 @@ interface ImageToolbarProps {
 const ImageToolbar = ({ pan, zoom, dialog, className }: ImageToolbarProps) => {
   const { t } = useTranslation()
 
-  // 
+  // 定义平移距离
   const panDistance = 20
 
-  // 
+  // 定义缩放增量
   const zoomDelta = 0.1
 
   const handleReset = useCallback(() => {

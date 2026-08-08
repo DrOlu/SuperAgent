@@ -43,7 +43,7 @@ export type ModelPricing = {
 export type ModelCapability = {
   type: ModelType
   /**
-   * trueundefined
+   * 是否为用户手动选择，如果为true，则表示用户手动选择了该类型，否则表示用户手动禁止了该模型；如果为undefined，则表示使用默认值
    */
   isUserSelected?: boolean
 }

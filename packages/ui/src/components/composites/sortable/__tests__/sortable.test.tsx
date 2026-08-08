@@ -173,7 +173,7 @@ describe('Sortable', () => {
   })
 
   it('forwards accessibility (announcements / screen-reader instructions) to DndContext', () => {
-    const accessibility = { screenReaderInstructions: { draggable: '' } }
+    const accessibility = { screenReaderInstructions: { draggable: '拖动排序' } }
 
     render(
       <Sortable

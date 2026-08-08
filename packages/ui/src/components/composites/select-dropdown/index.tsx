@@ -43,8 +43,8 @@ function getWheelDeltaY(event: WheelEvent, el: HTMLElement) {
 }
 
 function useModalPopoverWheel(ref: RefObject<HTMLDivElement | null>) {
-  //  Popover Portal  body  Radix modal Dialog body  react-remove-scroll
-  //  portal'd  wheel  wheel
+  // 当 Popover Portal 到 body 而外层是 Radix modal Dialog 时，body 的 react-remove-scroll
+  // 会吞掉 portal'd 内容上的 wheel 事件。手动处理 wheel，绕过外层拦截。
   useEffect(() => {
     const el = ref.current
     if (!el) return

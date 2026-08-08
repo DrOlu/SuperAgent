@@ -30,14 +30,14 @@ describe('sanitizeProviderName', () => {
   })
 
   it('drops non-ASCII while keeping the ASCII remainder', () => {
-    expect(sanitizeProviderName('Provider', 'p1')).toBe('Provider')
-    expect(sanitizeProviderName('My  Provider', 'p1')).toBe('My-Provider')
+    expect(sanitizeProviderName('日本語Provider', 'p1')).toBe('Provider')
+    expect(sanitizeProviderName('My 测试 Provider', 'p1')).toBe('My-Provider')
     expect(sanitizeProviderName('🎉provider', 'p1')).toBe('provider')
   })
 
   it('falls back to the caller-supplied id when nothing survives sanitization', () => {
     expect(sanitizeProviderName('', 'p1')).toBe('p1')
-    expect(sanitizeProviderName('', 'provider-id')).toBe('provider-id')
+    expect(sanitizeProviderName('测试', 'provider-id')).toBe('provider-id')
     expect(sanitizeProviderName('プロバイダー', 'p1')).toBe('p1')
   })
 })

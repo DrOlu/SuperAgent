@@ -4,7 +4,7 @@ export default defineCreator({
   id: 'vidu',
   name: 'Shengshu (Vidu)',
   idPrefixes: ['vidu', 'viduq'],
-  // Q3 = video (text/image → video); Q2/Q1 expose a text-to-image mode ().
+  // Q3 = video (text/image → video); Q2/Q1 expose a text-to-image mode (生图).
   // Request params (duration/resolution/style) belong on the serving provider.
   models: [
     {

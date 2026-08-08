@@ -191,7 +191,7 @@ const SelectionAssistantSettings: FC = () => {
               <SettingLabel>
                 <SettingRowTitle>
                   <div style={{ marginRight: '4px' }}>{t('selection.settings.toolbar.trigger_mode.title')}</div>
-                  {/* FIXME: Linux */}
+                  {/* FIXME: 没有考虑Linux？ */}
                   <Tooltip content={t(getSelectionDescriptionLabelKey(isWin ? 'windows' : isLinux ? 'linux' : 'mac'))}>
                     <QuestionIcon size={14} />
                   </Tooltip>
@@ -306,8 +306,8 @@ const SelectionAssistantSettings: FC = () => {
                   {t('selection.settings.advanced.filter_mode.title')}
                   {isLinux && linuxEnvInfo?.isLinuxWaylandDisplay && (
                     <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center' }}>
-                      <TriangleAlert size={13} style={{ margin: '0 3px', color: 'var(--error)' }} />
-                      {t('selection.settings.linux.filter_warning_text')}
+                      （<TriangleAlert size={13} style={{ margin: '0 3px', color: 'var(--error)' }} />
+                      {t('selection.settings.linux.filter_warning_text')}）
                     </span>
                   )}
                 </SettingRowTitle>

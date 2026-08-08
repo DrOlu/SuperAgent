@@ -29,7 +29,7 @@ export const CodeBlockShiki = CodeBlock.extend<CodeBlockShikiOptions>({
 
     return [
       ...(parent || []),
-      // : ```
+      // 支持动态语言匹配: ```语言名
       textblockTypeInputRule({
         find: /^```([a-zA-Z0-9#+\-_.]+)\s/,
         type: this.type,
@@ -39,7 +39,7 @@ export const CodeBlockShiki = CodeBlock.extend<CodeBlockShikiOptions>({
           return { language: inputLanguage }
         }
       }),
-      //  ~~~ 
+      // 支持 ~~~ 语法
       textblockTypeInputRule({
         find: /^~~~([a-zA-Z0-9#+\-_.]+)\s/,
         type: this.type,
@@ -132,7 +132,7 @@ export const CodeBlockShiki = CodeBlock.extend<CodeBlockShikiOptions>({
     return {
       ...this.parent?.(),
       theme: {
-        //  theme
+        // 默认沿用扩展级别的 theme
         default: this.options.theme,
         parseHTML: (element) => element.getAttribute('data-theme'),
         renderHTML: (attrs) => (attrs.theme ? { 'data-theme': attrs.theme } : {})

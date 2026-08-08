@@ -92,10 +92,10 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'knowledge.data_source.table.select_all': '',
-          'knowledge.data_source.table.aria_label': '',
-          'knowledge.data_source.list.loading_more': '…',
-          'knowledge.data_source.list.end_reached': ''
+          'knowledge.data_source.table.select_all': '全选',
+          'knowledge.data_source.table.aria_label': '数据源列表',
+          'knowledge.data_source.list.loading_more': '加载更多…',
+          'knowledge.data_source.list.end_reached': '没有更多了'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -129,7 +129,7 @@ const setScrollGeometry = (
 describe('KnowledgeItemList', () => {
   it('does not request more items when there are no further pages', async () => {
     const handleLoadMore = vi.fn()
-    const item = createNoteItem({ id: 'note-1', content: '' })
+    const item = createNoteItem({ id: 'note-1', content: '会议纪要' })
 
     render(
       <KnowledgeItemList items={[item]} isLoading={false} {...noopProps} hasMore={false} onLoadMore={handleLoadMore} />
@@ -227,13 +227,13 @@ describe('KnowledgeItemList', () => {
       <KnowledgeItemList items={items} isLoading={false} {...noopProps} hasMore isLoadingMore />
     )
 
-    expect(screen.getByText('…')).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.getByText('加载更多…')).toBeInTheDocument()
+    expect(screen.queryByText('没有更多了')).not.toBeInTheDocument()
 
     // Final page landed: not loading, no more pages, and more than one page is loaded.
     rerender(<KnowledgeItemList items={items} isLoading={false} {...noopProps} hasMore={false} isLoadingMore={false} />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('没有更多了')).toBeInTheDocument()
   })
 
   it('omits the end-of-list note for a single page that never paginated', () => {
@@ -241,7 +241,7 @@ describe('KnowledgeItemList', () => {
       <KnowledgeItemList items={[createNoteItem({ id: 'note-1' })]} isLoading={false} {...noopProps} hasMore={false} />
     )
 
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('没有更多了')).not.toBeInTheDocument()
   })
 
   it('drops the end-of-list note when switching from a paged base to a single-page base', () => {
@@ -255,7 +255,7 @@ describe('KnowledgeItemList', () => {
     rerender(
       <KnowledgeItemList items={pagedItems} isLoading={false} {...noopProps} hasMore={false} isLoadingMore={false} />
     )
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('没有更多了')).toBeInTheDocument()
 
     rerender(
       <KnowledgeItemList
@@ -266,7 +266,7 @@ describe('KnowledgeItemList', () => {
         isLoadingMore={false}
       />
     )
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('没有更多了')).not.toBeInTheDocument()
   })
 
   it('exposes grid semantics with column headers', () => {

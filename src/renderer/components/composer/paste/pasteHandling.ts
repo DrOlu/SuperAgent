@@ -12,21 +12,21 @@ const logger = loggerService.withContext('pasteHandling')
 type ComponentType = 'inputbar' | 'messageEditor' | 'TranslatePage' | null
 let lastFocusedComponent: ComponentType = 'inputbar' // Default to inputbar
 
-// 
+// 处理函数类型
 type PasteHandler = (event: ClipboardEvent) => Promise<boolean>
 
-// 
+// 处理函数存储
 const handlers: {
   inputbar?: PasteHandler
   messageEditor?: PasteHandler
 } = {}
 
-// 
+// 初始化标志
 let isInitialized = false
 
 /**
- * 
- * 
+ * 处理粘贴事件的通用服务
+ * 处理各种粘贴场景，包括文本和文件
  */
 export const handlePaste = async (
   event: ClipboardEvent,
@@ -38,12 +38,12 @@ export const handlePaste = async (
   t?: (key: string) => string
 ): Promise<boolean> => {
   try {
-    // 
+    // 优先处理文本粘贴
     const clipboardText = event.clipboardData?.getData('text')
     if (clipboardText) {
-      // 1. 
+      // 1. 文本粘贴
       if (clipboardText.length > LONG_TEXT_PASTE_THRESHOLD) {
-        // 
+        // 长文本直接转文件，阻止默认粘贴
         event.preventDefault()
 
         const tempFilePath = await window.api.file.createTempFile('pasted_text.txt')
@@ -56,26 +56,26 @@ export const handlePaste = async (
             composerFileKind: COMPOSER_FILE_KIND.PASTED_TEXT
           }
           setFiles((prevFiles) => [...prevFiles, toComposerAttachment(pastedTextFile)])
-          if (setText && text) setText(text) // 
+          if (setText && text) setText(text) // 保持输入框内容不变
           if (resizeTextArea) setTimeout(() => resizeTextArea(), 50)
         }
         return true
       }
-      // 
+      // 短文本走默认粘贴行为，直接返回
       return false
     }
-    // 2. /
+    // 2. 文件/图片粘贴（仅在无文本时处理）
     if (event.clipboardData?.files && event.clipboardData.files.length > 0) {
       event.preventDefault()
       const extensionSet = new Set(supportExts)
       try {
         for (const file of event.clipboardData.files) {
-          // API
+          // 使用新的API获取文件路径
           const filePath = window.api.file.getPathForFile(file)
 
-          // 
+          // 如果没有路径，可能是剪贴板中的图像数据
           if (!filePath) {
-            // 
+            // 图像生成也支持图像编辑
             if (file.type.startsWith('image/') && supportExts.includes(getFileExtension(file.name))) {
               const tempFilePath = await window.api.file.createTempFile(file.name)
               const arrayBuffer = await file.arrayBuffer()
@@ -100,7 +100,7 @@ export const handlePaste = async (
             continue
           }
 
-          // 
+          // 有路径的情况
           if (await isSupportedFile(filePath, extensionSet)) {
             const selectedFile = await window.api.file.get(filePath)
             if (selectedFile) {
@@ -120,7 +120,7 @@ export const handlePaste = async (
       }
       return true
     }
-    // 
+    // 其他情况默认粘贴
     return false
   } catch (error) {
     logger.error('handlePaste error:', error as Error)
@@ -129,27 +129,27 @@ export const handlePaste = async (
 }
 
 /**
- * 
+ * 设置最后聚焦的组件
  */
 export const setLastFocusedComponent = (component: ComponentType) => {
   lastFocusedComponent = component
 }
 
 /**
- * 
+ * 获取最后聚焦的组件
  */
 export const getLastFocusedComponent = (): ComponentType => {
   return lastFocusedComponent
 }
 
 /**
- * 
- * 
+ * 初始化全局粘贴事件监听
+ * 应用启动时只调用一次
  */
 export const init = () => {
   if (isInitialized) return
 
-  // 
+  // 添加全局粘贴事件监听
   document.addEventListener('paste', async (event) => {
     await handleGlobalPaste(event)
   })
@@ -159,7 +159,7 @@ export const init = () => {
 }
 
 /**
- * 
+ * 注册组件的粘贴处理函数
  */
 export const registerHandler = (component: ComponentType, handler: PasteHandler) => {
   if (!component) return () => undefined
@@ -177,7 +177,7 @@ export const registerHandler = (component: ComponentType, handler: PasteHandler)
 }
 
 /**
- * 
+ * 移除组件的粘贴处理函数
  */
 export const unregisterHandler = (component: ComponentType, handler?: PasteHandler) => {
   if (!component || !handlers[component]) return
@@ -190,10 +190,10 @@ export const unregisterHandler = (component: ComponentType, handler?: PasteHandl
 }
 
 /**
- * 
+ * 全局粘贴处理函数，根据最后聚焦的组件路由粘贴事件
  */
 const handleGlobalPaste = async (event: ClipboardEvent): Promise<boolean> => {
-  // 
+  // 如果当前有活动元素且是输入区域，不执行全局处理
   const activeElement = document.activeElement
   if (
     activeElement &&
@@ -204,7 +204,7 @@ const handleGlobalPaste = async (event: ClipboardEvent): Promise<boolean> => {
     return false
   }
 
-  // 
+  // 根据最后聚焦的组件调用相应处理程序
   if (lastFocusedComponent && handlers[lastFocusedComponent]) {
     const handler = handlers[lastFocusedComponent]
     if (handler) {
@@ -212,7 +212,7 @@ const handleGlobalPaste = async (event: ClipboardEvent): Promise<boolean> => {
     }
   }
 
-  // inputbar
+  // 如果没有匹配的处理程序，默认使用inputbar处理
   if (handlers.inputbar) {
     const handler = handlers.inputbar
     if (handler) {

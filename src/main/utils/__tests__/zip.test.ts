@@ -4,7 +4,7 @@ import { compress, decompress } from '../zip'
 
 const jsonStr = JSON.stringify({ foo: 'bar', num: 42, arr: [1, 2, 3] })
 
-// 
+// 辅助函数：生成大字符串
 function makeLargeString(size: number) {
   return 'a'.repeat(size)
 }

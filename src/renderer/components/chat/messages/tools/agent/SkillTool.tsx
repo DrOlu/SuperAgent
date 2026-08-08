@@ -22,7 +22,7 @@ export function SkillTool({ input, output }: { input?: SkillToolInput; output?: 
     ),
     children: (
       <div className="flex flex-col gap-3">
-        {/* Args  */}
+        {/* Args 输入区域 */}
         {input?.args && (
           <div>
             <div className="mb-1 font-medium text-muted-foreground text-xs">{t('message.tools.sections.args')}</div>
@@ -32,7 +32,7 @@ export function SkillTool({ input, output }: { input?: SkillToolInput; output?: 
           </div>
         )}
 
-        {/* Output  */}
+        {/* Output 输出区域 */}
         {truncatedOutput ? (
           <div>
             <div className="mb-1 font-medium text-muted-foreground text-xs">{t('message.tools.sections.output')}</div>

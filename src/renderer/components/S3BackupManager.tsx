@@ -133,7 +133,7 @@ export function S3BackupManager({ visible, onClose, s3Config, restoreMethod }: S
 
     setDeleting(true)
     try {
-      // 
+      // 依次删除选中的文件
       for (const key of selectedRowKeys) {
         await window.api.backup.deleteS3File(key.toString(), {
           ...s3Config,
@@ -215,7 +215,7 @@ export function S3BackupManager({ visible, onClose, s3Config, restoreMethod }: S
     try {
       await (restoreMethod || restoreFromS3)(fileName)
       toast.success(t('settings.data.s3.restore.success'))
-      onClose() // 
+      onClose() // 关闭模态框
     } catch (error) {
       toast.error(getLocalizedBackupErrorMessage(error, 'message.restore.failed'))
     } finally {

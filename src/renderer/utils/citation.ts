@@ -93,7 +93,7 @@ export function normalizeCitationMarks(
     return skipRanges
   }
 
-  // 
+  // 检查位置是否在代码块内
   const shouldSkip = (pos: number, skipRanges = getSkipRanges()): boolean => {
     for (const range of skipRanges) {
       if (pos >= range.start && pos < range.end) return true
@@ -106,7 +106,7 @@ export function normalizeCitationMarks(
     const replacements: Array<{ start: number; end: number; replacement: string }> = []
     const skipRanges = getSkipRanges()
 
-    regex.lastIndex = 0 // 
+    regex.lastIndex = 0 // 重置正则状态
     let m: RegExpExecArray | null
     while ((m = regex.exec(content)) !== null) {
       if (!shouldSkip(m.index, skipRanges)) {
@@ -188,7 +188,7 @@ export function normalizeCitationMarks(
       break
     }
     default: {
-      // : [N] → [cite:N]
+      // 简单数字格式: [N] → [cite:N]
       normalizePlainBracketMarks()
     }
   }

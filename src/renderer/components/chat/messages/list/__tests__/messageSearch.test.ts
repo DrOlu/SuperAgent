@@ -46,11 +46,11 @@ describe('findTextMatches', () => {
 
   it('uses Chinese word boundaries for whole-word matching', () => {
     const options = { caseSensitive: false, wholeWord: true }
-    expect(findTextMatches('', '', options)).toEqual([
+    expect(findTextMatches('你好世界，你好！', '你好', options)).toEqual([
       { start: 0, end: 2 },
       { start: 5, end: 7 }
     ])
-    expect(findTextMatches('', '', options)).toEqual([])
+    expect(findTextMatches('你好世界', '好世', options)).toEqual([])
   })
 })
 

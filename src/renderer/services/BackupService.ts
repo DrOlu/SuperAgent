@@ -71,7 +71,7 @@ export async function backup(skipBackupFile = false) {
 
 export async function restore() {
   // notificationService is imported as a module-level singleton
-  const file = await window.api.file.open({ filters: [{ name: '', extensions: ['zip'] }] })
+  const file = await window.api.file.open({ filters: [{ name: '备份文件', extensions: ['zip'] }] })
 
   if (file) {
     try {
@@ -99,7 +99,7 @@ export async function restore() {
   }
 }
 
-//  webdav
+// 备份到 webdav
 export async function backupToWebdav({ customFileName = '' }: ManualBackupOptions = {}) {
   setWebDAVSyncState({ syncing: true, lastSyncError: null })
 
@@ -127,7 +127,7 @@ export async function backupToWebdav({ customFileName = '' }: ManualBackupOption
       : `${customFileName}.zip`
     : undefined
 
-  //  - Use direct backup method (copy IndexedDB/LocalStorage directories)
+  // 上传文件 - Use direct backup method (copy IndexedDB/LocalStorage directories)
   try {
     const { result: success, cleanupFailed } = await window.api.backup.backupToWebdav({
       webdavHost,
@@ -182,7 +182,7 @@ export async function backupToWebdav({ customFileName = '' }: ManualBackupOption
   }
 }
 
-//  webdav 
+// 从 webdav 恢复
 export async function restoreFromWebdav(fileName?: string) {
   const { webdavHost, webdavUser, webdavPass, webdavPath } = await preferenceService.getMultiple({
     webdavHost: 'data.backup.webdav.host',
@@ -265,7 +265,7 @@ export async function backupToS3({ customFileName = '' }: ManualBackupOptions = 
   }
 }
 
-//  S3 
+// 从 S3 恢复
 export async function restoreFromS3(fileName?: string) {
   const s3Config = await preferenceService.getMultiple({
     autoSync: 'data.backup.s3.auto_sync',

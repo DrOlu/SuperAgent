@@ -19,7 +19,7 @@ export function GlobTool({
   output?: GlobToolOutputType
 }): ToolDisclosureItem {
   const { t } = useTranslation()
-  // 
+  // 如果有输出，计算文件数量
   const lineCount = countLines(output)
   const { data: truncatedOutput, isTruncated, originalLength } = truncateOutput(output)
 

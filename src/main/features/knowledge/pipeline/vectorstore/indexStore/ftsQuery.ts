@@ -11,27 +11,27 @@
  *    therefore windowed into overlapping trigrams ({@link extractMatchTerms}),
  *    the tokenizer's own unit.
  *  - Indexable terms are OR-ed, not AND-ed: a natural-language question
- *    ("", "how to configure proxy timeout") carries filler its
+ *    ("公司的报销流程是什么", "how to configure proxy timeout") carries filler its
  *    target chunk does not contain, so requiring every term returns nothing. OR
  *    lets bm25() rank by how many and how rare the matched terms are.
  *  - Terms shorter than 3 characters produce no trigram and can never MATCH, but
  *    they are often the query's content words — 2-character words dominate
- *    Chinese () — so they must not vanish from the query's
+ *    Chinese (「系统」「年假」) — so they must not vanish from the query's
  *    semantics. The store ANDs a `LIKE '%term%'` filter per short term onto the
  *    ranked MATCH ({@link extractShortTerms}), relaxing the filters when they
  *    eliminate every candidate (a filler 'to' need not literally occur in the
  *    target chunk). Only when *nothing* in the query is indexable (a bare
- *    ) does it fall back to a pure LIKE scan ({@link needsLikeFallback} /
+ *    「天气」) does it fall back to a pure LIKE scan ({@link needsLikeFallback} /
  *    {@link toFtsLikePattern}) — decision A3.
  *
  * Known tradeoffs, accepted until a real CJK tokenizer replaces trigram in v2.x:
  *
  *  - OR has no minimum-should-match and no stopword handling, so chunks sharing
- *    only filler trigrams () enter the candidate set. bm25() usually ranks
+ *    only filler trigrams (「是什么」) enter the candidate set. bm25() usually ranks
  *    the real answer above them, but not reliably: a chunk matching many filler
  *    trigrams can outscore one matching the two trigrams that carry the subject
- *    (an FAQ chunk  outranks the  answer for
- *    ). Nothing downstream re-sorts that — `applyRelevanceThreshold`
+ *    (an FAQ chunk 「公司的入职流程是什么？」 outranks the 报销流程 answer for
+ *    「公司的报销流程是什么」). Nothing downstream re-sorts that — `applyRelevanceThreshold`
  *    only filters 'relevance' scores, and both 'bm25' and 'hybrid' yield 'ranking',
  *    so `base.threshold` is inert unless the base has a rerank model that *succeeds*
  *    (a failed rerank leaves the scores 'ranking'; see utils/indexing/rerank.ts).
@@ -48,9 +48,9 @@ const TRIGRAM_MIN_TOKEN_LENGTH = 3
 
 /**
  * Characters of the scripts windowed into trigrams: Han, Hiragana, Katakana.
- * `Script_Extensions`, not `Script`: ー (U+30FC),  (U+FF70) and  (U+3006) are
+ * `Script_Extensions`, not `Script`: ー (U+30FC), ｰ (U+FF70) and 〆 (U+3006) are
  * `Script=Common` despite being used mid-word, so plain `Script=` terminated a run
- * at every ー, splitting サーバー into fragments too short to index. ( U+3005,
+ * at every ー, splitting サーバー into fragments too short to index. (々 U+3005,
  * ヽ U+30FD and ゝ U+309D are already `Script=Han`/`Katakana`/`Hiragana` and were
  * never affected — `Script_Extensions` keeps them matching too.)
  */
@@ -131,12 +131,12 @@ export function extractMatchTerms(query: string): string[] {
 /**
  * The distinct terms of 1–2 characters, which produce no trigram. MATCH can never
  * see them, and at 2 characters they are often the query's content words — dropping
- *  from  architecture would silently turn the query into a bare
+ * 「系统」 from 「系统 architecture」 would silently turn the query into a bare
  * `MATCH "architecture"`. The store ANDs a `LIKE '%term%'` filter per short term
  * onto the MATCH query instead ({@link toFtsLikePattern}), relaxed when the filters
  * leave no candidate at all.
  *
- * Two sharp edges the relaxation does not cover: 1-character terms ("a", ) are
+ * Two sharp edges the relaxation does not cover: 1-character terms ("a", 「的」) are
  * included and are rarely content-bearing, and the filters are plain substrings, so
  * a short Latin term also matches inside longer words ("Go" hits "algorithm"). Both
  * only bite when the filter eliminates the target chunk while some other chunk

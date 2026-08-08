@@ -24,22 +24,22 @@ export interface DraggableVirtualListRef {
 }
 
 /**
- *  Props DraggableVirtualList
+ * 泛型 Props，用于配置 DraggableVirtualList。
  *
- * @template T 
- * @property {string} [className]  class
- * @property {React.CSSProperties} [style] 
- * @property {React.CSSProperties} [itemStyle] 
- * @property {React.CSSProperties} [itemContainerStyle] 
- * @property {Partial<DroppableProps>} [droppableProps]  Droppable 
- * @property {(list: T[]) => void} [onUpdate]  useDraggableReorder 
- * @property {OnDragStartResponder} [onDragStart] 
- * @property {OnDragEndResponder}   [onDragEnd] 
- * @property {T[]} list 
- * @property {(index: number) => Key} [itemKey]  key index
- * @property {number} [overscan=5] 
- * @property {React.ReactNode} [header] 
- * @property {(item: T, index: number) => React.ReactNode} children 
+ * @template T 列表元素的类型
+ * @property {string} [className] 根节点附加 class
+ * @property {React.CSSProperties} [style] 根节点附加样式
+ * @property {React.CSSProperties} [itemStyle] 元素内容区域的附加样式
+ * @property {React.CSSProperties} [itemContainerStyle] 元素拖拽容器的附加样式
+ * @property {Partial<DroppableProps>} [droppableProps] 透传给 Droppable 的额外配置
+ * @property {(list: T[]) => void} [onUpdate] 拖拽排序完成后的回调，返回新的列表顺序（可被 useDraggableReorder 替代）
+ * @property {OnDragStartResponder} [onDragStart] 开始拖拽时的回调
+ * @property {OnDragEndResponder}   [onDragEnd] 结束拖拽时的回调
+ * @property {T[]} list 渲染的数据源
+ * @property {(index: number) => Key} [itemKey] 提供给虚拟列表的行 key，若不提供默认使用 index
+ * @property {number} [overscan=5] 前后额外渲染的行数，提升快速滚动时的体验
+ * @property {React.ReactNode} [header] 列表头部内容
+ * @property {(item: T, index: number) => React.ReactNode} children 列表项渲染函数
  */
 export interface DraggableVirtualListProps<T> {
   ref?: React.Ref<DraggableVirtualListRef>
@@ -62,10 +62,10 @@ export interface DraggableVirtualListProps<T> {
 }
 
 /**
- * 
- * - 
- * @template T 
- * @param {DraggableVirtualListProps<T>} props 
+ * 带虚拟滚动与拖拽排序能力的（垂直）列表组件。
+ * - 滚动容器由该组件内部管理。
+ * @template T 列表元素的类型
+ * @param {DraggableVirtualListProps<T>} props 组件参数
  * @returns {React.ReactElement}
  */
 function DraggableVirtualList<T>({
@@ -99,7 +99,7 @@ function DraggableVirtualList<T>({
     }
   }
 
-  //  ref
+  // 虚拟列表滚动容器的 ref
   const parentRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const droppableInnerRef = useRef<((element: HTMLElement | null) => void) | null>(null)
@@ -202,7 +202,7 @@ function DraggableVirtualList<T>({
 }
 
 /**
- * 
+ * 渲染单个可拖拽的虚拟列表项，高度为动态测量
  */
 const VirtualRow = memo(
   ({ virtualItem, list, children, itemStyle, itemContainerStyle, virtualizer, disabled }: any) => {
@@ -223,9 +223,9 @@ const VirtualRow = memo(
           const dndStyle = provided.draggableProps.style
           const virtualizerTransform = `translateY(${virtualItem.start}px)`
 
-          // dnd  transform 
-          // virtualizer  translateY 
-          // 
+          // dnd 的 transform 负责拖拽时的位移和让位动画，
+          // virtualizer 的 translateY 负责将项定位到虚拟列表的正确位置，
+          // 它们拼接起来可以同时实现拖拽视觉效果和虚拟化定位。
           const combinedTransform = dndStyle?.transform
             ? `${dndStyle.transform} ${virtualizerTransform}`
             : virtualizerTransform

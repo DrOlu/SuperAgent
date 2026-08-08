@@ -179,7 +179,7 @@ class FileStorage {
       const stats = fs.statSync(sourcePath)
       const fileSizeInMB = stats.size / MB
 
-      // 1MB
+      // 如果图片大于1MB才进行压缩
       if (fileSizeInMB > 1) {
         try {
           await fs.promises.copyFile(sourcePath, destPath)
@@ -189,12 +189,12 @@ class FileStorage {
           await fs.promises.copyFile(sourcePath, destPath)
         }
       } else {
-        // 
+        // 小图片直接复制
         await fs.promises.copyFile(sourcePath, destPath)
       }
     } catch (error) {
       logger.error('Image handling failed:', error as Error)
-      // 
+      // 错误情况下直接复制原文件
       await fs.promises.copyFile(sourcePath, destPath)
     }
   }
@@ -214,7 +214,7 @@ class FileStorage {
 
     logger.info(`[FileStorage] Uploading file: ${filePath}`)
 
-    // 
+    // 根据文件类型选择处理方式
     if (imageExts.includes(ext)) {
       await this.compressImage(filePath, destPath)
     } else {
@@ -320,13 +320,13 @@ class FileStorage {
         throw new Error(`Source file does not exist: ${filePath}`)
       }
 
-      // 
+      // 确保目标目录存在
       const destDir = path.dirname(newPath)
       if (!fs.existsSync(destDir)) {
         await fs.promises.mkdir(destDir, { recursive: true })
       }
 
-      // 
+      // 移动文件
       await fs.promises.rename(filePath, newPath)
       logger.debug(`File moved successfully: ${filePath} to ${newPath}`)
     } catch (error) {
@@ -342,13 +342,13 @@ class FileStorage {
         throw new Error(`Source directory does not exist: ${dirPath}`)
       }
 
-      // 
+      // 确保目标父目录存在
       const parentDir = path.dirname(newDirPath)
       if (!fs.existsSync(parentDir)) {
         await fs.promises.mkdir(parentDir, { recursive: true })
       }
 
-      // 
+      // 移动目录
       await fs.promises.rename(dirPath, newDirPath)
       logger.debug(`Directory moved successfully: ${dirPath} to ${newDirPath}`)
     } catch (error) {
@@ -367,12 +367,12 @@ class FileStorage {
       const newFilePath = path.join(dirPath, newName + '.md')
       await assertOutsideManagedStorageMutation(filePath, newFilePath)
 
-      // 
+      // 如果目标文件已存在，抛出错误
       if (fs.existsSync(newFilePath)) {
         throw new Error(`Target file already exists: ${newFilePath}`)
       }
 
-      // 
+      // 重命名文件
       await fs.promises.rename(filePath, newFilePath)
       logger.debug(`File renamed successfully: ${filePath} to ${newFilePath}`)
     } catch (error) {
@@ -391,12 +391,12 @@ class FileStorage {
       const newDirPath = path.join(parentDir, newName)
       await assertOutsideManagedStorageMutation(dirPath, newDirPath)
 
-      // 
+      // 如果目标目录已存在，抛出错误
       if (fs.existsSync(newDirPath)) {
         throw new Error(`Target directory already exists: ${newDirPath}`)
       }
 
-      // 
+      // 重命名目录
       await fs.promises.rename(dirPath, newDirPath)
       logger.debug(`Directory renamed successfully: ${dirPath} to ${newDirPath}`)
     } catch (error) {
@@ -600,7 +600,7 @@ class FileStorage {
         bufferSize: buffer.length
       })
 
-      // 
+      // 确保目录存在
       if (!fs.existsSync(this.storageDir)) {
         fs.mkdirSync(this.storageDir, { recursive: true })
       }
@@ -694,7 +694,7 @@ class FileStorage {
   }
 
   /**
-   * 
+   * 通过相对路径打开文件，跨设备时使用
    * @param _
    * @param file
    */
@@ -846,7 +846,7 @@ class FileStorage {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      // Content-Disposition
+      // 尝试从Content-Disposition获取文件名
       const contentDisposition = response.headers.get('Content-Disposition')
       let filename = 'download'
 
@@ -857,13 +857,13 @@ class FileStorage {
         }
       }
 
-      // URLURL
+      // 如果URL中有文件名，使用URL中的文件名
       const urlFilename = url.split('/').pop()?.split('?')[0]
       if (urlFilename && urlFilename.includes('.')) {
         filename = urlFilename
       }
 
-      // Content-Type
+      // 如果文件名没有后缀，根据Content-Type添加后缀
       if (isUseContentType || !filename.includes('.')) {
         const contentType = response.headers.get('Content-Type')
         const ext = this.getExtensionFromMimeType(contentType)
@@ -874,7 +874,7 @@ class FileStorage {
       const ext = path.extname(filename)
       const destPath = path.join(this.storageDir, uuid + ext)
 
-      // 
+      // 将响应内容写入文件
       const buffer = Buffer.from(await response.arrayBuffer())
       await fs.promises.writeFile(destPath, buffer)
 
@@ -924,13 +924,13 @@ class FileStorage {
     try {
       const sourcePath = path.join(this.storageDir, id)
 
-      // 
+      // 确保目标目录存在
       const destDir = path.dirname(destPath)
       if (!fs.existsSync(destDir)) {
         await fs.promises.mkdir(destDir, { recursive: true })
       }
 
-      // 
+      // 复制文件
       await fs.promises.copyFile(sourcePath, destPath)
       logger.debug(`File copied successfully: ${sourcePath} to ${destPath}`)
     } catch (error) {
@@ -944,7 +944,7 @@ class FileStorage {
       const filePath = path.join(this.storageDir, id)
       logger.debug(`Writing file: ${filePath}`)
 
-      // 
+      // 确保目录存在
       if (!fs.existsSync(this.storageDir)) {
         logger.debug(`Creating storage directory: ${this.storageDir}`)
         fs.mkdirSync(this.storageDir, { recursive: true })

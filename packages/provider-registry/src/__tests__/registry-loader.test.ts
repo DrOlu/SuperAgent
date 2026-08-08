@@ -1,6 +1,6 @@
 /**
  * RegistryLoader override-index tests — focus on the identity contract when a provider serves one
- * canonical `modelId` under several `apiModelId`s (tokenhub's dated  variants). The generator keeps
+ * canonical `modelId` under several `apiModelId`s (tokenhub's dated 原厂直供 variants). The generator keeps
  * both rows; the loader must keep the canonical (undated/self) lookup pointing at the undated row while
  * the dated ones stay reachable by their own apiModelId.
  */
@@ -47,7 +47,7 @@ describe('RegistryLoader override index — duplicate canonical modelId', () => 
     providerId: 'tokenhub',
     modelId: 'deepseek-v4-flash',
     apiModelId: 'deepseek-v4-flash-202605',
-    name: 'DeepSeek-V4-Flash '
+    name: 'DeepSeek-V4-Flash 原厂直供'
   }
 
   it('canonical lookup resolves to the undated/self variant, not the dated one', () => {

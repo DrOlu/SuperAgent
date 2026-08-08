@@ -17,7 +17,7 @@ interface MarkdownEditorProps {
 const MarkdownEditor: FC<MarkdownEditorProps> = ({
   value,
   onChange,
-  placeholder = 'Markdown...',
+  placeholder = '请输入Markdown格式文本...',
   height = '300px',
   autoFocus = false
 }) => {

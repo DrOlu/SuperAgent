@@ -7,21 +7,21 @@ function checkDuplicatesAndChildren() {
   const classificationFile = path.join(__dirname, '../data/classification.json')
   const classification = JSON.parse(fs.readFileSync(classificationFile, 'utf8'))
 
-  // preferenceschildren
+  // 提取所有preferences项（包括children）
   const allPrefs = []
 
   function extractItems(items, source, category, parentKey = '') {
     if (!Array.isArray(items)) return
 
     items.forEach((item) => {
-      // children
+      // 处理有children的项目
       if (item.children) {
-        console.log(`children: ${source}/${category}/${item.originalKey}`)
+        console.log(`发现children项: ${source}/${category}/${item.originalKey}`)
         extractItems(item.children, source, category, `${parentKey}${item.originalKey}.`)
         return
       }
 
-      // 
+      // 处理普通项目
       if (item.category === 'preferences' && item.status === 'classified' && item.targetKey) {
         allPrefs.push({
           source,
@@ -33,7 +33,7 @@ function checkDuplicatesAndChildren() {
       }
     })
   }
-  // 
+  // 遍历所有数据源
   ;['electronStore', 'redux', 'localStorage'].forEach((source) => {
     if (classification.classifications[source]) {
       Object.keys(classification.classifications[source]).forEach((category) => {
@@ -43,9 +43,9 @@ function checkDuplicatesAndChildren() {
     }
   })
 
-  console.log(`\n===  ${allPrefs.length} preferences ===\n`)
+  console.log(`\n=== 总共找到 ${allPrefs.length} 个preferences项 ===\n`)
 
-  // targetKey
+  // 检查重复的targetKey
   const targetKeyGroups = {}
   allPrefs.forEach((pref) => {
     if (!targetKeyGroups[pref.targetKey]) {
@@ -54,10 +54,10 @@ function checkDuplicatesAndChildren() {
     targetKeyGroups[pref.targetKey].push(pref)
   })
 
-  // 
+  // 显示重复项
   const duplicates = Object.keys(targetKeyGroups).filter((key) => targetKeyGroups[key].length > 1)
   if (duplicates.length > 0) {
-    console.log('=== targetKey ===')
+    console.log('=== 重复的targetKey ===')
     duplicates.forEach((targetKey) => {
       console.log(`\n${targetKey}:`)
       targetKeyGroups[targetKey].forEach((pref) => {
@@ -65,7 +65,7 @@ function checkDuplicatesAndChildren() {
       })
     })
   } else {
-    console.log('✅ targetKey')
+    console.log('✅ 没有发现重复的targetKey')
   }
 
   return { allPrefs, duplicates: duplicates.map((key) => targetKeyGroups[key]) }

@@ -170,7 +170,7 @@ describe('summarizeHistory', () => {
           { length: 40 },
           (_, i): ContextMessage => ({
             role: i % 2 === 0 ? 'assistant' : 'user',
-            content: `turn ${i}: ${''.repeat(80)}`
+            content: `turn ${i}: ${'长篇叙述内容。'.repeat(80)}`
           })
         ),
         { role: 'user', content: 'NEWEST message' }

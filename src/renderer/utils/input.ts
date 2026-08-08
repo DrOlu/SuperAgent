@@ -11,10 +11,10 @@ export const getTextFromDropEvent = async (e: React.DragEvent<HTMLDivElement>): 
 
 export const getFilesFromDropEvent = async (e: React.DragEvent<HTMLDivElement>): Promise<FileMetadata[]> => {
   if (e.dataTransfer.files.length > 0) {
-    // API
+    // 使用新的API获取文件路径
     const filePromises = [...e.dataTransfer.files].map(async (file) => {
       try {
-        // webUtils.getPathForFile API
+        // 使用新的webUtils.getPathForFile API获取文件路径
         const filePath = window.api.file.getPathForFile(file)
         if (filePath) {
           return window.api.file.get(filePath)

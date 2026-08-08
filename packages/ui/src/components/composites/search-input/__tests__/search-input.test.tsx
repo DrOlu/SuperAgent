@@ -13,9 +13,9 @@ afterEach(() => {
 
 describe('SearchInput', () => {
   it('renders a search field with the given placeholder', () => {
-    render(<SearchInput placeholder="" value="" onChange={() => {}} />)
+    render(<SearchInput placeholder="搜索" value="" onChange={() => {}} />)
 
-    expect(screen.getByRole('searchbox')).toHaveAttribute('placeholder', '')
+    expect(screen.getByRole('searchbox')).toHaveAttribute('placeholder', '搜索')
   })
 
   it('calls onChange when the user types', () => {
@@ -28,11 +28,11 @@ describe('SearchInput', () => {
   })
 
   it('shows the clear button only when onClear is set and the value is non-empty', () => {
-    const { rerender } = render(<SearchInput value="" onChange={() => {}} onClear={() => {}} clearLabel="" />)
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    const { rerender } = render(<SearchInput value="" onChange={() => {}} onClear={() => {}} clearLabel="清除" />)
+    expect(screen.queryByRole('button', { name: '清除' })).not.toBeInTheDocument()
 
-    rerender(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="" />)
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    rerender(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="清除" />)
+    expect(screen.getByRole('button', { name: '清除' })).toBeInTheDocument()
   })
 
   it('hides the clear button when no onClear handler is provided', () => {
@@ -43,30 +43,30 @@ describe('SearchInput', () => {
 
   it('invokes onClear when the clear button is clicked', () => {
     const onClear = vi.fn()
-    render(<SearchInput value="cherry" onChange={() => {}} onClear={onClear} clearLabel="" />)
+    render(<SearchInput value="cherry" onChange={() => {}} onClear={onClear} clearLabel="清除" />)
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '清除' }))
 
     expect(onClear).toHaveBeenCalledTimes(1)
   })
 
   it('disables the input and the clear button when disabled', () => {
-    render(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="" disabled />)
+    render(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="清除" disabled />)
 
     expect(screen.getByRole('searchbox')).toBeDisabled()
-    expect(screen.getByRole('button', { name: '' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '清除' })).toBeDisabled()
   })
 
   it('supports a custom clear button label', () => {
-    render(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="" />)
+    render(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="清除" />)
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '清除' })).toBeInTheDocument()
   })
 
   it('renders the clear action as a square icon button', () => {
-    render(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="" />)
+    render(<SearchInput value="cherry" onChange={() => {}} onClear={() => {}} clearLabel="清除" />)
 
-    expect(screen.getByRole('button', { name: '' })).toHaveClass('size-6', 'min-h-0')
+    expect(screen.getByRole('button', { name: '清除' })).toHaveClass('size-6', 'min-h-0')
   })
 
   it('defaults to the h-9 field height', () => {

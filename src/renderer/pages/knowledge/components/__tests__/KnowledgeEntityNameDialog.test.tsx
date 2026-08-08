@@ -64,9 +64,9 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'common.cancel': '',
-          'common.name': '',
-          'knowledge.name_required': ''
+          'common.cancel': '取消',
+          'common.name': '名称',
+          'knowledge.name_required': '知识库名称为必填项'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -75,7 +75,7 @@ vi.mock('react-i18next', () => ({
 const renderDialog = ({
   initialName = '',
   isSubmitting = false,
-  submitErrorMessage = '',
+  submitErrorMessage = '提交失败',
   onSubmit = vi.fn().mockResolvedValue(undefined),
   onOpenChange = vi.fn()
 }: {
@@ -88,13 +88,13 @@ const renderDialog = ({
   render(
     <KnowledgeEntityNameDialog
       open
-      title=""
-      submitLabel=""
+      title="重命名实体"
+      submitLabel="提交"
       initialName={initialName}
       isSubmitting={isSubmitting}
       submitErrorMessage={submitErrorMessage}
-      namePlaceholder="..."
-      nameRequiredMessage=""
+      namePlaceholder="输入名称..."
+      nameRequiredMessage="名称不能为空"
       onSubmit={onSubmit}
       onOpenChange={onOpenChange}
     />
@@ -114,9 +114,9 @@ describe('KnowledgeEntityNameDialog', () => {
   it('prefills the provided initial name', () => {
     renderDialog({ initialName: 'Research' })
 
-    expect(screen.getByRole('heading', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '重命名实体' })).toBeInTheDocument()
     expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'sm')
-    expect(screen.getByLabelText('')).toHaveValue('Research')
+    expect(screen.getByLabelText('名称')).toHaveValue('Research')
   })
 
   it('shows validation when the name is empty', async () => {
@@ -124,12 +124,12 @@ describe('KnowledgeEntityNameDialog', () => {
 
     renderDialog({ onSubmit })
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '提交' }))
 
     await waitFor(() => {
       expect(onSubmit).not.toHaveBeenCalled()
     })
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('名称不能为空')).toBeInTheDocument()
   })
 
   it('submits the trimmed name without closing on success', async () => {
@@ -138,8 +138,8 @@ describe('KnowledgeEntityNameDialog', () => {
 
     renderDialog({ initialName: 'Research', onSubmit, onOpenChange })
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: '  Archive  ' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: '  Archive  ' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交' }))
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith('Archive')
@@ -150,14 +150,14 @@ describe('KnowledgeEntityNameDialog', () => {
   it('shows the passed submit error message with the original failure when submission fails', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('boom'))
 
-    renderDialog({ initialName: 'Research', submitErrorMessage: '', onSubmit })
+    renderDialog({ initialName: 'Research', submitErrorMessage: '更新失败', onSubmit })
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'Archive' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'Archive' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交' }))
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith('Archive')
     })
-    expect(screen.getByText(': boom')).toBeInTheDocument()
+    expect(screen.getByText('更新失败: boom')).toBeInTheDocument()
   })
 })

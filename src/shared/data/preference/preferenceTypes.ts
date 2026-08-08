@@ -63,7 +63,7 @@ export enum ThemeMode {
   system = 'system'
 }
 
-/** UI */
+/** 有限的UI语言 */
 export type LanguageVarious =
   | 'zh-CN'
   | 'zh-TW'
@@ -130,9 +130,9 @@ export type ProxyMode = 'system' | 'custom' | 'none'
 export type MultiModelFoldDisplayMode = 'expanded' | 'compact'
 
 export enum UpgradeChannel {
-  LATEST = 'latest', // 
-  RC = 'rc', // 
-  BETA = 'beta' // 
+  LATEST = 'latest', // 最新稳定版本
+  RC = 'rc', // 公测版本
+  BETA = 'beta' // 预览版本
 }
 
 export type ChatMessageStyle = 'plain' | 'bubble'

@@ -13,7 +13,7 @@ const { languageState, getT } = vi.hoisted(() => {
       assistants: 'Assistants'
     },
     'zh-CN': {
-      assistants: ''
+      assistants: '助手'
     }
   }
 
@@ -112,6 +112,6 @@ describe('Sidebar language refresh', () => {
     languageState.language = 'zh-CN'
     rerender(<Sidebar />)
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '助手' })).toBeInTheDocument()
   })
 })

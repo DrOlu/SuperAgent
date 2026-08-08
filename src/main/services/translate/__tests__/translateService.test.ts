@@ -92,10 +92,10 @@ describe('translateService.resolveTranslatePayload', () => {
       name: 'Qwen MT Turbo'
     })
 
-    const payload = translateService.resolveTranslatePayload('', TARGET)
+    const payload = translateService.resolveTranslatePayload('原文', TARGET)
 
     expect(payload.uniqueModelId).toBe('dashscope::qwen-mt-turbo')
-    expect(payload.content).toBe('')
+    expect(payload.content).toBe('原文')
   })
 
   it('throws translate.error.not_configured when the translate model preference is unset', async () => {

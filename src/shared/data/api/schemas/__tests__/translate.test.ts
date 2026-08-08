@@ -33,7 +33,7 @@ describe('TranslateLangCodeSchema (permissive, UI/detection)', () => {
 })
 
 describe('Translate API DTOs reject the "unknown" sentinel at the persistence boundary', () => {
-  const baseHistory = { sourceText: 'Hello', targetText: '' }
+  const baseHistory = { sourceText: 'Hello', targetText: '你好' }
 
   it('CreateTranslateHistorySchema rejects unknown sourceLanguage', () => {
     expect(
@@ -119,7 +119,7 @@ describe('Translate entity schemas are strict', () => {
       TranslateHistorySchema.safeParse({
         id: '019b0830-2e52-7000-8000-000000000001',
         sourceText: 'Hello',
-        targetText: '',
+        targetText: '你好',
         sourceLanguage: 'en-us',
         targetLanguage: 'zh-cn',
         star: false,

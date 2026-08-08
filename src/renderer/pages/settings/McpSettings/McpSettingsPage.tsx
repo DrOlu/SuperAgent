@@ -21,22 +21,22 @@ const McpSettings: FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // 
+  // 获取当前激活的页面
   const getActiveView = () => {
     const path = location.pathname
 
-    // 
+    // 精确匹配路径
     if (path === '/settings/mcp/builtin') return 'builtin'
     if (path === '/settings/mcp/marketplaces') return 'marketplaces'
 
-    //  - 
+    // 检查是否是服务商页面 - 精确匹配
     for (const provider of providers) {
       if (path === `/settings/mcp/${provider.key}`) {
         return provider.key
       }
     }
 
-    //  serverssettings/:serverIdnpx-searchmcp-install servers
+    // 其他所有情况（包括 servers、settings/:serverId、npx-search、mcp-install）都属于 servers
     return 'servers'
   }
 

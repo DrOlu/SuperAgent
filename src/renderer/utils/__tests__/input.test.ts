@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getFilesFromDropEvent, getSendMessageShortcutLabel, isSendMessageKeyPressed } from '../input'
 
-// Mock 
+// Mock 外部依赖
 vi.mock('@renderer/config/logger', () => ({
   default: { error: vi.fn() }
 }))
@@ -20,7 +20,7 @@ const mockFileGet = vi.fn()
 describe('input', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    //  window.api mock
+    // 设置 window.api mock
     global.window = {
       api: {
         file: {
@@ -36,7 +36,7 @@ describe('input', () => {
   })
 
   describe('getFilesFromDropEvent', () => {
-    // 
+    // 核心功能：处理文件拖放
     it('should handle file drop with File objects', async () => {
       const mockFile1 = new File(['content1'], 'file1.txt')
       const mockFile2 = new File(['content2'], 'file2.txt')
@@ -68,7 +68,7 @@ describe('input', () => {
       expect(mockFileGet).toHaveBeenCalledTimes(2)
     })
 
-    //  codefiles 
+    // 处理 codefiles 格式
     it('should handle codefiles format from drag event', async () => {
       const mockMetadata = { id: '1', name: 'file.txt', path: '/path/file.txt' }
       mockFileGet.mockResolvedValue(mockMetadata)
@@ -94,7 +94,7 @@ describe('input', () => {
       expect(mockGetAsString).toHaveBeenCalled()
     })
 
-    // 
+    // 边界情况：空文件列表
     it('should return empty array when no files are dropped', async () => {
       const event = {
         dataTransfer: {
@@ -107,7 +107,7 @@ describe('input', () => {
       expect(result).toEqual([])
     })
 
-    // 
+    // 错误处理
     it('should handle errors gracefully when file path cannot be obtained', async () => {
       const mockFile = new File(['content'], 'file.txt')
       mockGetPathForFile.mockImplementation(() => {
@@ -127,19 +127,19 @@ describe('input', () => {
   })
 
   describe('getSendMessageShortcutLabel', () => {
-    // 
+    // 核心功能：快捷键标签转换
     it('should return correct labels for shortcuts in Windows environment', () => {
       expect(getSendMessageShortcutLabel('Enter')).toBe('Enter')
       expect(getSendMessageShortcutLabel('Ctrl+Enter')).toBe('Ctrl + Enter')
-      expect(getSendMessageShortcutLabel('Command+Enter')).toBe('Win + Enter') // Windows 
-      expect(getSendMessageShortcutLabel('Custom+Enter' as SendMessageShortcut)).toBe('Custom+Enter') // 
+      expect(getSendMessageShortcutLabel('Command+Enter')).toBe('Win + Enter') // Windows 环境特殊处理
+      expect(getSendMessageShortcutLabel('Custom+Enter' as SendMessageShortcut)).toBe('Custom+Enter') // 未知快捷键保持原样
     })
   })
 
   describe('isSendMessageKeyPressed', () => {
-    // 
+    // 核心功能：检测正确的快捷键组合
     it('should correctly detect each shortcut combination', () => {
-      //  Enter 
+      // 单独 Enter 键
       expect(
         isSendMessageKeyPressed(
           { key: 'Enter', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false } as any,
@@ -147,7 +147,7 @@ describe('input', () => {
         )
       ).toBe(true)
 
-      //  - 
+      // 组合键 - 每个快捷键只需一个有效案例
       expect(
         isSendMessageKeyPressed(
           { key: 'Enter', shiftKey: false, ctrlKey: true, metaKey: false, altKey: false } as any,
@@ -163,7 +163,7 @@ describe('input', () => {
       ).toBe(true)
     })
 
-    // 
+    // 边界情况：确保快捷键互斥
     it('should require exact modifier key combination', () => {
       const multiModifierEvent = {
         key: 'Enter',
@@ -173,7 +173,7 @@ describe('input', () => {
         altKey: false
       } as React.KeyboardEvent<HTMLTextAreaElement>
 
-      // 
+      // 多个修饰键时，任何快捷键都不应触发
       expect(isSendMessageKeyPressed(multiModifierEvent, 'Enter')).toBe(false)
       expect(isSendMessageKeyPressed(multiModifierEvent, 'Ctrl+Enter')).toBe(false)
       expect(isSendMessageKeyPressed(multiModifierEvent, 'Shift+Enter')).toBe(false)

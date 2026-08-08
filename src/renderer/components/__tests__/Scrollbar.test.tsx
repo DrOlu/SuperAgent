@@ -10,7 +10,7 @@ vi.mock('es-toolkit/compat', async () => {
   return {
     ...actual,
     throttle: vi.fn((fn) => {
-      // 
+      // 简单地直接返回函数，不实际执行节流
       const throttled = (...args: any[]) => fn(...args)
       throttled.cancel = vi.fn()
       return throttled
@@ -20,19 +20,19 @@ vi.mock('es-toolkit/compat', async () => {
 
 describe('Scrollbar', () => {
   beforeEach(() => {
-    //  fake timers
+    // 使用 fake timers
     vi.useFakeTimers()
   })
 
   afterEach(() => {
-    //  timers
+    // 恢复真实的 timers
     vi.restoreAllMocks()
     vi.useRealTimers()
   })
 
   describe('scrolling behavior', () => {
     it('should keep the scrolling state active for 1500ms after the latest scroll', () => {
-      render(<Scrollbar data-testid="scrollbar"></Scrollbar>)
+      render(<Scrollbar data-testid="scrollbar">内容</Scrollbar>)
 
       const scrollbar = screen.getByTestId('scrollbar')
       expect(scrollbar).toHaveAttribute('data-scrolling', 'false')
@@ -63,20 +63,20 @@ describe('Scrollbar', () => {
     it('should clear timeout and cancel throttle on unmount', async () => {
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
 
-      const { unmount } = render(<Scrollbar data-testid="scrollbar"></Scrollbar>)
+      const { unmount } = render(<Scrollbar data-testid="scrollbar">内容</Scrollbar>)
 
       const scrollbar = screen.getByTestId('scrollbar')
 
-      // 
+      // 触发滚动设置定时器
       fireEvent.scroll(scrollbar)
 
-      // 
+      // 卸载组件
       unmount()
 
-      //  clearTimeout 
+      // 验证 clearTimeout 被调用
       expect(clearTimeoutSpy).toHaveBeenCalled()
 
-      //  throttle.cancel 
+      // 验证 throttle.cancel 被调用
       const { throttle } = await import('es-toolkit/compat')
       const throttledFunction = (throttle as unknown as Mock).mock.results[0].value
       expect(throttledFunction.cancel).toHaveBeenCalled()
@@ -89,11 +89,11 @@ describe('Scrollbar', () => {
 
       render(
         <Scrollbar data-testid="scrollbar" ref={ref}>
-          
+          内容
         </Scrollbar>
       )
 
-      //  ref 
+      // 验证 ref 被正确设置
       expect(ref.current).not.toBeNull()
     })
   })

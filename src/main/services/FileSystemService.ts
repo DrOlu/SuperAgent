@@ -11,10 +11,10 @@ export default class FileService {
   }
 
   /**
-   * 
+   * 自动识别编码，读取文本文件
    * @param _ event
    * @param pathOrUrl
-   * @throws 
+   * @throws 路径不存在时抛出错误
    */
   @TraceMethod({ spanName: 'readTextFileWithAutoEncoding', tag: 'FileService' })
   public static async readTextFileWithAutoEncoding(_: Electron.IpcMainInvokeEvent, path: string): Promise<string> {

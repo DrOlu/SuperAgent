@@ -13,10 +13,10 @@ const ShadowDomRenderer: React.FC<Props> = ({ children }) => {
     const host = hostRef.current
     if (!host) return
 
-    //  shadow root
+    // 创建 shadow root
     const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' })
 
-    // 
+    // 获取原始样式表
     const markdownStyleSheet = Array.from(document.styleSheets).find((sheet) => {
       try {
         return Array.from(sheet.cssRules).some((rule: CSSRule) => {

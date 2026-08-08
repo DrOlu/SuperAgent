@@ -71,12 +71,12 @@ async function splitDroppedFilesByKind(files: FileMetadata[]) {
 }
 
 /**
- * Inputbar  Hook
+ * Inputbar 文件拖拽上传 Hook
  *
- * 
+ * 处理文件拖拽、文本拖拽，支持文件类型过滤和错误提示
  *
- * @param options - 
- * @returns 
+ * @param options - 拖拽配置选项
+ * @returns 拖拽状态和事件处理函数
  *
  * @example
  * ```tsx
@@ -106,7 +106,7 @@ export function useFileDragDrop(options: UseFileDragDropOptions) {
         return
       }
 
-      // 
+      // 处理文件拖拽
       const droppedFiles = await getFilesFromDropEvent(event).catch((err) => {
         logger.error('handleDrop:', err)
         return null
@@ -121,7 +121,7 @@ export function useFileDragDrop(options: UseFileDragDropOptions) {
           options.setFiles((prevFiles) => [...prevFiles, ...toComposerAttachments(supportedFiles)])
         }
 
-        // 
+        // 如果有不支持的文件，显示提示
         if (files.length > 0 && supportedFiles.length !== files.length) {
           toast.info(
             options.t('chat.input.file_not_supported_count', {

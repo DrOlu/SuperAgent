@@ -150,10 +150,10 @@ describe('ResourceCreateWizard', () => {
     modelHook.defaultModel = makeModel()
 
     render(
-      <ResourceCreateWizard kind="assistant" open onOpenChange={vi.fn()} onSubmit={onSubmit} initialName="" />
+      <ResourceCreateWizard kind="assistant" open onOpenChange={vi.fn()} onSubmit={onSubmit} initialName="测试助手" />
     )
 
-    expect(await screen.findByTestId('name')).toHaveTextContent('')
+    expect(await screen.findByTestId('name')).toHaveTextContent('测试助手')
     // Name + default model are both set, so the first step is already cleared.
     expect(screen.getByRole('button', { name: NEXT })).toBeEnabled()
 
@@ -161,7 +161,7 @@ describe('ResourceCreateWizard', () => {
     await user.click(screen.getByRole('button', { name: NEXT }))
     await user.click(screen.getByRole('button', { name: CREATE }))
 
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: '' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: '测试助手' }))
   })
 
   it('does not prefill a default model rejected by the wizard model filter', async () => {

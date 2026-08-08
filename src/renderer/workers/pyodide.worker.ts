@@ -7,7 +7,7 @@ interface WorkerResponse {
   error?: string
 }
 
-// 
+// 定义输出结构类型
 interface PyodideOutput {
   result: any
   text: string | null
@@ -57,7 +57,7 @@ __cherry_studio_matplotlib_setup()
 del __cherry_studio_matplotlib_setup
 `
 
-// 
+// 声明全局变量用于输出
 let output: PyodideOutput = {
   result: null,
   text: null,
@@ -65,7 +65,7 @@ let output: PyodideOutput = {
 }
 
 const pyodidePromise = (async () => {
-  // 
+  // 重置输出变量
   output = {
     result: null,
     text: null,
@@ -73,10 +73,10 @@ const pyodidePromise = (async () => {
   }
 
   try {
-    //  Pyodide 
+    // 动态加载 Pyodide 脚本
     const pyodideModule = await import(/* @vite-ignore */ PYODIDE_MODULE_URL)
 
-    //  Pyodide /
+    // 加载 Pyodide 并捕获标准输出/错误
     return await pyodideModule.loadPyodide({
       indexURL: PYODIDE_INDEX_URL,
       stdout: (text: string) => {
@@ -97,7 +97,7 @@ const pyodidePromise = (async () => {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
 
-    // 
+    // 通知主线程初始化错误
     self.postMessage({
       type: 'init-error',
       error: errorMessage
@@ -107,7 +107,7 @@ const pyodidePromise = (async () => {
   }
 })()
 
-// 
+// 处理结果，确保所有类型都能安全序列化
 function processResult(result: any): any {
   try {
     if (result && typeof result.toJs === 'function') {
@@ -129,7 +129,7 @@ function processResult(result: any): any {
   }
 }
 
-// 
+// 通知主线程已加载
 pyodidePromise
   .then(() => {
     self.postMessage({ type: 'initialized' } as WorkerResponse)
@@ -142,11 +142,11 @@ pyodidePromise
     } as WorkerResponse)
   })
 
-// 
+// 处理消息
 self.onmessage = async (event) => {
   const { id, python } = event.data
 
-  // 
+  // 重置输出变量
   output = {
     result: null,
     text: null,
@@ -157,10 +157,10 @@ self.onmessage = async (event) => {
 
   try {
     const pyodide = await pyodidePromise
-    // 
+    // 创建一个新的全局作用域
     globals = pyodide.globals.get('dict')()
 
-    // 
+    // 载入需要的包
     try {
       await pyodide.loadPackagesFromImports(python)
     } catch (error: unknown) {
@@ -168,26 +168,26 @@ self.onmessage = async (event) => {
       throw new Error(`Failed to load required packages: ${errorMessage}`)
     }
 
-    // 
+    // 执行代码
     try {
-      //  Matplotlib 
+      // 注入 Matplotlib 垫片代码
       if (python.includes('matplotlib')) {
         await pyodide.runPythonAsync(MATPLOTLIB_SHIM_CODE, { globals })
       }
 
       output.result = await pyodide.runPythonAsync(python, { globals })
 
-      // 
+      // 处理结果，确保安全序列化
       output.result = processResult(output.result)
 
-      //  Matplotlib 
+      // 检查是否有 Matplotlib 图像输出
       const image = globals.get('pyodide_matplotlib_image')
       if (image) {
         output.image = image
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      //  output.result
+      // 不设置 output.result，但设置错误信息
       if (output.error) {
         output.error += `\nExecution error:\n${errorMessage}`
       } else {
@@ -195,7 +195,7 @@ self.onmessage = async (event) => {
       }
     }
   } catch (error: unknown) {
-    // 
+    // 处理所有其他错误
     const errorMessage = error instanceof Error ? error.message : String(error)
 
     if (output.error) {
@@ -204,7 +204,7 @@ self.onmessage = async (event) => {
       output.error = `System error:\n${errorMessage}`
     }
 
-    // 
+    // 发送错误信息
     self.postMessage({
       type: 'system-error',
       id,

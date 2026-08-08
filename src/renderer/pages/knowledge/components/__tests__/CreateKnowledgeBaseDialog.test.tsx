@@ -135,18 +135,18 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'common.name': '',
-          'common.cancel': '',
-          'common.clear': '',
-          'knowledge.add.title': '',
-          'knowledge.add.group': '',
-          'knowledge.add.submit': '',
-          'knowledge.embedding_model': '',
-          'knowledge.name_required': '',
-          'knowledge.error.failed_to_create': '',
-          'knowledge.groups.default': '',
-          'knowledge.rag.rerank_disabled': '',
-          'message.error.get_embedding_dimensions': ''
+          'common.name': '名称',
+          'common.cancel': '取消',
+          'common.clear': '清除',
+          'knowledge.add.title': '新建知识库',
+          'knowledge.add.group': '分组',
+          'knowledge.add.submit': '创建',
+          'knowledge.embedding_model': '嵌入模型',
+          'knowledge.name_required': '知识库名称为必填项',
+          'knowledge.error.failed_to_create': '知识库创建失败',
+          'knowledge.groups.default': '默认',
+          'knowledge.rag.rerank_disabled': '不使用',
+          'message.error.get_embedding_dimensions': '获取嵌入维度失败'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -204,10 +204,10 @@ describe('CreateKnowledgeBaseDialog', () => {
     )
 
     expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'sm')
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() => expect(createBase).not.toHaveBeenCalled())
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('知识库名称为必填项')).toBeInTheDocument()
   })
 
   it('renders the embedding model field as optional', () => {
@@ -222,10 +222,10 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByLabelText('')).toHaveValue('')
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.getByText('嵌入模型')).toBeInTheDocument()
+    expect(screen.getByLabelText('嵌入模型')).toHaveValue('')
+    expect(screen.getByRole('button', { name: '不使用' })).toBeInTheDocument()
+    expect(screen.queryByText('未设置')).not.toBeInTheDocument()
   })
 
   it('renders all required fields and actions when a knowledge base is being created', () => {
@@ -240,13 +240,13 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    expect(screen.getByRole('heading', { name: '' })).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByLabelText('')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('')).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '新建知识库' })).toBeInTheDocument()
+    expect(screen.getByText('名称')).toBeInTheDocument()
+    expect(screen.getByLabelText('名称')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('名称')).toBeInTheDocument()
+    expect(screen.queryByText('分组')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '取消' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '创建' })).toBeInTheDocument()
   })
 
   it('closes the dialog on cancel without sending a request', () => {
@@ -264,7 +264,7 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(createBase).not.toHaveBeenCalled()
@@ -282,8 +282,8 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    expect(screen.queryByText('')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByText('分组')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '默认' })).not.toBeInTheDocument()
   })
 
   it('renders the default group as a selectable option alongside the real groups', () => {
@@ -298,9 +298,9 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('分组')).toBeInTheDocument()
     // The trigger renders the default label and the list now offers an explicit default option.
-    expect(screen.getAllByRole('button', { name: '' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: '默认' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Research' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument()
   })
@@ -320,11 +320,11 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
-    // Switch the preselected group back to the default group via the explicit option (last "" button is the item).
-    const defaultOptions = screen.getAllByRole('button', { name: '' })
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
+    // Switch the preselected group back to the default group via the explicit option (last "默认" button is the item).
+    const defaultOptions = screen.getAllByRole('button', { name: '默认' })
     fireEvent.click(defaultOptions[defaultOptions.length - 1])
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() => expect(createBase).toHaveBeenCalledWith({ name: 'My Base' }))
   })
@@ -344,8 +344,8 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() => expect(createBase).toHaveBeenCalledWith({ name: 'My Base' }))
   })
@@ -366,10 +366,10 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(': create failed'))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('知识库创建失败: create failed'))
     expect(onCreated).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
   })
@@ -388,9 +388,9 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() => expect(createBase).toHaveBeenCalledWith({ name: 'My Base', groupId: 'group-2' }))
   })
@@ -410,8 +410,8 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() => expect(createBase).toHaveBeenCalledWith({ name: 'My Base', groupId: 'group-2' }))
   })
@@ -431,10 +431,10 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
-    await user.click(screen.getByRole('button', { name: '' }))
-    await user.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
+    await user.click(screen.getByRole('button', { name: '不使用' }))
+    await user.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() => expect(createBase).toHaveBeenCalledWith({ name: 'My Base' }))
     expect(mockIpcRequest).not.toHaveBeenCalled()
@@ -456,9 +456,9 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() =>
       expect(createBase).toHaveBeenCalledWith({
@@ -487,7 +487,7 @@ describe('CreateKnowledgeBaseDialog', () => {
 
     expect(screen.getByRole('button', { name: 'local-model-option' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
 
     expect(screen.getByRole('button', { name: 'local-model-option' })).toBeInTheDocument()
   })
@@ -511,9 +511,9 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
     fireEvent.click(screen.getByRole('button', { name: 'local-model-option' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() =>
       expect(createBase).toHaveBeenCalledWith({
@@ -542,11 +542,11 @@ describe('CreateKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'My Base' } })
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(': probe failed'))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('获取嵌入维度失败: probe failed'))
     expect(createBase).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
   })

@@ -233,8 +233,8 @@ describe('TranslateLanguageBar', () => {
   })
 
   it('accounts for CJK label width when sizing the auto detected source selector', () => {
-    const simplifiedChinese = createLanguage('zh-cn', '', '🇨🇳')
-    mockT.mockImplementation((key: string) => (key === 'translate.detected.language' ? '' : key))
+    const simplifiedChinese = createLanguage('zh-cn', '简体中文', '🇨🇳')
+    mockT.mockImplementation((key: string) => (key === 'translate.detected.language' ? '自动检测' : key))
     mockUseLanguages.mockReturnValue(createLanguagesHookResult([english, simplifiedChinese, japanese]))
 
     const props = baseProps()

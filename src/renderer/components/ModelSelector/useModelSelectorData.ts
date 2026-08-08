@@ -30,7 +30,7 @@ function getModelSearchScore(keywords: string, model: Model, provider: Provider,
     { value: provider.name, weight: 2, allowAbbreviation: false },
     { value: provider.id, weight: 2, allowAbbreviation: false },
     { value: provider.presetProviderId, weight: 2, allowAbbreviation: false },
-    // UI  provider  provider  i18n 
+    // UI 展示的 provider 名（内置 provider 走 i18n 翻译），确保用户按界面上看到的名字搜索能命中
     { value: providerDisplayName, weight: 2, allowAbbreviation: false }
   ])
 }
@@ -120,8 +120,8 @@ export function useModelSelectorData({
     [availableProviders, prioritizedProviderIds]
   )
 
-  // Provider.isEnabled  Model.isEnabled  provider  model
-  //  model model 
+  // 交叉过滤：Provider.isEnabled 与 Model.isEnabled 互不联动，禁用 provider 下可能仍有启用 model。
+  // 这里必须剔除孤儿 model，保证每条 model 都能找到对应分组。
   const modelsByProvider = useMemo(() => {
     const enabledProviderIds = new Set(sortedProviders.map((provider) => provider.id))
     const grouped = new Map<string, Model[]>()
@@ -163,8 +163,8 @@ export function useModelSelectorData({
     return new Map(entries)
   }, [modelsByProvider])
 
-  //  +  ID
-  //  UI ""
+  // 只做去重 + 剔除不可选的脏 ID，不做数量截断。
+  // 截断只影响 UI 的"显示为选中"态，不能让截断污染到对外回传的业务数据。
   const resolvedSelectedModelIds = useMemo(() => {
     const nextSelectedIds: UniqueModelId[] = []
     const seen = new Set<UniqueModelId>()
@@ -181,7 +181,7 @@ export function useModelSelectorData({
     return nextSelectedIds
   }, [selectableModelsById, selectedModelIds])
 
-  //  UI  maxSelectedCount ""
+  // 仅用于 UI 展示：受 maxSelectedCount 约束（例如单选时只让第一个显示"已选"态）
   const visibleSelectedModelIdSet = useMemo(() => {
     if (maxSelectedCount == null) {
       return new Set(resolvedSelectedModelIds)

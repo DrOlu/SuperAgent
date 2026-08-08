@@ -1,5 +1,5 @@
 /**
- * Icons 
+ * Icons 模块统一导出
  *
  * Logo icons are compound components:
  *   <Anthropic />         — auto light/dark (default, follows the `dark:` Tailwind variant)

@@ -35,7 +35,7 @@ export async function fetchMessagesSummary({
     prompt = await replacePromptVariables(prompt, model.name)
   }
 
-  // 5 JSON
+  // 取最后5条消息，结构化为 JSON
   const contextMessages = takeRight(messages, 5)
   const structuredMessages = contextMessages.map((message) => {
     const fileList = (message.parts ?? [])

@@ -11,14 +11,14 @@ const CodeToolbar = ({ tools }: { tools: ActionTool[] }) => {
   const [showQuickTools, setShowQuickTools] = useState(false)
   const { t } = useTranslation()
 
-  // 
+  // 根据条件显示工具
   const visibleTools = tools.filter((tool) => !tool.visible || tool.visible())
 
-  // 
+  // 按类型分组
   const coreTools = visibleTools.filter((tool) => tool.type === 'core')
   const quickTools = visibleTools.filter((tool) => tool.type === 'quick')
 
-  //  more 
+  // 点击了 more 按钮或者只有一个快捷工具时
   const quickToolButtons = useMemo(() => {
     if (quickTools.length === 1 || (quickTools.length > 1 && showQuickTools)) {
       return quickTools.map((tool) => <CodeToolButton key={tool.id} tool={tool} />)
@@ -34,7 +34,7 @@ const CodeToolbar = ({ tools }: { tools: ActionTool[] }) => {
   return (
     <div className="pointer-events-none sticky top-7 z-10 h-0">
       <div className="code-toolbar pointer-events-auto absolute right-2 bottom-1 flex h-6 items-center gap-1">
-        {/*  more  */}
+        {/* 有多个快捷工具时通过 more 按钮展示 */}
         {quickToolButtons}
         {quickTools.length > 1 && (
           <Tooltip content={t('code_block.more')} delay={500}>
@@ -56,7 +56,7 @@ const CodeToolbar = ({ tools }: { tools: ActionTool[] }) => {
           </Tooltip>
         )}
 
-        {/*  */}
+        {/* 始终显示核心工具 */}
         {coreTools.map((tool) => (
           <CodeToolButton key={tool.id} tool={tool} />
         ))}

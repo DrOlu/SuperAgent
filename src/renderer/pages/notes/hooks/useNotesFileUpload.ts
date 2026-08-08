@@ -11,7 +11,7 @@ export const useNotesFileUpload = ({ onUploadFiles, setIsDragOverSidebar }: UseN
       e.preventDefault()
       setIsDragOverSidebar(false)
 
-      //  dataTransfer.items 
+      // 处理文件夹拖拽：从 dataTransfer.items 获取完整文件路径信息
       const items = Array.from(e.dataTransfer.items)
       const files: File[] = []
 
@@ -20,7 +20,7 @@ export const useNotesFileUpload = ({ onUploadFiles, setIsDragOverSidebar }: UseN
           const fileEntry = entry as FileSystemFileEntry
           return new Promise<void>((resolve) => {
             fileEntry.file((file) => {
-              //  webkitRelativePath 
+              // 手动设置 webkitRelativePath 以保持文件夹结构
               Object.defineProperty(file, 'webkitRelativePath', {
                 value: path + file.name,
                 writable: false
@@ -42,7 +42,7 @@ export const useNotesFileUpload = ({ onUploadFiles, setIsDragOverSidebar }: UseN
         }
       }
 
-      //  DataTransferItem API
+      // 如果支持 DataTransferItem API（文件夹拖拽）
       if (items.length > 0 && items[0].webkitGetAsEntry()) {
         const promises = items.map((item) => {
           const entry = item.webkitGetAsEntry()

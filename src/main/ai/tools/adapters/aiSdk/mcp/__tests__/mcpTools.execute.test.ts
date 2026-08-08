@@ -123,21 +123,21 @@ describe('mcpTools execute wrapper', () => {
     const reimbursement = {
       ...mcpTool('server-a', 'executeSql'),
       id: 'mcp__mysql__executeSql_a',
-      serverName: 'mysql_'
+      serverName: 'mysql_报销'
     }
     const elevator = {
       ...mcpTool('server-b', 'executeSql'),
       id: 'mcp__mysql__executeSql_b',
-      serverName: 'mysql_'
+      serverName: 'mysql_电梯'
     }
     list.mockReturnValue({
       items: [
-        { ...activeServer('server-b'), name: 'mysql_', sortOrder: 2 },
-        { ...activeServer('server-a'), name: 'mysql_', sortOrder: 1 }
+        { ...activeServer('server-b'), name: 'mysql_电梯', sortOrder: 2 },
+        { ...activeServer('server-a'), name: 'mysql_报销', sortOrder: 1 }
       ]
     })
     listTools.mockImplementation((serverId: string) => (serverId === 'server-a' ? [reimbursement] : [elevator]))
-    getById.mockReturnValue({ id: 'server-a', name: 'mysql_', isActive: true })
+    getById.mockReturnValue({ id: 'server-a', name: 'mysql_报销', isActive: true })
     callTool.mockResolvedValue({
       isError: false,
       content: [{ type: 'text', text: 'ok' }]

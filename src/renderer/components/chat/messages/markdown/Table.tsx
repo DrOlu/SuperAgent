@@ -20,7 +20,7 @@ interface Props {
 }
 
 /**
- *  Markdown  copy 
+ * 自定义 Markdown 表格组件，提供 copy 功能。
  */
 const Table: React.FC<Props> = ({ children, node, blockId }) => {
   const { t } = useTranslation()
@@ -127,11 +127,11 @@ const Table: React.FC<Props> = ({ children, node, blockId }) => {
 }
 
 /**
- *  Markdown 
- * @param blockId  ID
- * @param position 
- * @param markdownContent  markdown  MarkdownBlockContext
- * @returns 
+ * 从原始 Markdown 内容中提取表格源代码
+ * @param blockId 消息块 ID
+ * @param position 表格节点的位置信息
+ * @param markdownContent 原始 markdown 内容（来自 MarkdownBlockContext）
+ * @returns 源代码
  */
 export function extractTableMarkdown(_blockId: string, position: any, markdownContent?: string): string {
   if (!position || !markdownContent) return ''
@@ -139,7 +139,7 @@ export function extractTableMarkdown(_blockId: string, position: any, markdownCo
   const { start, end } = position
   const lines = markdownContent.split('\n')
 
-  // 10
+  // 提取表格对应的行（行号从1开始，数组索引从0开始）
   const tableLines = lines.slice(start.line - 1, end.line)
   return tableLines.join('\n').trim()
 }

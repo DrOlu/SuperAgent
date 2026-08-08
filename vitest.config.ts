@@ -21,7 +21,7 @@ const rendererConfig = (electronViteConfig as any).renderer
 export default defineConfig({
   test: {
     projects: [
-      // 
+      // 主进程单元测试配置
       {
         extends: true,
         plugins: mainConfig.plugins,
@@ -55,7 +55,7 @@ export default defineConfig({
           }
         }
       },
-      // 
+      // 渲染进程单元测试配置
       {
         extends: true,
         plugins: rendererConfig.plugins.filter((plugin: any) => plugin.name !== 'tailwindcss'),
@@ -72,7 +72,7 @@ export default defineConfig({
           }
         }
       },
-      // 
+      // 脚本单元测试配置
       {
         extends: true,
         resolve: {
@@ -87,7 +87,7 @@ export default defineConfig({
           }
         }
       },
-      // aiCore 
+      // aiCore 包单元测试配置
       {
         extends: 'packages/aiCore/vitest.config.ts',
         test: {
@@ -102,7 +102,7 @@ export default defineConfig({
           }
         }
       },
-      // shared 
+      // shared 包单元测试配置
       {
         extends: true,
         resolve: {
@@ -121,7 +121,7 @@ export default defineConfig({
           }
         }
       },
-      // provider-registry 
+      // provider-registry 包单元测试配置
       {
         extends: true,
         resolve: {
@@ -140,7 +140,7 @@ export default defineConfig({
           ]
         }
       },
-      // packages/ui 
+      // packages/ui 单元测试配置
       {
         extends: true,
         resolve: {
@@ -159,7 +159,7 @@ export default defineConfig({
         }
       }
     ],
-    // 
+    // 全局共享配置
     globals: true,
     setupFiles: [],
     exclude: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/build/**'],

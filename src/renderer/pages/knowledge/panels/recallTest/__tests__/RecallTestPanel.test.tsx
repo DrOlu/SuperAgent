@@ -34,8 +34,8 @@ const mockLogger = vi.hoisted(() => ({
 }))
 const mockCache = vi.hoisted(() => ({
   initial: {
-    'base-1': ['RAG ', ''],
-    'base-2': ['']
+    'base-1': ['RAG 检索增强生成原理', '向量数据库选型对比'],
+    'base-2': ['其他知识库查询']
   } as Record<string, string[]>,
   set: vi.fn()
 }))
@@ -49,7 +49,7 @@ const realSearchResults = [
     metadata: {
       itemId: 'item-1',
       itemType: 'file',
-      source: '/Users/test/Downloads/.pdf',
+      source: '/Users/test/Downloads/真实文档.pdf',
       chunkIndex: 3,
       tokenCount: 120
     },
@@ -64,7 +64,7 @@ const realSearchResults = [
     metadata: {
       itemId: 'item-2',
       itemType: 'file',
-      source: '/Users/test/Downloads/.md',
+      source: '/Users/test/Downloads/路径文档.md',
       chunkIndex: 2,
       tokenCount: 80
     },
@@ -132,24 +132,24 @@ vi.mock('react-i18next', () => ({
     t: (key: string, options?: { count?: number; duration?: number; score?: number | string; rank?: number }) =>
       (
         ({
-          'knowledge.recall.collapse': '',
-          'knowledge.recall.copy': '',
+          'knowledge.recall.collapse': '收起片段',
+          'knowledge.recall.copy': '复制片段',
           'knowledge.recall.duration': `${options?.duration ?? 0}ms`,
-          'knowledge.recall.empty_description': '',
-          'knowledge.recall.empty_title': '',
-          'knowledge.recall.expand': '',
-          'knowledge.recall.history_clear': '',
-          'knowledge.recall.history_remove': '',
-          'knowledge.recall.history_title': '',
-          'knowledge.recall.placeholder': ' Query...',
-          'knowledge.recall.result_count': `${options?.count ?? 0} `,
-          'knowledge.recall.result_rank': ` #${options?.rank ?? 0}`,
-          'knowledge.recall.result_relevance': ` ${options?.score ?? 0}`,
-          'knowledge.recall.ranking_only': '',
-          'knowledge.recall.search_failed': '',
-          'knowledge.recall.searching': '...',
-          'knowledge.recall.submit': '',
-          'knowledge.recall.top_score': `: ${options?.score ?? 0}`
+          'knowledge.recall.empty_description': '结果将展示匹配的文档片段和分数',
+          'knowledge.recall.empty_title': '输入查询语句开始检索测试',
+          'knowledge.recall.expand': '展开片段',
+          'knowledge.recall.history_clear': '清空',
+          'knowledge.recall.history_remove': '删除历史',
+          'knowledge.recall.history_title': '搜索历史',
+          'knowledge.recall.placeholder': '输入测试 Query...',
+          'knowledge.recall.result_count': `${options?.count ?? 0} 个结果`,
+          'knowledge.recall.result_rank': `排序 #${options?.rank ?? 0}`,
+          'knowledge.recall.result_relevance': `相关度 ${options?.score ?? 0}`,
+          'knowledge.recall.ranking_only': '按排序返回',
+          'knowledge.recall.search_failed': '召回测试检索失败',
+          'knowledge.recall.searching': '正在检索...',
+          'knowledge.recall.submit': '检索',
+          'knowledge.recall.top_score': `最高: ${options?.score ?? 0}`
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -160,8 +160,8 @@ describe('RecallTestPanel', () => {
     vi.useRealTimers()
     vi.clearAllMocks()
     mockCache.initial = {
-      'base-1': ['RAG ', ''],
-      'base-2': ['']
+      'base-1': ['RAG 检索增强生成原理', '向量数据库选型对比'],
+      'base-2': ['其他知识库查询']
     }
     mockPerformanceNow.mockReturnValue(100)
     mockIpcRequest.mockResolvedValue(realSearchResults)
@@ -177,75 +177,75 @@ describe('RecallTestPanel', () => {
   it('renders the empty state with a disabled search button initially', () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeDisabled()
+    expect(screen.getByText('输入查询语句开始检索测试')).toBeInTheDocument()
+    expect(screen.getByText('结果将展示匹配的文档片段和分数')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '检索' })).toBeDisabled()
   })
 
   it('hides the history button and dropdown when the selected base has no search history', () => {
     mockCache.initial = {
-      'base-2': ['']
+      'base-2': ['其他知识库查询']
     }
 
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.focus(screen.getByPlaceholderText(' Query...'))
+    fireEvent.focus(screen.getByPlaceholderText('输入测试 Query...'))
 
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '搜索历史' })).not.toBeInTheDocument()
+    expect(screen.queryByText('搜索历史')).not.toBeInTheDocument()
+    expect(screen.queryByText('其他知识库查询')).not.toBeInTheDocument()
   })
 
   it('shows cached search query history for the selected base when the search input receives focus', () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.focus(screen.getByPlaceholderText(' Query...'))
+    fireEvent.focus(screen.getByPlaceholderText('输入测试 Query...'))
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText('RAG ')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.getByText('搜索历史')).toBeInTheDocument()
+    expect(screen.getByText('RAG 检索增强生成原理')).toBeInTheDocument()
+    expect(screen.getByText('向量数据库选型对比')).toBeInTheDocument()
+    expect(screen.queryByText('其他知识库查询')).not.toBeInTheDocument()
   })
 
   it('keeps search history open when clicking the focused input again', () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    const input = screen.getByPlaceholderText(' Query...')
+    const input = screen.getByPlaceholderText('输入测试 Query...')
     fireEvent.focus(input)
     fireEvent.click(input)
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText('RAG ')).toBeInTheDocument()
+    expect(screen.getByText('搜索历史')).toBeInTheDocument()
+    expect(screen.getByText('RAG 检索增强生成原理')).toBeInTheDocument()
     expect(mockIpcRequest).not.toHaveBeenCalled()
   })
 
   it('closes search history when input loses focus outside the history popover', async () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    const input = screen.getByPlaceholderText(' Query...')
+    const input = screen.getByPlaceholderText('输入测试 Query...')
     fireEvent.focus(input)
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('搜索历史')).toBeInTheDocument()
 
     fireEvent.blur(input, { relatedTarget: document.body })
 
     await waitFor(() => {
-      expect(screen.queryByText('')).not.toBeInTheDocument()
+      expect(screen.queryByText('搜索历史')).not.toBeInTheDocument()
     })
   })
 
   it('fills the query from history and closes the history popover without searching', async () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    const input = screen.getByPlaceholderText(' Query...')
+    const input = screen.getByPlaceholderText('输入测试 Query...')
     fireEvent.focus(input)
-    fireEvent.click(screen.getByText('RAG '))
+    fireEvent.click(screen.getByText('RAG 检索增强生成原理'))
 
-    expect(input).toHaveValue('RAG ')
+    expect(input).toHaveValue('RAG 检索增强生成原理')
 
     await waitFor(() => {
-      expect(screen.queryByText('')).not.toBeInTheDocument()
+      expect(screen.queryByText('搜索历史')).not.toBeInTheDocument()
     })
-    expect(screen.queryByText('5 ')).not.toBeInTheDocument()
+    expect(screen.queryByText('5 个结果')).not.toBeInTheDocument()
   })
 
   it('calls runtime IPC, logs the returned data, and renders real result cards after searching', async () => {
@@ -256,47 +256,47 @@ describe('RecallTestPanel', () => {
 
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.change(screen.getByPlaceholderText(' Query...'), {
-      target: { value: 'RAG ' }
+    fireEvent.change(screen.getByPlaceholderText('输入测试 Query...'), {
+      target: { value: 'RAG 检索增强生成原理' }
     })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
     await waitFor(() => {
       expect(mockIpcRequest).toHaveBeenCalledWith('knowledge.search', {
         baseId: 'base-1',
-        query: 'RAG '
+        query: 'RAG 检索增强生成原理'
       })
     })
     expect(mockLogger.info).toHaveBeenCalledWith('Knowledge recall search IPC result', {
       baseId: 'base-1',
-      query: 'RAG ',
+      query: 'RAG 检索增强生成原理',
       results: realSearchResults
     })
-    expect(screen.getByText('2 ')).toBeInTheDocument()
+    expect(screen.getByText('2 个结果')).toBeInTheDocument()
     expect(screen.getByText('123ms')).toBeInTheDocument()
-    expect(screen.getByText(': 98%')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: '' })).toHaveLength(2)
-    expect(screen.getByText('/Users/test/Downloads/.pdf')).toBeInTheDocument()
-    expect(screen.getByText('/Users/test/Downloads/.md')).toBeInTheDocument()
+    expect(screen.getByText('最高: 98%')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '复制片段' })).toHaveLength(2)
+    expect(screen.getByText('/Users/test/Downloads/真实文档.pdf')).toBeInTheDocument()
+    expect(screen.getByText('/Users/test/Downloads/路径文档.md')).toBeInTheDocument()
     expect(screen.getByText('#3')).toBeInTheDocument()
     expect(screen.getByText('#2')).toBeInTheDocument()
-    expect(screen.getByText(' 98%')).toBeInTheDocument()
-    expect(screen.getByText(' 76%')).toBeInTheDocument()
+    expect(screen.getByText('相关度 98%')).toBeInTheDocument()
+    expect(screen.getByText('相关度 76%')).toBeInTheDocument()
     expect(screen.getByText('real result from file name')).toBeInTheDocument()
     expect(screen.getByText('real result from file path')).toBeInTheDocument()
-    expect(screen.queryByText('RAG .pdf')).not.toBeInTheDocument()
-    expect(screen.queryByText('.md')).not.toBeInTheDocument()
+    expect(screen.queryByText('RAG 技术指南.pdf')).not.toBeInTheDocument()
+    expect(screen.queryByText('知识库最佳实践.md')).not.toBeInTheDocument()
   })
 
   it('does not rerender existing result cards while typing a new query', async () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    const input = screen.getByPlaceholderText(' Query...')
+    const input = screen.getByPlaceholderText('输入测试 Query...')
     fireEvent.change(input, { target: { value: 'first query' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: '' })).toHaveLength(2)
+      expect(screen.getAllByRole('button', { name: '复制片段' })).toHaveLength(2)
     })
     expect(mockRecallResultCardRender).toHaveBeenCalledTimes(2)
 
@@ -309,16 +309,16 @@ describe('RecallTestPanel', () => {
   it('copies a recall result without showing a duplicate toast', async () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.change(screen.getByPlaceholderText(' Query...'), {
-      target: { value: 'RAG ' }
+    fireEvent.change(screen.getByPlaceholderText('输入测试 Query...'), {
+      target: { value: 'RAG 检索增强生成原理' }
     })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: '' })).toHaveLength(2)
+      expect(screen.getAllByRole('button', { name: '复制片段' })).toHaveLength(2)
     })
 
-    const copyButton = screen.getAllByRole('button', { name: '' })[0]
+    const copyButton = screen.getAllByRole('button', { name: '复制片段' })[0]
 
     await act(async () => {
       fireEvent.click(copyButton)
@@ -340,21 +340,21 @@ describe('RecallTestPanel', () => {
 
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.change(screen.getByPlaceholderText(' Query...'), {
-      target: { value: 'RAG ' }
+    fireEvent.change(screen.getByPlaceholderText('输入测试 Query...'), {
+      target: { value: 'RAG 检索增强生成原理' }
     })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
-    expect(screen.getByText('...')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeDisabled()
+    expect(screen.getByText('正在检索...')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '检索' })).toBeDisabled()
 
     mockPerformanceNow.mockReturnValue(223)
     resolveSearch(realSearchResults)
 
     await waitFor(() => {
-      expect(screen.queryByText('...')).not.toBeInTheDocument()
+      expect(screen.queryByText('正在检索...')).not.toBeInTheDocument()
     })
-    expect(screen.getByText('2 ')).toBeInTheDocument()
+    expect(screen.getByText('2 个结果')).toBeInTheDocument()
   })
 
   it('does not apply pending search results after switching selected bases', async () => {
@@ -367,23 +367,23 @@ describe('RecallTestPanel', () => {
 
     const { rerender } = render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.change(screen.getByPlaceholderText(' Query...'), {
-      target: { value: 'RAG ' }
+    fireEvent.change(screen.getByPlaceholderText('输入测试 Query...'), {
+      target: { value: 'RAG 检索增强生成原理' }
     })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
-    expect(screen.getByText('...')).toBeInTheDocument()
+    expect(screen.getByText('正在检索...')).toBeInTheDocument()
 
     rerender(<RecallTestPanel baseId="base-2" />)
 
     await waitFor(() => {
-      expect(screen.getByText('')).toBeInTheDocument()
+      expect(screen.getByText('输入查询语句开始检索测试')).toBeInTheDocument()
     })
-    expect(screen.getByPlaceholderText(' Query...')).toHaveValue('')
+    expect(screen.getByPlaceholderText('输入测试 Query...')).toHaveValue('')
 
-    fireEvent.focus(screen.getByPlaceholderText(' Query...'))
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.queryByText('RAG ')).not.toBeInTheDocument()
+    fireEvent.focus(screen.getByPlaceholderText('输入测试 Query...'))
+    expect(screen.getByText('其他知识库查询')).toBeInTheDocument()
+    expect(screen.queryByText('RAG 检索增强生成原理')).not.toBeInTheDocument()
 
     mockPerformanceNow.mockReturnValue(223)
     resolveSearch(realSearchResults)
@@ -391,11 +391,11 @@ describe('RecallTestPanel', () => {
     await waitFor(() => {
       expect(mockLogger.info).toHaveBeenCalledWith('Knowledge recall search IPC result', {
         baseId: 'base-1',
-        query: 'RAG ',
+        query: 'RAG 检索增强生成原理',
         results: realSearchResults
       })
     })
-    expect(screen.queryByText('2 ')).not.toBeInTheDocument()
+    expect(screen.queryByText('2 个结果')).not.toBeInTheDocument()
     expect(screen.queryByText('real result from file name')).not.toBeInTheDocument()
     expect(screen.queryByText('real result from file path')).not.toBeInTheDocument()
   })
@@ -403,52 +403,52 @@ describe('RecallTestPanel', () => {
   it('removes one cached query from the selected base history', () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.focus(screen.getByPlaceholderText(' Query...'))
-    fireEvent.click(screen.getAllByRole('button', { name: '' })[0])
+    fireEvent.focus(screen.getByPlaceholderText('输入测试 Query...'))
+    fireEvent.click(screen.getAllByRole('button', { name: '删除历史' })[0])
 
     expect(mockCache.set).toHaveBeenCalledWith({
-      'base-1': [''],
-      'base-2': ['']
+      'base-1': ['向量数据库选型对比'],
+      'base-2': ['其他知识库查询']
     })
-    expect(screen.queryByText('RAG ')).not.toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.queryByText('RAG 检索增强生成原理')).not.toBeInTheDocument()
+    expect(screen.getByText('向量数据库选型对比')).toBeInTheDocument()
   })
 
   it('clears cached query history for the selected base only', () => {
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.focus(screen.getByPlaceholderText(' Query...'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.focus(screen.getByPlaceholderText('输入测试 Query...'))
+    fireEvent.click(screen.getByRole('button', { name: '清空' }))
 
     expect(mockCache.set).toHaveBeenCalledWith({
       'base-1': [],
-      'base-2': ['']
+      'base-2': ['其他知识库查询']
     })
-    expect(screen.queryByText('')).not.toBeInTheDocument()
-    expect(screen.queryByText('RAG ')).not.toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('搜索历史')).not.toBeInTheDocument()
+    expect(screen.queryByText('RAG 检索增强生成原理')).not.toBeInTheDocument()
+    expect(screen.queryByText('向量数据库选型对比')).not.toBeInTheDocument()
   })
 
   it('records submitted queries with dedupe and a five item limit', async () => {
     mockCache.initial = {
-      'base-1': [' 1', 'RAG ', ' 2', ' 3', ' 4'],
-      'base-2': ['']
+      'base-1': ['旧查询 1', 'RAG 检索增强生成原理', '旧查询 2', '旧查询 3', '旧查询 4'],
+      'base-2': ['其他知识库查询']
     }
 
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.change(screen.getByPlaceholderText(' Query...'), {
-      target: { value: '  RAG   ' }
+    fireEvent.change(screen.getByPlaceholderText('输入测试 Query...'), {
+      target: { value: '  RAG 检索增强生成原理  ' }
     })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
     expect(mockCache.set).toHaveBeenCalledWith({
-      'base-1': ['RAG ', ' 1', ' 2', ' 3', ' 4'],
-      'base-2': ['']
+      'base-1': ['RAG 检索增强生成原理', '旧查询 1', '旧查询 2', '旧查询 3', '旧查询 4'],
+      'base-2': ['其他知识库查询']
     })
 
     await waitFor(() => {
-      expect(screen.queryByText('...')).not.toBeInTheDocument()
+      expect(screen.queryByText('正在检索...')).not.toBeInTheDocument()
     })
   })
 
@@ -458,22 +458,22 @@ describe('RecallTestPanel', () => {
 
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.change(screen.getByPlaceholderText(' Query...'), {
-      target: { value: '  RAG   ' }
+    fireEvent.change(screen.getByPlaceholderText('输入测试 Query...'), {
+      target: { value: '  RAG 检索增强生成原理  ' }
     })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
     await waitFor(() => {
       expect(mockLogger.error).toHaveBeenCalledWith('Knowledge recall search IPC failed', error, {
         baseId: 'base-1',
-        query: 'RAG '
+        query: 'RAG 检索增强生成原理'
       })
     })
-    expect(screen.getByText('0 ')).toBeInTheDocument()
-    expect(screen.getByText(': 0.00')).toBeInTheDocument()
-    expect(toast.error).toHaveBeenCalledWith(': search failed')
-    expect(screen.queryByText('RAG .pdf')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.getByText('0 个结果')).toBeInTheDocument()
+    expect(screen.getByText('最高: 0.00')).toBeInTheDocument()
+    expect(toast.error).toHaveBeenCalledWith('召回测试检索失败: search failed')
+    expect(screen.queryByText('RAG 技术指南.pdf')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '复制片段' })).not.toBeInTheDocument()
   })
 
   it('renders ranking-only recall results without percentage scores', async () => {
@@ -494,16 +494,16 @@ describe('RecallTestPanel', () => {
 
     render(<RecallTestPanel baseId="base-1" />)
 
-    fireEvent.change(screen.getByPlaceholderText(' Query...'), {
-      target: { value: '' }
+    fireEvent.change(screen.getByPlaceholderText('输入测试 Query...'), {
+      target: { value: '关键词检索' }
     })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '检索' }))
 
     await waitFor(() => {
-      expect(screen.getByText('')).toBeInTheDocument()
+      expect(screen.getByText('按排序返回')).toBeInTheDocument()
     })
-    expect(screen.getByText(' #1')).toBeInTheDocument()
-    expect(screen.getByText(' #2')).toBeInTheDocument()
-    expect(screen.queryByText(' 1235%')).not.toBeInTheDocument()
+    expect(screen.getByText('排序 #1')).toBeInTheDocument()
+    expect(screen.getByText('排序 #2')).toBeInTheDocument()
+    expect(screen.queryByText('相关度 1235%')).not.toBeInTheDocument()
   })
 })

@@ -318,7 +318,7 @@ describe('CacheService subscription', () => {
       const listener = ipcListeners.get(IpcChannel.Cache_Sync)!
       listener(trustedEvent, {
         type: 'shared',
-        key: 'web_search.provider.last_used_key.id',
+        key: 'web_search.provider.last_used_key.中文id',
         value: 'v'
       })
       expect(cb).not.toHaveBeenCalled()

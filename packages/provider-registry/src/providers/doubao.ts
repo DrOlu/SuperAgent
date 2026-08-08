@@ -19,7 +19,7 @@ const effortContracts = {
   'openai-responses': { wire: effortWire }
 }
 
-/** SKUs accepting reasoning_effort on both APIs (Ark's  support list). */
+/** SKUs accepting reasoning_effort on both APIs (Ark's 调节思考长度 support list). */
 const effortModels = [
   'doubao-seed-evolving',
   'doubao-seed-2-1-pro-260628',
@@ -55,7 +55,7 @@ const chatOnlyToggleModels = [
   'deepseek-v3-2-251201'
 ]
 
-/** deepseek v4 takes reasoning_effort (incl. max) on chat only (responses ) — pin + effort wire. */
+/** deepseek v4 takes reasoning_effort (incl. max) on chat only (responses 待支持) — pin + effort wire. */
 const chatOnlyEffortModels = ['deepseek-v4-pro-260425', 'deepseek-v4-flash-260425']
 
 /** Pre-250615 models are not served by /responses at all (docs/82379/1585128) — pin to chat. */

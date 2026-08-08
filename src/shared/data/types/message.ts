@@ -231,7 +231,7 @@ export type {
   UITools
 }
 
-//FIXME [v2] 
+//FIXME [v2] 注意，以下类型只是占位，接口未稳定，随时会变
 
 // ============================================================================
 // Content Reference Types
@@ -333,7 +333,7 @@ export type CitationReference = WebCitationReference | KnowledgeCitationReferenc
 export interface MentionReference extends BaseReference {
   category: ReferenceCategory.MENTION
   /** Model ID being mentioned */
-  modelId: string //FIXME model
+  modelId: string //FIXME 未定接口，model的数据结构还未确定，先占位
   /** Display name for the mention */
   displayName?: string
 }

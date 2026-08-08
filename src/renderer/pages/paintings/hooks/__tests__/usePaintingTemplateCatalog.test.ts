@@ -34,8 +34,8 @@ describe('painting template catalog', () => {
       return Promise.resolve(
         JSON.stringify({
           'birthday-poster': {
-            label: '',
-            prompt: '${MUNONYE}${2}'
+            label: '生日海报',
+            prompt: '儿童姓名：${MUNONYE}。庆祝年龄：${2}。'
           }
         })
       )
@@ -66,8 +66,8 @@ describe('painting template catalog', () => {
     expect(result.current.templates[0]).toEqual({
       id: 'birthday-poster',
       imageUrl: 'file:///resources/data/painting-templates/images/birthday-poster.webp',
-      label: '',
-      prompt: '${MUNONYE}${2}'
+      label: '生日海报',
+      prompt: '儿童姓名：${MUNONYE}。庆祝年龄：${2}。'
     })
   })
 

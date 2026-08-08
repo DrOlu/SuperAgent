@@ -4,13 +4,13 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 /**
- * 
- * @param children 
- * @param dependencies 
- * @param scrollDistance 
- * @param className 
- * @param gap 
- * @param expandable 
+ * 水平滚动容器
+ * @param children 子元素
+ * @param dependencies 依赖项
+ * @param scrollDistance 滚动距离
+ * @param className 类名
+ * @param gap 间距
+ * @param expandable 是否可展开
  */
 export interface HorizontalScrollContainerProps {
   children: React.ReactNode
@@ -46,7 +46,7 @@ const HorizontalScrollContainer: React.FC<HorizontalScrollContainerProps> = ({
 
   const handleContainerClick = (e: React.MouseEvent) => {
     if (expandable) {
-      //  tag 
+      // 确保不是点击了其他交互元素（如 tag 的关闭按钮）
       const target = e.target as HTMLElement
       if (!target.closest('[data-no-expand]')) {
         setIsExpanded(!isExpanded)
@@ -60,11 +60,11 @@ const HorizontalScrollContainer: React.FC<HorizontalScrollContainerProps> = ({
       const parentElement = scrollElement.parentElement
       const availableWidth = parentElement ? parentElement.clientWidth : scrollElement.clientWidth
 
-      // 
+      // 确保容器不会超出可用宽度
       const canScrollValue = scrollElement.scrollWidth > Math.min(availableWidth, scrollElement.clientWidth)
       setCanScroll(canScrollValue)
 
-      // 
+      // 检查是否滚动到最右侧
       if (canScrollValue) {
         const isAtEnd = Math.abs(scrollElement.scrollLeft + scrollElement.clientWidth - scrollElement.scrollWidth) <= 1
         setIsScrolledToEnd(isAtEnd)

@@ -38,7 +38,7 @@ describe('codeLanguage', () => {
   })
 
   describe('getExtensionByLanguage', () => {
-    // 
+    // 批量测试语言名称到扩展名的映射
     const testLanguageExtensions = (testCases: Record<string, string>) => {
       for (const [language, expectedExtension] of Object.entries(testCases)) {
         const result = getExtensionByLanguage(language)

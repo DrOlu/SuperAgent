@@ -60,21 +60,21 @@ describe('markdown', () => {
 
   describe('convertMathFormula', () => {
     it('should handle multiple delimiters in input', () => {
-      // 
+      // 验证处理输入中的多个分隔符
       const input = 'Text \\[block1\\] and \\(inline\\) and \\[block2\\]'
       const result = convertMathFormula(input)
       expect(result).toBe('Text $$block1$$ and $inline$ and $$block2$$')
     })
 
     it('should return input unchanged if no delimiters', () => {
-      // 
+      // 验证没有分隔符时返回原始输入
       const input = 'Some text without math'
       const result = convertMathFormula(input)
       expect(result).toBe('Some text without math')
     })
 
     it('should return input if null or empty', () => {
-      //  null 
+      // 验证空输入或 null 输入时返回原值
       expect(convertMathFormula('')).toBe('')
       // @ts-expect-error purposely pass wrong type to test error branch
       expect(convertMathFormula(null)).toBe(null)
@@ -83,14 +83,14 @@ describe('markdown', () => {
 
   describe('removeTrailingDoubleSpaces', () => {
     it('should remove trailing double spaces from each line', () => {
-      // 
+      // 验证移除每行末尾的两个空格
       const input = 'Line one  \nLine two \nLine three'
       const result = removeTrailingDoubleSpaces(input)
       expect(result).toBe('Line one\nLine two \nLine three')
     })
 
     it('should return unchanged if no trailing double spaces', () => {
-      // 
+      // 验证没有末尾两个空格时返回原始输入
       const input = 'Line one\nLine two \nLine three'
       const result = removeTrailingDoubleSpaces(input)
       expect(result).toBe('Line one\nLine two \nLine three')
@@ -99,13 +99,13 @@ describe('markdown', () => {
 
   describe('updateCodeBlock', () => {
     /**
-     *  ID
+     * 辅助函数：用户获取代码块的实际 ID
      *
-     * 
-     * 1. 
-     * 2.  ID
-     * 3.  ID  ID
-     * 4. 
+     * 使用方法：
+     * 1. 修改测试用例，调用该函数
+     * 2. 运行测试并查看控制台输出中的代码块 ID
+     * 3. 用输出的 ID 替换测试中的硬编码 ID
+     * 4. 再次注释掉对此函数的调用
      */
     // function getAllCodeBlockIds(markdown: string): { [content: string]: string } {
     //   const result: { [content: string]: string } = {}
@@ -134,7 +134,7 @@ describe('markdown', () => {
     })
 
     it('should only update the second of two identical code blocks', () => {
-      // Markdown
+      // 创建包含两个相同内容代码块的Markdown，文本和代码块交替出现
       const markdown =
         '# Heading\n\nFirst paragraph.\n\n```js\nconst value = 100;\n```\n\nMiddle paragraph with some text.\n\n```js\nconst value = 100;\n```\n\nFinal text paragraph.'
 
@@ -228,17 +228,17 @@ $$
       })
 
       it('should handle complex mathematical text with escaped brackets', () => {
-        const input = ` \\(A\\)  \\(n\\times n\\) 
+        const input = `设 \\(A\\) 为 \\(n\\times n\\) 的实可逆矩阵，
 \\[
 B=\\begin{pmatrix} O & A \\\\[2pt] A' & O \\end{pmatrix}\\;(2n\\times 2n,\\;B=B'),
 \\]
- \\(B\\)  \\(p(B)\\)  \\(q(B)\\)`
+求 \\(B\\) 的正惯性指数 \\(p(B)\\) 和负惯性指数 \\(q(B)\\)。`
 
-        const expected = ` $A$  $n\\times n$ 
+        const expected = `设 $A$ 为 $n\\times n$ 的实可逆矩阵，
 $$
 B=\\begin{pmatrix} O & A \\\\[2pt] A' & O \\end{pmatrix}\\;(2n\\times 2n,\\;B=B'),
 $$
- $B$  $p(B)$  $q(B)$`
+求 $B$ 的正惯性指数 $p(B)$ 和负惯性指数 $q(B)$。`
 
         expect(processLatexBrackets(input)).toBe(expected)
       })

@@ -48,7 +48,7 @@ function matchesSearch(preset: AssistantCatalogPreset, keyword: string) {
  * The community assistant preset catalog rendered as a self-contained dialog.
  *
  * Reuses the preset source (`useAssistantCatalogPresets`), the category grouping helpers, and the
- * preview dialog, but renders dialog-native chrome — a segmented tab bar (with a leading "" tab),
+ * preview dialog, but renders dialog-native chrome — a segmented tab bar (with a leading "全部" tab),
  * a right-aligned compact search, and a single-column list — rather than the legacy library page's
  * grid, so the picker feels calmer than the full management view. Adding a preset mirrors the inline
  * flow exactly (`createAssistant(toCreateAssistantDtoFromCatalogPreset(...))`).
@@ -70,7 +70,7 @@ export function AssistantLibraryDialog({
   const [previewAdding, setPreviewAdding] = useState(false)
   const listScrollRef = useRef<HTMLDivElement>(null)
 
-  // "" first, then the preset categories (drop the catalog's "" tab — its list lives on the page).
+  // "全部" first, then the preset categories (drop the catalog's "我的" tab — its list lives on the page).
   const tabs = useMemo(() => {
     const categoryTabs = buildAssistantCatalogTabs(rawPresets, 0, '').filter(
       (tab) => tab.id !== ASSISTANT_CATALOG_MY_TAB

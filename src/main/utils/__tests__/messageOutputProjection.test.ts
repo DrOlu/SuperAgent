@@ -38,7 +38,7 @@ const manyAgentWebSearch = {
     id: `many-${index + 1}`,
     title: `Result ${index + 1}`,
     url: `https://example.com/${index + 1}`,
-    content: ''.repeat(1000)
+    content: '测'.repeat(1000)
   }))
 }
 const largeKnowledgeSearch = [

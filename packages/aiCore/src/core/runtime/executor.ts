@@ -1,6 +1,6 @@
 /**
- * 
- * AI
+ * 运行时执行器
+ * 专注于插件化的AI调用处理
  */
 import type { ImageModelV3, JSONObject, LanguageModelV3, ProviderV3 } from '@ai-sdk/provider'
 import type { LanguageModel } from 'ai'
@@ -52,7 +52,7 @@ export class RuntimeExecutor<
 
   constructor(config: RuntimeConfig<TSettingsMap, T>) {
     this.config = config
-    // 
+    // 创建插件客户端
     this.pluginEngine = new PluginEngine(config.providerId, config.plugins || [])
 
     // Some v3 providers (e.g., @openrouter/ai-sdk-provider) expose textEmbeddingModel
@@ -73,7 +73,7 @@ export class RuntimeExecutor<
       enforce: 'post',
 
       resolveModel: async (modelId: string) => {
-        //  modelId → model middleware  pluginEngine 
+        // 仅负责解析 modelId → model 对象，middleware 由 pluginEngine 统一应用
         return await this.resolveModel(modelId)
       }
     })
@@ -100,15 +100,15 @@ export class RuntimeExecutor<
     })
   }
 
-  // ===  ===
+  // === 高阶重载：直接使用模型 ===
 
   /**
-   * 
+   * 流式文本生成
    */
   async streamText(params: streamTextParams): Promise<ReturnType<typeof _streamText>> {
     const { model } = params
 
-    //  model 
+    // 根据 model 类型决定插件配置
     if (typeof model === 'string') {
       this.pluginEngine.usePlugins([this.createResolveModelPlugin(), this.createConfigureContextPlugin()])
     } else {
@@ -131,15 +131,15 @@ export class RuntimeExecutor<
     )
   }
 
-  // ===  ===
+  // === 其他方法的重载 ===
 
   /**
-   * 
+   * 生成文本
    */
   async generateText(params: generateTextParams): Promise<ReturnType<typeof _generateText>> {
     const { model } = params
 
-    //  model 
+    // 根据 model 类型决定插件配置
     if (typeof model === 'string') {
       this.pluginEngine.usePlugins([this.createResolveModelPlugin(), this.createConfigureContextPlugin()])
     } else {
@@ -154,13 +154,13 @@ export class RuntimeExecutor<
   }
 
   /**
-   * 
+   * 生成图像
    */
   async generateImage(params: generateImageParams): Promise<generateImageResult> {
     try {
       const { model, onProviderCall, ...providerParams } = params
 
-      //  model 
+      // 根据 model 类型决定插件配置
       if (typeof model === 'string') {
         this.pluginEngine.usePlugins([this.createResolveImageModelPlugin(), this.createConfigureContextPlugin()])
       } else {
@@ -212,12 +212,12 @@ export class RuntimeExecutor<
   }
 
   /**
-   * 
+   * 批量嵌入文本
    */
   async embedMany(params: EmbedManyParams): Promise<EmbedManyResult> {
     const { model: modelOrId, onProviderCall, ...options } = params
 
-    //  embedding 
+    // 解析 embedding 模型
     const embeddingModel =
       typeof modelOrId === 'string'
         ? this.registry.embeddingModel(`${this.config.providerId}:${modelOrId}` as `${string}:${string}`)
@@ -276,7 +276,7 @@ export class RuntimeExecutor<
     return result
   }
 
-  // ===  ===
+  // === 辅助方法 ===
 
   /**
    * Resolve a model id to a `LanguageModelV3` instance using this
@@ -298,11 +298,11 @@ export class RuntimeExecutor<
   }
 
   /**
-   *  modelId  model 
+   * 解析模型：将字符串 modelId 解析为 model 对象
    *
-   *  modelResolver  xAI responses, OpenAI chat
-   *  resolver  registry.languageModel()
-   * resolver  extension  provider 
+   * 对于有 modelResolver 的配置（如 xAI responses, OpenAI chat），
+   * 使用 resolver 函数解析模型，而不是通过 registry.languageModel()。
+   * resolver 在 extension 声明处类型安全地捕获了具体 provider 方法。
    */
   private async resolveModel(modelOrId: LanguageModel): Promise<LanguageModelV3> {
     if (typeof modelOrId === 'string') {
@@ -319,7 +319,7 @@ export class RuntimeExecutor<
   }
 
   /**
-   * 
+   * 解析图像模型：如果是字符串则创建图像模型，如果是模型则直接返回
    */
   private async resolveImageModel(modelOrId: ImageModelV3 | string): Promise<ImageModelV3> {
     try {
@@ -337,10 +337,10 @@ export class RuntimeExecutor<
     }
   }
 
-  // ===  ===
+  // === 静态工厂方法 ===
 
   /**
-   *  - provider
+   * 创建执行器 - 支持已知provider的类型安全
    */
   static create<
     TSettingsMap extends Record<string, any> = CoreProviderSettingsMap,
@@ -362,7 +362,7 @@ export class RuntimeExecutor<
   }
 
   /**
-   * OpenAI Compatible
+   * 创建OpenAI Compatible执行器
    * ✅ Now accepts provider instance directly
    */
   static createOpenAICompatible(

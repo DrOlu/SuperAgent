@@ -5,7 +5,7 @@ import { createDirectoryItem, createFileItem, createNoteItem, createUrlItem } fr
 
 describe('dataSourcePanel.selectors', () => {
   it('gets titles from the correct source field for each item type', () => {
-    expect(getItemTitle(createFileItem({ id: 'file-1', source: '/tmp/.pdf' }))).toBe('.pdf')
+    expect(getItemTitle(createFileItem({ id: 'file-1', source: '/tmp/季度报告.pdf' }))).toBe('季度报告.pdf')
     expect(getItemTitle(createFileItem({ id: 'file-2', source: '/tmp/fallback.md' }))).toBe('fallback.md')
     // A captured url snapshot shows its title-derived file name (`.md` stripped); a url not
     // yet indexed (no snapshot) falls back to the raw URL.
@@ -21,16 +21,16 @@ describe('dataSourcePanel.selectors', () => {
     expect(getItemTitle(createUrlItem({ id: 'url-2', source: 'https://example.com/product-docs' }))).toBe(
       'https://example.com/product-docs'
     )
-    expect(getItemTitle(createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/' }))).toBe(
-      ''
+    expect(getItemTitle(createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/本地资料夹' }))).toBe(
+      '本地资料夹'
     )
-    expect(getItemTitle(createNoteItem({ id: 'note-1', content: '\n \n    \n' }))).toBe(
-      ''
+    expect(getItemTitle(createNoteItem({ id: 'note-1', content: '\n \n  第一行标题  \n第二行内容' }))).toBe(
+      '第一行标题'
     )
     // A drafted note's title is its own field, so the row shows it rather than the body's opening
     // line — the same name same-name detection keys off.
-    expect(getItemTitle(createNoteItem({ id: 'note-3', source: '', content: '\n' }))).toBe(
-      ''
+    expect(getItemTitle(createNoteItem({ id: 'note-3', source: '季度复盘', content: '第一行标题\n第二行内容' }))).toBe(
+      '季度复盘'
     )
     expect(getItemTitle(createNoteItem({ id: 'note-2', content: '\n   \n' }))).toBe('')
   })

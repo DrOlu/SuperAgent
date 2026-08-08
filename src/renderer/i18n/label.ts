@@ -1,7 +1,7 @@
 /**
- * 
- * 1.  key -> i18n-key  keyMap
- * 2. 
+ * 对于需要动态获取的翻译文本：
+ * 1. 储存 key -> i18n-key 的 keyMap
+ * 2. 通过函数翻译文本
  */
 
 import { loggerService } from '@logger'
@@ -96,13 +96,13 @@ const providerKeyMap = {
 } as const
 
 /**
- * 
- * @param id - id
- * @returns 
+ * 获取内置供应商的本地化标签
+ * @param id - 供应商的id
+ * @returns 本地化后的供应商名称
  * @remarks
- *  i18n label
+ * 该函数仅用于获取内置供应商的 i18n label
  *
- *  getProviderName  getFancyProviderName 
+ * 对于可能处理自定义供应商的情况，使用 getProviderName 或 getFancyProviderName 更安全
  */
 export const getProviderLabelKey = (id: string): string => {
   return getLabelKey(providerKeyMap, id)

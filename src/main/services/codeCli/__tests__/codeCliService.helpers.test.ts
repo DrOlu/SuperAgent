@@ -71,21 +71,21 @@ describe('escapeBatchText', () => {
 
   // Chinese characters tests
   it('preserves Chinese characters in paths', () => {
-    const input = 'C:\\\\\\'
+    const input = 'C:\\用户\\张三\\文档'
     const result = escapeBatchText(input)
-    expect(result).toBe('C:\\\\\\')
+    expect(result).toBe('C:\\用户\\张三\\文档')
   })
 
   it('handles Chinese text with newlines', () => {
-    const input = 'C:\\\\\n1.0'
+    const input = '安装路径：C:\\用户\\张三\n版本号：1.0'
     const result = escapeBatchText(input)
-    expect(result).toBe('C:\\\\ 1.0')
+    expect(result).toBe('安装路径：C:\\用户\\张三 版本号：1.0')
   })
 
   it('handles Chinese text with percent signs', () => {
-    const input = '50%'
+    const input = '进度：50%'
     const result = escapeBatchText(input)
-    expect(result).toBe('50%%')
+    expect(result).toBe('进度：50%%')
   })
 
   // Path with spaces tests
@@ -129,9 +129,9 @@ describe('escapeBatchText', () => {
 
   // Mixed complex scenario
   it('handles complex Chinese path with spaces and newlines', () => {
-    const input = 'C:\\Users\\\\My Documents\nVersion: 50%'
+    const input = 'C:\\Users\\张三\\My Documents\nVersion: 50%'
     const result = escapeBatchText(input)
-    expect(result).toBe('C:\\Users\\\\My Documents Version: 50%%')
+    expect(result).toBe('C:\\Users\\张三\\My Documents Version: 50%%')
   })
 
   // Cmd metacharacter escaping tests (Review Bot concerns)

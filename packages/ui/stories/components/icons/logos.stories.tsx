@@ -167,7 +167,7 @@ const meta: Meta<typeof AllIconsShowcase> = {
   argTypes: {
     fontSize: {
       control: { type: 'number', min: 16, max: 64, step: 4 },
-      description: 'Logo  fontSize  1em ',
+      description: 'Logo 大小（通过 fontSize 控制，因为图标使用 1em 单位）',
       defaultValue: 32
     }
   }
@@ -177,27 +177,27 @@ export default meta
 type Story = StoryObj<typeof AllIconsShowcase>
 
 /**
- *  Provider  Model 
+ * 展示所有 Provider 和 Model 图标
  *
- *  SVGR  `icon: true` 
- * -  `width="1em"`  `height="1em"` `fontSize`
- * -  SVG clipPath 
- * -  SVG propsclassName, style, onClick 
+ * 这些图标使用 SVGR 的 `icon: true` 选项生成，具有以下特点：
+ * - 使用 `width="1em"` 和 `height="1em"`，响应父元素的 `fontSize`
+ * - 保留所有原始 SVG 属性（颜色、渐变、clipPath 等）
+ * - 支持标准的 SVG props（className, style, onClick 等）
  *
- * ## 
+ * ## 使用示例
  *
  * ```tsx
  * import { Anthropic } from '@cherrystudio/ui/icons'
  *
- * //  fontSize 
+ * // 通过 fontSize 控制大小
  * <div style={{ fontSize: 24 }}>
  *   <Anthropic />
  * </div>
  *
- * //  className Tailwind
+ * // 通过 className 控制（Tailwind）
  * <Anthropic className="text-2xl" />
  *
- * //  SVG props
+ * // 使用标准 SVG props
  * <Anthropic className="hover:opacity-80" onClick={handleClick} />
  * ```
  */
@@ -208,17 +208,17 @@ export const AllLogos: Story = {
 }
 
 /**
- * Light  Dark 
+ * Light 与 Dark 双源对比展示
  *
- *  Logo  Light Dark
- *  `<Anthropic />`  Tailwind  `dark:` 
+ * 每个 Logo 并排展示 Light（浅色背景版）和 Dark（深色背景版）两种变体。
+ * 默认导出的 `<Anthropic />` 会根据 Tailwind 的 `dark:` 修饰符自动切换。
  *
  * ```tsx
  * import { Anthropic } from '@cherrystudio/ui/icons'
  *
- * <Anthropic />                    // :dark mode  Dark, Light
- * <Anthropic variant="light" />    //  Light
- * <Anthropic variant="dark" />     //  Dark
+ * <Anthropic />                    // 自动:dark mode 下显示 Dark,否则 Light
+ * <Anthropic variant="light" />    // 强制 Light
+ * <Anthropic variant="dark" />     // 强制 Dark
  * ```
  */
 export const LightVsDark: StoryObj<typeof LightVsDarkShowcase> = {
@@ -229,10 +229,10 @@ export const LightVsDark: StoryObj<typeof LightVsDarkShowcase> = {
 }
 
 /**
- * Avatar 
+ * Avatar 展示
  *
- *  Logo  Avatar 
- *  `size`  Avatar 
+ * 每个 Logo 以 Avatar 形式展示，带有圆形边框。
+ * 通过 `size` 控制头像大小，图标填满 Avatar 容器。
  *
  * ```tsx
  * import { Anthropic } from '@cherrystudio/ui/icons'

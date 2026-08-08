@@ -20,7 +20,7 @@ const VERSION_REGEX = /\/v\d+(?:alpha|beta)?(?:\/|$)/i
  * @returns {string} The formatted API key string.
  */
 export function formatApiKeys(value: string): string {
-  return value.replaceAll('', ',').replaceAll('\n', ',')
+  return value.replaceAll('，', ',').replaceAll('\n', ',')
 }
 
 /**

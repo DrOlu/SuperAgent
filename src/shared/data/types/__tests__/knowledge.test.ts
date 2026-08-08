@@ -65,10 +65,10 @@ describe('getKnowledgeNoteFirstLine', () => {
 
 describe('getKnowledgeItemDisplayTitle', () => {
   it('prefers the deduped relativePath basename for file items, else the source basename', () => {
-    // The deduped stored name keeps "" copies distinguishable in the list.
+    // The deduped stored name keeps "保留全部" copies distinguishable in the list.
     expect(
-      getKnowledgeItemDisplayTitle({ type: 'file', data: { source: '/a/b/.pdf', relativePath: '_2.pdf' } })
-    ).toBe('_2.pdf')
+      getKnowledgeItemDisplayTitle({ type: 'file', data: { source: '/a/b/测试.pdf', relativePath: '测试_2.pdf' } })
+    ).toBe('测试_2.pdf')
     expect(getKnowledgeItemDisplayTitle({ type: 'file', data: { source: '/a/b/report.pdf' } })).toBe('report.pdf')
   })
 

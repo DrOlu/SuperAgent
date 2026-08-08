@@ -217,7 +217,7 @@ describe('MiniAppMigrator', () => {
         [
           {
             id: 'bilibili',
-            name: '',
+            name: '哔哩哔哩',
             url: 'https://bilibili.com',
             logo: 'https://b.cdn/logo.ico',
             type: 'Custom'
@@ -235,7 +235,7 @@ describe('MiniAppMigrator', () => {
         const [row] = await dbh.db.select().from(miniAppTable).where(eq(miniAppTable.appId, 'bilibili'))
         expect(row).toMatchObject({
           presetMiniAppId: null,
-          name: '',
+          name: '哔哩哔哩',
           url: 'https://bilibili.com',
           status: 'enabled'
         })
@@ -307,7 +307,7 @@ describe('MiniAppMigrator', () => {
         [
           {
             id: 'bilibili',
-            name: '',
+            name: '哔哩哔哩',
             url: 'https://bilibili.com',
             logo: 'https://b.cdn/logo.ico'
           }
@@ -322,7 +322,7 @@ describe('MiniAppMigrator', () => {
         const [row] = await dbh.db.select().from(miniAppTable).where(eq(miniAppTable.appId, 'bilibili'))
         expect(row).toMatchObject({
           presetMiniAppId: null,
-          name: '',
+          name: '哔哩哔哩',
           url: 'https://bilibili.com',
           logoKey: 'https://b.cdn/logo.ico',
           status: 'disabled'

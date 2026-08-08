@@ -37,7 +37,7 @@ describe('Cherry Assistant guide', () => {
   const guide = fs.readFileSync(TEMPLATE_PATH, 'utf-8')
 
   it('uses current-package lookups instead of versioned product prose', () => {
-    expect(guide).toContain('')
+    expect(guide).toContain('报告运行错误、连接失败、配置异常并需要诊断时触发')
     expect(guide).toContain('mcp__assistant__product_info({ source: "manifest" })')
     for (const section of ['routes', 'commands', 'providers', 'locales', 'agents']) {
       expect(guide).toContain(`source: "manifest", section: "${section}"`)
@@ -45,7 +45,7 @@ describe('Cherry Assistant guide', () => {
     expect(guide).toContain('section: "all"')
     expect(guide).not.toContain('source: "release_notes"')
 
-    for (const staleSection of ['## ', '## ', '## ', '## ', '## ']) {
+    for (const staleSection of ['## 路由表', '## 常见问题', '## 功能速查', '## 快捷键', '## 日志路径']) {
       expect(guide).not.toContain(staleSection)
     }
   })
@@ -69,12 +69,12 @@ describe('Cherry Assistant guide', () => {
     expect(agent.instructions['en-US']).toContain(
       'Use `superagent-feedback` unless the user explicitly asks for a GitHub Issue'
     )
-    expect(agent.instructions['zh-CN']).toContain(' Agent ')
-    expect(agent.instructions['zh-CN']).toContain('')
-    expect(agent.instructions['zh-CN']).toContain('')
+    expect(agent.instructions['zh-CN']).toContain('内置通用 Agent 和上手引导')
+    expect(agent.instructions['zh-CN']).toContain('帮助用户完成任何请求')
+    expect(agent.instructions['zh-CN']).toContain('帮助将其整理成清晰、可执行的反馈')
     expect(guide).toContain('mcp__assistant__product_info')
-    expect(guide).toContain(' `mcp__assistant__navigate`')
-    expect(guide).toContain('')
+    expect(guide).toContain('必须在同一轮调用 `mcp__assistant__navigate`')
+    expect(guide).toContain('不得声称已经生成入口或已经打开页面')
     expect(instructions).not.toMatch(/\/(?:app|settings)\//)
     expect(agent.accessible_paths).toEqual(['#{PROJECT_ROOT}'])
   })
@@ -86,7 +86,7 @@ describe('Cherry Assistant guide', () => {
     const soul = fs.readFileSync(SOUL_PATH, 'utf-8')
 
     expect(agent.instructions['en-US']).toContain('getting started with SuperAgent')
-    expect(agent.instructions['zh-CN']).toContain(' SuperAgent')
+    expect(agent.instructions['zh-CN']).toContain('帮助用户开始使用 SuperAgent')
     expect(soul).toContain('Warm, patient, and practical')
     expect(soul).toContain("Mirror the user's terminology and level of formality")
     expect(soul).not.toContain("Match the user's language")
@@ -103,7 +103,7 @@ describe('Cherry Assistant guide', () => {
     const soul = fs.readFileSync(SOUL_PATH, 'utf-8')
 
     expect(agent.instructions['en-US']).toContain('introduce yourself as Cherry Assistant')
-    expect(agent.instructions['zh-CN']).toContain(' Cherry Assistant')
+    expect(agent.instructions['zh-CN']).toContain('自我介绍为 Cherry Assistant')
     expect(agent.instructions['en-US']).toContain('serve as Cherry Assistant')
     expect(agent.instructions['en-US']).not.toContain("You are SuperAgent's built-in onboarding Agent")
     expect(soul).not.toContain('Cherry Assistant')
@@ -131,7 +131,7 @@ describe('Cherry Assistant guide', () => {
 
     const prompt = `${Object.values(agent.instructions).join('\n')}\n${soul}`
     expect(prompt).not.toContain('Security')
-    expect(prompt).not.toContain('')
+    expect(prompt).not.toContain('安全边界')
     expect(prompt).not.toContain('mcp__assistant-files__move_to_trash')
   })
 
@@ -143,14 +143,14 @@ describe('Cherry Assistant guide', () => {
     const marketplace = fs.readFileSync(MARKETPLACE_PATH, 'utf-8')
 
     expect(Object.values(agent.instructions).join('\n')).not.toContain('find-skills')
-    expect(skillsManager).toContain('`find-skills` ')
-    expect(skillsManager).toContain('`skill-creator` ')
-    expect(skillsManager).toContain(' `SKILL.md`')
+    expect(skillsManager).toContain('`find-skills` 可用时先调用它')
+    expect(skillsManager).toContain('`skill-creator` 可用时必须调用它')
+    expect(skillsManager).toContain('不要绕过它直接手写 `SKILL.md`')
     expect(marketplace).toContain('`mcp__skills__search_skills`')
     expect(marketplace).toContain('`mcp__skills__install_skill`')
-    expect(marketplace).toContain(' `skill-creator`')
-    expect(marketplace).toContain(' `SKILL.md`')
-    expect(marketplace).toContain('')
+    expect(marketplace).toContain('调用内置 `skill-creator`')
+    expect(marketplace).toContain('不要自行编写 `SKILL.md`')
+    expect(marketplace).toContain('回到原始任务')
   })
 
   it('bundles a consented and redacted SuperAgent feedback workflow', () => {
@@ -163,26 +163,26 @@ describe('Cherry Assistant guide', () => {
 
     expect(agent.skills).toContain('superagent-feedback')
     expect(agent.instructions['en-US']).toContain('Use `superagent-feedback` unless the user explicitly asks')
-    expect(agent.instructions['zh-CN']).toContain(' GitHub Issue')
+    expect(agent.instructions['zh-CN']).toContain('明确要求创建 GitHub Issue')
     expect(feedback).toContain('mcp__assistant__diagnose({ action: "info" })')
     expect(feedback).toContain('mcp__assistant__diagnose({ action: "errors", lines: 100 })')
     expect(feedback).toContain('mcp__assistant-files__save_attachment')
-    expect(feedback).toContain('')
+    expect(feedback).toContain('外部提交前展示最终字段、附件文件名和接收方')
     expect(feedback).toContain('lark-cli base +form-detail')
     expect(feedback).toContain('auth status --json --verify')
     expect(feedback).toContain('--as user --json ... --yes')
-    expect(feedback).not.toContain(' `--yes`')
-    expect(feedback).toContain(' `ok == true`')
-    expect(feedback).toContain(' `lark-cli`')
-    expect(feedback).toContain('')
-    expect(feedback).toContain(' GitHub  `gh`')
-    expect(feedback).toContain('')
-    expect(feedback).toContain('“”/')
+    expect(feedback).not.toContain('不存在的 `--yes`')
+    expect(feedback).toContain('返回 `ok == true`')
+    expect(feedback).toContain('不要安装、升级或重新配置 `lark-cli`')
+    expect(feedback).toContain('匿名反馈包上传')
+    expect(feedback).toContain('未明确提及 GitHub 时，不要调用 `gh`')
+    expect(feedback).toContain('不盲目解压整个压缩包')
+    expect(feedback).toContain('“上传错误信息”按钮属于客户端/服务端功能')
     expect(feedback).not.toContain('superagent.sqlite')
     expect(feedback).not.toContain('~/Documents/Cherry')
     expect(feedback).not.toContain('UqjTbBFGWapnOrsJaDgcuyEbnUg')
-    expect(issueReporter).toContain(' GitHub')
-    expect(issueReporter).toContain(' `gh auth status`')
+    expect(issueReporter).toContain('只有用户明确要求提交到 GitHub')
+    expect(issueReporter).toContain('不得运行 `gh auth status`')
   })
 
   it('declares only skills that are bundled with Cherry Assistant', () => {
@@ -221,7 +221,7 @@ describe('Cherry Assistant guide', () => {
     ).join('\n')
 
     expect(supportingPrompts).not.toContain('CherryClaw')
-    expect(supportingPrompts).not.toContain(' AI Provider')
+    expect(supportingPrompts).not.toContain('支持的 AI Provider')
     expect(supportingPrompts).not.toContain('@cherry/browser')
     expect(supportingPrompts).not.toContain('mcp__cherry__browser')
     expect(supportingPrompts).not.toContain('mcp__assistant__browser')

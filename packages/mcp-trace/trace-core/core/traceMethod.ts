@@ -13,7 +13,7 @@ export interface SpanDecoratorOptions {
 
 export function TraceMethod(traced: SpanDecoratorOptions) {
   return function (target: any, propertyKey?: any, descriptor?: PropertyDescriptor) {
-    // 2
+    // 兼容静态方法装饰器只传2个参数的情况
     if (!descriptor) {
       descriptor = Object.getOwnPropertyDescriptor(target, propertyKey)
     }
@@ -54,7 +54,7 @@ export function TraceMethod(traced: SpanDecoratorOptions) {
 
 export function TraceProperty(traced: SpanDecoratorOptions) {
   return (target: any, propertyKey: string, descriptor?: PropertyDescriptor) => {
-    // 
+    // 处理箭头函数类属性
     const traceName = traced.traceName || defaultConfig.defaultTracerName || 'default'
     const tracer = trace.getTracer(traceName)
     const name = traced.spanName || propertyKey
@@ -86,7 +86,7 @@ export function TraceProperty(traced: SpanDecoratorOptions) {
       return
     }
 
-    // 
+    // 标准方法装饰器逻辑
     const originalMethod = descriptor.value
 
     descriptor.value = async function (...args: any[]) {
@@ -128,7 +128,7 @@ export function withSpanFunc<F extends (...args: any[]) => any>(
         }
       },
       (span) => {
-        // 
+        // 在这里调用原始函数
         const result = fn(...args)
         if (result instanceof Promise) {
           return result

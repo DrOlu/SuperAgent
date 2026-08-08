@@ -6,15 +6,15 @@ const logger = loggerService.withContext('PyodideService')
 
 const SERVICE_CONFIG = {
   WORKER: {
-    MAX_INIT_RETRY: 5, // 
+    MAX_INIT_RETRY: 5, // 最大初始化重试次数
     REQUEST_TIMEOUT: {
-      INIT: 30000, // 30 
-      RUN: 60000 // 60 
+      INIT: 30000, // 30 秒初始化超时
+      RUN: 60000 // 60 秒默认运行超时
     }
   }
 }
 
-// 
+// 定义结果类型接口
 export interface PyodideOutput {
   result: any
   text: string | null
@@ -28,7 +28,7 @@ export interface PyodideExecutionResult {
 }
 
 /**
- * Pyodide Web Worker 
+ * Pyodide Web Worker 服务
  */
 class PyodideService {
   private worker: Worker | null = null
@@ -37,7 +37,7 @@ class PyodideService {
   private resolvers: Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }> = new Map()
 
   /**
-   *  Pyodide Worker
+   * 初始化 Pyodide Worker
    */
   private async initialize(): Promise<void> {
     if (this.initPromise) {
@@ -51,15 +51,15 @@ class PyodideService {
     }
 
     this.initPromise = new Promise<void>((resolve, reject) => {
-      //  worker
+      // 动态导入 worker
       import('../workers/pyodide.worker?worker')
         .then((WorkerModule) => {
           this.worker = new WorkerModule.default()
 
-          // 
+          // 设置通用消息处理器
           this.worker.onmessage = this.handleMessage.bind(this)
 
-          // 
+          // 设置初始化超时
           const timeout = setTimeout(() => {
             this.worker = null
             this.initPromise = null
@@ -67,7 +67,7 @@ class PyodideService {
             reject(new Error('Pyodide initialization timeout'))
           }, SERVICE_CONFIG.WORKER.REQUEST_TIMEOUT.INIT)
 
-          // 
+          // 设置初始化处理器
           const initHandler = (event: MessageEvent) => {
             if (event.data?.type === 'initialized') {
               clearTimeout(timeout)
@@ -100,25 +100,25 @@ class PyodideService {
   }
 
   /**
-   *  Worker 
+   * 处理来自 Worker 的消息
    */
   private handleMessage(event: MessageEvent): void {
     const { type, error } = event.data
 
-    //  Worker 
+    // 记录 Worker 错误消息
     if (type === 'system-error') {
       logger.error(error)
       return
     }
 
-    // 
+    // 忽略初始化消息，已由专门的处理器处理
     if (type === 'initialized' || type === 'init-error') {
       return
     }
 
     const { id, output } = event.data
 
-    // 
+    // 查找对应的解析器
     const resolver = this.resolvers.get(id)
     if (resolver) {
       this.resolvers.delete(id)
@@ -127,18 +127,18 @@ class PyodideService {
   }
 
   /**
-   * Python
-   * @param script Python
-   * @param context 
-   * @param timeout 
-   * @returns 
+   * 执行Python脚本
+   * @param script 要执行的Python脚本
+   * @param context 可选的执行上下文
+   * @param timeout 超时时间（毫秒）
+   * @returns 格式化后的执行结果
    */
   public async runScript(
     script: string,
     context: Record<string, any> = {},
     timeout: number = SERVICE_CONFIG.WORKER.REQUEST_TIMEOUT.RUN
   ): Promise<PyodideExecutionResult> {
-    // Pyodide
+    // 确保Pyodide已初始化
     try {
       await this.initialize()
     } catch (error: unknown) {
@@ -156,7 +156,7 @@ class PyodideService {
       const output = await new Promise<PyodideOutput>((resolve, reject) => {
         const id = uuid()
 
-        // 
+        // 设置消息超时
         const timeoutId = setTimeout(() => {
           this.resolvers.delete(id)
           reject(new Error('Python execution timed out'))
@@ -188,17 +188,17 @@ class PyodideService {
   }
 
   /**
-   *  Pyodide 
+   * 格式化 Pyodide 输出
    */
   public formatOutput(output: PyodideOutput): string {
     let displayText = ''
 
-    // 
+    // 优先显示标准输出
     if (output.text) {
       displayText = output.text.trim()
     }
 
-    // 
+    // 如果有执行结果且无标准输出，显示结果
     if (!displayText && output.result !== null && output.result !== undefined) {
       if (typeof output.result === 'object' && output.result.__error__) {
         displayText = `Result Error: ${output.result.details}`
@@ -212,13 +212,13 @@ class PyodideService {
       }
     }
 
-    // 
+    // 如果有错误信息，附加显示
     if (output.error) {
       if (displayText) displayText += '\n\n'
       displayText += output.error.trim()
     }
 
-    // 
+    // 如果没有任何输出，提供清晰提示
     if (!displayText) {
       displayText = 'Execution completed with no output.'
     }
@@ -227,9 +227,9 @@ class PyodideService {
   }
 
   /**
-   *  Pyodide Worker
-   *  Worker 
-   * 
+   * 重置 Pyodide Worker
+   * 该方法会销毁当前的 Worker 并重新创建一个新的实例，
+   * 用于处理模块缓存或文件系统状态污染等罕见问题。
    */
   public async resetWorker(): Promise<void> {
     logger.verbose('Resetting Pyodide worker...')
@@ -244,7 +244,7 @@ class PyodideService {
   }
 
   /**
-   *  Pyodide Worker 
+   * 释放 Pyodide Worker 资源
    */
   public terminate(): void {
     if (this.worker) {
@@ -253,7 +253,7 @@ class PyodideService {
       this.initPromise = null
       this.initRetryCount = 0
 
-      // 
+      // 清理所有等待的请求
       this.resolvers.forEach((resolver) => {
         resolver.reject(new Error('Worker terminated'))
       })
@@ -262,7 +262,7 @@ class PyodideService {
   }
 }
 
-// 
+// 创建并导出单例实例
 export const pyodideService = new PyodideService()
 
 // Set up IPC handler for main process requests

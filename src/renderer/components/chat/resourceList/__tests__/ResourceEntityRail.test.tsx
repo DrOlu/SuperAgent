@@ -473,7 +473,7 @@ describe('ResourceEntityRail', () => {
       />
     )
 
-    // Pinned section (i18n key under the mocked translator) + the non-pinned ""/"" section.
+    // Pinned section (i18n key under the mocked translator) + the non-pinned "助手"/"智能体" section.
     expect(screen.getByText('selector.common.pinned_title')).toBeInTheDocument()
     expect(screen.getByText('Assistants')).toBeInTheDocument()
 

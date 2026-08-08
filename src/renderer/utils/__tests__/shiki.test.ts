@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest'
 
 import { getMarkdownIt, getReactStyleFromToken } from '../shiki'
 
-// FontStyle 
+// FontStyle 常量，避免类型错误
 const FS_ITALIC = 1
 const FS_BOLD = 2
 const FS_UNDERLINE = 4
 
 /**
- *  ThemedToken 
- * 
+ * 创建 ThemedToken 对象的辅助函数
+ * 只需提供测试所需的字段，其余字段使用默认值
  */
 function createThemedToken(partial: Partial<ThemedToken> = {}): ThemedToken {
   return {

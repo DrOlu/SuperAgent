@@ -6,25 +6,25 @@ export type ShikiStreamTokenizerOptions = CodeToTokensOptions<string, string> & 
 
 export interface ShikiStreamTokenizerEnqueueResult {
   /**
-   * 
+   * 要撤回的行数
    */
   recall: number
   /**
-   * 
+   * 稳定行
    */
   stable: ThemedToken[][]
   /**
-   * 
+   * 不稳定行
    */
   unstable: ThemedToken[][]
 }
 
 /**
- *  shiki-stream  tokenizer
+ * 修改自 shiki-stream 的 tokenizer。
  *
- *  shiki-stream 
- * - tokenizer  subtrunk subtrunk 
- * -  chunk 
+ * 和 shiki-stream 实现的不同：
+ * - tokenizer 会拆分代码块为两个 subtrunk，第一个 subtrunk 可以包含多行。
+ * - 这个实现可以避免 chunk 过大时引入额外开销。
  */
 export class ShikiStreamTokenizer {
   public readonly options: ShikiStreamTokenizerOptions
@@ -40,7 +40,7 @@ export class ShikiStreamTokenizer {
   }
 
   /**
-   *  tokenizer 
+   * 使用 tokenizer 处理一个代码片段。
    */
   async enqueue(chunk: string): Promise<ShikiStreamTokenizerEnqueueResult> {
     const subTrunks = splitToSubTrunks(this.lastUnstableCodeChunk + chunk)
@@ -98,9 +98,9 @@ export class ShikiStreamTokenizer {
 }
 
 /**
- *  chunk  subtrunks
- * @param chunk 
- * @returns subtrunks 
+ * 将代码字符串 chunk 按行分割为至多两个 subtrunks
+ * @param chunk 代码字符串
+ * @returns subtrunks 数组
  */
 export function splitToSubTrunks(chunk: string) {
   const lastNewlineIndex = chunk.lastIndexOf('\n')

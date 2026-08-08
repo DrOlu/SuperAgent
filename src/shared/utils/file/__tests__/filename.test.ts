@@ -16,7 +16,7 @@ describe('sanitizeFilename', () => {
   })
 
   it('preserves Unicode letters / digits', () => {
-    expect(sanitizeFilename('2026.txt')).toBe('2026.txt')
+    expect(sanitizeFilename('文档2026.txt')).toBe('文档2026.txt')
   })
 
   it('replaces all forbidden characters in a string of only-forbidden chars', () => {

@@ -27,10 +27,10 @@ type AssistantConversationPickerItem = ConversationPickerItem & {
   selection: AssistantConversationSelection
 }
 
-// The  catalog can hold hundreds of presets; render them a page at a time and grow on scroll.
+// The 助手库 catalog can hold hundreds of presets; render them a page at a time and grow on scroll.
 const ASSISTANT_CATALOG_PAGE_SIZE = 50
 
-//  = the user's own assistants;  = the preset catalog. `null` = neither filter active,
+// 资源库 = the user's own assistants; 助手库 = the preset catalog. `null` = neither filter active,
 // showing the combined list (the default view).
 type AssistantPickerTab = 'mine' | 'catalog'
 
@@ -91,7 +91,7 @@ export function AssistantConversationPickerDialog({
   )
 
   // Memoized so the reference only changes on a real tab/data change (the picker resets its paged
-  // window whenever `items` changes). No tab selected → the combined  +  list.
+  // window whenever `items` changes). No tab selected → the combined 资源库 + 助手库 list.
   const items = useMemo(
     () => (activeTab === 'catalog' ? catalogItems : activeTab === 'mine' ? myItems : [...myItems, ...catalogItems]),
     [activeTab, catalogItems, myItems]
@@ -130,7 +130,7 @@ export function AssistantConversationPickerDialog({
     [createAssistant, onSelect]
   )
 
-  // null = combined  +  (the default "" view).
+  // null = combined 资源库 + 助手库 (the default "全部" view).
   const filterOptions: { value: AssistantPickerTab | null; label: string }[] = [
     { value: null, label: t('common.all') },
     { value: 'mine', label: t('library.title') },
@@ -185,7 +185,7 @@ export function AssistantConversationPickerDialog({
           loadingText: t('common.loading')
         }}
         toolbar={toolbar}
-        // The "" row stays unless the user filters to -only (browse-only presets).
+        // The "新建助手" row stays unless the user filters to 助手库-only (browse-only presets).
         createAction={
           activeTab === 'catalog'
             ? undefined

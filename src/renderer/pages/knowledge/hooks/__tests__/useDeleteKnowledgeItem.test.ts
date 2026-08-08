@@ -29,7 +29,7 @@ describe('useDeleteKnowledgeItem', () => {
   })
 
   it('deletes one knowledge item through runtime IPC and refreshes the list', async () => {
-    const item = createNoteItem({ id: 'note-1', content: '' })
+    const item = createNoteItem({ id: 'note-1', content: '会议纪要' })
     const { result } = renderHook(() => useDeleteKnowledgeItem('base-1'))
 
     await act(async () => {
@@ -82,7 +82,7 @@ describe('useDeleteKnowledgeItem', () => {
 
   it('keeps delete rejected, refreshes items, and exposes inline error when runtime IPC rejects', async () => {
     const deleteError = new Error('delete failed')
-    const item = createNoteItem({ id: 'note-1', content: '' })
+    const item = createNoteItem({ id: 'note-1', content: '会议纪要' })
     mockIpcRequest.mockRejectedValueOnce(deleteError)
     const { result } = renderHook(() => useDeleteKnowledgeItem('base-1'))
 

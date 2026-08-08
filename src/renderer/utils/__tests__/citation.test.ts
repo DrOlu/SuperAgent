@@ -133,9 +133,9 @@ describe('citation', () => {
       const content = 'Here is `code with [1] citation` and normal [2] citation'
       const result = normalizeCitationMarks(content, citationMap)
 
-      //  [1] 
+      // 内联代码中的 [1] 应该保持不变
       expect(result).toContain('`code with [1] citation`')
-      //  [2] 
+      // 普通文本中的 [2] 应该被处理
       expect(result).toContain('[cite:2]')
     })
 
@@ -160,12 +160,12 @@ Normal text with [3] citation`
 
       const result = normalizeCitationMarks(content, citationMap)
 
-      // 
+      // 代码块内的内容应该保持原样
       expect(result).toContain('# Python code with [2] reference')
       expect(result).toContain('data = [3, 4, 5]  # Array with [1] element reference')
       expect(result).toContain('echo "Command with [2] parameter"')
 
-      // 
+      // 代码块外的引用应该被处理
       expect(result).toContain('Text with citation [cite:1]')
       expect(result).toContain('Indented code block [cite:3]')
       expect(result).toContain('Normal text with [cite:3]')
@@ -284,7 +284,7 @@ Numbered list:
         const citations: Citation[] = [{ number: 1, url: 'https://example.com', title: 'Example Citation' }]
         const citationMap = new Map(citations.map((c) => [c.number, c]))
 
-        // 2
+        // 2号引用不存在，应该保持原样
         const normalized = normalizeCitationMarks(content, citationMap, WEB_SEARCH_SOURCE.PERPLEXITY)
         expect(normalized).toBe('Text with [<sup>2</sup>](https://notfound.com) citation')
       })
@@ -313,7 +313,7 @@ Numbered list:
       it('should not over-match short text segments like ** (issue #8880)', () => {
         // Gemini API can return groundingSupports with very short text like "**"
         // which previously caused all "**" in the content to get citation tags
-        const content = '**$SO_2$**\n\n1. ****'
+        const content = '**二氧化硫（$SO_2$）不能燃烧。**\n\n1. **自身不可燃**：说明'
         const metadata: GroundingSupport[] = [
           {
             segment: { startIndex: 0, endIndex: 2, text: '**' },
@@ -326,17 +326,17 @@ Numbered list:
         const result = normalizeCitationMarks(content, citationMap, WEB_SEARCH_SOURCE.GEMINI)
 
         // Only the position at endIndex=2 should get the citation tag
-        expect(result).toBe('**[cite:1]$SO_2$**\n\n1. ****')
+        expect(result).toBe('**[cite:1]二氧化硫（$SO_2$）不能燃烧。**\n\n1. **自身不可燃**：说明')
       })
 
       it('should correctly convert UTF-8 byte offsets to char offsets for CJK text', () => {
         // Gemini API endIndex is in UTF-8 bytes, not JS characters
         // Chinese chars are 3 bytes each in UTF-8 but 1 char in JS
-        // "world" = (3) + (3) + w(1) + o(1) + r(1) + l(1) + d(1) = 11 bytes
-        const content = 'world end'
+        // "你好world" = 你(3) + 好(3) + w(1) + o(1) + r(1) + l(1) + d(1) = 11 bytes
+        const content = '你好world end'
         const metadata: GroundingSupport[] = [
           {
-            segment: { startIndex: 0, endIndex: 11, text: 'world' },
+            segment: { startIndex: 0, endIndex: 11, text: '你好world' },
             groundingChunkIndices: [0]
           }
         ]
@@ -345,8 +345,8 @@ Numbered list:
 
         const result = normalizeCitationMarks(content, citationMap, WEB_SEARCH_SOURCE.GEMINI)
 
-        // endIndex=11 bytes → char offset 7 ("world".length === 7)
-        expect(result).toBe('world[cite:1] end')
+        // endIndex=11 bytes → char offset 7 ("你好world".length === 7)
+        expect(result).toBe('你好world[cite:1] end')
       })
 
       it('should handle Gemini citations without metadata', () => {
@@ -395,7 +395,7 @@ Numbered list:
 
         const result = normalizeCitationMarks(content, citationMap)
 
-        // 
+        // 最里面的会被处理
         expect(result).toBe('Text with [[cite:1]] and [cite:[cite:2]] patterns')
       })
 

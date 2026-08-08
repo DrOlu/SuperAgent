@@ -14,15 +14,15 @@ interface SvgPreviewProps {
 }
 
 /**
- *  Shadow DOM  SVG
+ * 使用 Shadow DOM 渲染 SVG
  */
 const SvgPreview = ({ children, enableToolbar = false, className, ref }: SvgPreviewProps) => {
-  // 
+  // 定义渲染函数
   const renderSvg = useCallback(async (content: string, container: HTMLDivElement) => {
     renderSvgInShadowHost(content, container)
   }, [])
 
-  //  hook
+  // 使用预览渲染器 hook
   const { containerRef, error, isLoading } = useDebouncedRender(children, renderSvg, {
     debounceDelay: 300
   })
@@ -35,7 +35,7 @@ const SvgPreview = ({ children, enableToolbar = false, className, ref }: SvgPrev
       ref={ref}
       imageRef={containerRef}
       source="svg">
-      {/*  SVG  */}
+      {/* 使用透明容器，把背景色完全交给 SVG 自己控制 */}
       <ShadowTransparentContainer ref={containerRef} className={className ?? 'svg-preview special-preview'} />
     </ImagePreviewLayout>
   )

@@ -1,5 +1,5 @@
 /**
- * Runtime 
+ * Runtime 层类型定义
  */
 import type { EmbeddingModelV3, ImageModelV3, ProviderV3, RerankingModelV3 } from '@ai-sdk/provider'
 import type { JSONObject } from '@ai-sdk/provider'
@@ -40,10 +40,10 @@ export type RuntimeProviderCallEvent =
 export type RuntimeProviderCallHandler = (event: RuntimeProviderCallEvent) => void
 
 /**
- * 
+ * 运行时执行器配置
  *
- * @typeParam TSettingsMap - Provider Settings Map CoreProviderSettingsMap
- * @typeParam T - Provider ID  TSettingsMap 
+ * @typeParam TSettingsMap - Provider Settings Map（默认 CoreProviderSettingsMap）
+ * @typeParam T - Provider ID 类型（从 TSettingsMap 的键推断）
  */
 export interface RuntimeConfig<
   TSettingsMap extends Record<string, any> = CoreProviderSettingsMap,
@@ -54,9 +54,9 @@ export interface RuntimeConfig<
   providerSettings: TSettingsMap[T]
   plugins?: AiPlugin[]
   /**
-   * 
-   *  variant  resolveModel  extension 
-   *  AI SDK  provider.languageModel()
+   * 模型解析函数
+   * 从 variant 的 resolveModel 声明中提取（类型安全在 extension 声明处保证）。
+   * 不提供时使用 AI SDK 默认的 provider.languageModel()。
    */
   modelResolver?: (modelId: string) => any
 }

@@ -97,14 +97,14 @@ describe('keywordSearch', () => {
     })
 
     it('CJK terms degrade to substring in whole-word mode', () => {
-      const regex = buildSingleKeywordRegex('', matchMode)
-      expect(regex.test('')).toBe(true)
-      expect(regex.test('')).toBe(true)
+      const regex = buildSingleKeywordRegex('组合优于', matchMode)
+      expect(regex.test('投资组合优于其他策略')).toBe(true)
+      expect(regex.test('组合优于')).toBe(true)
     })
 
     it('CJK whole-word still does not match partial substring across non-CJK boundary', () => {
-      const regex = buildSingleKeywordRegex('', matchMode)
-      expect(regex.test('abcdef')).toBe(true)
+      const regex = buildSingleKeywordRegex('组合优于', matchMode)
+      expect(regex.test('abc组合优于def')).toBe(true)
     })
   })
 

@@ -2,14 +2,14 @@ import type { BasicPreviewHandles, BasicPreviewProps } from '@renderer/component
 import { type ComponentType, lazy, type RefObject } from 'react'
 
 /**
- * 
+ * 特殊视图语言列表
  */
 export const SPECIAL_VIEWS = ['mermaid', 'plantuml', 'svg', 'dot', 'graphviz']
 
 type SpecialViewProps = BasicPreviewProps & { ref?: RefObject<BasicPreviewHandles | null> }
 
 /**
- * 
+ * 特殊视图组件映射表
  */
 export const SPECIAL_VIEW_COMPONENTS = {
   mermaid: lazy<ComponentType<SpecialViewProps>>(() =>
@@ -30,6 +30,6 @@ export const SPECIAL_VIEW_COMPONENTS = {
 } as const
 
 /**
- * px
+ * 折叠状态下代码块的最大高度（px）
  */
 export const MAX_COLLAPSED_CODE_HEIGHT = 350

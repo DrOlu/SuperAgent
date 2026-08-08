@@ -11,7 +11,7 @@ vi.mock('@data/hooks/useDataApi', () => ({
 }))
 
 vi.mock('@renderer/utils/time', () => ({
-  formatRelativeTime: () => ''
+  formatRelativeTime: () => '刚刚'
 }))
 
 vi.mock('react-i18next', () => ({
@@ -26,10 +26,10 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'common.back': '',
-          'common.loading': '',
-          'knowledge.data_source.actions.preview_source': '',
-          'knowledge.data_source.filters.note': ''
+          'common.back': '返回',
+          'common.loading': '加载中',
+          'knowledge.data_source.actions.preview_source': '预览原文',
+          'knowledge.data_source.filters.note': '笔记'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -39,7 +39,7 @@ describe('KnowledgeItemNoteContentPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseQuery.mockReturnValue({
-      data: createNoteItem({ id: 'note-1', content: '\n' }),
+      data: createNoteItem({ id: 'note-1', content: '第一行标题\n第二行完整正文内容' }),
       isLoading: false,
       error: undefined
     })
@@ -54,14 +54,14 @@ describe('KnowledgeItemNoteContentPanel', () => {
     })
     // The whole body is present and untruncated — the reason a note needed its own view. The
     // header title only carries the first line, so matching the second line targets the body.
-    expect(screen.getByText('', { exact: false })).toHaveTextContent('')
+    expect(screen.getByText('第二行完整正文内容', { exact: false })).toHaveTextContent('第一行标题')
   })
 
   it('invokes onBack when the back control is pressed', () => {
     const onBack = vi.fn()
     render(<KnowledgeItemNoteContentPanel itemId="note-1" onBack={onBack} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
 
     expect(onBack).toHaveBeenCalledTimes(1)
   })
@@ -72,6 +72,6 @@ describe('KnowledgeItemNoteContentPanel', () => {
     render(<KnowledgeItemNoteContentPanel itemId="note-1" onBack={vi.fn()} />)
 
     // Both the placeholder title and the body render the loading label while the item resolves.
-    expect(screen.getAllByText('').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('加载中').length).toBeGreaterThan(0)
   })
 })

@@ -78,16 +78,16 @@ async function runStream(deltas: string[], finishReasonUnified: 'stop' | 'tool-c
 // The actual chunk sequence captured from the user's DeepSeek SSE leak.
 // Concatenated this is two parallel builtin_web_search invokes inside one tool_calls block.
 const SSE_DELTAS: string[] = [
-  // <DSMLtool_calls>
+  // <｜｜DSML｜｜tool_calls>
   '<',
-  'DSML',
+  '｜｜DSML｜｜',
   'tool',
   '_c',
   'alls',
   '>\n',
-  // <DSMLinvoke name="builtin_web_search">
+  // <｜｜DSML｜｜invoke name="builtin_web_search">
   '<',
-  'DSML',
+  '｜｜DSML｜｜',
   'inv',
   'oke',
   ' name',
@@ -98,9 +98,9 @@ const SSE_DELTAS: string[] = [
   'web',
   '_search',
   '">\n',
-  // <DSMLparameter name="additionalContext" string="true">
+  // <｜｜DSML｜｜parameter name="additionalContext" string="true">
   '<',
-  'DSML',
+  '｜｜DSML｜｜',
   'parameter',
   ' name',
   '="',
@@ -112,40 +112,40 @@ const SSE_DELTAS: string[] = [
   'true',
   '">',
   // value (Chinese keywords)
-  '',
-  '',
-  '',
+  '企',
+  '查',
+  '查',
   ' ',
-  '',
-  '',
-  '',
+  '融资',
+  '轮',
+  '次',
   ' ',
-  '',
-  '',
+  '天使',
+  '轮',
   ' A',
-  '',
+  '轮',
   ' B',
-  '',
+  '轮',
   ' ',
-  '',
+  '投资',
   ' ',
-  '',
+  '金额',
   ' ',
-  '',
-  // </DSMLparameter>
+  '时间',
+  // </｜｜DSML｜｜parameter>
   '</',
-  'DSML',
+  '｜｜DSML｜｜',
   'parameter',
   '>\n',
-  // </DSMLinvoke>
+  // </｜｜DSML｜｜invoke>
   '</',
-  'DSML',
+  '｜｜DSML｜｜',
   'inv',
   'oke',
   '>\n',
-  // <DSMLinvoke name="builtin_web_search">
+  // <｜｜DSML｜｜invoke name="builtin_web_search">
   '<',
-  'DSML',
+  '｜｜DSML｜｜',
   'inv',
   'oke',
   ' name',
@@ -156,9 +156,9 @@ const SSE_DELTAS: string[] = [
   'web',
   '_search',
   '">\n',
-  // <DSMLparameter name="additionalContext" string="true">
+  // <｜｜DSML｜｜parameter name="additionalContext" string="true">
   '<',
-  'DSML',
+  '｜｜DSML｜｜',
   'parameter',
   ' name',
   '="',
@@ -170,9 +170,9 @@ const SSE_DELTAS: string[] = [
   'true',
   '">',
   // value (English keywords)
-  '',
-  '',
-  '',
+  '企',
+  '查',
+  '查',
   ' Q',
   'ich',
   'acha',
@@ -184,20 +184,20 @@ const SSE_DELTAS: string[] = [
   ' C',
   ' investors',
   ' amount',
-  // </DSMLparameter>
+  // </｜｜DSML｜｜parameter>
   '</',
-  'DSML',
+  '｜｜DSML｜｜',
   'parameter',
   '>\n',
-  // </DSMLinvoke>
+  // </｜｜DSML｜｜invoke>
   '</',
-  'DSML',
+  '｜｜DSML｜｜',
   'inv',
   'oke',
   '>\n',
-  // </DSMLtool_calls>
+  // </｜｜DSML｜｜tool_calls>
   '</',
-  'DSML',
+  '｜｜DSML｜｜',
   'tool',
   '_c',
   'alls',
@@ -223,10 +223,10 @@ describe('deepseekDsmlParserPlugin', () => {
     const args0 = JSON.parse(toolCalls[0].input)
     const args1 = JSON.parse(toolCalls[1].input)
     expect(args0).toEqual({
-      additionalContext: '   A B   '
+      additionalContext: '企查查 融资轮次 天使轮 A轮 B轮 投资 金额 时间'
     })
     expect(args1).toEqual({
-      additionalContext: ' Qichacha funding rounds series A B C investors amount'
+      additionalContext: '企查查 Qichacha funding rounds series A B C investors amount'
     })
   })
 
@@ -265,21 +265,21 @@ describe('deepseekDsmlParserPlugin', () => {
     const events = await runStream(SSE_DELTAS, 'stop')
     const textDeltas = events.filter((e) => e.type === 'text-delta')
     const concatenated = textDeltas.map((e) => e.delta).join('')
-    expect(concatenated).not.toContain('DSML')
-    expect(concatenated).not.toContain('<')
+    expect(concatenated).not.toContain('｜｜DSML｜｜')
+    expect(concatenated).not.toContain('<｜')
     // No spurious text content in this fully-DSML fragment
     expect(concatenated).toBe('')
   })
 
   it('preserves plain text before and after the DSML block', async () => {
-    const deltas = ['', ...SSE_DELTAS, '\n']
+    const deltas = ['让我先搜索一下。', ...SSE_DELTAS, '\n搜索完成。']
     const events = await runStream(deltas, 'stop')
 
     const textDeltas = events
       .filter((e) => e.type === 'text-delta')
       .map((e) => e.delta)
       .join('')
-    expect(textDeltas).toBe('\n')
+    expect(textDeltas).toBe('让我先搜索一下。\n搜索完成。')
 
     const toolCalls = events.filter((e) => e.type === 'tool-call')
     expect(toolCalls).toHaveLength(2)
@@ -301,12 +301,12 @@ describe('deepseekDsmlParserPlugin', () => {
   it('flushes unclosed DSML block as plain text on text-end (fallback)', async () => {
     const deltas = [
       '<',
-      'DSML',
+      '｜｜DSML｜｜',
       'tool',
       '_calls',
       '>\n',
       '<',
-      'DSML',
+      '｜｜DSML｜｜',
       'invoke name="x">'
       // no close tag
     ]
@@ -317,7 +317,7 @@ describe('deepseekDsmlParserPlugin', () => {
       .filter((e) => e.type === 'text-delta')
       .map((e) => e.delta)
       .join('')
-    expect(textDeltas).toContain('<DSMLtool_calls>')
+    expect(textDeltas).toContain('<｜｜DSML｜｜tool_calls>')
   })
 
   it('emits the original DSML markup as text when a closed block has no parseable invoke', async () => {
@@ -325,9 +325,9 @@ describe('deepseekDsmlParserPlugin', () => {
     // (e.g. malformed or unexpected payload). The parser should not silently swallow it.
     const deltas = [
       'before ',
-      '<DSMLtool_calls>',
+      '<｜｜DSML｜｜tool_calls>',
       'oops not a valid invoke',
-      '</DSMLtool_calls>',
+      '</｜｜DSML｜｜tool_calls>',
       ' after'
     ]
     const events = await runStream(deltas, 'stop')
@@ -338,7 +338,7 @@ describe('deepseekDsmlParserPlugin', () => {
       .filter((e) => e.type === 'text-delta')
       .map((e) => e.delta)
       .join('')
-    expect(text).toBe('before <DSMLtool_calls>oops not a valid invoke</DSMLtool_calls> after')
+    expect(text).toBe('before <｜｜DSML｜｜tool_calls>oops not a valid invoke</｜｜DSML｜｜tool_calls> after')
 
     const finish = events.find((e) => e.type === 'finish') as Extract<LanguageModelV3StreamPart, { type: 'finish' }>
     expect(finish.finishReason.unified).toBe('stop')
@@ -349,20 +349,20 @@ describe('deepseekDsmlParserPlugin', () => {
     const deltas = [
       'prefix ',
       '<',
-      '',
-      '',
+      '｜',
+      '｜',
       'D',
       'S',
       'M',
       'L',
-      '',
-      '',
+      '｜',
+      '｜',
       'tool_calls',
       '>',
-      '<DSMLinvoke name="t">',
-      '<DSMLparameter name="p" string="true">v</DSMLparameter>',
-      '</DSMLinvoke>',
-      '</DSMLtool_calls>',
+      '<｜｜DSML｜｜invoke name="t">',
+      '<｜｜DSML｜｜parameter name="p" string="true">v</｜｜DSML｜｜parameter>',
+      '</｜｜DSML｜｜invoke>',
+      '</｜｜DSML｜｜tool_calls>',
       ' suffix'
     ]
     const events = await runStream(deltas, 'stop')
@@ -408,17 +408,17 @@ describe('deepseekDsmlParserPlugin', () => {
     it('extracts multiple DSML blocks within a single text part', async () => {
       const text =
         'lead-in ' +
-        '<DSMLtool_calls>' +
-        '<DSMLinvoke name="search_a">' +
-        '<DSMLparameter name="q" string="true">first</DSMLparameter>' +
-        '</DSMLinvoke>' +
-        '</DSMLtool_calls>' +
+        '<｜｜DSML｜｜tool_calls>' +
+        '<｜｜DSML｜｜invoke name="search_a">' +
+        '<｜｜DSML｜｜parameter name="q" string="true">first</｜｜DSML｜｜parameter>' +
+        '</｜｜DSML｜｜invoke>' +
+        '</｜｜DSML｜｜tool_calls>' +
         ' middle ' +
-        '<DSMLtool_calls>' +
-        '<DSMLinvoke name="search_b">' +
-        '<DSMLparameter name="q" string="true">second</DSMLparameter>' +
-        '</DSMLinvoke>' +
-        '</DSMLtool_calls>' +
+        '<｜｜DSML｜｜tool_calls>' +
+        '<｜｜DSML｜｜invoke name="search_b">' +
+        '<｜｜DSML｜｜parameter name="q" string="true">second</｜｜DSML｜｜parameter>' +
+        '</｜｜DSML｜｜invoke>' +
+        '</｜｜DSML｜｜tool_calls>' +
         ' tail'
 
       const result = await runGenerate(text, 'stop')
@@ -435,13 +435,13 @@ describe('deepseekDsmlParserPlugin', () => {
         .map((p: any) => p.text)
         .join('')
       expect(reconstructed).toBe('lead-in  middle  tail')
-      expect(reconstructed).not.toContain('DSML')
+      expect(reconstructed).not.toContain('｜｜DSML｜｜')
 
       expect(result.finishReason.unified).toBe('tool-calls')
     })
 
     it('preserves a closed DSML block that contains no parseable invoke as text', async () => {
-      const text = 'before <DSMLtool_calls>garbage</DSMLtool_calls> after'
+      const text = 'before <｜｜DSML｜｜tool_calls>garbage</｜｜DSML｜｜tool_calls> after'
       const result = await runGenerate(text, 'stop')
 
       expect(result.content.filter((p: any) => p.type === 'tool-call')).toHaveLength(0)

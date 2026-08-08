@@ -204,7 +204,7 @@ export default function AddModelFormPanel({
       return
     }
 
-    const normalizedId = formState.modelId.trim().replaceAll('', ',')
+    const normalizedId = formState.modelId.trim().replaceAll('，', ',')
     if (!normalizedId) {
       setModelIdTouched(true)
       modelIdInputRef.current?.focus()

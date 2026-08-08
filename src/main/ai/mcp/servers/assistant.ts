@@ -166,7 +166,7 @@ const APPLY_SETTING_REGISTRY: Record<string, ApplySettingEntry> = {
 
 const CREATE_AGENT_TOOL: Tool = {
   name: 'create_agent',
-  description: `Create a new SuperAgent Agent on behalf of the user. Use this when the user explicitly asks to create / build / make a new agent (e.g. " Python  review  Agent"). MUST collect requirements via conversation first, then SHOW the proposed config to the user for confirmation, and only call this tool after explicit user agreement.
+  description: `Create a new SuperAgent Agent on behalf of the user. Use this when the user explicitly asks to create / build / make a new agent (e.g. "帮我建一个专门做 Python 代码 review 的 Agent"). MUST collect requirements via conversation first, then SHOW the proposed config to the user for confirmation, and only call this tool after explicit user agreement.
 
 Safety rules:
 - type is fixed to 'claude-code' (channel-backed agents are out of scope here)
@@ -179,7 +179,7 @@ The tool returns the new agent id. After creation, query product_info and naviga
     properties: {
       name: {
         type: 'string',
-        description: 'Short human-readable name (e.g. "Python Reviewer", ""). Required.'
+        description: 'Short human-readable name (e.g. "Python Reviewer", "周报助手"). Required.'
       },
       description: {
         type: 'string',

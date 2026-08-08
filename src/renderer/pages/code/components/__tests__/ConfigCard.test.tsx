@@ -138,7 +138,7 @@ describe('ProviderCard', () => {
 
     expect(screen.getByText('Anthropic')).toBeInTheDocument()
     expect(screen.queryByText('settings.models.empty')).not.toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('｜')).not.toBeInTheDocument()
     expect(screen.queryByText('claude-sonnet-4-5')).not.toBeInTheDocument()
   })
 
@@ -157,13 +157,13 @@ describe('ProviderCard', () => {
 })
 
 describe('ProviderCard — unified gateway', () => {
-  const gatewayProvider = { id: CLI_API_GATEWAY_PROVIDER_ID, name: '' } as Provider
+  const gatewayProvider = { id: CLI_API_GATEWAY_PROVIDER_ID, name: '统一网关' } as Provider
 
   function renderGateway(description?: string) {
     return render(
       <ProviderCard
         provider={gatewayProvider}
-        providerName=""
+        providerName="统一网关"
         description={description}
         isCurrent={false}
         onConfigure={vi.fn()}
@@ -173,14 +173,14 @@ describe('ProviderCard — unified gateway', () => {
   }
 
   it('renders the promo description when supplied', () => {
-    renderGateway('')
+    renderGateway('一个网关，连通所有模型')
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('一个网关，连通所有模型')).toBeInTheDocument()
   })
 
   it('omits the description row when no description is supplied', () => {
     renderGateway(undefined)
 
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('一个网关，连通所有模型')).not.toBeInTheDocument()
   })
 })

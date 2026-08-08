@@ -16,8 +16,8 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
-        'message.copy.success': '',
-        'message.copy.failed': ''
+        'message.copy.success': '复制成功',
+        'message.copy.failed': '复制失败'
       }
       return translations[key] || key
     }
@@ -49,7 +49,7 @@ describe('CopyButton', () => {
     await userEvent.click(screen.getByRole('button'))
 
     expect(mockWriteText).toHaveBeenCalledWith(textToCopy)
-    expect(toast.success).toHaveBeenCalledWith('')
+    expect(toast.success).toHaveBeenCalledWith('复制成功')
     expect(toast.error).not.toHaveBeenCalled()
   })
 
@@ -90,7 +90,7 @@ describe('CopyButton', () => {
     const clickableElement = copyIcon?.parentElement
     await userEvent.click(clickableElement!)
 
-    expect(toast.error).toHaveBeenCalledWith('')
+    expect(toast.error).toHaveBeenCalledWith('复制失败')
     expect(toast.success).not.toHaveBeenCalled()
   })
 

@@ -91,7 +91,7 @@ describe('splitTextWithOffsets', () => {
   })
 
   it('handles CJK text with full-width terminators', () => {
-    const text = ''
+    const text = '第一句话在这里。第二句稍微长一点点哦！第三句是一个问题吗？最后一句结束了。'
     const chunks = splitTextWithOffsets(text, { chunkSize: 8, chunkOverlap: 2 })
 
     expect(chunks.length).toBeGreaterThan(1)
@@ -102,7 +102,7 @@ describe('splitTextWithOffsets', () => {
     const fragments = [
       'Hello world. ',
       'Short! ',
-      '',
+      '一段中文。',
       'A question? ',
       '\n\n',
       '   ',
@@ -208,7 +208,7 @@ describe('splitTextWithOffsets — separator and strategy', () => {
   it('keeps the invariant across strategies and separators (fuzz)', () => {
     const fragments = [
       'Hello world. ',
-      '',
+      '一段中文。',
       'A question? ',
       '\n\n',
       '## Head\n',
@@ -218,7 +218,7 @@ describe('splitTextWithOffsets — separator and strategy', () => {
       '12.5 km. ',
       '|'
     ]
-    const separators = ['', '\\n\\n', '', '. ', '|']
+    const separators = ['', '\\n\\n', '。', '. ', '|']
     const strategies = ['structured', 'delimiter'] as const
     // Deterministic LCG so the fuzz is reproducible without Math.random.
     let seed = 0x13572468

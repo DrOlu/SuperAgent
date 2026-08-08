@@ -60,7 +60,7 @@ export type TabType = 'route' | 'webview'
  */
 export interface TabSavedState {
   scrollPosition?: number
-  // 
+  // 其他必要草稿字段可在此扩展
 }
 
 export interface Tab {
@@ -70,11 +70,11 @@ export interface Tab {
   title: string
   icon?: string
   metadata?: Record<string, unknown>
-  // LRU 
-  lastAccessTime?: number // open/switch 
-  isDormant?: boolean // 
-  isPinned?: boolean //  LRU
-  savedState?: TabSavedState // 
+  // LRU 字段
+  lastAccessTime?: number // open/switch 时更新
+  isDormant?: boolean // 是否已休眠
+  isPinned?: boolean // 是否置顶（豁免 LRU）
+  savedState?: TabSavedState // 休眠前保存的状态
 }
 
 export interface TabsState {

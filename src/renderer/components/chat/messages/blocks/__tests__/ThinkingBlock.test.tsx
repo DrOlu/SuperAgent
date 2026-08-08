@@ -198,10 +198,10 @@ describe('ThinkingBlock', () => {
     })
 
     it('should keep consecutive CJK sentence endings with the completed segment', () => {
-      const block = createThinkingBlock({ status: 'streaming', content: '' })
+      const block = createThinkingBlock({ status: 'streaming', content: '真的吗？！还要继续思考' })
       renderThinkingBlock(block)
 
-      expect(within(getToggleButton()).getByText('')).toBeInTheDocument()
+      expect(within(getToggleButton()).getByText('真的吗？！')).toBeInTheDocument()
     })
 
     it('should show the loading indicator only while thinking is streaming', () => {

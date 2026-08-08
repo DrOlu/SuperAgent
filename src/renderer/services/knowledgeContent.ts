@@ -13,9 +13,9 @@ import {
 } from '@renderer/utils/knowledge'
 
 /**
- * 
- * @param topic 
- * @returns 
+ * 分析话题内容，统计各类型内容数量
+ * @param topic 话题对象
+ * @returns 话题内容统计
  */
 export async function analyzeTopicContent(topic: Topic): Promise<TopicContentStats> {
   const messages = await getTopicMessages(topic.id)
@@ -37,11 +37,11 @@ export function analyzeMessagesContent(messages: ExportableMessage[]): TopicCont
     messages: messages.length
   }
 
-  // 
+  // 分析每个消息的内容
   for (const message of messages) {
     const messageStats = analyzeMessageContent(message)
 
-    // 
+    // 累加各类型统计
     stats.text += messageStats.text
     stats.code += messageStats.code
     stats.thinking += messageStats.thinking
@@ -64,23 +64,23 @@ export function processMessagesContent(
   const textParts: string[] = []
   const files: FileMetadata[] = []
 
-  // 
+  // 添加标题（如果选择了文本类型）
   const selectedTypeSet = new Set(selectedTypes)
   if (selectedTypeSet.has(CONTENT_TYPES.TEXT)) {
     textParts.push(`# ${title}`)
   }
 
-  // 
+  // 处理每个消息
   for (const message of messages) {
     const messageResult = processMessageContent(message, selectedTypes)
 
-    // 
+    // 合并文本内容
     if (messageResult.text.trim()) {
-      const rolePrefix = message.role === 'user' ? `## ${i18n.t('common.you')}` : `## ${i18n.t('common.assistant')}`
+      const rolePrefix = message.role === 'user' ? `## ${i18n.t('common.you')}：` : `## ${i18n.t('common.assistant')}：`
       textParts.push(`${rolePrefix}\n\n${messageResult.text}`)
     }
 
-    // 
+    // 合并文件内容
     files.push(...messageResult.files)
   }
 
@@ -91,11 +91,11 @@ export function processMessagesContent(
 }
 
 /**
- * 
- * 
- * @param topic 
- * @param selectedTypes 
- * @returns 
+ * 根据选择的内容类型，处理话题内容
+ * 将选中的文本类型合并为字符串，提取文件列表
+ * @param topic 话题对象
+ * @param selectedTypes 选择的内容类型
+ * @returns 话题预处理结果
  */
 export async function processTopicContent(topic: Topic, selectedTypes: ContentType[]): Promise<TopicPreprocessResult> {
   const messages = await getTopicMessages(topic.id)

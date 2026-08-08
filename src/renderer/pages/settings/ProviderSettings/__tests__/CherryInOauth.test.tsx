@@ -130,8 +130,8 @@ describe('CherryInOauth', () => {
 
     render(<CherryInOauth providerId="cherryin" />)
 
-    const loginButton = screen.getByRole('button', { name: /CherryIN|/i })
-    const tagline = screen.getByText(/|all model services/i)
+    const loginButton = screen.getByRole('button', { name: /CherryIN|授权/i })
+    const tagline = screen.getByText(/登录后即可使用所有模型服务|all model services/i)
 
     expect(loginButton).toBeInTheDocument()
     expect(screen.getByTestId('cherryin-avatar')).toBeInTheDocument()
@@ -159,7 +159,7 @@ describe('CherryInOauth', () => {
 
     render(<CherryInOauth providerId="cherryin" />)
 
-    const logoutButton = await screen.findByRole('button', { name: /|Logout/i })
+    const logoutButton = await screen.findByRole('button', { name: /退出登录|Logout/i })
     // The global popup.confirm mock auto-invokes onOk (the "confirmed" path) and resolves true.
     await act(async () => {
       fireEvent.click(logoutButton)
@@ -198,7 +198,7 @@ describe('CherryInOauth', () => {
 
     render(<CherryInOauth providerId="cherryin" />)
 
-    const logoutButton = await screen.findByRole('button', { name: /|Logout/i })
+    const logoutButton = await screen.findByRole('button', { name: /退出登录|Logout/i })
     // The global popup.confirm mock auto-invokes onOk (the "confirmed" path) and resolves true.
     await act(async () => {
       fireEvent.click(logoutButton)

@@ -842,8 +842,8 @@ function getKnowledgeNoteName(data: KnowledgeItemTitleSource['data']): string {
 
 /**
  * User-facing display name for a knowledge item or add-input. Prefers the
- * `relativePath` — the deduped name stored under `raw/` (e.g. `_2.pdf`) — so
- * that same-name items kept side by side ("") stay distinguishable:
+ * `relativePath` — the deduped name stored under `raw/` (e.g. `测试_2.pdf`) — so
+ * that same-name items kept side by side ("保留全部") stay distinguishable:
  * - file: relativePath basename (always set at add-time) else source basename
  * - note: see {@link getKnowledgeNoteName}
  * - url: captured snapshot name (set on first index) else the raw url

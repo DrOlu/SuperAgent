@@ -5,11 +5,11 @@ import { nanoid } from 'nanoid'
 
 const logger = loggerService.withContext('BailianSyncUtils')
 
-// 
+// 常量定义
 export const BAILIAN_HOST = 'https://dashscope.aliyuncs.com'
 const TOKEN_STORAGE_KEY = 'bailian_token'
 
-// Token 
+// Token 工具函数
 export const saveBailianToken = (token: string): void => {
   localStorage.setItem(TOKEN_STORAGE_KEY, token)
 }
@@ -28,7 +28,7 @@ export const hasBailianToken = (): boolean => {
   return hasToken
 }
 
-// ==========  ==========
+// ========== 类型定义 ==========
 export interface BailianServer {
   id: string
   name: string
@@ -57,12 +57,12 @@ export interface BailianSyncResult {
   errorDetails?: string
 }
 
-// ==========  MCP  ==========
+// ========== 拉取所有 MCP 服务 ==========
 const PAGE_SIZE = 20
 
 /**
- *  MCP 
- *  syncBailianServers 
+ * 拉取全部 MCP 服务器列表，分页封装
+ * 抛出明确错误字符串，供 syncBailianServers 捕捉
  */
 async function fetchAllMcpServers(token: string): Promise<BailianServer[]> {
   const allServers: BailianServer[] = []
@@ -81,7 +81,7 @@ async function fetchAllMcpServers(token: string): Promise<BailianServer[]> {
       }
     })
 
-    // ----- ( Result throw) -----
+    // ----- 错误处理(不再封装 Result，直接 throw，外层处理) -----
     if (response.status === 401 || response.status === 403) {
       throw new Error('unauthorized')
     }
@@ -107,7 +107,7 @@ async function fetchAllMcpServers(token: string): Promise<BailianServer[]> {
   return allServers
 }
 
-// ==========  ==========
+// ========== 主同步函数 ==========
 export const syncBailianServers = async (token: string): Promise<BailianSyncResult> => {
   const t = i18next.t
 
@@ -178,7 +178,7 @@ export const syncBailianServers = async (token: string): Promise<BailianSyncResu
       }
     }
 
-    // 
+    // 其他情况
     logger.error('Bailian sync error:', error as Error)
     message = t('settings.mcp.sync.error')
     errorDetails = String(error)

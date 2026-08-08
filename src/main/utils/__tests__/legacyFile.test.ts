@@ -128,7 +128,7 @@ describe('file', () => {
     it('should handle extreme cases', () => {
       expect(getFileType('.averylongfileextensionname')).toBe(FILE_TYPE.OTHER)
       expect(getFileType('.tar.gz')).toBe(FILE_TYPE.OTHER)
-      expect(getFileType('.')).toBe(FILE_TYPE.OTHER)
+      expect(getFileType('.文件')).toBe(FILE_TYPE.OTHER)
       expect(getFileType('.файл')).toBe(FILE_TYPE.OTHER)
     })
   })
@@ -218,10 +218,10 @@ describe('file', () => {
     const mockFilePath = '/path/to/mock/file.txt'
 
     it('should read file with auto encoding', async () => {
-      const content = 'GB18030'
+      const content = '这是一段GB18030编码的测试内容'
       const buffer = Buffer.from(iconv.encode(content, 'GB18030'))
 
-      // 
+      // 模拟文件读取和编码检测
       vi.spyOn(fsPromises, 'readFile').mockResolvedValue(buffer as unknown as string)
       vi.spyOn(chardet, 'detectFile').mockResolvedValue('GB18030')
 
@@ -230,10 +230,10 @@ describe('file', () => {
     })
 
     it('should try to fix bad detected encoding', async () => {
-      const content = 'UTF-8'
+      const content = '这是一段UTF-8编码的测试内容'
       const buffer = Buffer.from(iconv.encode(content, 'UTF-8'))
 
-      // 
+      // 模拟文件读取
       vi.spyOn(fsPromises, 'readFile').mockResolvedValue(buffer as unknown as string)
       vi.spyOn(chardet, 'detectFile').mockResolvedValue('GB18030')
 
@@ -281,7 +281,7 @@ describe('file', () => {
     })
 
     it('should handle special characters and unicode', () => {
-      expect(untildify('~/')).toBe('/mock/home/')
+      expect(untildify('~/文档')).toBe('/mock/home/文档')
       expect(untildify('~/папка')).toBe('/mock/home/папка')
       expect(untildify('~/folder with spaces')).toBe('/mock/home/folder with spaces')
       expect(untildify('~/folder-with-dashes')).toBe('/mock/home/folder-with-dashes')

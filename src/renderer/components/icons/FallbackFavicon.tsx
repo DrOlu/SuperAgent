@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react'
 
 const logger = loggerService.withContext('FallbackFavicon')
 
-// URL
+// 记录失败的URL的缓存键前缀
 const FAILED_FAVICON_CACHE_PREFIX = 'failed_favicon_'
-// URL (24)
+// 失败URL的缓存时间 (24小时)
 const FAILED_FAVICON_CACHE_DURATION = 24 * 60 * 60 * 1000
 
-// URL
+// 检查URL是否在失败缓存中
 const isUrlFailedRecently = (url: string): boolean => {
   const cacheKey = `${FAILED_FAVICON_CACHE_PREFIX}${url}`
   const cachedTimestamp = localStorage.getItem(cacheKey)
@@ -18,17 +18,17 @@ const isUrlFailedRecently = (url: string): boolean => {
   const timestamp = parseInt(cachedTimestamp, 10)
   const now = Date.now()
 
-  // URL
+  // 如果时间戳在缓存期内，则认为URL仍处于失败状态
   if (now - timestamp < FAILED_FAVICON_CACHE_DURATION) {
     return true
   }
 
-  // 
+  // 清除过期的缓存
   localStorage.removeItem(cacheKey)
   return false
 }
 
-// URL
+// 记录失败的URL到缓存
 const markUrlAsFailed = (url: string): void => {
   const cacheKey = `${FAILED_FAVICON_CACHE_PREFIX}${url}`
   localStorage.setItem(cacheKey, Date.now().toString())
@@ -61,10 +61,10 @@ const FallbackFavicon: React.FC<FallbackFaviconProps> = ({ hostname, alt }) => {
       `https://${hostname}/favicon.ico`
     ]
 
-    // URL
+    // 过滤掉最近已失败的URL
     const validFaviconUrls = faviconUrls.filter((url) => !isUrlFailedRecently(url))
 
-    // URLURL
+    // 如果所有URL都被缓存为失败，使用第一个URL
     if (validFaviconUrls.length === 0) {
       setFaviconState({ status: 'loaded', src: faviconUrls[0] })
       return
@@ -85,7 +85,7 @@ const FallbackFavicon: React.FC<FallbackFaviconProps> = ({ hostname, alt }) => {
           if (response.ok) {
             return url
           }
-          // 4xx5xx
+          // 记录4xx或5xx失败
           if (response.status >= 400) {
             markUrlAsFailed(url)
           }
@@ -134,7 +134,7 @@ const FallbackFavicon: React.FC<FallbackFaviconProps> = ({ hostname, alt }) => {
 
   const handleError = () => {
     if (faviconState.status === 'loaded') {
-      // URL
+      // 记录图片加载失败的URL
       markUrlAsFailed(faviconState.src)
     }
     setFaviconState({ status: 'failed' })

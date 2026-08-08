@@ -3805,7 +3805,7 @@ describe('ChatComposer', () => {
             [
               {
                 type: 'text',
-                text: 'test.pdf ',
+                text: 'test.pdf 你好',
                 providerMetadata: {
                   cherry: {
                     composer: {
@@ -3838,7 +3838,7 @@ describe('ChatComposer', () => {
 
     await act(async () => {
       await mocks.surfaceProps?.onSendDraft({
-        text: 'test.pdf ',
+        text: 'test.pdf 你好',
         tokens: [rewrittenToken!]
       })
     })
@@ -3846,7 +3846,7 @@ describe('ChatComposer', () => {
     const editedParts = forkAndResend.mock.calls[0]?.[1] as Array<Record<string, any>>
     expect(editedParts[0]).toMatchObject({
       type: 'text',
-      text: 'test.pdf ',
+      text: 'test.pdf 你好',
       providerMetadata: {
         cherry: {
           composer: {
@@ -4014,7 +4014,7 @@ describe('ChatComposer', () => {
             [
               {
                 type: 'text',
-                text: 'x.pdf ',
+                text: 'x.pdf 你好',
                 providerMetadata: { cherry: { composer: { version: 1, tokens: [ghostToken] } } }
               },
               filePart
@@ -4031,7 +4031,7 @@ describe('ChatComposer', () => {
     expect(rewrittenToken?.id).not.toBe(ghostToken.id)
 
     await act(async () => {
-      await mocks.surfaceProps?.onSendDraft({ text: 'x.pdf ', tokens: [rewrittenToken!] })
+      await mocks.surfaceProps?.onSendDraft({ text: 'x.pdf 你好', tokens: [rewrittenToken!] })
     })
 
     const editedParts = forkAndResend.mock.calls[0]?.[1] as Array<Record<string, any>>

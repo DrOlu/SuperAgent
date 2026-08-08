@@ -45,7 +45,7 @@ export interface AssistantFormState {
   customParameters: CustomParameter[]
   mcpMode: AssistantSettings['mcpMode']
   // context management (P2-D assistant override). `contextOverrideEnabled`
-  // is the "/customize" master switch: false → settings.contextSettings
+  // is the "自定义/customize" master switch: false → settings.contextSettings
   // is written as null (inherit globals); true → the three fields below form
   // the override object.
   contextOverrideEnabled: boolean

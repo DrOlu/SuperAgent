@@ -41,7 +41,7 @@ export function buildModelscopeTransport(settings: ModelscopeProviderSettings): 
 }
 
 /**
- * Unified ModelScope () provider: OpenAI-compatible chat/embedding off
+ * Unified ModelScope (魔搭) provider: OpenAI-compatible chat/embedding off
  * `settings.baseURL`, plus an async submit/poll image transport off
  * `settings.imageBaseURL` (defaults to `https://api-inference.modelscope.cn`).
  */

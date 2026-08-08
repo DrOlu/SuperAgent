@@ -578,7 +578,7 @@ describe('ExportService', () => {
       await expect(exportTopicToNotes(testTopic, '/notes')).rejects.toThrow(exportError)
 
       expect(addNote).not.toHaveBeenCalled()
-      expect(loggerErrorSpy).toHaveBeenCalledWith(':', exportError)
+      expect(loggerErrorSpy).toHaveBeenCalledWith('导出到笔记失败:', exportError)
       expect(toast.error).toHaveBeenCalledWith('message.error.notes.export')
 
       loggerErrorSpy.mockRestore()

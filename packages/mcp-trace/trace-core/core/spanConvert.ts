@@ -16,8 +16,8 @@ export function convertSpanToSpanEntity(span: ReadableSpan): SpanEntity {
     name: span.name,
     // A non-recording span (no SDK provider registered) carries no startTime;
     // guard like endTime below instead of throwing on `undefined[0]`.
-    startTime: span.startTime ? span.startTime[0] * 1e3 + Math.floor(span.startTime[1] / 1e6) : undefined, // 
-    endTime: span.endTime ? span.endTime[0] * 1e3 + Math.floor(span.endTime[1] / 1e6) : undefined, // 
+    startTime: span.startTime ? span.startTime[0] * 1e3 + Math.floor(span.startTime[1] / 1e6) : undefined, // 转为毫秒
+    endTime: span.endTime ? span.endTime[0] * 1e3 + Math.floor(span.endTime[1] / 1e6) : undefined, // 转为毫秒
     // `isEnd` is required by SpanEntity but was previously omitted (the `as SpanEntity` cast hid it),
     // so spans persisted via this converter (e.g. the AiTurnTrace end-patch → writeSpanEntity path)
     // landed with `isEnd: undefined` and their traces were never evictable. Derive it from the OTel

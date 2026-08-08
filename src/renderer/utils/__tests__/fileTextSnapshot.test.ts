@@ -45,7 +45,7 @@ describe('decodeFileText', () => {
   })
 
   it('rejects invalid UTF-8 as an encoding error', () => {
-    // GBK bytes for "" are not valid UTF-8.
+    // GBK bytes for "你好" are not valid UTF-8.
     expect(reasonOf(new Uint8Array([0xc4, 0xe3, 0xba, 0xc3]))).toBe('encoding')
   })
 

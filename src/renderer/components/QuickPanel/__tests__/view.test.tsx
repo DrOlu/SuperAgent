@@ -572,8 +572,8 @@ describe('QuickPanelView', () => {
     expect(deleteTriggerRange).toHaveBeenCalledOnce()
   })
 
-  //  context  fill  + DOM  getQuickPanelHeights
-  //  heights.test.ts 
+  // 集成测试验证 context 的 fill 标志 + DOM 几何测量把高度喂给了 getQuickPanelHeights；
+  // 具体数值由 heights.test.ts 的纯单测覆盖，这里不写死像素。
   const measuredItems: QuickPanelListItem[] = Array.from({ length: 10 }, (_, index) => ({
     id: `item-${index}`,
     label: `Item ${index}`,
@@ -586,7 +586,7 @@ describe('QuickPanelView', () => {
     const getRectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rectFor(
       this: HTMLElement
     ) {
-      // docked 
+      // 即便上方空间很小，docked 也应忽略它、保持固定高度。
       if (this.dataset.testid === 'quick-panel') return createRect(180, 180)
       return createRect(40, 900)
     })
@@ -615,7 +615,7 @@ describe('QuickPanelView', () => {
         expect(panel).toHaveStyle({ maxHeight: `${expected.panelMaxHeight}px` })
       })
       expect(screen.getByTestId('quick-panel-virtual-list')).toHaveAttribute('data-size', String(expected.listHeight))
-      // docked  body
+      // docked 不撑高 body。
       const body = screen.getByTestId('quick-panel-body')
       expect(body).not.toHaveStyle({ height: `${expected.panelMaxHeight}px` })
       expect(body).toHaveClass('shadow-none')
@@ -658,7 +658,7 @@ describe('QuickPanelView', () => {
       await waitFor(() => {
         expect(panel).toHaveStyle({ maxHeight: `${expected.panelMaxHeight}px` })
       })
-      // ≤pageSize  panel  DOM  body 
+      // 列表贴合内容（≤pageSize 行），整个 panel 由 DOM 自然高度收缩，不写死 body 高度。
       expect(screen.getByTestId('quick-panel-virtual-list')).toHaveAttribute('data-size', String(expected.listHeight))
       const body = screen.getByTestId('quick-panel-body')
       expect(body).not.toHaveStyle({ height: `${expected.panelMaxHeight}px` })
@@ -841,7 +841,7 @@ describe('QuickPanelView', () => {
         </div>
       )
 
-      // readOnly  fillfillEffective=false availableHeight
+      // readOnly 屏蔽 fill（fillEffective=false）：保持固定高度、忽略 availableHeight、用标准阴影。
       const expected = getQuickPanelHeights({
         isVisible: true,
         collapsed: false,
@@ -1278,7 +1278,7 @@ describe('QuickPanelView', () => {
 
   it.each([
     { name: 'a non-slash symbol', symbol: '@', inputText: '@notes' },
-    { name: 'the ideographic comma root alias', symbol: '/', inputText: 'notes' }
+    { name: 'the ideographic comma root alias', symbol: '/', inputText: '、notes' }
   ])('tracks $name and consumes the trigger range on selection', async ({ symbol, inputText }) => {
     const action = vi.fn()
     const captureDispatch = vi.fn()

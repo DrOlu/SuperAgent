@@ -620,7 +620,7 @@ vi.mock('../components/AgentSessionMessages', () => ({
       <button type="button" onClick={() => openArtifactFile?.('/tmp/workspace/report.xlsx')}>
         open excel artifact file
       </button>
-      <button type="button" onClick={() => openArtifactFile?.('/Users/suyao/Desktop/.md')}>
+      <button type="button" onClick={() => openArtifactFile?.('/Users/suyao/Desktop/记忆商人.md')}>
         open desktop artifact file
       </button>
     </div>
@@ -1132,12 +1132,12 @@ describe('AgentChat artifact pane', () => {
 
     expect(screen.getByTestId('artifact-right-pane')).toHaveAttribute('data-open', 'true')
     expect(screen.getByRole('button', { name: 'agent.right_pane.tabs.files' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /\.md/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /记忆商人\.md/ })).toBeNull()
     await waitFor(() => {
       expect(screen.getByTestId('artifact-file-preview-overlay')).toBeInTheDocument()
     })
     expect(screen.getByTestId('artifact-file-preview')).toHaveAttribute('data-workspace-path', '/Users/suyao/Desktop')
-    expect(screen.getByTestId('artifact-file-preview')).toHaveAttribute('data-file-path', '.md')
+    expect(screen.getByTestId('artifact-file-preview')).toHaveAttribute('data-file-path', '记忆商人.md')
     expect(screen.getByTestId('artifact-pane')).toHaveAttribute('data-workspace-path', '/tmp/workspace')
     expect(screen.getByTestId('artifact-pane')).toHaveAttribute('data-selected-file', '')
   })

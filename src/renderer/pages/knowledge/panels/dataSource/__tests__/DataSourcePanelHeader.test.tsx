@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import DataSourcePanelHeader from '../DataSourcePanelHeader'
 
 vi.mock('@renderer/utils/time', () => ({
-  formatRelativeTime: () => ''
+  formatRelativeTime: () => '刚刚'
 }))
 
 vi.mock('@cherrystudio/ui', () => ({
@@ -31,16 +31,16 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     i18n: { language: 'zh-CN' },
     t: (key: string, opts?: Record<string, unknown>) => {
-      if (key === 'knowledge.data_source.bulk.selected_count') return ` ${opts?.count}`
-      if (key === 'knowledge.meta.updated_at') return ` ${opts?.time}`
-      if (key === 'knowledge.data_source.bulk.loaded_only_hint') return ` ${opts?.total} `
+      if (key === 'knowledge.data_source.bulk.selected_count') return `已选 ${opts?.count}`
+      if (key === 'knowledge.meta.updated_at') return `更新于 ${opts?.time}`
+      if (key === 'knowledge.data_source.bulk.loaded_only_hint') return `仅已加载，共 ${opts?.total} 项`
       return (
         (
           {
-            'knowledge.data_source.bulk.cancel': '',
-            'knowledge.data_source.bulk.reindex': '',
-            'knowledge.data_source.bulk.delete': '',
-            'knowledge.data_source.toolbar.add': ''
+            'knowledge.data_source.bulk.cancel': '取消',
+            'knowledge.data_source.bulk.reindex': '重新索引',
+            'knowledge.data_source.bulk.delete': '删除',
+            'knowledge.data_source.toolbar.add': '添加'
           } as Record<string, string>
         )[key] ?? key
       )
@@ -62,17 +62,17 @@ describe('DataSourcePanelHeader', () => {
   it('renders the updated time and add button in the default state', () => {
     render(<DataSourcePanelHeader {...baseProps} selectedCount={0} />)
 
-    expect(screen.getByText(' ')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByText('更新于 刚刚')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '添加' })).toBeInTheDocument()
   })
 
   it('switches to the bulk toolbar when rows are selected', () => {
     render(<DataSourcePanelHeader {...baseProps} selectedCount={2} />)
 
-    expect(screen.getByText(' 2')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByText('已选 2')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '取消' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新索引' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument()
   })
 
   it('warns that a selection only covers loaded rows when unloaded pages remain', () => {
@@ -80,12 +80,12 @@ describe('DataSourcePanelHeader', () => {
       <DataSourcePanelHeader {...baseProps} total={200} loadedCount={50} selectedCount={50} />
     )
 
-    expect(screen.getByText(' 200 ')).toBeInTheDocument()
+    expect(screen.getByText('仅已加载，共 200 项')).toBeInTheDocument()
 
     // Fully loaded (total === loadedCount): no hint.
     rerender(<DataSourcePanelHeader {...baseProps} total={50} loadedCount={50} selectedCount={50} />)
 
-    expect(screen.queryByText(' 50 ')).not.toBeInTheDocument()
+    expect(screen.queryByText('仅已加载，共 50 项')).not.toBeInTheDocument()
   })
 
   it('invokes bulk callbacks from the selected-state toolbar', () => {
@@ -101,8 +101,8 @@ describe('DataSourcePanelHeader', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '重新索引' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
     expect(onBulkReindex).toHaveBeenCalledTimes(1)
     expect(onBulkDelete).toHaveBeenCalledTimes(1)

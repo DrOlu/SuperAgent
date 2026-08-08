@@ -23,7 +23,7 @@ const TEST_MODEL = { id: 'gpt', provider: 'openai' } as never
 
 const languagesFixture = [
   { langCode: lang('en-us'), value: 'English', emoji: '🇺🇸' },
-  { langCode: lang('zh-cn'), value: '', emoji: '🇨🇳' }
+  { langCode: lang('zh-cn'), value: '中文', emoji: '🇨🇳' }
 ]
 
 vi.mock('react-i18next', () => ({
@@ -122,7 +122,7 @@ describe('detectLanguageByFranc', () => {
 
   it('maps a recognized iso3 to its corresponding lang code', () => {
     francMock.mockReturnValueOnce('cmn')
-    expect(detectLanguageByFranc('')).toBe('zh-cn')
+    expect(detectLanguageByFranc('你好世界')).toBe('zh-cn')
   })
 
   it('returns the unknown lang code and logs a debug when the iso3 is not in the supported isoMap', () => {
@@ -151,7 +151,7 @@ describe('detectWithMethod', () => {
   it('auto + long text uses franc when franc resolves a known language', async () => {
     estimateTokenCountMock.mockReturnValueOnce(500)
     francMock.mockReturnValueOnce('jpn')
-    await expect(detectWithMethod('のい…', 'auto', [lang('ja-jp')], TEST_MODEL)).resolves.toBe('ja-jp')
+    await expect(detectWithMethod('日本語の長い文章…', 'auto', [lang('ja-jp')], TEST_MODEL)).resolves.toBe('ja-jp')
     expect(generateTextMock).not.toHaveBeenCalled()
   })
 

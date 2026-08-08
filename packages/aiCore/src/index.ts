@@ -1,14 +1,14 @@
 /**
  * SuperAgent AI Core Package
- *  Vercel AI SDK  AI Provider 
+ * 基于 Vercel AI SDK 的统一 AI Provider 接口
  */
 
-// 
+// 导入内部使用的类和函数
 
-// ====================  ====================
+// ==================== 主要用户接口 ====================
 export { createAgent, createExecutor, embedMany, generateImage, generateText, rerank, streamText } from './core/runtime'
 
-// ==================== Embedding  ====================
+// ==================== Embedding 类型 ====================
 export type {
   CreateAgentOptions,
   EmbedManyParams,
@@ -19,10 +19,10 @@ export type {
   RuntimeProviderCallHandler
 } from './core/runtime'
 
-// ==================== API ====================
+// ==================== 高级API ====================
 export { isV2Model, isV3Model } from './core/models'
 
-// ====================  ====================
+// ==================== 插件系统 ====================
 export type {
   AiPlugin,
   AiRequestContext,
@@ -34,7 +34,7 @@ export type {
 export { definePlugin } from './core/plugins'
 export { PluginEngine } from './core/runtime/pluginEngine'
 
-// ====================  ====================
+// ==================== 类型工具 ====================
 export type {
   AiSdkModel,
   ExtractToolConfig,
@@ -47,7 +47,7 @@ export type {
   WebSearchToolConfigMap
 } from './core/providers'
 
-// ==================== Context ( + ) ====================
+// ==================== Context 模块(截断 + 历史压缩) ====================
 export type {
   ContextLogger,
   ContextMessage,
@@ -71,7 +71,7 @@ export {
   summarizeModelMessages
 } from './core/context'
 
-// ====================  ====================
+// ==================== 错误处理 ====================
 export {
   AiCoreError,
   ModelResolutionError,

@@ -139,21 +139,21 @@ vi.mock('react-i18next', () => ({
     t: (key: string, options?: { name?: string; count?: number }) =>
       (
         ({
-          'common.name': '',
-          'common.cancel': '',
-          'knowledge.embedding_model': '',
+          'common.name': '名称',
+          'common.cancel': '取消',
+          'knowledge.embedding_model': '嵌入模型',
           'knowledge.error.missing_embedding_model':
-            '',
-          'knowledge.dimensions': '',
-          'knowledge.dimensions_error_invalid': '',
-          'knowledge.name_required': '',
-          'knowledge.rag.rerank_disabled': '',
-          'knowledge.restore.default_name': `${options?.name}_`,
-          'knowledge.restore.skipped_missing_sources': ` ${options?.count} `,
-          'knowledge.restore.failed_to_restore': '',
-          'knowledge.restore.submit': '',
-          'knowledge.restore.title': '',
-          'message.error.get_embedding_dimensions': ''
+            '迁移时未找到原知识库使用的嵌入模型，请重建知识库并选择新的嵌入模型。',
+          'knowledge.dimensions': '嵌入维度',
+          'knowledge.dimensions_error_invalid': '无效的嵌入维度',
+          'knowledge.name_required': '知识库名称为必填项',
+          'knowledge.rag.rerank_disabled': '不使用',
+          'knowledge.restore.default_name': `${options?.name}_副本`,
+          'knowledge.restore.skipped_missing_sources': `已跳过 ${options?.count} 个源已丢失的项目`,
+          'knowledge.restore.failed_to_restore': '知识库重建失败',
+          'knowledge.restore.submit': '重建',
+          'knowledge.restore.title': '重建知识库',
+          'message.error.get_embedding_dimensions': '获取嵌入维度失败'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -194,7 +194,7 @@ describe('RestoreKnowledgeBaseDialog', () => {
   it('renders the localized backup name and submits restoreBase with the selected embedding model', async () => {
     const restoredBase = createKnowledgeBase({
       id: 'restored-base',
-      name: 'Legacy KB_',
+      name: 'Legacy KB_副本',
       status: 'completed',
       error: null,
       dimensions: 1536,
@@ -215,17 +215,17 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    expect(screen.getByRole('heading', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '重建知识库' })).toBeInTheDocument()
     expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'lg')
-    expect(screen.getByLabelText('')).toHaveValue('Legacy KB_')
+    expect(screen.getByLabelText('名称')).toHaveValue('Legacy KB_副本')
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
     await waitFor(() =>
       expect(restoreBase).toHaveBeenCalledWith({
         sourceBaseId: 'source-base',
-        name: 'Legacy KB_',
+        name: 'Legacy KB_副本',
         embeddingModelId: 'openai::text-embedding-3-small',
         dimensions: 1536
       })
@@ -262,8 +262,8 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
     await waitFor(() => expect(restoreBase).toHaveBeenCalled())
     // The skipped count is surfaced via a warning toast (not silently dropped); the base still restores.
@@ -286,12 +286,12 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: '   ' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('名称'), { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
     await waitFor(() => expect(restoreBase).not.toHaveBeenCalled())
     expect(mockEmbedMany).not.toHaveBeenCalled()
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('知识库名称为必填项')).toBeInTheDocument()
   })
 
   it('restores a BM25-only base after selecting disabled without probing dimensions', async () => {
@@ -316,19 +316,19 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '不使用' }))
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
     await waitFor(() =>
       expect(restoreBase).toHaveBeenCalledWith({
         sourceBaseId: 'source-base',
-        name: 'Legacy KB_',
+        name: 'Legacy KB_副本',
         embeddingModelId: null,
         dimensions: null
       })
     )
     expect(mockEmbedMany).not.toHaveBeenCalled()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('未设置')).not.toBeInTheDocument()
   })
 
   it('restores with the local embedding model using its fixed dimensions', async () => {
@@ -352,13 +352,13 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: LOCAL_EMBEDDING_UNIQUE_MODEL_ID } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: LOCAL_EMBEDDING_UNIQUE_MODEL_ID } })
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
     await waitFor(() =>
       expect(restoreBase).toHaveBeenCalledWith({
         sourceBaseId: 'source-base',
-        name: 'Legacy KB_',
+        name: 'Legacy KB_副本',
         embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID,
         dimensions: LOCAL_EMBEDDING_DIMENSIONS
       })
@@ -389,14 +389,14 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    expect(screen.queryByLabelText('')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('嵌入维度')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
     await waitFor(() =>
       expect(restoreBase).toHaveBeenCalledWith({
         sourceBaseId: 'source-base',
-        name: 'Legacy KB_',
+        name: 'Legacy KB_副本',
         embeddingModelId: 'openai::text-embedding-3-small',
         dimensions: 2048
       })
@@ -423,10 +423,10 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(': restore failed'))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('知识库重建失败: restore failed'))
     expect(onRestored).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
   })
@@ -448,11 +448,11 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'openai::text-embedding-3-small' } })
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
+    fireEvent.click(screen.getByRole('button', { name: '重建' }))
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(': probe failed'))
-    expect(screen.queryByLabelText('')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('获取嵌入维度失败: probe failed'))
+    expect(screen.queryByLabelText('嵌入维度')).not.toBeInTheDocument()
     expect(restoreBase).not.toHaveBeenCalled()
     expect(onRestored).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
@@ -473,7 +473,7 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(restoreBase).not.toHaveBeenCalled()
@@ -525,7 +525,7 @@ describe('RestoreKnowledgeBaseDialog', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('迁移时未找到原知识库使用的嵌入模型，请重建知识库并选择新的嵌入模型。')).toBeInTheDocument()
   })
 
   it('omits the failure reason for a healthy base', () => {
@@ -541,7 +541,7 @@ describe('RestoreKnowledgeBaseDialog', () => {
     )
 
     expect(
-      screen.queryByText('')
+      screen.queryByText('迁移时未找到原知识库使用的嵌入模型，请重建知识库并选择新的嵌入模型。')
     ).not.toBeInTheDocument()
   })
 })

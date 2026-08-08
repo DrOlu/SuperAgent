@@ -1,4 +1,4 @@
-//  - 
+// 通用工具组件 - 减少重复代码
 
 import { Tooltip } from '@cherrystudio/ui'
 import { SkeletonSpan } from '@renderer/components/Skeleton/InlineSkeleton'
@@ -16,14 +16,14 @@ export {
   type ToolHeaderProps
 } from '../ToolHeader'
 
-// Streaming context - 
+// Streaming context - 用于传递流式状态给子组件
 export const StreamingContext = createContext<boolean>(false)
 export const useIsStreaming = () => use(StreamingContext)
 
 export { SkeletonSpan }
 
 /**
- * SkeletonValue -  skeleton
+ * SkeletonValue - 流式时显示 skeleton，否则显示值
  */
 export function SkeletonValue({
   value,
@@ -47,7 +47,7 @@ export function SkeletonValue({
   return <>{fallback ?? ''}</>
 }
 
-//  (Task, Bash, Search)
+// 纯字符串输入工具 (Task, Bash, Search)
 export function StringInputTool({
   input,
   label,
@@ -65,7 +65,7 @@ export function StringInputTool({
   )
 }
 
-//  (pattern, query, file_path )
+// 单字段输入工具 (pattern, query, file_path 等)
 export function SimpleFieldInputTool({
   input,
   label,
@@ -82,7 +82,7 @@ export function SimpleFieldInputTool({
       <div>{label}:</div>
       <div>
         <div>{input[fieldName]}</div>
-        {/*  Grep  output_mode */}
+        {/* 显示其他字段（如 Grep 的 output_mode） */}
         {Object.entries(input)
           .filter(([key]) => key !== fieldName)
           .map(([key, value]) => (
@@ -95,7 +95,7 @@ export function SimpleFieldInputTool({
   )
 }
 
-//  (Read, Bash, Search, Glob, WebSearch, Grep )
+// 字符串输出工具 (Read, Bash, Search, Glob, WebSearch, Grep 等)
 export function StringOutputTool({
   output,
   label,
@@ -132,7 +132,7 @@ export function getEffectiveStatus(status: McpToolResponseStatus | undefined, is
   return status ?? 'pending'
 }
 
-//  -  Collapse 
+// 工具状态指示器 - 显示在 Collapse 标题右侧
 export function ToolStatusIndicator({
   status,
   hasError = false,

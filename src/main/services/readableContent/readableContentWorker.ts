@@ -64,7 +64,7 @@ function formatPreview(text: string, maxLength: number): string {
   let cleaned = stripMarkdownImagesAndLinks(text)
   cleaned = cleaned.replace(/https?:\/\/\S+/g, '')
   cleaned = cleaned.replace(/[-—–_=+]{3,}/g, ' ')
-  cleaned = cleaned.replace(/[$€£¥%@#&*^()[\]{}<>~`'"\\|/_.]+/g, '')
+  cleaned = cleaned.replace(/[￥$€£¥%@#&*^()[\]{}<>~`'"\\|/_.]+/g, '')
   cleaned = cleaned.replace(/\s+/g, ' ').trim()
   return cleaned.length > maxLength ? `${cleaned.slice(0, maxLength)}...` : cleaned
 }

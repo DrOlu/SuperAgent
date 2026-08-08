@@ -72,7 +72,7 @@ const KEY_LABELS: Record<CanonicalParamKey, { title: string; tooltip?: string }>
  * `aspectRatio`, `imageResolution`, `outputFormat`, language codes) whose
  * options are already human-readable, apart from their shared `auto` value
  * (below), which localizes so chips and the artboard prompt bar read e.g.
- * `` instead of the raw enum.
+ * `自动` instead of the raw enum.
  */
 // The one size-series option value that isn't already human-readable. Shared by
 // the three size-bearing keys so a `size`/`aspectRatio`/`imageResolution` field

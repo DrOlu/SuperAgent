@@ -29,13 +29,13 @@ describe('check-unused-i18n', () => {
     it('flattens nested locale keys into dotted keys', () => {
       const locale: I18N = {
         common: {
-          cancel: '',
+          cancel: '取消',
           nested: {
-            save: ''
+            save: '保存'
           }
         },
         settings: {
-          title: ''
+          title: '设置'
         }
       }
 
@@ -183,8 +183,8 @@ describe('check-unused-i18n', () => {
     it('reports keys that are not statically referenced', () => {
       const locale: I18N = {
         common: {
-          cancel: '',
-          save: ''
+          cancel: '取消',
+          save: '保存'
         }
       }
       const result = createUnusedI18nResult(locale, ['common.save'])
@@ -213,23 +213,23 @@ describe('check-unused-i18n', () => {
     it('removes selected leaf keys and prunes empty objects', () => {
       const locale: I18N = {
         common: {
-          cancel: '',
-          save: ''
+          cancel: '取消',
+          save: '保存'
         },
         settings: {
           nested: {
-            unused: ''
+            unused: '未使用'
           },
-          title: ''
+          title: '设置'
         }
       }
 
       expect(removeI18nKeys(locale, ['common.cancel', 'settings.nested.unused'])).toEqual({
         common: {
-          save: ''
+          save: '保存'
         },
         settings: {
-          title: ''
+          title: '设置'
         }
       })
     })
@@ -237,8 +237,8 @@ describe('check-unused-i18n', () => {
     it('can be applied to multiple locale files consistently', () => {
       const zhCN: I18N = {
         common: {
-          cancel: '',
-          save: ''
+          cancel: '取消',
+          save: '保存'
         }
       }
       const enUS: I18N = {
@@ -248,7 +248,7 @@ describe('check-unused-i18n', () => {
         }
       }
 
-      expect(removeI18nKeys(zhCN, ['common.cancel'])).toEqual({ common: { save: '' } })
+      expect(removeI18nKeys(zhCN, ['common.cancel'])).toEqual({ common: { save: '保存' } })
       expect(removeI18nKeys(enUS, ['common.cancel'])).toEqual({ common: { save: 'Save' } })
     })
   })

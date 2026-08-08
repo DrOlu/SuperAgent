@@ -60,7 +60,7 @@ export function useAssistantMutations() {
   )
 
   /**
-   * Duplicate an assistant by re-POSTing its full state (plus a "()" suffix)
+   * Duplicate an assistant by re-POSTing its full state (plus a "(副本)" suffix)
    * in a single request. The single group assignment is copied as a regular
    * assistant column.
    */

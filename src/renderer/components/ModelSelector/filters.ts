@@ -13,7 +13,7 @@ const initialTagSelection = Object.fromEntries(MODEL_SELECTOR_TAGS.map((tag) => 
 >
 
 /**
- *  hook
+ * 标签筛选 hook，仅关注标签过滤逻辑
  */
 export function useModelTagFilter() {
   const [tagSelection, setTagSelection] = useState<Record<ModelSelectorTag, boolean>>(initialTagSelection)

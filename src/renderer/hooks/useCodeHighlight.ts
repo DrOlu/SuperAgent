@@ -15,7 +15,7 @@ interface UseCodeHighlightReturn {
 }
 
 /**
- *  shiki 
+ * 用于 shiki 流式代码高亮
  */
 export const useCodeHighlight = ({ rawLines, language, callerId }: UseCodeHighlightOptions): UseCodeHighlightReturn => {
   const { activeShikiTheme, highlightStreamingCode, cleanupTokenizers } = useCodeStyle()
@@ -23,7 +23,7 @@ export const useCodeHighlight = ({ rawLines, language, callerId }: UseCodeHighli
   const processingRef = useRef(false)
   const latestRequestedContentRef = useRef<string | null>(null)
   const tokenLinesCountRef = useRef(0)
-  //  resetHighlight()  reset reset 
+  // 每次 resetHighlight() 递增，用于丢弃 reset 之前起飞、reset 之后才返回的旧异步高亮结果
   const generationRef = useRef(0)
   const shikiThemeRef = useRef(activeShikiTheme)
 
@@ -35,33 +35,33 @@ export const useCodeHighlight = ({ rawLines, language, callerId }: UseCodeHighli
     async (count?: number) => {
       const targetCount = count === undefined ? rawLines.length : Math.min(count, rawLines.length)
 
-      //  ShikiStreamService 
+      // 数量相等也可能内容不同，交给 ShikiStreamService 处理
       if (targetCount < tokenLinesCountRef.current) return
 
       const currentContent = rawLines.slice(0, targetCount).join('\n').trimEnd()
 
-      // 
+      // 记录最新要处理的内容，为了保证最终状态正确
       latestRequestedContentRef.current = currentContent
 
-      // 
+      // 如果正在处理，先跳出，等到完成后会检查是否有新内容
       if (processingRef.current) return
 
       processingRef.current = true
       const generation = generationRef.current
 
       try {
-        // 
+        // 循环处理，确保会处理最新内容
         while (latestRequestedContentRef.current !== null) {
           const contentToProcess = latestRequestedContentRef.current
-          latestRequestedContentRef.current = null // 
+          latestRequestedContentRef.current = null // 标记开始处理
 
-          //  ShikiStreamService 
+          // 传入完整内容，让 ShikiStreamService 检测变化并处理增量高亮
           const result = await highlightStreamingCode(contentToProcess, language, callerId)
 
-          //  resetHighlight() token state 
+          // 本次请求进行中若发生过 resetHighlight()，丢弃这次的旧结果，避免把已释放的 token state 写回
           if (generationRef.current !== generation) break
 
-          //  tokenLines
+          // 如有结果，更新 tokenLines
           if (result.lines.length > 0 || result.recall !== 0) {
             setTokenLines((prev) => {
               return result.recall === -1
@@ -83,7 +83,7 @@ export const useCodeHighlight = ({ rawLines, language, callerId }: UseCodeHighli
     setTokenLines([])
   }, [callerId, cleanupTokenizers])
 
-  // 
+  // 主题变化时强制重新高亮
   useEffect(() => {
     if (shikiThemeRef.current !== activeShikiTheme) {
       shikiThemeRef.current = activeShikiTheme
@@ -91,7 +91,7 @@ export const useCodeHighlight = ({ rawLines, language, callerId }: UseCodeHighli
     }
   }, [activeShikiTheme, resetHighlight])
 
-  // 
+  // 组件卸载时清理资源
   useEffect(() => {
     return () => {
       cleanupTokenizers(callerId)

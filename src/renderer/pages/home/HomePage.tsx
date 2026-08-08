@@ -595,7 +595,7 @@ const HomePage: FC = () => {
     ]
   )
 
-  // "" from the assistant library (after adding a preset): create/open a real empty topic
+  // "去对话" from the assistant library (after adding a preset): create/open a real empty topic
   // with that assistant selected.
   const handleOpenAssistantChatFromLibrary = useCallback(
     (assistantId: string) => {

@@ -1,8 +1,8 @@
 /**
- *  provider 
+ * 通用 provider 工具注入插件
  *
- *  extensionRegistry  toolFactory
- *  ToolFactoryPatchtools / providerOptions params
+ * 查找 extensionRegistry 中声明的 toolFactory，
+ * 将返回的 ToolFactoryPatch（tools / providerOptions）合并到 params。
  */
 
 import { mergeProviderOptions } from '../../options'

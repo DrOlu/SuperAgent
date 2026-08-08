@@ -89,7 +89,7 @@ export async function getDirectoryContents(token: string, target: string): Promi
       ? result.multistatus.response
       : [result.multistatus.response]
 
-    // 
+    // 跳过第一个条目（当前目录）
     contents.push(...items.slice(1).map(partial(convertToFileStat, '/dav')))
 
     const linkHeader = response.headers['link'] || response.headers['Link']

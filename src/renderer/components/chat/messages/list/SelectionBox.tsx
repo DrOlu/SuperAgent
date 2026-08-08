@@ -35,8 +35,8 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
 
   const dragSelectedIds = useRef<Set<string>>(new Set())
 
-  // 
-  // 
+  // 拖拽阈值，只有移动距离超过这个值才开始框选
+  // 避免触控板点击触发拖拽
   const DRAG_THRESHOLD = 5
 
   useEffect(() => {
@@ -85,18 +85,18 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
       e.preventDefault()
       setDragCurrent(pos)
 
-      // 
+      // 计算当前框选矩形
       const left = Math.min(dragStart.x, pos.x)
       const right = Math.max(dragStart.x, pos.x)
       const top = Math.min(dragStart.y, pos.y)
       const bottom = Math.max(dragStart.y, pos.y)
 
       messageElements.forEach((el, id) => {
-        // 
+        // 检查消息是否已被选中（不管是拖动选中还是手动选中）
         const checkbox = getMessageCheckbox(el)
         const isAlreadySelected = checkbox ? isCheckboxSelected(checkbox) : false
 
-        // 
+        // 清除上下文这类消息也会被选中，所以需要跳过
         if (!checkbox) return
 
         const rect = el.getBoundingClientRect()
@@ -106,7 +106,7 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
         const eBottom = eTop + rect.height
         const eRight = eLeft + rect.width
 
-        // 
+        // 检查消息是否在当前选择框内
         const isInSelectionBox = !(eRight < left || eLeft > right || eBottom < top || eTop > bottom)
 
         if (!isInSelectionBox) {
@@ -116,7 +116,7 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
           return
         }
 
-        // 
+        // 只有在选择框内且未被选中的消息才需要处理
         if (!dragSelectedIds.current.has(id) && !isAlreadySelected) {
           handleSelectMessage(id, true)
           dragSelectedIds.current.add(id)

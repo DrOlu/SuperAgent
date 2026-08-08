@@ -113,11 +113,11 @@ describe('UsageEntriesTable', () => {
     expect(entryRow.getByText('MiniMax')).toBeInTheDocument()
     expect(entryRow.queryByText('MiniMax-M3')).not.toBeInTheDocument()
     expect(entryRow.getByTestId('source-label')).toHaveTextContent('Default Assistant')
-    expect(entryRow.queryByText(/Language|/)).not.toBeInTheDocument()
+    expect(entryRow.queryByText(/Language|语言/)).not.toBeInTheDocument()
     expect(entryRow.queryByText('Primary key')).not.toBeInTheDocument()
     expect(entryRow.queryByText('sk-****0001')).not.toBeInTheDocument()
     expect(entryRow.getAllByText('-')).toHaveLength(4)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/Entries|/)
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/Entries|请求/)
 
     const date = entryRow.getByText('Jul 28, 2026 16:23')
     expect(date).toHaveAttribute('title', 'Jul 28, 2026 16:23')
@@ -163,10 +163,10 @@ describe('UsageEntriesTable', () => {
     )
 
     for (const { modelName, expectedSource } of [
-      { modelName: 'Language model', expectedSource: /Language|/ },
-      { modelName: 'Embedding model', expectedSource: /Embedding|/ },
-      { modelName: 'Image model', expectedSource: /Image|/ },
-      { modelName: 'Rerank model', expectedSource: /Reranker|/ }
+      { modelName: 'Language model', expectedSource: /Language|语言/ },
+      { modelName: 'Embedding model', expectedSource: /Embedding|嵌入/ },
+      { modelName: 'Image model', expectedSource: /Image|图片/ },
+      { modelName: 'Rerank model', expectedSource: /Reranker|重排/ }
     ]) {
       const row = screen.getByText(modelName).closest('tr')
       expect(row).not.toBeNull()
@@ -174,6 +174,6 @@ describe('UsageEntriesTable', () => {
       expect(within(row!).queryByTestId('source-label')).not.toBeInTheDocument()
     }
 
-    expect(screen.queryByText(/Unattributed source|/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Unattributed source|未归因来源/)).not.toBeInTheDocument()
   })
 })

@@ -84,14 +84,14 @@ export const isVideoModels = (models: Model[]): boolean => models.every(isVideoM
 
 // ── Renderer-only data grouping ─────────────────────────────────────────
 /**
- *  Qwen 
+ * 按 Qwen 系列模型分组
  */
 export function groupQwenModels(models: Model[]): Record<string, Model[]> {
   return models.reduce(
     (groups, model) => {
       const modelId = getLowerBaseModelName(getRawModelId(model))
       const prefixMatch = modelId.match(/^(qwen(?:\d+\.\d+|2(?:\.\d+)?|-\d+b|-(?:max|coder|vl)))/i)
-      const groupKey = prefixMatch ? prefixMatch[1] : model.group || ''
+      const groupKey = prefixMatch ? prefixMatch[1] : model.group || '其他'
       if (!groups[groupKey]) groups[groupKey] = []
       groups[groupKey].push(model)
       return groups
@@ -140,7 +140,7 @@ export const getModelSupportedVerbosity = (model: Model | undefined | null): Ope
 }
 
 // ── Renderer-only constants ──────────────────────────────────────────────
-// zhipu  special token 
+// zhipu 视觉推理模型用这组 special token 标记推理结果
 export const ZHIPU_RESULT_TOKENS = ['<|begin_of_box|>', '<|end_of_box|>'] as const
 
 // ── Agent filter (composes local renderer functions) ─────────────────────

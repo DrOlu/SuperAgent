@@ -28,7 +28,7 @@ export type ResourceEntityRailItem = {
   orderKey?: string
   reorderable?: boolean
   /**
-   * When true, a *visible* entity floats into the "" section at the top and cannot be dragged.
+   * When true, a *visible* entity floats into the "已固定" section at the top and cannot be dragged.
    * It does not affect visibility — an entity with no resources stays hidden whether pinned or not.
    */
   pinned?: boolean
@@ -39,7 +39,7 @@ export type ResourceEntityRailItem = {
   trailingAction?: ReactNode
 }
 
-// Pinned entities float into a "" section at the top; the rest sit under the "" / ""
+// Pinned entities float into a "已固定" section at the top; the rest sit under the "助手" / "智能体"
 // section below. We use SECTION headers (not group headers) so the labels stay flush-left while the
 // entity rows keep their avatar and read as indented beneath — matching the modern layout's left list.
 // Each section also gets its own (header-less) group id so drag-reorder never crosses the boundary.
@@ -90,11 +90,11 @@ export type ResourceEntityRailProps<T extends ResourceEntityRailItem, TActionCon
   addIcon?: ReactNode
   addLabel: string
   ariaLabel: string
-  /** Header for the non-pinned group ("" for assistants, "" for agents). */
+  /** Header for the non-pinned group ("助手" for assistants, "智能体" for agents). */
   defaultGroupLabel?: string
   /**
    * Group the non-pinned entities by `groupId` into collapsible sections (the pinned section stays
-   * on top). Off → the flat ""/"" section.
+   * on top). Off → the flat "助手"/"智能体" section.
    */
   groupByGroup?: boolean
   emptyFallback?: ReactNode
@@ -263,8 +263,8 @@ export function ResourceEntityRail<T extends ResourceEntityRailItem, TActionCont
     [groupByGroup, items]
   )
   // Collapsible sections matching the modern layout's left assistant/agent layout (minus the nested
-  // topics/sessions): pinned entities float into "" at the top, the rest sit under the
-  // "" / "" section below. Section headers stay flush-left; the entity rows keep their
+  // topics/sessions): pinned entities float into "已固定" at the top, the rest sit under the
+  // "助手" / "智能体" section below. Section headers stay flush-left; the entity rows keep their
   // avatar and read as indented beneath. The single-section case (nothing pinned) renders the flat
   // list with no header, exactly like the modern layout.
   const sectionBy = useMemo<(item: T) => ResourceListSection>(

@@ -46,7 +46,7 @@ const createContainerLifecycle = (
 
 export const createNoteItem = ({
   id,
-  content = '',
+  content = '会议纪要',
   // A note's `source` is its title — the drafted one, or the imported file's name. Defaulting it to
   // the body's opening line matches the ordinary case where the two agree; pass it explicitly to
   // exercise a note whose title differs from its first line.

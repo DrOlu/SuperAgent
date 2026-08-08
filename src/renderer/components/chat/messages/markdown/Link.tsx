@@ -48,7 +48,7 @@ const Link: React.FC<LinkProps> = (props) => {
   const hostname = useMemo(() => getWebHostname(props.href), [props.href])
   const containsFaviconChild = useMemo(() => hasFaviconChild(props.children), [props.children])
 
-  // 
+  // 处理内部链接
   if (props.href?.startsWith('#')) {
     return <span className="link">{props.children}</span>
   }
@@ -59,7 +59,7 @@ const Link: React.FC<LinkProps> = (props) => {
     return <NavigateToolInline input={{ path, query }} />
   }
 
-  // <sup>
+  // 包含<sup>标签表示是一个引用链接。
   // Matched on the hast node, not the rendered children: `components.sup` maps the tag to
   // CitationSup, so the child's `type` is that component rather than the string 'sup', and an
   // element-type check would read every citation link as an ordinary link — favicon injected
@@ -84,7 +84,7 @@ const Link: React.FC<LinkProps> = (props) => {
     props.children
   )
 
-  // CitationTooltip
+  // 如果是引用链接并且有引用数据，则使用CitationTooltip
   if (isCitation && citationData && hasSameUrl(props.href, citationData.url)) {
     return (
       <CitationTooltip citation={citationData}>
@@ -100,7 +100,7 @@ const Link: React.FC<LinkProps> = (props) => {
     )
   }
 
-  // 
+  // 普通链接
   return (
     <Hyperlink href={props.href || ''}>
       <a

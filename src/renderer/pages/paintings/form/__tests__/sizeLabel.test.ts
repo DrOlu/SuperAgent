@@ -36,7 +36,7 @@ describe('deriveChipLabel', () => {
 
   it('non-parseable value falls back to the label verbatim', () => {
     // i18n'd label for the 'auto' sentinel.
-    expect(deriveChipLabel('', 'auto')).toBe('')
+    expect(deriveChipLabel('自动', 'auto')).toBe('自动')
     expect(deriveChipLabel('Auto', 'auto')).toBe('Auto')
     // gemini-3-pro-image-preview's imageResolution chips.
     expect(deriveChipLabel('1K', '1K')).toBe('1K')

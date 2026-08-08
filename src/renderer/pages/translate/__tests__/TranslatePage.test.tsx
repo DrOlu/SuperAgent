@@ -243,7 +243,7 @@ vi.mock('../components/TranslateHistory', () => ({
           onClick={() =>
             onHistoryItemClick({
               sourceText: 'hello',
-              targetText: '',
+              targetText: '你好',
               sourceLanguage: null,
               targetLanguage: null
             })
@@ -894,22 +894,22 @@ describe('TranslatePage', () => {
     translateCoreMock.detectLanguage.mockResolvedValueOnce('zh-cn')
 
     const { rerender } = render(<TranslatePage />)
-    fireEvent.change(screen.getByLabelText('translate.input.placeholder'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('translate.input.placeholder'), { target: { value: '你好' } })
     rerender(<TranslatePage />)
     fireEvent.click(screen.getByRole('button', { name: 'translate.button.translate' }))
 
     await waitFor(() =>
       expect(translateCoreMock.translateText).toHaveBeenCalledWith(
-        '',
+        '你好',
         'en-us',
         expect.any(Function),
         expect.any(AbortSignal)
       )
     )
-    expect(translateCoreMock.detectLanguage).toHaveBeenCalledWith('')
+    expect(translateCoreMock.detectLanguage).toHaveBeenCalledWith('你好')
     await waitFor(() =>
       expect(translateCoreMock.addHistory).toHaveBeenCalledWith({
-        sourceText: '',
+        sourceText: '你好',
         targetText: 'translated text',
         sourceLanguage: 'zh-cn',
         targetLanguage: 'en-us'
@@ -1136,7 +1136,7 @@ describe('TranslatePage', () => {
     })
     expect(MockUsePreferenceUtils.getPreferenceValue('feature.translate.page.source_language')).toBe('auto')
     expect(MockUseCacheUtils.getCacheValue('translate.input')).toBe('hello')
-    expect(MockUseCacheUtils.getCacheValue('translate.output')).toBe('')
+    expect(MockUseCacheUtils.getCacheValue('translate.output')).toBe('你好')
   })
 
   it('falls back to a concrete target language when reusing history with a null target and current unknown target', async () => {

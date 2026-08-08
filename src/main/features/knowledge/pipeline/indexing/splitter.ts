@@ -23,7 +23,7 @@ export interface SplitOptions {
   /** Tokens of trailing context repeated at the start of the next chunk. */
   chunkOverlap: number
   /**
-   * Primary break delimiter in escaped form (e.g. `"\\n\\n"`, `""`). Unescaped
+   * Primary break delimiter in escaped form (e.g. `"\\n\\n"`, `"。"`). Unescaped
    * before use. When set, cuts are preferred at its boundaries. Defaults to none.
    */
   separator?: string
@@ -93,7 +93,7 @@ const DELIMITER_SEPARATOR_SCORE = 100
 const DELIMITER_FALLBACKS: ReadonlyArray<{ separator: string; score: number }> = [
   { separator: '\n\n', score: 20 },
   { separator: '\n', score: 12 },
-  { separator: '', score: 10 },
+  { separator: '。', score: 10 },
   { separator: '. ', score: 8 },
   { separator: ' ', score: 3 }
 ]

@@ -11,17 +11,17 @@
 import type { BootConfigKey } from '@shared/data/bootConfig/bootConfigTypes'
 
 /**
- * ElectronStore - 
+ * ElectronStore映射关系 - 简单一层结构
  *
- * ElectronStoreoriginalKeyconfigManager.get(key)
+ * ElectronStore没有嵌套，originalKey直接对应configManager.get(key)
  */
 export const BOOT_CONFIG_ELECTRON_STORE_MAPPINGS: ReadonlyArray<{ originalKey: string; targetKey: BootConfigKey }> =
   [] as const
 
 /**
- * Redux Store - category
+ * Redux Store映射关系 - 按category分组，支持嵌套路径
  *
- * Redux StorechildrenoriginalKey
+ * Redux Store可能有children结构，originalKey可能包含嵌套路径
  */
 export const BOOT_CONFIG_REDUX_MAPPINGS = {
   settings: [
@@ -33,13 +33,13 @@ export const BOOT_CONFIG_REDUX_MAPPINGS = {
 } as const
 
 /**
- * Dexie Settings - KV
+ * Dexie Settings映射关系 - 简单KV结构
  */
 export const BOOT_CONFIG_DEXIE_SETTINGS_MAPPINGS: ReadonlyArray<{ originalKey: string; targetKey: BootConfigKey }> =
   [] as const
 
 /**
- * localStorage - KV
+ * localStorage映射关系 - 简单KV结构
  */
 export const BOOT_CONFIG_LOCALSTORAGE_MAPPINGS: ReadonlyArray<{ originalKey: string; targetKey: BootConfigKey }> =
   [] as const
@@ -47,11 +47,11 @@ export const BOOT_CONFIG_LOCALSTORAGE_MAPPINGS: ReadonlyArray<{ originalKey: str
 // === AUTO-GENERATED CONTENT END ===
 
 /**
- * :
- * - ElectronStore: 0
- * - Redux Store: 1
- * - Redux: settings
- * - DexieSettings: 0
- * - localStorage: 0
- * - : 1
+ * 映射统计:
+ * - ElectronStore项: 0
+ * - Redux Store项: 1
+ * - Redux分类: settings
+ * - DexieSettings项: 0
+ * - localStorage项: 0
+ * - 总配置项: 1
  */

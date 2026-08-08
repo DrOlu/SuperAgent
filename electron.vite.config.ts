@@ -59,8 +59,8 @@ export default defineConfig({
       rollupOptions: {
         external: isMainExternalModule,
         output: {
-          manualChunks: undefined, //  -  null 
-          inlineDynamicImports: true // 
+          manualChunks: undefined, // 彻底禁用代码分割 - 返回 null 强制单文件打包
+          inlineDynamicImports: true // 内联所有动态导入，这是关键配置
         },
         onwarn(warning, warn) {
           if (warning.code === 'COMMONJS_VARIABLE_IN_ESM') return
@@ -116,7 +116,7 @@ export default defineConfig({
       react({
         tsDecorators: true
       }),
-      ...(isDev ? [CodeInspectorPlugin({ bundler: 'vite' })] : []), //  CodeInspectorPlugin
+      ...(isDev ? [CodeInspectorPlugin({ bundler: 'vite' })] : []), // 只在开发环境下启用 CodeInspectorPlugin
       ...visualizerPlugin('renderer')
     ],
     resolve: {

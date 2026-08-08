@@ -15,7 +15,7 @@ export function useNutstoreSso() {
           if (!encryptedToken) return reject(null)
           resolve(encryptedToken)
         } catch (error) {
-          logger.error('URL:', error as Error)
+          logger.error('解析URL失败:', error as Error)
           reject(null)
         } finally {
           removeListener()

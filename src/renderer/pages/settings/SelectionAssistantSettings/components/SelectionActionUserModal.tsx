@@ -53,7 +53,7 @@ const SelectionActionUserModal: FC<SelectionActionUserModalProps> = ({
 
   useEffect(() => {
     if (isModalOpen) {
-      // 
+      // 如果是编辑模式，使用现有数据；否则使用空数据
       setFormData(
         editingAction || {
           name: '',
@@ -86,7 +86,7 @@ const SelectionActionUserModal: FC<SelectionActionUserModalProps> = ({
       return
     }
 
-    //  ActionItem
+    // 构建完整的 ActionItem
     const actionItem: SelectionActionItem = {
       id: editingAction?.id || `user-${Date.now()}`,
       name: formData.name || 'USER',

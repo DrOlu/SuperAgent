@@ -26,7 +26,7 @@ const mockClipboard = {
   writeText: vi.fn()
 }
 
-// 
+// 创建测试数据辅助函数
 function createTestTopic(partial: Partial<Topic> = {}): Topic {
   return {
     id: 'test-topic-id',
@@ -55,19 +55,19 @@ function createTestMessage(partial: Partial<Message> = {}): Message {
 
 describe('copy', () => {
   beforeEach(() => {
-    //  mocks
+    // 设置全局 mocks
     Object.defineProperty(global.navigator, 'clipboard', {
       value: mockClipboard,
       writable: true
     })
 
-    //  mock 
+    // 清理所有 mock 调用
     vi.clearAllMocks()
   })
 
   describe('copyTopicAsMarkdown', () => {
     it('should copy topic as markdown successfully', async () => {
-      // 
+      // 准备测试数据
       const topic = createTestTopic()
       const markdownContent = '# Test Topic\n\nContent here...'
 
@@ -75,17 +75,17 @@ describe('copy', () => {
       vi.mocked(topicToMarkdown).mockResolvedValue(markdownContent)
       mockClipboard.writeText.mockResolvedValue(undefined)
 
-      // 
+      // 执行测试
       await copyTopicAsMarkdown(topic)
 
-      // 
+      // 验证结果
       expect(topicToMarkdown).toHaveBeenCalledWith(topic)
       expect(mockClipboard.writeText).toHaveBeenCalledWith(markdownContent)
       expect(toast.success).toHaveBeenCalledWith('message.copy.success')
     })
 
     it('should handle clipboard write errors', async () => {
-      // 
+      // 测试剪贴板写入错误
       const topic = createTestTopic()
       const markdownContent = '# Test Topic'
 
@@ -100,7 +100,7 @@ describe('copy', () => {
 
   describe('copyTopicAsPlainText', () => {
     it('should copy topic as plain text successfully', async () => {
-      // 
+      // 测试成功复制纯文本
       const topic = createTestTopic()
       const plainTextContent = 'Test Topic\n\nPlain text content...'
 
@@ -118,7 +118,7 @@ describe('copy', () => {
 
   describe('copyMessageAsPlainText', () => {
     it('should copy message as plain text successfully', async () => {
-      // 
+      // 测试成功复制消息纯文本
       const message = createTestMessage()
       const plainTextContent = 'This is the plain text content of the message'
 

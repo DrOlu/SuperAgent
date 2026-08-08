@@ -807,10 +807,10 @@ export const DefaultPreferences: PreferenceSchemas = {
 // === AUTO-GENERATED CONTENT END ===
 
 /**
- * :
- * - : 240
- * - electronStore: 2
- * - redux: 171
- * - localStorage: 0
- * - dexieSettings: 5
+ * 生成统计:
+ * - 总配置项: 240
+ * - electronStore项: 2
+ * - redux项: 171
+ * - localStorage项: 0
+ * - dexieSettings项: 5
  */

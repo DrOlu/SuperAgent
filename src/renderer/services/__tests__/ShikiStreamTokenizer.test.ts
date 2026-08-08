@@ -57,7 +57,7 @@ describe('ShikiStreamTokenizer', () => {
 
       const result = await tokenizer.enqueue(chunk)
       expect(result.stable).toEqual([])
-      expect(result.unstable).toEqual([[]]) //  token
+      expect(result.unstable).toEqual([[]]) // 有一个空的 token
       expect(result.recall).toBe(0)
     })
 
@@ -65,13 +65,13 @@ describe('ShikiStreamTokenizer', () => {
       const firstChunk = 'const x = 5;\n'
       const secondChunk = 'const y = 10;'
 
-      //  chunk  stable line  unstable line ()
+      // 由于第一个 chunk 是完整的行，会产生一个 stable line 和一个 unstable line (空的)
       const firstResult = await tokenizer.enqueue(firstChunk)
       expect(firstResult.stable.length).toBe(1)
       expect(firstResult.unstable.length).toBe(1)
       expect(firstResult.recall).toBe(0)
 
-      //  chunk  unstable line  stable line
+      // 第二个 chunk 来的时候，前面的 unstable line 实际上是空的，因此不会有 stable line
       const secondResult = await tokenizer.enqueue(secondChunk)
       expect(secondResult.stable.length).toBe(0)
       expect(secondResult.unstable.length).toBe(1)
@@ -126,15 +126,15 @@ describe('ShikiStreamTokenizer', () => {
   describe('streaming', () => {
     const fixture = {
       tsCode: `
-/*  */
-enum E{A,B='C'} interface I{id:number;fn:(x:string)=>boolean} type T=[num:number,str:string]|'fixed'; // //
-const f=<T extends string|number>(a:T):T=>a; // 
-// 
-class C{static s=0; private #p=''; readonly r:symbol=Symbol(); m():\`\${string}-\${number}\`{return \`\${this.#p}\${C.s}\`}} // :///
+/* 块注释 */
+enum E{A,B='C'} interface I{id:number;fn:(x:string)=>boolean} type T=[num:number,str:string]|'fixed'; // 枚举/接口/类型别名
+const f=<T extends string|number>(a:T):T=>a; // 泛型函数
+// 单行注释
+class C{static s=0; private #p=''; readonly r:symbol=Symbol(); m():\`\${string}-\${number}\`{return \`\${this.#p}\${C.s}\`}} // 类:静态/私有/只读/模板类型
 
-const v:string|undefined=null??'val'; const n=v?.length??0; const u=v as string; // //
-const [x,,y]:T=[10,'ts']; const {id:z}:I={id:1,fn:s=>s.length>0}; // /
-console.log(typeof f, E.B, new C() instanceof C, /^ts$/.test('ts')); // typeof//instanceof/
+const v:string|undefined=null??'val'; const n=v?.length??0; const u=v as string; // 空值合并/可选链/类型断言
+const [x,,y]:T=[10,'ts']; const {id:z}:I={id:1,fn:s=>s.length>0}; // 元组解构/对象解构重命名
+console.log(typeof f, E.B, new C() instanceof C, /^ts$/.test('ts')); // typeof/枚举值/instanceof/正则
 `
     }
 

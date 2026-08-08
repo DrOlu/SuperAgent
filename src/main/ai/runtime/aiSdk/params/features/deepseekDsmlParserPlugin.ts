@@ -8,13 +8,13 @@ import type { RequestFeature } from '../feature'
 
 const logger = loggerService.withContext('deepseekDsmlParser')
 
-const TOOL_CALLS_OPEN = '<DSMLtool_calls>'
-const TOOL_CALLS_CLOSE = '</DSMLtool_calls>'
+const TOOL_CALLS_OPEN = '<｜｜DSML｜｜tool_calls>'
+const TOOL_CALLS_CLOSE = '</｜｜DSML｜｜tool_calls>'
 const SWALLOW_BUFFER_LIMIT = 64 * 1024
 
-const INVOKE_RE = /<DSMLinvoke\s+name="([^"]+)">([\s\S]*?)<\/DSMLinvoke>/g
+const INVOKE_RE = /<｜｜DSML｜｜invoke\s+name="([^"]+)">([\s\S]*?)<\/｜｜DSML｜｜invoke>/g
 const PARAM_RE =
-  /<DSMLparameter\s+name="([^"]+)"(?:\s+string="(true|false)")?>([\s\S]*?)<\/DSMLparameter>/g
+  /<｜｜DSML｜｜parameter\s+name="([^"]+)"(?:\s+string="(true|false)")?>([\s\S]*?)<\/｜｜DSML｜｜parameter>/g
 
 interface ParsedDsmlCall {
   toolName: string
@@ -341,7 +341,7 @@ export const createDeepseekDsmlParserPlugin = () =>
   })
 
 /**
- * Some DeepSeek deployments emit tool calls as `<DSMLtool_calls>` markup inside text
+ * Some DeepSeek deployments emit tool calls as `<｜｜DSML｜｜tool_calls>` markup inside text
  * deltas instead of native `tool-call` parts; this re-extracts them. The middleware passes
  * text straight through unless that distinctive markup appears, so gating to DeepSeek models
  * is both sufficient (where the leak happens) and safe (no transform for non-DeepSeek).

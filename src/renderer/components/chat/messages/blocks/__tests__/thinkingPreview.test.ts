@@ -26,14 +26,14 @@ describe('scanThinkingPreview', () => {
   })
 
   it('completes a trailing CJK sentence ending immediately', () => {
-    expect(scanThinkingPreview('').preview).toBe('')
+    expect(scanThinkingPreview('还在思考。').preview).toBe('还在思考。')
   })
 
   it('keeps consecutive CJK sentence endings together across chunks', () => {
-    const initialResult = scanThinkingPreview('')
+    const initialResult = scanThinkingPreview('真的吗？')
 
-    const appendedResult = scanThinkingPreview('', initialResult.state)
+    const appendedResult = scanThinkingPreview('真的吗？！还要继续', initialResult.state)
 
-    expect(appendedResult.preview).toBe('')
+    expect(appendedResult.preview).toBe('真的吗？！')
   })
 })

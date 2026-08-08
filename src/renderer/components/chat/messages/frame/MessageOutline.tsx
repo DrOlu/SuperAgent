@@ -93,7 +93,7 @@ const MessageOutline: FC<MessageOutlineProps> = ({ message, multiModelMessageSty
     }
   }
 
-  //  grid
+  // 暂时不支持 grid，因为在锚点滚动时会导致渲染错位
   if (multiModelMessageStyle === 'grid' || !headings.length) return null
 
   return (

@@ -29,7 +29,7 @@ describe('useReindexKnowledgeItem', () => {
   })
 
   it('reindexes one knowledge item through orchestration IPC and refreshes the list', async () => {
-    const item = createNoteItem({ id: 'note-1', content: '' })
+    const item = createNoteItem({ id: 'note-1', content: '会议纪要' })
     const { result } = renderHook(() => useReindexKnowledgeItem('base-1'))
 
     await act(async () => {
@@ -82,7 +82,7 @@ describe('useReindexKnowledgeItem', () => {
 
   it('keeps reindex rejected, refreshes items, and exposes inline error when orchestration rejects', async () => {
     const reindexError = new Error('reindex failed')
-    const item = createNoteItem({ id: 'note-1', content: '' })
+    const item = createNoteItem({ id: 'note-1', content: '会议纪要' })
     mockIpcRequest.mockRejectedValueOnce(reindexError)
     const { result } = renderHook(() => useReindexKnowledgeItem('base-1'))
 

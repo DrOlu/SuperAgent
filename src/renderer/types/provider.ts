@@ -173,9 +173,9 @@ export type AzureOpenAIProvider = Provider & {
 }
 
 /**
- * `provider.isSystem`
- * @param provider - Provider
- * @returns 
+ * 判断是否为系统内置的提供商。比直接使用`provider.isSystem`更好，因为该数据字段不会随着版本更新而变化。
+ * @param provider - Provider对象，包含提供商的信息
+ * @returns 是否为系统内置提供商
  */
 export const isSystemProvider = (provider: Provider): provider is SystemProvider => {
   return isSystemProviderId(provider.id) && !!provider.isSystem

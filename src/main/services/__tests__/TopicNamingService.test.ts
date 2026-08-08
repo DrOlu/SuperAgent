@@ -242,7 +242,7 @@ describe('TopicNamingService', () => {
     mocks.getSession.mockReturnValue({
       id: 'session-1',
       agentId: 'agent-1',
-      name: '',
+      name: '未命名',
       isNameManuallyEdited: false
     })
     mocks.updateSession.mockReturnValue({ id: 'session-1' })
@@ -377,7 +377,7 @@ describe('TopicNamingService', () => {
     mocks.getSession.mockReturnValue({
       id: 'session-1',
       agentId: 'agent-1',
-      name: '',
+      name: '未命名',
       isNameManuallyEdited: false
     })
     mocks.updateSession.mockReturnValue({ id: 'session-1' })
@@ -401,7 +401,7 @@ describe('TopicNamingService', () => {
       .mockReturnValueOnce({
         id: 'session-1',
         agentId: 'agent-1',
-        name: '',
+        name: '未命名',
         isNameManuallyEdited: false
       })
       .mockReturnValueOnce({
@@ -422,7 +422,7 @@ describe('TopicNamingService', () => {
     mocks.getSession.mockReturnValue({
       id: 'session-1',
       agentId: 'agent-1',
-      name: '',
+      name: '未命名',
       isNameManuallyEdited: false
     })
     mocks.updateSession.mockImplementation(() => {
@@ -625,7 +625,7 @@ describe('TopicNamingService', () => {
     // CJK chars fill indices 0-48, and the emoji's high/low surrogate halves sit
     // at indices 49/50. A naive slice(0, 50) keeps the high half but drops its
     // low partner, leaving a lone surrogate (renders as the replacement glyph).
-    const longText = ''.repeat(49) + '😀' + ''.repeat(20)
+    const longText = '字'.repeat(49) + '😀' + '文'.repeat(20)
     mocks.getMessageById.mockReturnValue({
       id: 'message-1',
       role: 'user',

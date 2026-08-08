@@ -92,7 +92,7 @@ const histories: TranslateHistoryItem[] = [
   {
     id: '1',
     sourceText: 'hello',
-    targetText: '',
+    targetText: '你好',
     sourceLanguage: english.langCode,
     targetLanguage: chinese.langCode,
     star: false,
@@ -102,7 +102,7 @@ const histories: TranslateHistoryItem[] = [
   {
     id: '2',
     sourceText: 'bye',
-    targetText: '',
+    targetText: '再见',
     sourceLanguage: english.langCode,
     targetLanguage: chinese.langCode,
     star: true,
@@ -245,7 +245,7 @@ describe('TranslateHistory', () => {
     expect(copyTargetButton).toHaveClass('text-primary-foreground')
     fireEvent.click(copyTargetButton)
 
-    await waitFor(() => expect(writeTextMock).toHaveBeenCalledWith(''))
+    await waitFor(() => expect(writeTextMock).toHaveBeenCalledWith('你好'))
     expect(toast.success).toHaveBeenCalledWith('translate.copied')
   })
 

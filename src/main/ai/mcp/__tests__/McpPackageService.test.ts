@@ -36,7 +36,7 @@ describe('ensurePathWithin', () => {
     })
 
     testFn('should accept paths with unicode characters', () => {
-      const target1 = path.join('/', 'home', 'user', 'mcp', '')
+      const target1 = path.join('/', 'home', 'user', 'mcp', '服务器')
       const target2 = path.join('/', 'home', 'user', 'mcp', 'サーバー')
       expect(ensurePathWithin(baseDir, target1)).toBe(path.resolve(target1))
       expect(ensurePathWithin(baseDir, target2)).toBe(path.resolve(target2))

@@ -98,7 +98,7 @@ const responsesEffortWire = modeWire(
  * pinning a lower tier, so leaving reasoning unset doesn't silently weaken it. The chat contract keeps
  * qwen's native toggle + thinking_budget.
  *
- * `xhigh`/`max` are only served by 2and ; this provider's baseUrl is the Beijing host.
+ * `xhigh`/`max` are only served by 华北2（北京）and 新加坡; this provider's baseUrl is the Beijing host.
  */
 const qwenResponsesSupport: ReasoningSupport = {
   controls: [
@@ -214,7 +214,7 @@ const responsesModels = new Set([
 
 /**
  * Dual-endpoint SKUs whose built-in search only works on Chat Completions. Bailian serves the Responses
- * `web_search` tool for the Qwen3.x line only ("Responses API  Qwen3.7 MaxQwen3.6Qwen3.5
+ * `web_search` tool for the Qwen3.x line only ("Responses API 仅支持 Qwen3.7 Max系列、Qwen3.6、Qwen3.5、
  * qwen3-max"), while these aliases search via `enable_search` on Chat. Order Chat first so the default
  * endpoint is the one where their search actually works; Responses stays selectable.
  */

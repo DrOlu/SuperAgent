@@ -19,12 +19,12 @@ describe('buildMcpToolWireId', () => {
   it('distinguishes non-ASCII server names that share one readable slug', () => {
     const reimbursement = buildMcpToolWireId({
       serverId: 'server-a',
-      serverName: 'mysql_',
+      serverName: 'mysql_报销',
       toolName: 'executeSql'
     })
     const elevator = buildMcpToolWireId({
       serverId: 'server-b',
-      serverName: 'mysql_',
+      serverName: 'mysql_电梯',
       toolName: 'executeSql'
     })
 
@@ -32,14 +32,14 @@ describe('buildMcpToolWireId', () => {
   })
 
   it('distinguishes non-ASCII tool names from one server', () => {
-    const idCard = buildMcpToolWireId({ serverId: 'server-a', serverName: 'ocr', toolName: '' })
-    const invoice = buildMcpToolWireId({ serverId: 'server-a', serverName: 'ocr', toolName: '' })
+    const idCard = buildMcpToolWireId({ serverId: 'server-a', serverName: 'ocr', toolName: '识别身份证' })
+    const invoice = buildMcpToolWireId({ serverId: 'server-a', serverName: 'ocr', toolName: '识别发票' })
 
     expect(idCard).not.toBe(invoice)
   })
 
   it('romanizes Chinese names so the readable slug survives', () => {
-    const id = buildMcpToolWireId({ serverId: 'server-a', serverName: ' OCR', toolName: '' })
+    const id = buildMcpToolWireId({ serverId: 'server-a', serverName: '票据 OCR', toolName: '识别发票' })
 
     expect(id).toMatch(/^mcp__piaoJuOcr__shiBieFaPiao_[0-9a-f]{20}$/)
   })
@@ -51,7 +51,7 @@ describe('buildMcpToolWireId', () => {
   })
 
   it('is deterministic, identifier-safe, and at most 63 characters', () => {
-    const input = { serverId: 'server-a', serverName: ''.repeat(40), toolName: '123 '.repeat(40) }
+    const input = { serverId: 'server-a', serverName: '数据库'.repeat(40), toolName: '123 查询'.repeat(40) }
     const first = buildMcpToolWireId(input)
     const second = buildMcpToolWireId(input)
 

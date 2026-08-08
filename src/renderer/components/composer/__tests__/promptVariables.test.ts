@@ -19,7 +19,7 @@ describe('prompt variable composer helpers', () => {
 
   it('uses concrete localized example values as editable token labels', () => {
     expect(
-      parsePromptVariableSegments('Names: ${Lin Zhao & Shen Zhiyi}; venue: ${ · }; age: ${2}')
+      parsePromptVariableSegments('Names: ${Lin Zhao & Shen Zhiyi}; venue: ${杭州 · 白塔公园}; age: ${2}')
     ).toEqual([
       { type: 'text', text: 'Names: ' },
       {
@@ -32,8 +32,8 @@ describe('prompt variable composer helpers', () => {
       {
         type: 'variable',
         index: 1,
-        raw: '${ · }',
-        variableName: ' · '
+        raw: '${杭州 · 白塔公园}',
+        variableName: '杭州 · 白塔公园'
       },
       { type: 'text', text: '; age: ' },
       { type: 'variable', index: 2, raw: '${2}', variableName: '2' }

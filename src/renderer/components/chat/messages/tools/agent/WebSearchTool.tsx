@@ -13,7 +13,7 @@ export function WebSearchTool({
   output?: WebSearchToolOutput
 }): ToolDisclosureItem {
   const { t } = useTranslation()
-  // 
+  // 如果有输出，计算结果数量
   const resultCount = countLines(output)
   const { data: truncatedOutput, isTruncated, originalLength } = truncateOutput(output)
 

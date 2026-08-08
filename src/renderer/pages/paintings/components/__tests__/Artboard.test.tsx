@@ -50,7 +50,7 @@ vi.mock('@renderer/components/ImageViewer', async () => {
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => (key === 'paintings.generating' ? '' : key)
+    t: (key: string) => (key === 'paintings.generating' ? '绘图进行中，请不要离开页面' : key)
   })
 }))
 

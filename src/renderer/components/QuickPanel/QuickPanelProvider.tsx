@@ -75,10 +75,10 @@ export const QuickPanelProvider: React.FC<React.PropsWithChildren> = ({ children
     })
   }, [])
 
-  // item
+  // 添加更新item选中状态的方法
   const updateItemSelection = useCallback((targetItem: QuickPanelListItem, isSelected: boolean) => {
     setList((prevList) => {
-      // 
+      // 先尝试引用匹配（快速路径）
       const refIndex = prevList.findIndex((item) => item === targetItem)
       if (refIndex !== -1) {
         return prevList.map((item, idx) => (idx === refIndex ? { ...item, isSelected } : item))
@@ -90,7 +90,7 @@ export const QuickPanelProvider: React.FC<React.PropsWithChildren> = ({ children
     })
   }, [])
 
-  // 
+  // 添加更新整个列表的方法
   const updateList = useCallback(
     (newList: QuickPanelListItem[]) => {
       setList(ensureListItemIds(newList))

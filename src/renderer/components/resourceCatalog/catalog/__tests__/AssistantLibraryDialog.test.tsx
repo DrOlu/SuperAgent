@@ -157,7 +157,7 @@ describe('AssistantLibraryDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('renders the title, an "" tab plus categories, and every preset as a list row', async () => {
+  it('renders the title, an "全部" tab plus categories, and every preset as a list row', async () => {
     renderDialog()
 
     expect(screen.getByText('library.assistant_catalog.title')).toBeInTheDocument()
@@ -167,7 +167,7 @@ describe('AssistantLibraryDialog', () => {
     const tabs = screen.getByTestId('library-tabs')
     expect(within(tabs).getByText('common.all')).toBeInTheDocument()
     expect(within(tabs).getByText('Featured')).toBeInTheDocument()
-    // The catalog's "" tab is dropped in the library dialog.
+    // The catalog's "我的" tab is dropped in the library dialog.
     expect(within(tabs).queryByText('Mine')).not.toBeInTheDocument()
   })
 

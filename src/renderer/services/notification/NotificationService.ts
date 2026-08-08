@@ -4,8 +4,8 @@ import type { Notification } from '@renderer/types/notification'
 
 export class NotificationService {
   /**
-   * 
-   * @param notification 
+   * 发送通知
+   * @param notification 要发送的通知
    */
   public async send(notification: Notification): Promise<void> {
     const notificationSettings = await preferenceService.getMultiple({

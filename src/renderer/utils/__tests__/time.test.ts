@@ -34,7 +34,7 @@ describe('formatRelativeTime', () => {
 describe('createDurationFormatter', () => {
   it('formats units and decimal separators for the requested locale', () => {
     expect(createDurationFormatter('de-DE')(1_200)).toBe('1,2 Sek.')
-    expect(createDurationFormatter('zh-CN')(61_200)).toBe('11.2')
+    expect(createDurationFormatter('zh-CN')(61_200)).toBe('1分钟1.2秒')
   })
 
   it('carries rounded seconds into the next minute', () => {

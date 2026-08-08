@@ -1,5 +1,5 @@
 /**
- * Language→image adapter for Gemini "chat " models on the Vercel AI
+ * Language→image adapter for Gemini "chat 出图" models on the Vercel AI
  * Gateway (`gateway` provider).
  *
  * Gemini image models (`gemini-3-pro-image`, `gemini-2.5-flash-image`, …) have

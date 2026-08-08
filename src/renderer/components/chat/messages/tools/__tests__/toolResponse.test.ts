@@ -45,9 +45,9 @@ describe('toolResponse adapter', () => {
       output: {
         content: 'ok',
         metadata: {
-          description: '',
-          name: '',
-          serverName: ' OCR',
+          description: '识别票据中的结构化字段',
+          name: '识别发票',
+          serverName: '票据 OCR',
           serverId: 'ocr-server',
           type: 'mcp'
         }
@@ -58,9 +58,9 @@ describe('toolResponse adapter', () => {
     expect(response).toBeTruthy()
     if (!response) throw new Error('Expected tool response')
 
-    expect(response.tool.name).toBe('')
-    expect((response.tool as any).description).toBe('')
-    expect((response.tool as any).serverName).toBe(' OCR')
+    expect(response.tool.name).toBe('识别发票')
+    expect((response.tool as any).description).toBe('识别票据中的结构化字段')
+    expect((response.tool as any).serverName).toBe('票据 OCR')
   })
 
   it.each([
@@ -81,9 +81,9 @@ describe('toolResponse adapter', () => {
       toolMetadata: {
         cherry: {
           tool: {
-            description: '',
-            name: '',
-            serverName: ' OCR',
+            description: '识别票据中的结构化字段',
+            name: '识别发票',
+            serverName: '票据 OCR',
             serverId: 'ocr-server',
             type: 'mcp'
           }
@@ -96,8 +96,8 @@ describe('toolResponse adapter', () => {
     expect(response).toBeTruthy()
     if (!response) throw new Error('Expected tool response')
 
-    expect(response.tool.name).toBe('')
-    expect((response.tool as any).serverName).toBe(' OCR')
+    expect(response.tool.name).toBe('识别发票')
+    expect((response.tool as any).serverName).toBe('票据 OCR')
   })
 
   it('keeps structured MCP arrays bare for dedicated tool renderers', () => {

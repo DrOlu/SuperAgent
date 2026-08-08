@@ -24,12 +24,12 @@ describe('toModelMessages', () => {
     const model = await toModelMessages([
       ui('user', [{ type: 'text', text: 'Q' }], 'u1'),
       ui('assistant', [{ type: 'data-error', data: {} }], 'a1'),
-      ui('user', [{ type: 'text', text: '' }], 'u2')
+      ui('user', [{ type: 'text', text: '继续' }], 'u2')
     ])
     expect(model).toEqual([
       { role: 'user', content: [{ type: 'text', text: 'Q' }] },
       { role: 'assistant', content: [{ type: 'text', text: '...' }] },
-      { role: 'user', content: [{ type: 'text', text: '' }] }
+      { role: 'user', content: [{ type: 'text', text: '继续' }] }
     ])
   })
 
@@ -37,14 +37,14 @@ describe('toModelMessages', () => {
     const model = await toModelMessages([
       ui('user', [{ type: 'text', text: 'Q' }], 'u1'),
       ui('assistant', [], 'a1'),
-      ui('user', [{ type: 'text', text: '' }], 'u2')
+      ui('user', [{ type: 'text', text: '继续' }], 'u2')
     ])
     expect(model).toEqual([
       {
         role: 'user',
         content: [
           { type: 'text', text: 'Q' },
-          { type: 'text', text: '' }
+          { type: 'text', text: '继续' }
         ]
       }
     ])
@@ -54,14 +54,14 @@ describe('toModelMessages', () => {
     const model = await toModelMessages([
       ui('user', [{ type: 'text', text: 'Q' }], 'u1'),
       ui('assistant', [{ type: 'tool-test', toolCallId: '1', state: 'input-available', input: {} }], 'a1'),
-      ui('user', [{ type: 'text', text: '' }], 'u2')
+      ui('user', [{ type: 'text', text: '继续' }], 'u2')
     ])
     expect(model).toEqual([
       {
         role: 'user',
         content: [
           { type: 'text', text: 'Q' },
-          { type: 'text', text: '' }
+          { type: 'text', text: '继续' }
         ]
       }
     ])

@@ -13,8 +13,8 @@ const QQ_API_BASE = 'https://api.sgroup.qq.com'
 /**
  * QQ passive-reply window per chat type (ms): the inbound msg_id is rejected once it lapses.
  * Passive reply (against a recent msg_id) is the default delivery path and needs no opt-in.
- * Active group push reopened 2026-06-22 but only when the group owner enables "
- * ", and it is rate-limited (per-account 30-60 qpm, per-group 20 qpm). So once the window
+ * Active group push reopened 2026-06-22 but only when the group owner enables "机器人主动在群聊内
+ * 发言", and it is rate-limited (per-account 30-60 qpm, per-group 20 qpm). So once the window
  * lapses we omit msg_id and fall back to an active push, which is delivered only if that toggle
  * is on. Single chat (C2C) gets 60 min; group / guild subchannel / guild DM get 5 min.
  * See https://bot.q.qq.com/wiki/develop/api-v2/server-inter/message/send-receive/send.html
@@ -620,7 +620,7 @@ class QqAdapter extends ChannelAdapter {
     if (Date.now() - entry.receivedAt > ttl) {
       this.passiveReplies.delete(key)
       // The inbound msg_id has expired, so this reply degrades to an active push, which QQ
-      // delivers to a group only if the owner enabled "". Surface it so a
+      // delivers to a group only if the owner enabled "机器人主动在群聊内发言". Surface it so a
       // silently-undelivered group reply is traceable.
       this.log.warn('QQ passive-reply window lapsed; falling back to active push', { chatId, ttl })
       return undefined

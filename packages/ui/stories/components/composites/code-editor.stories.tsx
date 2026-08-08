@@ -20,7 +20,7 @@ const resolveCmTheme = (name: string): CodeMirrorTheme => {
   return cmThemeNames.includes(name) && candidate ? (candidate as CodeMirrorTheme) : 'light'
 }
 
-//  -  Storybook 
+// 示例语言配置 - 为 Storybook 提供更丰富的语言支持演示
 const exampleLanguageConfig: LanguageConfig = {
   JavaScript: {
     type: 'programming',
@@ -98,7 +98,7 @@ const meta: Meta<typeof CodeEditor> = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// 
+// 基础示例（非流式）
 export const Default: Story = {
   args: {
     language: 'typescript',
@@ -133,7 +133,7 @@ export const Default: Story = {
   )
 }
 
-// JSON + Lint
+// JSON + Lint（非流式）
 export const JSONLint: Story = {
   args: {
     language: 'json',
@@ -156,7 +156,7 @@ export const JSONLint: Story = {
   )
 }
 
-// Mod/Ctrl + S  onSave
+// 保存快捷键（Mod/Ctrl + S 触发 onSave）
 export const SaveShortcut: Story = {
   args: {
     language: 'markdown',
@@ -176,17 +176,17 @@ export const SaveShortcut: Story = {
         onChange={action('change')}
         wrapped
       />
-      <p className="text-xs text-gray-500"> Mod/Ctrl + S </p>
+      <p className="text-xs text-gray-500">使用 Mod/Ctrl + S 触发保存事件。</p>
     </div>
   )
 }
 
-// 
+// 使用默认语言配置（展示组件的独立性）
 export const DefaultLanguageConfig: Story = {
   args: {
     language: 'javascript',
     theme: 'light',
-    value: `// 
+    value: `// 这个示例使用内置的默认语言配置
 function fibonacci(n) {
   if (n <= 1) return n;
   return fibonacci(n - 1) + fibonacci(n - 2);
@@ -200,12 +200,12 @@ console.log(fibonacci(10));`,
       <CodeEditor
         value={args.value}
         language={args.language}
-        //  languageConfig
+        // 注意：这里没有传入 languageConfig，使用默认配置
         theme={resolveCmTheme((args as any).theme || 'light')}
         onChange={action('change')}
         wrapped
       />
-      <p className="text-xs text-gray-500"> languageConfig</p>
+      <p className="text-xs text-gray-500">此示例未传入 languageConfig，使用组件内置的默认语言配置。</p>
     </div>
   )
 }

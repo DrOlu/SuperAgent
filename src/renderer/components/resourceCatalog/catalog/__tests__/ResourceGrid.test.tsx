@@ -22,30 +22,30 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'assistants.groups.delete': '',
-          'assistants.groups.deleteConfirm': '',
-          'common.delete': '',
-          'common.group.create': '',
-          'common.group.create_failed': '',
-          'common.group.name_placeholder': '...',
-          'common.group.name_required': '',
-          'common.name': '',
-          'common.rename': '',
-          'common.save': '',
-          'chat.add.assistant.title': '',
-          'assistants.presets.import.action': '',
-          'library.assistant_catalog.add': '',
-          'library.assistant_catalog.title': '',
-          'library.assistant_catalog.go_to_chat': '',
-          'library.create_menu.create': '',
-          'library.skill_add.add': '',
-          'library.skill_add.local_import': '',
-          'library.skill_add.online_search': '',
-          'library.skill_add.system_search': '',
-          'library.toolbar.all_groups': '',
-          'library.toolbar.group_button': '',
-          'library.type.assistant': '',
-          'library.type.skill': ''
+          'assistants.groups.delete': '删除分组',
+          'assistants.groups.deleteConfirm': '确定要删除这个分组吗？',
+          'common.delete': '删除',
+          'common.group.create': '新建分组',
+          'common.group.create_failed': '创建分组失败',
+          'common.group.name_placeholder': '请输入分组名称...',
+          'common.group.name_required': '请输入分组名称',
+          'common.name': '名称',
+          'common.rename': '重命名',
+          'common.save': '保存',
+          'chat.add.assistant.title': '添加助手',
+          'assistants.presets.import.action': '导入助手',
+          'library.assistant_catalog.add': '添加',
+          'library.assistant_catalog.title': '助手库',
+          'library.assistant_catalog.go_to_chat': '去对话',
+          'library.create_menu.create': '新建助手',
+          'library.skill_add.add': '添加技能',
+          'library.skill_add.local_import': '本地导入',
+          'library.skill_add.online_search': '在线搜索',
+          'library.skill_add.system_search': '系统搜索',
+          'library.toolbar.all_groups': '全部分组',
+          'library.toolbar.group_button': '分组',
+          'library.type.assistant': '助手',
+          'library.type.skill': '技能'
         }) satisfies Record<string, string>
       )[key] ?? key
   })
@@ -482,7 +482,7 @@ describe('ResourceGrid empty state copy', () => {
 
     unmount()
     const onSearchChange = vi.fn()
-    renderResourceGrid({ activeResourceType: 'skill', onSearchChange, variant: 'settings', title: '' })
+    renderResourceGrid({ activeResourceType: 'skill', onSearchChange, variant: 'settings', title: '技能' })
 
     fireEvent.change(screen.getByPlaceholderText('library.toolbar.search_placeholder'), {
       target: { value: 'creator' }
@@ -509,7 +509,7 @@ describe('ResourceGrid empty state copy', () => {
     const clientWidthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1200)
 
     try {
-      renderResourceGrid({ activeResourceType: 'skill', isLoading: true, variant: 'settings', title: '' })
+      renderResourceGrid({ activeResourceType: 'skill', isLoading: true, variant: 'settings', title: '技能' })
 
       const loadingGrid = screen.getByTestId('resource-grid-loading')
       await waitFor(() => expect(loadingGrid).toHaveStyle({ gridTemplateColumns: 'repeat(1, minmax(0, 1fr))' }))
@@ -551,12 +551,12 @@ describe('ResourceGrid assistant add actions', () => {
       onOpenAssistantLibrary
     })
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: // })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '新建助手' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '助手库' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '导入助手' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /添加助手/ })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '助手库' }))
 
     expect(onOpenAssistantLibrary).toHaveBeenCalledTimes(1)
     expect(onCreate).not.toHaveBeenCalled()
@@ -566,9 +566,9 @@ describe('ResourceGrid assistant add actions', () => {
   it('hides the assistant library action when the handler is unavailable', () => {
     renderResourceGrid()
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '新建助手' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '助手库' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '导入助手' })).toBeInTheDocument()
   })
 })
 
@@ -586,24 +586,24 @@ describe('ResourceGrid skill add actions', () => {
       onOpenSystemSkills
     })
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '添加技能' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '添加技能' }))
 
-    expect(screen.getByRole('menuitem', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '在线搜索' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '本地导入' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '系统搜索' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('menuitem', { name: '' }))
+    await user.click(screen.getByRole('menuitem', { name: '在线搜索' }))
 
     expect(onOpenSkillMarketplace).toHaveBeenCalledTimes(1)
     expect(onCreate).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('menuitem', { name: '' }))
+    await user.click(screen.getByRole('menuitem', { name: '本地导入' }))
 
     expect(onCreate).toHaveBeenCalledWith('skill')
 
-    await user.click(screen.getByRole('menuitem', { name: '' }))
+    await user.click(screen.getByRole('menuitem', { name: '系统搜索' }))
 
     expect(onOpenSystemSkills).toHaveBeenCalledTimes(1)
   })
@@ -611,9 +611,9 @@ describe('ResourceGrid skill add actions', () => {
   it('hides system search when no current agent is available', () => {
     renderResourceGrid({ activeResourceType: 'skill' })
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '添加技能' }))
 
-    expect(screen.queryByRole('menuitem', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '系统搜索' })).not.toBeInTheDocument()
   })
 })
 
@@ -649,8 +649,8 @@ describe('ResourceGrid group toolbar management', () => {
     })
 
     const alphaGroup = screen.getByRole('button', { name: /alpha/ })
-    const expandButton = screen.getByRole('button', { name: '' })
-    const addGroupButton = screen.getByRole('button', { name: '' })
+    const expandButton = screen.getByRole('button', { name: '全部分组' })
+    const addGroupButton = screen.getByRole('button', { name: '分组' })
 
     expect(screen.queryByRole('button', { name: /beta/ })).not.toBeInTheDocument()
     expect(alphaGroup.compareDocumentPosition(expandButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
@@ -661,7 +661,7 @@ describe('ResourceGrid group toolbar management', () => {
     const betaGroup = screen.getByRole('button', { name: /beta/ })
     const expandedAlphaGroup = screen.getByRole('button', { name: /alpha/ })
     expect(betaGroup.compareDocumentPosition(expandedAlphaGroup)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
-    expect(betaGroup.compareDocumentPosition(screen.getByRole('button', { name: '' }))).toBe(
+    expect(betaGroup.compareDocumentPosition(screen.getByRole('button', { name: '全部分组' }))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     )
   })
@@ -685,9 +685,9 @@ describe('ResourceGrid group toolbar management', () => {
     })
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }), { clientX: 20, clientY: 30 })
-    await user.click(screen.getByRole('button', { name: '' }))
-    fireEvent.change(screen.getByLabelText(''), { target: { value: 'renamed' } })
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '重命名' }))
+    fireEvent.change(screen.getByLabelText('重命名'), { target: { value: 'renamed' } })
+    await user.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(updateGroupMock).toHaveBeenCalledWith('group-alpha', { name: 'renamed' }))
     expect(onGroupFilter).not.toHaveBeenCalled()
@@ -704,12 +704,12 @@ describe('ResourceGrid group toolbar management', () => {
     })
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }), { clientX: 20, clientY: 30 })
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '删除分组' }))
 
-    expect(screen.getByRole('dialog')).toHaveTextContent('')
+    expect(screen.getByRole('dialog')).toHaveTextContent('确定要删除这个分组吗？')
     expect(deleteGroupMock).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '删除' }))
 
     await waitFor(() => expect(deleteGroupMock).toHaveBeenCalledWith('group-alpha'))
     expect(onGroupFilter).toHaveBeenCalledWith(null)
@@ -721,12 +721,12 @@ describe('ResourceGrid group toolbar management', () => {
 
     renderResourceGrid({ onAddGroup })
 
-    await user.click(screen.getByRole('button', { name: '' }))
-    const input = screen.getByPlaceholderText('...')
+    await user.click(screen.getByRole('button', { name: '分组' }))
+    const input = screen.getByPlaceholderText('请输入分组名称...')
     await user.type(input, 'work')
     await user.click(screen.getByRole('button', { name: 'common.add' }))
 
-    expect(await screen.findByText(': create failed')).toBeInTheDocument()
+    expect(await screen.findByText('创建分组失败: create failed')).toBeInTheDocument()
     expect(input).toBeInTheDocument()
     expect(input).toHaveValue('work')
     await waitFor(() => expect(input).not.toBeDisabled())
@@ -739,11 +739,11 @@ describe('ResourceGrid group toolbar management', () => {
     renderResourceGrid({ groups: [{ id: 'group-alpha', name: 'alpha', count: 1 }] })
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }), { clientX: 20, clientY: 30 })
-    await user.click(screen.getByRole('button', { name: '' }))
-    const input = screen.getByLabelText('')
+    await user.click(screen.getByRole('button', { name: '重命名' }))
+    const input = screen.getByLabelText('重命名')
     await user.clear(input)
     await user.type(input, 'renamed')
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('rename failed'))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -764,14 +764,14 @@ describe('ResourceGrid group toolbar management', () => {
     })
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }), { clientX: 20, clientY: 30 })
-    await user.click(screen.getByRole('button', { name: '' }))
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '删除分组' }))
+    await user.click(screen.getByRole('button', { name: '删除' }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('delete failed'))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(onGroupFilter).not.toHaveBeenCalled()
 
-    const confirmButton = screen.getByRole('button', { name: '' })
+    const confirmButton = screen.getByRole('button', { name: '删除' })
     await waitFor(() => expect(confirmButton).not.toBeDisabled())
     await user.click(confirmButton)
     await waitFor(() => expect(deleteGroupMock).toHaveBeenCalledTimes(2))
@@ -817,7 +817,7 @@ describe('ResourceGrid card actions', () => {
     render(<ResourceCard resource={createAssistantResource()} {...getResourceCardProps()} />)
 
     expect(screen.getByRole('button', { name: /common.more/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '删除' })).not.toBeInTheDocument()
   })
 
   it('shows a direct delete action when delete is the only card action', async () => {
@@ -828,7 +828,7 @@ describe('ResourceGrid card actions', () => {
     render(<ResourceCard resource={resource} {...getResourceCardProps({ onDelete })} />)
 
     expect(screen.queryByRole('button', { name: /common.more/ })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '删除' }))
 
     expect(onDelete).toHaveBeenCalledWith(resource)
   })
@@ -865,7 +865,7 @@ describe('Assistant preset preview dialog actions', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '添加' }))
     expect(onAdd).toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
   })
@@ -887,7 +887,7 @@ describe('Assistant preset preview dialog actions', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '去对话' }))
     expect(onOpenChat).toHaveBeenCalledWith('assistant-created')
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(onAdd).not.toHaveBeenCalled()
@@ -1086,6 +1086,6 @@ describe('ResourceCardMenu group binding', () => {
     await user.click(screen.getByRole('button', { name: /common.more/ }))
     expect(screen.queryByRole('button', { name: /common.edit/ })).not.toBeInTheDocument()
     expect(screen.getByTestId('menu-divider')).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '删除' })).toBeInTheDocument()
   })
 })

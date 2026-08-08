@@ -13,7 +13,7 @@ vi.mock('react-i18next', () => ({
 
 const languagesFixture = [
   { langCode: 'en-us', value: 'English', emoji: '🇺🇸' },
-  { langCode: 'zh-cn', value: '', emoji: '🇨🇳' }
+  { langCode: 'zh-cn', value: '中文', emoji: '🇨🇳' }
 ]
 
 describe('useTranslateLanguages', () => {

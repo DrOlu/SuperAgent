@@ -702,14 +702,14 @@ describe('transformBlocksToParts', () => {
 
   it('transforms translation to data-translation DataUIPart', async () => {
     const { parts, searchableText } = await transformBlocksToParts([
-      block('translation', { content: '', targetLanguage: 'chinese' })
+      block('translation', { content: '翻译内容', targetLanguage: 'chinese' })
     ])
 
     const part = parts[0] as CherryMessagePart & { data: Record<string, unknown> }
     expect(part.type).toBe('data-translation')
-    expect(part.data.content).toBe('')
+    expect(part.data.content).toBe('翻译内容')
     expect(part.data.targetLanguage).toBe('chinese')
-    expect(searchableText).toBe('')
+    expect(searchableText).toBe('翻译内容')
   })
 
   it('transforms video to data-video DataUIPart', async () => {

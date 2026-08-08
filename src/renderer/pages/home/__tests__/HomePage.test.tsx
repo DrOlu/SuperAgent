@@ -316,7 +316,7 @@ vi.mock('react-i18next', async (importOriginal) => ({
     t: (key: string) =>
       ({
         'chat.home.welcome_title': 'Welcome',
-        'chat.topics.title': '',
+        'chat.topics.title': '对话',
         'common.loading': 'Loading...',
         'history.error.topic_not_found': 'Conversation not found'
       })[key] ?? key
@@ -1120,7 +1120,7 @@ describe('HomePage', () => {
 
     render(<HomePage />)
 
-    expect(screen.getByTestId('resource-pane-count')).toHaveTextContent(':2')
+    expect(screen.getByTestId('resource-pane-count')).toHaveTextContent('对话:2')
     expect(screen.getByTestId('topic-resource-panel')).toHaveAttribute('data-assistant-id', 'assistant-1')
     expect(screen.getByTestId('topic-resource-panel')).toHaveAttribute('data-presentation', 'right-panel')
   })

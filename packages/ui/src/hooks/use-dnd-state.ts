@@ -1,20 +1,20 @@
 import { useDndContext } from '@dnd-kit/core'
 
 interface DndState {
-  /**  */
+  /** 是否有元素正在拖拽 */
   isDragging: boolean
-  /** ID */
+  /** 当前拖拽元素的ID */
   draggedId: string | number | null
-  /** ID */
+  /** 当前悬停位置的ID */
   overId: string | number | null
-  /**  */
+  /** 是否正在悬停在某个可放置区域 */
   isOver: boolean
 }
 
 /**
- *  dnd-kit 
+ * 提供 dnd-kit 的全局拖拽状态管理
  *
- * @returns 
+ * @returns 当前拖拽状态信息
  */
 export function useDndState(): DndState {
   const { active, over } = useDndContext()

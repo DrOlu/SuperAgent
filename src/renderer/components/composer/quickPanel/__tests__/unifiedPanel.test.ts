@@ -372,7 +372,7 @@ describe('createUnifiedQuickPanelOpenOptions', () => {
         {
           id: 'web-search',
           kind: 'command',
-          label: '',
+          label: '网络搜索',
           icon: 'search',
           sources: ['root-panel'],
           searchAliases: ['Web Search', 'Online Search']
@@ -389,7 +389,7 @@ describe('createUnifiedQuickPanelOpenOptions', () => {
             icon: 'skill'
           }
         ],
-        resourceItems: [{ id: 'quick-phrases', label: '', icon: 'phrase' }]
+        resourceItems: [{ id: 'quick-phrases', label: '提示词管理', icon: 'phrase' }]
       }
     )
 
@@ -397,15 +397,15 @@ describe('createUnifiedQuickPanelOpenOptions', () => {
     const fuzzyRegex = /s.*l/i
     const pinyinCache = new WeakMap<QuickPanelListItem, string>()
     const skill = options.list.find((item) => item.label === 'pdf')!
-    const quickPhrases = options.list.find((item) => item.label === '')!
-    const webSearch = options.list.find((item) => item.label === '')!
+    const quickPhrases = options.list.find((item) => item.label === '提示词管理')!
+    const webSearch = options.list.find((item) => item.label === '网络搜索')!
 
     // Skills keep their explicit root-panel search field and do not match descriptions.
     expect(filterFn(skill, 'pdf', fuzzyRegex, pinyinCache)).toBe(true)
     expect(filterFn(skill, 'analyze', fuzzyRegex, pinyinCache)).toBe(false)
 
     // Chinese row matches by substring, pinyin substring, and pinyin initial substring...
-    expect(filterFn(quickPhrases, '', fuzzyRegex, pinyinCache)).toBe(true)
+    expect(filterFn(quickPhrases, '提示词', fuzzyRegex, pinyinCache)).toBe(true)
     expect(filterFn(quickPhrases, 'tishi', fuzzyRegex, pinyinCache)).toBe(true)
     expect(filterFn(quickPhrases, 'tscgl', fuzzyRegex, pinyinCache)).toBe(true)
 

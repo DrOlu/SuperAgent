@@ -26,9 +26,9 @@ type ActionKeys<T> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never
 }[keyof T]
 
-//  API
+// 工具按钮不应该访问这些内部 API
 type ExcludedStateKeys = 'isExpanded'
-type ExcludedActionKeys = 'setIsExpanded' | 'toolsRegistry' | 'triggers' //  API 
+type ExcludedActionKeys = 'setIsExpanded' | 'toolsRegistry' | 'triggers' // 这些 API 由工具系统内部管理
 
 type ToolStateKeys = Exclude<ReadableKeys<ComposerToolContextValue>, ExcludedStateKeys>
 type ToolActionKeys = Exclude<ActionKeys<ComposerToolContextValue>, ExcludedActionKeys>

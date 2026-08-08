@@ -5,7 +5,7 @@ import type { ImageGenerationSubmitInput, ImageGenerationTransport } from '../im
 import { createAbortError, isTerminalHttpStatus, uint8ToBase64, waitWithSignal } from '../transportUtils'
 
 /**
- * ModelScope () API Inference transport for AIGC image generation.
+ * ModelScope (魔搭) API Inference transport for AIGC image generation.
  *
  * Submit POST `/v1/images/generations` with `X-ModelScope-Async-Mode: true` →
  * returns `{ task_id }`. Poll `GET /v1/tasks/{task_id}` with

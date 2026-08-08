@@ -17,7 +17,7 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, vars?: Record<string, string>) => {
       if (key === 'library.duplicate_name') {
-        return `${vars?.name ?? ''} ()`
+        return `${vars?.name ?? ''} (副本)`
       }
       return key
     }
@@ -28,7 +28,7 @@ function createAssistant(overrides: Partial<Assistant> = {}): Assistant {
   return {
     id: 'ast-source',
     orderKey: 'a0',
-    name: '',
+    name: '原助手',
     prompt: 'prompt',
     emoji: '💬',
     description: 'desc',
@@ -85,7 +85,7 @@ describe('useAssistantMutations', () => {
     expect(createTriggerMock).toHaveBeenCalledTimes(1)
     expect(createTriggerMock).toHaveBeenCalledWith({
       body: {
-        name: ' ()',
+        name: '原助手 (副本)',
         prompt: 'prompt',
         emoji: '💬',
         description: 'desc',

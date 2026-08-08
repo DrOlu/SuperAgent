@@ -29,7 +29,7 @@ vi.mock('@application', () => ({
 }))
 
 vi.mock('@main/data/services/McpServerService', () => ({
-  mcpServerService: { list, getById: (id: string) => ({ id, name: ' OCR', isActive: true }) }
+  mcpServerService: { list, getById: (id: string) => ({ id, name: '票据 OCR', isActive: true }) }
 }))
 
 const { syncMcpToolsToRegistry } = await import('../mcpTools')
@@ -60,14 +60,14 @@ describe('MCP tool metadata reaches the UI parts', () => {
     listTools.mockReset()
     list.mockReset()
     callTool.mockReset()
-    list.mockReturnValue({ items: [{ id: 'server-a', name: ' OCR', isActive: true }] })
+    list.mockReturnValue({ items: [{ id: 'server-a', name: '票据 OCR', isActive: true }] })
     listTools.mockReturnValue([
       {
         id: WIRE_ID,
         serverId: 'server-a',
-        serverName: ' OCR',
-        name: '',
-        description: '',
+        serverName: '票据 OCR',
+        name: '识别发票',
+        description: '识别票据中的结构化字段',
         inputSchema: { type: 'object', properties: {} }
       }
     ])
@@ -98,7 +98,7 @@ describe('MCP tool metadata reaches the UI parts', () => {
     expect(states.has('input-available')).toBe(true)
     for (const [state, toolMetadata] of states) {
       expect(toolMetadata, `state ${state} lost its tool metadata`).toMatchObject({
-        cherry: { tool: { name: '', serverName: ' OCR', serverId: 'server-a', type: 'mcp' } }
+        cherry: { tool: { name: '识别发票', serverName: '票据 OCR', serverId: 'server-a', type: 'mcp' } }
       })
     }
   })

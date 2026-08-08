@@ -3,27 +3,27 @@ import i18n from '@renderer/i18n/resolver'
 import { isSystemProvider, type Provider } from '@renderer/types/provider'
 
 /**
- *  ID 
- * 
- * 1.  0 
- * 2.  'a-b-c'  'a-b'
- * 3.  id
+ * 从模型 ID 中提取默认组名。
+ * 规则如下：
+ * 1. 第一类分隔规则：以第一个出现的分隔符分割，取第 0 个部分作为组名。
+ * 2. 第二类分隔规则：取前两个部分拼接（如 'a-b-c' 得到 'a-b'）。
+ * 3. 其他情况返回 id。
  *
- * 
+ * 例如：
  * - 'gpt-3.5-turbo-16k-0613' => 'gpt-3.5'
  * - 'qwen3:32b' => 'qwen3'
  * - 'Qwen/Qwen3-32b' => 'qwen'
  * - 'deepseek-r1' => 'deepseek-r1'
  * - 'o3' => 'o3'
  *
- * @param {string} id  ID 
- * @param {string} [provider]  ID 
- * @returns {string} 
+ * @param {string} id 模型 ID 字符串
+ * @param {string} [provider] 提供商 ID 字符串
+ * @returns {string} 提取的组名
  */
 export const getDefaultGroupName = (id: string, provider?: string): string => {
   const str = id.toLowerCase()
 
-  // 
+  // 定义分隔符
   let firstDelimiters = ['/', ' ', ':']
   let secondDelimiters = ['-', '_']
 
@@ -32,14 +32,14 @@ export const getDefaultGroupName = (id: string, provider?: string): string => {
     secondDelimiters = []
   }
 
-  // 
+  // 第一类分隔规则
   for (const delimiter of firstDelimiters) {
     if (str.includes(delimiter)) {
       return str.split(delimiter)[0]
     }
   }
 
-  // 
+  // 第二类分隔规则
   for (const delimiter of secondDelimiters) {
     if (str.includes(delimiter)) {
       const parts = str.split(delimiter)
@@ -51,13 +51,13 @@ export const getDefaultGroupName = (id: string, provider?: string): string => {
 }
 
 /**
- *  ID 
- * 
+ * 从模型 ID 中提取基础名称。
+ * 例如：
  * - 'deepseek/deepseek-r1' => 'deepseek-r1'
  * - 'deepseek-ai/deepseek/deepseek-r1' => 'deepseek-r1'
- * @param {string} id  ID
- * @param {string} [delimiter='/']  '/'
- * @returns {string} 
+ * @param {string} id 模型 ID
+ * @param {string} [delimiter='/'] 分隔符，默认为 '/'
+ * @returns {string} 基础名称
  */
 export const getBaseModelName = (id: string, delimiter: string = '/'): string => {
   const parts = id.split(delimiter)
@@ -65,13 +65,13 @@ export const getBaseModelName = (id: string, delimiter: string = '/'): string =>
 }
 
 /**
- *  ID 
- * 
+ * 从模型 ID 中提取基础名称并转换为小写。
+ * 例如：
  * - 'deepseek/DeepSeek-R1' => 'deepseek-r1'
  * - 'deepseek-ai/deepseek/DeepSeek-R1' => 'deepseek-r1'
- * @param {string} id  ID
- * @param {string} [delimiter='/']  '/'
- * @returns {string} 
+ * @param {string} id 模型 ID
+ * @param {string} [delimiter='/'] 分隔符，默认为 '/'
+ * @returns {string} 小写的基础名称
  */
 export const getLowerBaseModelName = (id: string, delimiter: string = '/'): string => {
   // Normalize Fireworks model IDs: Fireworks replaces '.' with 'p' in version numbers
@@ -99,9 +99,9 @@ export const getLowerBaseModelName = (id: string, delimiter: string = '/'): stri
 }
 
 /**
- * 
- * @param provider 
- * @returns 
+ * 获取模型服务商名称，根据是否内置服务商来决定要不要翻译
+ * @param provider 服务商
+ * @returns 描述性的名字
  */
 export const getFancyProviderName = (provider: Provider) => {
   return isSystemProvider(provider) ? i18n.t(getProviderLabelKey(provider.id)) : provider.name
@@ -121,9 +121,9 @@ const EMOJI_LEADING_REGEX = new RegExp(`^(?:${EMOJI_CLUSTER_PATTERN})+`, 'u')
 const FIRST_LETTER_OR_EMOJI_REGEX = new RegExp(`${EMOJI_CLUSTER_PATTERN}|\\p{L}\\p{M}*`, 'u')
 
 /**
- *  avatar 
- * @param {string} str 
- * @returns {string} 
+ * 用于获取 avatar 名字的辅助函数，会取出字符串的第一个字符，支持表情符号。
+ * @param {string} str 输入字符串
+ * @returns {string} 第一个字符，或者返回空字符串
  */
 export function firstLetter(str: string): string {
   const match = str?.match(FIRST_LETTER_OR_EMOJI_REGEX)
@@ -131,18 +131,18 @@ export function firstLetter(str: string): string {
 }
 
 /**
- * 
- * @param {string} str 
- * @returns {string} 
+ * 移除字符串开头的表情符号。
+ * @param {string} str 输入字符串
+ * @returns {string} 移除开头表情符号后的字符串
  */
 export function removeLeadingEmoji(str: string): string {
   return str.replace(EMOJI_LEADING_REGEX, '').trim()
 }
 
 /**
- * 
- * @param {string} str 
- * @returns {string} 
+ * 提取字符串开头的表情符号。
+ * @param {string} str 输入字符串
+ * @returns {string} 开头的表情符号，如果没有则返回空字符串
  */
 export function getLeadingEmoji(str: string): string {
   const match = str.match(EMOJI_LEADING_REGEX)
@@ -150,9 +150,9 @@ export function getLeadingEmoji(str: string): string {
 }
 
 /**
- * 
- * @param {string} str 
- * @returns {boolean}  true false
+ * 检查字符串是否为纯表情符号。
+ * @param {string} str 输入字符串
+ * @returns {boolean} 如果字符串是纯表情符号则返回 true，否则返回 false
  */
 export function isEmoji(str: string): boolean {
   if (str.startsWith('data:')) {
@@ -165,22 +165,22 @@ export function isEmoji(str: string): boolean {
 }
 
 /**
- * 
- * - 
- * @param {string} str 
- * @returns {string} 
+ * 从话题名称中移除特殊字符：
+ * - 替换换行符为空格。
+ * @param {string} str 输入字符串
+ * @returns {string} 处理后的字符串
  */
 export function removeSpecialCharactersForTopicName(str: string): string {
   return str.replace(/["'\r\n]+/g, ' ').trim()
 }
 
 /**
- * 
- * @param {string} str 
- * @returns {string} 
+ * 获取字符串的第一个字符。
+ * @param {string} str 输入字符串
+ * @returns {string} 第一个字符，或者空字符串
  */
 export function getFirstCharacter(str: string): string {
-  //  for...of 
+  // 使用 for...of 循环来获取第一个字符
   for (const char of str) {
     return char
   }
@@ -189,21 +189,21 @@ export function getFirstCharacter(str: string): string {
 }
 
 /**
- * 
- * @param {string} text 
- * @param {number} [maxLength=50]  50
- * @returns {string} 
+ * 用于简化文本。按照给定长度限制截断文本，考虑语义边界。
+ * @param {string} text 输入文本
+ * @param {number} [maxLength=50] 最大长度，默认为 50
+ * @returns {string} 处理后的简短文本
  */
 export function getBriefInfo(text: string, maxLength: number = 50): string {
-  // 
+  // 去除空行
   const noEmptyLinesText = text.replace(/\n\s*\n/g, '\n')
 
-  // 
+  // 检查文本是否超过最大长度
   if (noEmptyLinesText.length <= maxLength) {
     return noEmptyLinesText
   }
 
-  // 
+  // 找到最近的单词边界
   let truncatedText = noEmptyLinesText.slice(0, maxLength)
   const lastSpaceIndex = truncatedText.lastIndexOf(' ')
 
@@ -211,7 +211,7 @@ export function getBriefInfo(text: string, maxLength: number = 50): string {
     truncatedText = truncatedText.slice(0, lastSpaceIndex)
   }
 
-  //  "..."
+  // 截取前面的内容，并在末尾添加 "..."
   return truncatedText + '...'
 }
 
@@ -256,7 +256,7 @@ export function truncateText(text: string, options: { minLength?: number; maxLen
   const candidate = text.substring(0, maxLength)
 
   // Try to find the last suitable ending punctuation (excluding comma-like marks)
-  const endingPunctuationPattern = /[!?;]/g
+  const endingPunctuationPattern = /[。！？；!?;]/g
   let lastEndingIndex = -1
   let match: RegExpExecArray | null
 

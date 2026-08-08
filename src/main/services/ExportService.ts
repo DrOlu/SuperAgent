@@ -46,8 +46,8 @@ export class ExportService {
       let linkText = ''
       let linkUrl = ''
       let insideLink = false
-      let boldStack = 0 // 
-      let italicStack = 0 // 
+      let boldStack = 0 // 跟踪嵌套的粗体标记
+      let italicStack = 0 // 跟踪嵌套的斜体标记
 
       for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i]
@@ -124,7 +124,7 @@ export class ExportService {
       const token = tokens[i]
       switch (token.type) {
         case 'heading_open':
-          //  (h1 -> h6)
+          // 获取标题级别 (h1 -> h6)
           const level = parseInt(token.tag.slice(1)) as 1 | 2 | 3 | 4 | 5 | 6
           const headingText = tokens[i + 1].content
           elements.push(
@@ -137,7 +137,7 @@ export class ExportService {
               }
             })
           )
-          i += 2 // 
+          i += 2 // 跳过内容标记和闭合标记
           break
 
         case 'paragraph_open':
@@ -179,7 +179,7 @@ export class ExportService {
           i += 3
           break
 
-        case 'fence': // 
+        case 'fence': // 代码块
           const codeLines = token.content.split('\n')
           elements.push(
             new Paragraph({
@@ -248,7 +248,7 @@ export class ExportService {
           i += 3
           break
 
-        // 
+        // 表格处理
         case 'table_open':
           tableRows = [] // Reset table rows for new table
           break
@@ -271,7 +271,7 @@ export class ExportService {
             tableHeader: isHeaderRow
           })
           tableRows.push(row)
-          // 
+          // 计算表格有多少列（针对第一行）
           if (tableColumnCount === 0) {
             tableColumnCount = currentRowCells.length
           }
@@ -279,7 +279,7 @@ export class ExportService {
 
         case 'th_open':
         case 'td_open':
-          const isFirstColumn = currentRowCells.length === 0 // 
+          const isFirstColumn = currentRowCells.length === 0 // 判断是否是第一列
           const borders = {
             top: {
               style: BorderStyle.NONE
@@ -314,7 +314,7 @@ export class ExportService {
             borders: borders
           }
           currentRowCells.push(new TableCell(cellOptions))
-          i += 2 // 
+          i += 2 // 跳过内容和结束标记
           break
         case 'table_close':
           // Create table with the collected rows - avoid using protected properties

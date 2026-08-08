@@ -9,9 +9,9 @@ import type { BasicPreviewHandles, BasicPreviewProps } from './types'
 import { renderSvgInShadowHost } from './utils'
 
 /**
- *  Mermaid 
- * -  useDebouncedRender 
- * -  shadow dom  SVG
+ * 预览 Mermaid 图表
+ * - 使用 useDebouncedRender 改善体验
+ * - 使用 shadow dom 渲染 SVG
  */
 const MermaidPreview = ({
   children,
@@ -23,19 +23,19 @@ const MermaidPreview = ({
   const [isVisible, setIsVisible] = useState(true)
 
   /**
-   *  shadow dom 
-   *  innerHTML
+   * 定义渲染函数，在临时容器中测量，在 shadow dom 中渲染。
+   * 如果这个方案有问题，可以回退到 innerHTML。
    */
   const renderMermaid = useCallback(
     async (content: string, container: HTMLDivElement) => {
-      // 
+      // 验证语法，提前抛出异常
       await mermaid.parse(content)
 
-      // 
+      // 获取容器宽度
       const { width } = container.getBoundingClientRect()
       if (width === 0) return
 
-      //  div  mermaid 
+      // 创建临时的 div 用于 mermaid 测量
       const measureEl = document.createElement('div')
       measureEl.style.position = 'absolute'
       measureEl.style.left = '-9999px'
@@ -46,10 +46,10 @@ const MermaidPreview = ({
       try {
         const { svg } = await mermaid.render(diagramId, content, measureEl)
 
-        //  undefined  NaN
+        // 避免不可见时产生 undefined 和 NaN
         const fixedSvg = svg.replace(/translate\(undefined,\s*NaN\)/g, 'translate(0, 0)')
 
-        //  innerHTML
+        // 有问题可以回退到 innerHTML
         renderSvgInShadowHost(fixedSvg, container)
         // container.innerHTML = fixedSvg
       } finally {
@@ -60,12 +60,12 @@ const MermaidPreview = ({
     [diagramId, mermaid, forceRenderKey]
   )
 
-  // 
+  // 可见性检测函数
   const shouldRender = useCallback(() => {
     return !isLoadingMermaid && isVisible
   }, [isLoadingMermaid, isVisible])
 
-  //  hook
+  // 使用预览渲染器 hook
   const {
     containerRef,
     error: renderError,
@@ -76,10 +76,10 @@ const MermaidPreview = ({
   })
 
   /**
-   * 
-   *  `MessageGroup`  `fold`  `display: none` 
-   *  `fold` className  `MessageWrapper`
-   * FIXME:  mermaid-js 
+   * 监听可见性变化，用于触发重新渲染。
+   * 这是为了解决 `MessageGroup` 组件的 `fold` 布局中被 `display: none` 隐藏的图标无法正确渲染的问题。
+   * 监听时向上遍历到第一个有 `fold` className 的父节点为止（也就是目前的 `MessageWrapper`）。
+   * FIXME: 将来 mermaid-js 修复此问题后可以移除这里的相关逻辑。
    */
   useEffect(() => {
     if (!containerRef.current) return
@@ -92,7 +92,7 @@ const MermaidPreview = ({
       setIsVisible(currentlyVisible)
     }
 
-    // 
+    // 初始检查
     checkVisibility()
 
     const observer = new MutationObserver(() => {
@@ -118,7 +118,7 @@ const MermaidPreview = ({
     }
   }, [containerRef])
 
-  // 
+  // 合并加载状态和错误状态
   const isLoading = isLoadingMermaid || isRendering
   const error = mermaidError || renderError
 

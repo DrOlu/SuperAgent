@@ -70,7 +70,7 @@ describe('SafeNameSchema validation', () => {
     })
 
     it('accepts filenames with spaces and unicode', () => {
-      expect(FileEntrySchema.safeParse(makeInternal({ name: ' (copy)' })).success).toBe(true)
+      expect(FileEntrySchema.safeParse(makeInternal({ name: '我的文档 (copy)' })).success).toBe(true)
     })
 
     it('accepts filenames with dots (not traversal)', () => {

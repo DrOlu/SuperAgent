@@ -528,7 +528,7 @@ function mapEndpointTypes(
 function mapPricingCurrency(currencySymbol?: string): Currency | null {
   const symbol = currencySymbol?.trim()
   if (!symbol || symbol === '$') return CURRENCY.USD
-  if (symbol === '¥' || symbol === '') return CURRENCY.CNY
+  if (symbol === '¥' || symbol === '￥') return CURRENCY.CNY
 
   logger.warn('Unsupported legacy pricing currency dropped during migration', { currencySymbol })
   return null

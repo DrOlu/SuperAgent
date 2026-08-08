@@ -14,7 +14,7 @@ import { Readable } from 'stream'
 const logger = loggerService.withContext('S3Storage')
 const S3_SOCKET_IDLE_TIMEOUT_MS = 5 * 60_000
 
-//  Virtual Host-Style 
+// 需要使用 Virtual Host-Style 的服务商域名后缀白名单
 const VIRTUAL_HOST_SUFFIXES = ['aliyuncs.com', 'myqcloud.com', 'volces.com']
 
 interface S3UploadOptions {
@@ -22,7 +22,7 @@ interface S3UploadOptions {
 }
 
 /**
- *  AWS SDK v3  S3  RemoteStorage 
+ * 使用 AWS SDK v3 的简单 S3 封装，兼容之前 RemoteStorage 的最常用接口。
  */
 export default class S3Storage {
   private client: S3Client
@@ -74,7 +74,7 @@ export default class S3Storage {
   }
 
   /**
-   *  root  key
+   * 内部辅助方法，用来拼接带 root 的对象 key
    */
   private buildKey(key: string): string {
     if (!this.root) return key
@@ -145,7 +145,7 @@ export default class S3Storage {
   }
 
   /**
-   * 
+   * 列举指定前缀下的对象，默认列举全部。
    */
   async listFiles(
     prefix = '',
@@ -187,7 +187,7 @@ export default class S3Storage {
   }
 
   /**
-   *  HeadBucket /
+   * 尝试调用 HeadBucket 判断凭证/网络是否可用
    */
   async checkConnection() {
     try {

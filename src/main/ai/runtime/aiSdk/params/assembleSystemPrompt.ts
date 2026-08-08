@@ -1,5 +1,5 @@
 /**
- * TODOdistinguish static and dynamic system prompt and xml-based user prompt
+ * TODO：distinguish static and dynamic system prompt and xml-based user prompt
  */
 
 import { replacePromptVariables } from '@main/utils/prompt'

@@ -10,7 +10,7 @@ export class AsyncInitializer<T> {
     if (!this.promise) {
       this.promise = this.factory(...args)
     }
-    //  this.promise  null
+    // 如果需要允许重试，可以重置 this.promise 为 null。
     return this.promise
   }
 }

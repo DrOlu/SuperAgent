@@ -85,8 +85,8 @@ describe('PrintService', () => {
 
   it('includes CJK-capable font fallbacks for printable documents', () => {
     const html = buildPrintableHtml({
-      title: '',
-      markdown: '# \n\n'
+      title: '会议记录',
+      markdown: '# 标题\n\n中文正文'
     })
 
     expect(html).toContain('<html>')
@@ -95,9 +95,9 @@ describe('PrintService', () => {
     expect(html).toContain('local("PingFang SC")')
     expect(html).toContain('local("SimSun")')
     expect(html).toContain('local("Arial Unicode MS")')
-    expect(html).toContain('<h1 class="printable-title"></h1>')
-    expect(html).toContain('<h1></h1>')
-    expect(html).toContain('<p></p>')
+    expect(html).toContain('<h1 class="printable-title">会议记录</h1>')
+    expect(html).toContain('<h1>标题</h1>')
+    expect(html).toContain('<p>中文正文</p>')
     expect(html).toContain('"PingFang SC"')
     expect(html).toContain('"Microsoft YaHei"')
     expect(html).toContain('"Noto Sans CJK SC"')

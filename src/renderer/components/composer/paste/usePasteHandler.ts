@@ -12,14 +12,14 @@ export interface UsePasteHandlerOptions {
 }
 
 /**
- * Inputbar  Hook
+ * Inputbar 专用粘贴处理 Hook
  *
- *  pasteHandling
+ * 处理文件、长文本、图片等粘贴场景，集成 pasteHandling
  *
- * @param text - 
- * @param setText - 
- * @param options - 
- * @returns 
+ * @param text - 当前文本内容
+ * @param setText - 设置文本的函数
+ * @param options - 粘贴处理配置
+ * @returns 粘贴事件处理函数
  *
  * @example
  * ```tsx

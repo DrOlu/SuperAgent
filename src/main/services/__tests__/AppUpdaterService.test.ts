@@ -202,12 +202,12 @@ describe('AppUpdaterService', () => {
 🎨 UI Improvements:
 - Improvement A
 <!--LANG:zh-CN-->
-🚀 
--  A
--  B
+🚀 新功能：
+- 功能 A
+- 功能 B
 
-🎨 
--  A
+🎨 界面改进：
+- 改进 A
 <!--LANG:END-->`
 
     it('returns Chinese notes for zh-CN users', () => {
@@ -215,8 +215,8 @@ describe('AppUpdaterService', () => {
 
       const result = (appUpdater as any).parseMultiLangReleaseNotes(sampleReleaseNotes)
 
-      expect(result).toContain('')
-      expect(result).toContain(' A')
+      expect(result).toContain('新功能')
+      expect(result).toContain('功能 A')
       expect(result).not.toContain('New Features')
     })
 
@@ -225,7 +225,7 @@ describe('AppUpdaterService', () => {
 
       const result = (appUpdater as any).parseMultiLangReleaseNotes(sampleReleaseNotes)
 
-      expect(result).toContain('')
+      expect(result).toContain('新功能')
       expect(result).not.toContain('New Features')
     })
 
@@ -235,7 +235,7 @@ describe('AppUpdaterService', () => {
       const result = (appUpdater as any).parseMultiLangReleaseNotes(sampleReleaseNotes)
 
       expect(result).toContain('New Features')
-      expect(result).not.toContain('')
+      expect(result).not.toContain('新功能')
     })
 
     it('returns English notes for other languages', () => {
@@ -244,7 +244,7 @@ describe('AppUpdaterService', () => {
       const result = (appUpdater as any).parseMultiLangReleaseNotes(sampleReleaseNotes)
 
       expect(result).toContain('New Features')
-      expect(result).not.toContain('')
+      expect(result).not.toContain('新功能')
     })
 
     it('handles release notes without language markers', () => {
@@ -293,12 +293,12 @@ describe('AppUpdaterService', () => {
         path: '',
         sha512: '',
         releaseDate: new Date().toISOString(),
-        releaseNotes: '<!--LANG:en-->English notes<!--LANG:zh-CN--><!--LANG:END-->'
+        releaseNotes: '<!--LANG:en-->English notes<!--LANG:zh-CN-->中文说明<!--LANG:END-->'
       } as UpdateInfo
 
       const result = (appUpdater as any).processReleaseInfo(releaseInfo)
 
-      expect(result.releaseNotes).toBe('')
+      expect(result.releaseNotes).toBe('中文说明')
     })
 
     it('leaves unmarked release notes unchanged', () => {

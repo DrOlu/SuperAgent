@@ -78,7 +78,7 @@ describe('TranslateWindow', () => {
     await waitFor(() => expect(state.translateText).toHaveBeenCalledTimes(1))
 
     await act(async () => {
-      firstRequest.resolve('')
+      firstRequest.resolve('你好')
       await firstRequest.promise
     })
 

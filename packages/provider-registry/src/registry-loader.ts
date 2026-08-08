@@ -166,7 +166,7 @@ export class RegistryLoader {
     for (const pm of this.providerModels!) {
       const key = `${pm.providerId}::${pm.modelId}`
       // `modelId` is NOT unique: a provider may serve one canonical model under several apiModelIds
-      // (tokenhub's dated  variants share `deepseek-v4-flash`). The canonical key must resolve to
+      // (tokenhub's dated 原厂直供 variants share `deepseek-v4-flash`). The canonical key must resolve to
       // the undated/self variant (`apiModelId === modelId`) — the dated ones stay reachable only via the
       // apiModelId index below. Order-independent: a self variant claims the slot whenever it appears.
       if (!this.overrideByKey.has(key) || pm.apiModelId === pm.modelId) {

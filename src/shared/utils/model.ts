@@ -405,7 +405,7 @@ export const groupQwenModels = <T extends Pick<Model, 'id'> & Partial<Pick<Model
   return models.reduce<Record<string, T[]>>((groups, model) => {
     const modelId = getLowerBaseModelName(model.id)
     const prefixMatch = modelId.match(/^(qwen(?:\d+\.\d+|2(?:\.\d+)?|-\d+b|-(?:max|coder|vl)))/i)
-    const groupKey = prefixMatch ? prefixMatch[1] : model.group || ''
+    const groupKey = prefixMatch ? prefixMatch[1] : model.group || '其他'
 
     if (!groups[groupKey]) {
       groups[groupKey] = []

@@ -143,7 +143,7 @@ describe('useProviderApiKey', () => {
     const { result } = renderHook(() => useProviderApiKey('openai'))
 
     act(() => {
-      result.current.setInputApiKey('sk-')
+      result.current.setInputApiKey('sk-密钥')
     })
 
     await act(async () => {

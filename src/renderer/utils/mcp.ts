@@ -3,8 +3,8 @@ import { loggerService } from '@logger'
 const logger = loggerService.withContext('utils:mcp')
 
 /**
- * npm readme npx mcp config
- * @param {string} readme readme
+ * 从npm readme中提取 npx mcp config
+ * @param {string} readme readme字符串
  * @returns {Record<string, any> | null} mcp config sample
  */
 export function getMcpConfigSampleFromReadme(readme: string): Record<string, any> | null {

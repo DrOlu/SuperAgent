@@ -19,16 +19,16 @@ export const pickBidirectionalTarget = (
 }
 
 /**
- * 
+ * 获取双向翻译的目标语言
  *
  * Invariant: `sourceLanguage` must be one of the two entries in `languagePair`.
  * {@link determineTargetLanguage} is the only caller and guards this with
  * `isLanguageInPair` before invoking us; anything else would be a programming
  * error, so we throw instead of silently returning a guessed value.
  *
- * @param sourceLanguage 
- * @param languagePair 
- * @returns 
+ * @param sourceLanguage 检测到的源语言
+ * @param languagePair 配置的语言对
+ * @returns 目标语言
  */
 export const getTargetLanguageForBidirectional = (
   sourceLanguage: TranslateLangCode,
@@ -42,22 +42,22 @@ export const getTargetLanguageForBidirectional = (
 }
 
 /**
- * 
- * @param sourceLanguage 
- * @param languagePair 
- * @returns 
+ * 检查源语言是否在配置的语言对中
+ * @param sourceLanguage 检测到的源语言
+ * @param languagePair 配置的语言对
+ * @returns 是否在语言对中
  */
 const isLanguageInPair = (sourceLanguage: TranslateLangCode, languagePair: TranslateBidirectionalPair): boolean => {
   return [languagePair[0], languagePair[1]].includes(sourceLanguage)
 }
 
 /**
- * 
- * @param sourceLanguage 
- * @param targetLanguage 
- * @param isBidirectional 
- * @param bidirectionalPair 
- * @returns 
+ * 确定翻译的目标语言
+ * @param sourceLanguage 检测到的源语言
+ * @param targetLanguage 用户设置的目标语言
+ * @param isBidirectional 是否开启双向翻译
+ * @param bidirectionalPair 双向翻译的语言对
+ * @returns 处理结果对象
  */
 export const determineTargetLanguage = (
   sourceLanguage: TranslateLangCode,

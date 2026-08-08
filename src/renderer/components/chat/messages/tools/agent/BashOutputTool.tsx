@@ -149,7 +149,7 @@ export function BashOutputTool({
       )}
     </div>
   ) : (
-    //  XML 
+    // 原始输出（如果解析失败或非 XML 格式）
     truncatedRawOutput.data && (
       <div>
         <TerminalOutput content={truncatedRawOutput.data} />

@@ -74,7 +74,7 @@ export function getWebSearchParams(model: Model, provider: Provider | undefined)
 
 /**
  * Bailian splits built-in web search by endpoint. The Responses `{ type: 'web_search' }` tool is served
- * for the Qwen3.x line only — "Responses API  Qwen3.7 MaxQwen3.6Qwen3.5qwen3-max"
+ * for the Qwen3.x line only — "Responses API 仅支持 Qwen3.7 Max系列、Qwen3.6、Qwen3.5、qwen3-max"
  * (help.aliyun.com/zh/model-studio/web-search). The `qwen-plus` / `qwen-flash` / character aliases and the
  * hosted third-party models search through Chat Completions' `enable_search` instead (see
  * `getWebSearchParams`), so emitting the tool for them yields a provider error or an empty result.

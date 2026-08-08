@@ -168,10 +168,10 @@ vi.mock('../components/navigator', () => ({
       </button>
       <div data-testid="selected-base-id">{selectedBaseId}</div>
       <button type="button" onClick={() => onCreateGroup()}>
-        
+        新建分组
       </button>
       <button type="button" onClick={() => onCreateBase()}>
-        
+        新建知识库
       </button>
       {bases.map((base) => (
         <div key={base.id}>
@@ -415,7 +415,7 @@ vi.mock('../components/RestoreKnowledgeBaseDialog', () => ({
           onClick={async () => {
             const result = await restoreBase({
               sourceBaseId: base.id,
-              name: `${base.name}_`,
+              name: `${base.name}_副本`,
               embeddingModelId: 'openai::text-embedding-3-small',
               dimensions: 1024
             })
@@ -511,15 +511,15 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'common.loading': '...',
-          'common.back': '',
-          'knowledge.error.failed_to_delete': '',
-          'knowledge.error.failed_to_move': '',
-          'knowledge.empty': '',
-          'knowledge.empty_action': '',
-          'knowledge.empty_description': ' AI ',
-          'knowledge.groups.error.failed_to_delete': '',
-          'knowledge.title': ''
+          'common.loading': '加载中...',
+          'common.back': '返回',
+          'knowledge.error.failed_to_delete': '知识库删除失败',
+          'knowledge.error.failed_to_move': '知识库移动失败',
+          'knowledge.empty': '暂无知识库',
+          'knowledge.empty_action': '创建知识库',
+          'knowledge.empty_description': '与 AI 一起积累知识',
+          'knowledge.groups.error.failed_to_delete': '分组删除失败',
+          'knowledge.title': '知识库'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -941,7 +941,7 @@ describe('KnowledgePage', () => {
     expect(screen.queryByRole('button', { name: 'OpenRagConfig' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'OpenRecallTest' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
 
     expect(screen.queryByTestId('file-preview')).not.toBeInTheDocument()
     expect(screen.getByTestId('data-source-panel')).toHaveTextContent('1:idle')
@@ -973,7 +973,7 @@ describe('KnowledgePage', () => {
       expect(screen.getByTestId('data-source-panel')).toHaveAttribute('data-current-directory', 'directory-1')
     })
     fireEvent.click(screen.getByRole('button', { name: 'PreviewFile item-1' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
 
     expect(screen.getByTestId('data-source-panel')).toHaveAttribute('data-current-directory', 'directory-1')
     expect(mockUseKnowledgeItems).toHaveBeenLastCalledWith('base-1', 'directory-1')
@@ -1128,7 +1128,7 @@ describe('KnowledgePage', () => {
 
     render(<KnowledgePage />)
 
-    expect(screen.getByText('...')).toBeInTheDocument()
+    expect(screen.getByText('加载中...')).toBeInTheDocument()
     expect(screen.queryByTestId('detail-header')).not.toBeInTheDocument()
   })
 
@@ -1142,14 +1142,14 @@ describe('KnowledgePage', () => {
 
     render(<KnowledgePage />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText(' AI ')).toBeInTheDocument()
+    expect(screen.getByText('暂无知识库')).toBeInTheDocument()
+    expect(screen.getByText('与 AI 一起积累知识')).toBeInTheDocument()
     expect(screen.queryByTestId('detail-header')).not.toBeInTheDocument()
     // A full-screen page replaces the two-pane shell, so the navigator — and with it
     // the only other way to create a base — is gone; the CTA has to carry creation.
     expect(screen.queryByTestId('navigator-width')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建知识库' }))
 
     expect(screen.getByTestId('create-dialog')).toBeInTheDocument()
   })
@@ -1171,7 +1171,7 @@ describe('KnowledgePage', () => {
 
     render(<KnowledgePage />)
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建分组' }))
     expect(screen.getByTestId('create-group-dialog')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit Create Group' }))
@@ -1241,7 +1241,7 @@ describe('KnowledgePage', () => {
     // the cancelled pending move must not leak into the second creation.
     fireEvent.click(screen.getByRole('button', { name: 'CreateGroupForBase Base 1' }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Create Group' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建分组' }))
     fireEvent.click(screen.getByRole('button', { name: 'Submit Create Group' }))
 
     await waitFor(() => {
@@ -1324,7 +1324,7 @@ describe('KnowledgePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'DeleteGroup Research' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': delete failed')
+      expect(toast.error).toHaveBeenCalledWith('分组删除失败: delete failed')
     })
   })
 
@@ -1378,7 +1378,7 @@ describe('KnowledgePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete Base 1' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': delete failed')
+      expect(toast.error).toHaveBeenCalledWith('知识库删除失败: delete failed')
     })
   })
 
@@ -1463,7 +1463,7 @@ describe('KnowledgePage', () => {
 
     const { rerender } = render(<KnowledgePage />)
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建知识库' }))
     expect(screen.getByTestId('create-dialog')).toBeInTheDocument()
     expect(screen.getByTestId('create-dialog-groups')).toHaveTextContent('Research,Archive')
 
@@ -1502,7 +1502,7 @@ describe('KnowledgePage', () => {
 
     const { rerender } = render(<KnowledgePage />)
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建知识库' }))
     fireEvent.click(screen.getByRole('button', { name: 'Submit Create' }))
 
     await waitFor(() => expect(screen.getByTestId('selected-base-id')).toHaveTextContent('base-2'))
@@ -1557,7 +1557,7 @@ describe('KnowledgePage', () => {
     })
     const restoredBase = createKnowledgeBase({
       id: 'restored-base',
-      name: 'Legacy KB_',
+      name: 'Legacy KB_副本',
       groupId: 'group-1',
       status: 'completed',
       error: null,
@@ -1605,7 +1605,7 @@ describe('KnowledgePage', () => {
     await waitFor(() =>
       expect(restoreBase).toHaveBeenCalledWith({
         sourceBaseId: 'failed-base',
-        name: 'Legacy KB_',
+        name: 'Legacy KB_副本',
         embeddingModelId: 'openai::text-embedding-3-small',
         dimensions: 1024
       })
@@ -1616,7 +1616,7 @@ describe('KnowledgePage', () => {
     rerender(<KnowledgePage />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('detail-header')).toHaveTextContent('Legacy KB_')
+      expect(screen.getByTestId('detail-header')).toHaveTextContent('Legacy KB_副本')
     })
     expect(screen.queryByTestId('restore-dialog')).not.toBeInTheDocument()
     expect(screen.getByTestId('selected-base-id')).toHaveTextContent('restored-base')
@@ -1634,7 +1634,7 @@ describe('KnowledgePage', () => {
     })
     const restoredBase = createKnowledgeBase({
       id: 'restored-base',
-      name: 'Legacy KB_',
+      name: 'Legacy KB_副本',
       groupId: 'group-1',
       status: 'completed',
       error: null,
@@ -1693,7 +1693,7 @@ describe('KnowledgePage', () => {
     expect(screen.getByTestId('create-dialog-initial-group-id')).toHaveTextContent('group-2')
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Create' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建知识库' }))
 
     expect(screen.getByTestId('create-dialog-initial-group-id')).toBeEmptyDOMElement()
 
@@ -1833,7 +1833,7 @@ describe('KnowledgePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Move Base 1' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': move failed')
+      expect(toast.error).toHaveBeenCalledWith('知识库移动失败: move failed')
     })
   })
 })

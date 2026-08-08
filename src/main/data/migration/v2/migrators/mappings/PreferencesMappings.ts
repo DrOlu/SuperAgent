@@ -9,9 +9,9 @@
  */
 
 /**
- * ElectronStore - 
+ * ElectronStore映射关系 - 简单一层结构
  *
- * ElectronStoreoriginalKeyconfigManager.get(key)
+ * ElectronStore没有嵌套，originalKey直接对应configManager.get(key)
  */
 export const ELECTRON_STORE_MAPPINGS = [
   {
@@ -25,12 +25,12 @@ export const ELECTRON_STORE_MAPPINGS = [
 ] as const
 
 /**
- * Redux Store - category
+ * Redux Store映射关系 - 按category分组，支持嵌套路径
  *
- * Redux StorechildrenoriginalKey:
- * - : "theme" -> reduxData.settings.theme
- * - : "codeEditor.enabled" -> reduxData.settings.codeEditor.enabled
- * - : "exportMenuOptions.docx" -> reduxData.settings.exportMenuOptions.docx
+ * Redux Store可能有children结构，originalKey可能包含嵌套路径:
+ * - 直接字段: "theme" -> reduxData.settings.theme
+ * - 嵌套字段: "codeEditor.enabled" -> reduxData.settings.codeEditor.enabled
+ * - 多层嵌套: "exportMenuOptions.docx" -> reduxData.settings.exportMenuOptions.docx
  */
 export const REDUX_STORE_MAPPINGS = {
   settings: [
@@ -750,7 +750,7 @@ export const REDUX_STORE_MAPPINGS = {
 } as const
 
 /**
- * Dexie Settings - KV
+ * Dexie Settings映射关系 - 简单KV结构
  *
  * Maps Dexie IndexedDB `settings` table keys (id field) to new preference target keys.
  * The settings table uses a simple KV structure: { id: string, value: any }.
@@ -783,7 +783,7 @@ export const DEXIE_SETTINGS_MAPPINGS: ReadonlyArray<{ originalKey: string; targe
 ] as const
 
 /**
- * localStorage - KV
+ * localStorage映射关系 - 简单KV结构
  *
  * Maps browser localStorage keys to new preference target keys.
  * localStorage stores various UI state and provider tokens.
@@ -797,17 +797,17 @@ export const LOCALSTORAGE_MAPPINGS: ReadonlyArray<{ originalKey: string; targetK
 // === AUTO-GENERATED CONTENT END ===
 
 /**
- * :
- * - ElectronStore: 2
- * - Redux Store: 174
- * - Redux: settings, selectionStore, llm, nutstore, preprocess, translate, websearch, ocr, note
- * - DexieSettings: 5
- * - localStorage: 0
- * - : 181
+ * 映射统计:
+ * - ElectronStore项: 2
+ * - Redux Store项: 174
+ * - Redux分类: settings, selectionStore, llm, nutstore, preprocess, translate, websearch, ocr, note
+ * - DexieSettings项: 5
+ * - localStorage项: 0
+ * - 总配置项: 181
  *
- * :
- * 1. ElectronStore: configManager.get(mapping.originalKey)
- * 2. Redux:  reduxData[category][originalKey]
- * 3. DexieSettings: ctx.sources.dexieSettings.get(mapping.originalKey)
- * 4. : defaultPreferences.default[mapping.targetKey]
+ * 使用说明:
+ * 1. ElectronStore读取: configManager.get(mapping.originalKey)
+ * 2. Redux读取: 需要解析嵌套路径 reduxData[category][originalKey路径]
+ * 3. DexieSettings读取: ctx.sources.dexieSettings.get(mapping.originalKey)
+ * 4. 默认值: 从defaultPreferences.default[mapping.targetKey]获取
  */

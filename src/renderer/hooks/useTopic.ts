@@ -81,7 +81,7 @@ export async function getTopicById(topicId: string): Promise<RendererTopic> {
 }
 
 /**
- * 
+ * 开始重命名指定话题
  */
 export const startTopicRenaming = (topicId: string) => {
   const currentIds = cacheService.get('topic.renaming') ?? []
@@ -91,10 +91,10 @@ export const startTopicRenaming = (topicId: string) => {
 }
 
 /**
- * 
+ * 完成重命名指定话题
  */
 export const finishTopicRenaming = (topicId: string) => {
-  // 1.  renamingTopics 
+  // 1. 立即从 renamingTopics 移除
   const renamingTopics = cacheService.get('topic.renaming')
   if (renamingTopics && renamingTopics.includes(topicId)) {
     cacheService.set(
@@ -103,11 +103,11 @@ export const finishTopicRenaming = (topicId: string) => {
     )
   }
 
-  // 2.  newlyRenamedTopics
+  // 2. 立即添加到 newlyRenamedTopics
   const currentNewlyRenamed = cacheService.get('topic.newly_renamed') ?? []
   cacheService.set('topic.newly_renamed', [...currentNewlyRenamed, topicId])
 
-  // 3.  newlyRenamedTopics 
+  // 3. 延迟从 newlyRenamedTopics 移除
   setTimeout(() => {
     const current = cacheService.get('topic.newly_renamed') ?? []
     cacheService.set(

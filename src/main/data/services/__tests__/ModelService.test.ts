@@ -311,20 +311,20 @@ describe('ModelService.update', () => {
           providerId: 'tokenhub',
           modelId: 'deepseek-v4-flash',
           apiModelId: isDatedVariant ? apiModelId : 'deepseek-v4-flash',
-          ...(isDatedVariant ? { name: 'DeepSeek-V4-Flash ' } : {})
+          ...(isDatedVariant ? { name: 'DeepSeek-V4-Flash 原厂直供' } : {})
         },
         reasoningProfile: OPENAI_CHAT_REASONING_PROFILE
       }
     })
 
-    const updated = modelService.update('tokenhub', apiModelId, { name: 'DeepSeek-V4-Flash ' })
+    const updated = modelService.update('tokenhub', apiModelId, { name: 'DeepSeek-V4-Flash 原厂直供' })
 
     const [row] = await dbh.db
       .select()
       .from(userModelTable)
       .where(eq(userModelTable.id, createUniqueModelId('tokenhub', apiModelId)))
     expect(row.name).toBeNull()
-    expect(updated.name).toBe('DeepSeek-V4-Flash ')
+    expect(updated.name).toBe('DeepSeek-V4-Flash 原厂直供')
     expect(lookupModelMock).toHaveBeenNthCalledWith(1, 'tokenhub', apiModelId, undefined)
   })
 
@@ -1021,7 +1021,7 @@ describe('ModelService.list — registry enrichment', () => {
           apiModelId: isDatedVariant ? apiModelId : 'deepseek-v4-flash',
           ...(isDatedVariant
             ? {
-                name: 'DeepSeek-V4-Flash ',
+                name: 'DeepSeek-V4-Flash 原厂直供',
                 limits: { contextWindow: 131_072 }
               }
             : {})
@@ -1035,7 +1035,7 @@ describe('ModelService.list — registry enrichment', () => {
     expect(model).toMatchObject({
       apiModelId,
       presetModelId: 'deepseek-v4-flash',
-      name: 'DeepSeek-V4-Flash ',
+      name: 'DeepSeek-V4-Flash 原厂直供',
       contextWindow: 131_072
     })
     expect(lookupModelMock).toHaveBeenCalledWith('tokenhub', apiModelId, expect.any(Map))

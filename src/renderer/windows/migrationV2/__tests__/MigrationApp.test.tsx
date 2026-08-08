@@ -576,7 +576,7 @@ describe('MigrationApp', () => {
   })
 
   it('does not claim all data is unchanged when skipping fails', () => {
-    expect(zhCN.migration.skip_dialog.failed).toBe('')
+    expect(zhCN.migration.skip_dialog.failed).toBe('跳过迁移失败，请重试。')
     expect(enUS.migration.skip_dialog.failed).toBe('Failed to skip migration. Please try again.')
   })
 

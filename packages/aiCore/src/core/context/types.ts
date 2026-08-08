@@ -1,5 +1,5 @@
 /**
- * Context (IR)
+ * Context 模块内部表示(IR)类型。
  *
  * Vendored from @context-chef/core 3.8.0 (MIT, same author) — trimmed to the
  * surface SuperAgent consumes: the IR message shape shared by the

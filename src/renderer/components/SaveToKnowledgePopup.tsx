@@ -74,7 +74,7 @@ const CONTENT_TYPE_CONFIG = {
   }
 } as const
 
-// Tag 
+// Tag 颜色常量
 const TAG_COLORS = {
   SELECTED: '#008001',
   UNSELECTED: '#8c8c8c'
@@ -147,7 +147,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
   const isConversationMode = isTopicMode || isMessagesMode
   const isNoteMode = source?.type === 'note'
 
-  // 
+  // 异步分析内容统计
   useEffect(() => {
     const analyze = async () => {
       if (isNoteMode) {
@@ -185,7 +185,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
     void analyze()
   }, [source, isTopicMode, isMessagesMode, isConversationMode, isNoteMode])
 
-  // 
+  // 生成内容类型选项
   const contentTypeOptions: ContentTypeOption[] = useMemo(() => {
     if (!contentStats || isNoteMode) return []
 
@@ -208,7 +208,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
       .filter((option) => option.enabled)
   }, [contentStats, t, isConversationMode, isNoteMode])
 
-  // 
+  // 知识库选项
   const knowledgeBaseOptions = useMemo(
     () =>
       bases.map((base) => ({
@@ -219,7 +219,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
     [bases]
   )
 
-  // 
+  // 表单状态
   const formState = useMemo(() => {
     const hasValidBase = selectedBaseId && bases.find((base) => base.id === selectedBaseId)?.status === 'completed'
     const hasContent = isNoteMode || contentTypeOptions.length > 0
@@ -241,7 +241,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
     }
   }, [selectedBaseId, bases, contentTypeOptions, selectedTypes, isNoteMode])
 
-  // 
+  // 默认选择第一个可用知识库
   useEffect(() => {
     if (!selectedBaseId) {
       const firstAvailableBase = bases.find((base) => base.status === 'completed')
@@ -251,7 +251,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
     }
   }, [bases, selectedBaseId])
 
-  // 
+  // 默认选择所有可用内容类型
   useEffect(() => {
     if (!hasInitialized && contentTypeOptions.length > 0 && !isNoteMode) {
       setSelectedTypes(contentTypeOptions.map((option) => option.type))
@@ -259,7 +259,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
     }
   }, [contentTypeOptions, hasInitialized, isNoteMode])
 
-  // UI
+  // UI状态
   const uiState = useMemo(() => {
     if (analysisLoading) {
       return { type: 'loading', message: t('chat.save.topic.knowledge.loading') }
@@ -337,7 +337,7 @@ const PopupContainer: React.FC<Props> = ({ dialogTitle, source, sourceTitle, ope
         })
         savedCount = 1
       } else {
-        // 
+        // 原有的消息或主题处理逻辑
         const result = isTopicMode
           ? await processTopicContent(source?.data, selectedTypes)
           : isMessagesMode

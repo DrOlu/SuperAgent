@@ -151,7 +151,7 @@ export function WebdavBackupManager({
 
     setDeleting(true)
     try {
-      // 
+      // 依次删除选中的文件
       for (const key of selectedRowKeys) {
         await window.api.backup.deleteWebdavFile(key.toString(), {
           webdavHost,
@@ -223,7 +223,7 @@ export function WebdavBackupManager({
     try {
       await (restoreMethod || restoreFromWebdav)(fileName)
       toast.success(t('settings.data.webdav.backup.manager.restore.success'))
-      onClose() // 
+      onClose() // 关闭模态框
     } catch (error) {
       toast.error(getLocalizedBackupErrorMessage(error, 'settings.data.webdav.backup.manager.restore.error'))
     } finally {

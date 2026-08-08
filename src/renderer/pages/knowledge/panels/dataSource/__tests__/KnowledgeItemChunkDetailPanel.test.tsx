@@ -58,11 +58,11 @@ const chunks: KnowledgeItemChunk[] = [
   {
     id: 'chunk-1',
     itemId: 'file-1',
-    content: ' chunk ',
+    content: '真实 chunk 内容一',
     metadata: {
       itemId: 'file-1',
       itemType: 'file',
-      source: '/tmp/RAG .pdf',
+      source: '/tmp/RAG 技术指南.pdf',
       chunkIndex: 0,
       tokenCount: 145
     }
@@ -70,11 +70,11 @@ const chunks: KnowledgeItemChunk[] = [
   {
     id: 'chunk-2',
     itemId: 'file-1',
-    content: ' chunk ',
+    content: '真实 chunk 内容二',
     metadata: {
       itemId: 'file-1',
       itemType: 'file',
-      source: '/tmp/RAG .pdf',
+      source: '/tmp/RAG 技术指南.pdf',
       chunkIndex: 1,
       tokenCount: 88
     }
@@ -111,7 +111,7 @@ vi.mock('@logger', () => ({
 }))
 
 vi.mock('@renderer/utils/time', () => ({
-  formatRelativeTime: () => ''
+  formatRelativeTime: () => '刚刚'
 }))
 
 vi.mock('@renderer/pages/knowledge/utils/error', () => ({
@@ -135,12 +135,12 @@ vi.mock('react-i18next', () => ({
       return (
         (
           {
-            'common.back': '',
-            'common.loading': '',
-            'knowledge.data_source.empty_description': '',
-            'knowledge.data_source.filters.file': '',
+            'common.back': '返回',
+            'common.loading': '加载中',
+            'knowledge.data_source.empty_description': '暂无数据源',
+            'knowledge.data_source.filters.file': '文件',
             'knowledge.rag.tokens_unit': 'tokens',
-            'knowledge.data_source.status.ready': ''
+            'knowledge.data_source.status.ready': '就绪'
           } as Record<string, string>
         )[key] ?? key
       )
@@ -156,7 +156,7 @@ describe('KnowledgeItemChunkDetailPanel', () => {
     mockUseQuery.mockImplementation((path: string) => {
       if (path === '/knowledge-items/:id') {
         return {
-          data: createFileItem({ id: 'file-1', originName: 'RAG .pdf' }),
+          data: createFileItem({ id: 'file-1', originName: 'RAG 技术指南.pdf' }),
           isLoading: false,
           error: undefined
         }
@@ -194,7 +194,7 @@ describe('KnowledgeItemChunkDetailPanel', () => {
 
     expect(screen.getByText('fallback.md')).toBeInTheDocument()
     expect(screen.getByText('0 chunks')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('加载中')).toBeInTheDocument()
 
     await waitFor(() => {
       expect(screen.getByText(`${chunks.length} chunks`)).toBeInTheDocument()
@@ -207,8 +207,8 @@ describe('KnowledgeItemChunkDetailPanel', () => {
     expect(mockIpcRequest).toHaveBeenCalledWith('knowledge.list_item_chunks', { baseId: 'base-1', itemId: 'file-1' })
     expect(screen.getByText('145 tokens')).toBeInTheDocument()
     expect(screen.getByText('88 tokens')).toBeInTheDocument()
-    expect(screen.getByText(' chunk ')).toBeInTheDocument()
-    expect(screen.getByText(' chunk ')).toBeInTheDocument()
+    expect(screen.getByText('真实 chunk 内容一')).toBeInTheDocument()
+    expect(screen.getByText('真实 chunk 内容二')).toBeInTheDocument()
     // chunk index badges are 1-based (chunkIndex 0/1 render as 1/2)
     expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
@@ -220,9 +220,9 @@ describe('KnowledgeItemChunkDetailPanel', () => {
     await waitFor(() => {
       expect(screen.getByText(`${chunks.length} chunks`)).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '删除' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '编辑' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '展开' })).not.toBeInTheDocument()
   })
 
   it('virtualizes large chunk lists with stable chunk ids', async () => {
@@ -280,7 +280,7 @@ describe('KnowledgeItemChunkDetailPanel', () => {
     renderPanel()
 
     await waitFor(() => {
-      expect(screen.getByText('')).toBeInTheDocument()
+      expect(screen.getByText('暂无数据源')).toBeInTheDocument()
     })
     expect(screen.getByText('0 chunks')).toBeInTheDocument()
   })
@@ -294,7 +294,7 @@ describe('KnowledgeItemChunkDetailPanel', () => {
       expect(screen.getByText(`${chunks.length} chunks`)).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
 
     expect(onBack).toHaveBeenCalledTimes(1)
   })

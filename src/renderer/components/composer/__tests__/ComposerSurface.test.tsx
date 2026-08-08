@@ -1451,18 +1451,18 @@ describe('ComposerSurface', () => {
     expect(mocks.transaction.setNodeMarkup).not.toHaveBeenCalled()
 
     mocks.editorViewComposing = false
-    expect(mocks.editorOptions.editorProps.handleDOMEvents.compositionend(null, { data: '' })).toBe(true)
+    expect(mocks.editorOptions.editorProps.handleDOMEvents.compositionend(null, { data: '上海' })).toBe(true)
     expect(mocks.transaction.setNodeMarkup).toHaveBeenCalledWith(
       5,
       undefined,
       expect.objectContaining({
-        label: '',
-        promptText: ''
+        label: '上海',
+        promptText: '上海'
       })
     )
     expect(mocks.dispatch).toHaveBeenCalledWith(mocks.transaction)
 
-    expect(mocks.editorOptions.editorProps.handleTextInput(null, 5, 6, '')).toBe(true)
+    expect(mocks.editorOptions.editorProps.handleTextInput(null, 5, 6, '上海')).toBe(true)
     expect(mocks.transaction.setNodeMarkup).toHaveBeenCalledTimes(1)
   })
 
@@ -2328,7 +2328,7 @@ describe('ComposerSurface', () => {
     await waitFor(() => expect(mocks.editorPresetOptions).toBeDefined())
 
     const commaSource = mocks.editorPresetOptions.suggestionSources[1]
-    expect(commaSource.char).toBe('')
+    expect(commaSource.char).toBe('、')
     expect(commaSource.renderMode).toBe('headless')
     expect(commaSource.allowedPrefixes).toEqual([' ', '\n', '\t'])
     expect(commaSource.items({ query: 'image' })).toEqual([])
@@ -2343,7 +2343,7 @@ describe('ComposerSurface', () => {
       },
       range: { from: 1, to: 6 },
       query: 'image',
-      text: 'image',
+      text: '、image',
       items: []
     })
 
@@ -2356,7 +2356,7 @@ describe('ComposerSurface', () => {
         triggerInfo: {
           type: 'input',
           position: 0,
-          originalText: 'image'
+          originalText: '、image'
         },
         trackInputQuery: true
       })
@@ -2554,7 +2554,7 @@ describe('ComposerSurface', () => {
     }
     const commaOptions = {
       ...slashOptions,
-      text: ''
+      text: '、'
     }
 
     slashSource.onActiveChange(slashOptions)
@@ -2881,14 +2881,14 @@ describe('ComposerSurface', () => {
     const pastedFile = {
       id: 'file-1',
       name: 'pasted_text.txt',
-      origin_name: '.txt',
+      origin_name: '已粘贴的文本.txt',
       path: '/tmp/pasted_text.txt',
       composerFileKind: COMPOSER_FILE_KIND.PASTED_TEXT
     }
     const pastedToken = {
       id: 'file:file-1',
       kind: 'file' as const,
-      label: '.txt',
+      label: '已粘贴的文本.txt',
       payload: pastedFile
     }
     const setFiles = vi.fn()
@@ -3069,14 +3069,14 @@ describe('ComposerSurface', () => {
     onTokensChange.mockClear()
 
     act(() => {
-      mocks.editorOptions.onUpdate({ editor: createEditor('') })
+      mocks.editorOptions.onUpdate({ editor: createEditor('上海') })
     })
 
     expect(onTokensChange).toHaveBeenCalledWith([
       expect.objectContaining({
         kind: 'promptVariable',
-        label: '',
-        promptText: ''
+        label: '上海',
+        promptText: '上海'
       })
     ])
   })
@@ -3236,7 +3236,7 @@ describe('ComposerSurface', () => {
     const event = {
       preventDefault,
       clipboardData: {
-        getData: vi.fn((type: string) => (type === 'text/plain' ? '/find-skills/ /pdf/ ' : ''))
+        getData: vi.fn((type: string) => (type === 'text/plain' ? '/find-skills/ /pdf/ 你好' : ''))
       }
     }
 
@@ -3265,7 +3265,7 @@ describe('ComposerSurface', () => {
             promptText: 'Use the PDF skill.'
           }
         },
-        { type: 'text', text: ' ' }
+        { type: 'text', text: ' 你好' }
       ])
     )
     expect(resolveSkillMarker).toHaveBeenCalledWith('find-skills')
@@ -4259,13 +4259,13 @@ describe('ComposerSurface', () => {
       editor: {
         state: {
           doc: {
-            textBetween: vi.fn(() => '')
+            textBetween: vi.fn(() => '你好')
           }
         }
       },
       range: { from: 3, to: 4 },
       query: '',
-      text: '',
+      text: '、',
       items: []
     })
 
@@ -4282,7 +4282,7 @@ describe('ComposerSurface', () => {
       editor: {
         state: {
           doc: {
-            textBetween: vi.fn((_from: number, to: number) => (to === 7 ? 'hello ' : 'hello i'))
+            textBetween: vi.fn((_from: number, to: number) => (to === 7 ? 'hello ' : 'hello 、i'))
           },
           selection: {
             from: 9
@@ -4291,7 +4291,7 @@ describe('ComposerSurface', () => {
       },
       range: { from: 7, to: 13 },
       query: 'image',
-      text: 'image',
+      text: '、image',
       items: []
     })
 
@@ -4372,7 +4372,7 @@ describe('ComposerSurface', () => {
     }
     const commaOptions = {
       ...slashOptions,
-      text: ''
+      text: '、'
     }
 
     slashSource.onActiveChange(slashOptions)

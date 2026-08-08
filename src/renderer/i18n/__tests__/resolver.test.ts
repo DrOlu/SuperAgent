@@ -23,7 +23,7 @@ describe('renderer i18n lazy init', () => {
 
     expect(i18n.language).toBe('zh-CN')
     expect(i18n.hasResourceBundle('zh-CN', 'translation')).toBe(true)
-    expect(i18n.t('common.copy')).toBe('')
+    expect(i18n.t('common.copy')).toBe('复制')
   })
 
   it('lazy-loads a not-yet-loaded pack when switching language', async () => {

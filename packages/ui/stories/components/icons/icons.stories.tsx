@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 
 import { AddCategory, AiPrompt, CodeAi, MessageAi1 } from '../../../src/components/icons/general'
 
-// Icon 
+// Icon 列表，包含组件和名称
 const icons = [
   { Component: AddCategory, name: 'AddCategory' },
   { Component: AiPrompt, name: 'AiPrompt' },
@@ -42,7 +42,7 @@ const meta: Meta<typeof IconsShowcase> = {
   argTypes: {
     fontSize: {
       control: { type: 'number', min: 16, max: 64, step: 4 },
-      description: 'Icon  fontSize  1em ',
+      description: 'Icon 大小（通过 fontSize 控制，因为图标使用 1em 单位）',
       defaultValue: 32
     }
   }
@@ -52,27 +52,27 @@ export default meta
 type Story = StoryObj<typeof IconsShowcase>
 
 /**
- *  4 
+ * 展示当前保留的 4 个通用图标
  *
- *  SVGR  `icon: true` 
- * -  `width="1em"`  `height="1em"` `fontSize`
- * -  SVG clipPath 
- * -  SVG propsclassName, style, onClick 
+ * 这些图标使用 SVGR 的 `icon: true` 选项生成，具有以下特点：
+ * - 使用 `width="1em"` 和 `height="1em"`，响应父元素的 `fontSize`
+ * - 保留所有原始 SVG 属性（颜色、渐变、clipPath 等）
+ * - 支持标准的 SVG props（className, style, onClick 等）
  *
- * ## 
+ * ## 使用示例
  *
  * ```tsx
  * import { CodeAi } from '@cherrystudio/ui/icons'
  *
- * //  fontSize 
+ * // 通过 fontSize 控制大小
  * <div style={{ fontSize: 24 }}>
  *   <CodeAi />
  * </div>
  *
- * //  className Tailwind
+ * // 通过 className 控制（Tailwind）
  * <CodeAi className="text-2xl" />
  *
- * //  SVG props
+ * // 使用标准 SVG props
  * <CodeAi className="hover:opacity-80" onClick={handleClick} />
  * ```
  */

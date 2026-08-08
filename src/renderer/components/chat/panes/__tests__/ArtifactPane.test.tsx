@@ -678,9 +678,9 @@ describe('ArtifactPane', () => {
   })
 
   it('resolves absolute file paths outside the workspace from their parent directory', () => {
-    expect(resolveArtifactPaneFileSelection('/tmp/workspace', '/Users/suyao/Desktop/.md')).toEqual({
+    expect(resolveArtifactPaneFileSelection('/tmp/workspace', '/Users/suyao/Desktop/记忆商人.md')).toEqual({
       workspacePath: '/Users/suyao/Desktop',
-      filePath: '.md'
+      filePath: '记忆商人.md'
     })
   })
 
@@ -959,18 +959,18 @@ describe('ArtifactPane', () => {
       <ArtifactPane
         previewFileSelection={{
           workspacePath: '/Users/suyao/Desktop',
-          filePath: '.md'
+          filePath: '记忆商人.md'
         }}
       />
     )
 
     const overlay = await screen.findByTestId('artifact-file-preview-overlay')
-    expect(overlay).toHaveTextContent('.md')
-    expect(screen.getByTestId('file-preview')).toHaveAttribute('data-file-path', '/Users/suyao/Desktop/.md')
+    expect(overlay).toHaveTextContent('记忆商人.md')
+    expect(screen.getByTestId('file-preview')).toHaveAttribute('data-file-path', '/Users/suyao/Desktop/记忆商人.md')
     expect(mocks.treeCreate).not.toHaveBeenCalled()
 
     fireEvent.click(within(overlay).getByRole('button', { name: 'Open in Finder' }))
-    await waitFor(() => expect(mocks.showInFolder).toHaveBeenCalledWith('/Users/suyao/Desktop/.md'))
+    await waitFor(() => expect(mocks.showInFolder).toHaveBeenCalledWith('/Users/suyao/Desktop/记忆商人.md'))
   })
 
   it('clears the standalone preview overlay when the watcher reports the selected file was removed', async () => {
@@ -1462,7 +1462,7 @@ describe('ArtifactPane', () => {
   })
 
   it('autosaves an oversized in-memory draft — the size cap gates loading for edit, not writing', async () => {
-    const oversizedDraft = ''.repeat(Math.floor(ARTIFACT_PREVIEW_MAX_SIZE_BYTES / 3) + 1)
+    const oversizedDraft = '你'.repeat(Math.floor(ARTIFACT_PREVIEW_MAX_SIZE_BYTES / 3) + 1)
     const oversizedDraftBytes = new Blob([oversizedDraft]).size
     expect(oversizedDraftBytes).toBeGreaterThan(ARTIFACT_PREVIEW_MAX_SIZE_BYTES)
     let diskSize = 1024

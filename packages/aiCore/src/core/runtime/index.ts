@@ -1,12 +1,12 @@
 /**
- * Runtime 
- * AI
+ * Runtime 模块导出
+ * 专注于运行时插件化AI调用处理
  */
 
-// 
+// 主要的运行时执行器
 export { RuntimeExecutor } from './executor'
 
-// 
+// 导出类型
 export type {
   EmbedManyParams,
   EmbedManyResult,
@@ -17,7 +17,7 @@ export type {
   RuntimeProviderCallHandler
 } from './types'
 
-// ===  ===
+// === 便捷工厂函数 ===
 
 import { type AiPlugin } from '../plugins'
 import { extensionRegistry } from '../providers'
@@ -25,8 +25,8 @@ import { type CoreProviderSettingsMap, type StringKeys } from '../providers/type
 import { RuntimeExecutor } from './executor'
 
 /**
- *  - provider
- *  provider 
+ * 创建运行时执行器 - 支持类型安全的已知provider
+ * 自动确保 provider 已初始化
  */
 export async function createExecutor<
   TSettingsMap extends Record<string, any> = CoreProviderSettingsMap,
@@ -46,7 +46,7 @@ export async function createExecutor<
 }
 
 /**
- * 
+ * 直接流式文本生成
  */
 export async function streamText<
   TSettingsMap extends Record<string, any> = CoreProviderSettingsMap,
@@ -62,7 +62,7 @@ export async function streamText<
 }
 
 /**
- * 
+ * 直接生成文本
  */
 export async function generateText<
   TSettingsMap extends Record<string, any> = CoreProviderSettingsMap,
@@ -78,7 +78,7 @@ export async function generateText<
 }
 
 /**
- *  - middlewares
+ * 直接生成图像 - 支持middlewares
  */
 export async function generateImage<
   TSettingsMap extends Record<string, any> = CoreProviderSettingsMap,
@@ -94,8 +94,8 @@ export async function generateImage<
 }
 
 /**
- * 
- * AI SDK v6  embedMany embed
+ * 直接批量嵌入文本
+ * AI SDK v6 只有 embedMany，没有 embed
  */
 export async function embedMany<
   TSettingsMap extends Record<string, any> = CoreProviderSettingsMap,
@@ -124,7 +124,7 @@ export async function rerank<
 }
 
 /**
- *  OpenAI Compatible 
+ * 创建 OpenAI Compatible 执行器
  */
 export async function createOpenAICompatibleExecutor(
   options: CoreProviderSettingsMap['openai-compatible'],

@@ -48,7 +48,7 @@ describe('ShikiStreamService', () => {
   const theme = 'one-light'
   const callerId = 'test-caller'
 
-  // 
+  // 保证每次测试环境干净
   beforeEach(() => {
     workerMocks.failInit = false
     workerMocks.terminate.mockClear()
@@ -72,7 +72,7 @@ describe('ShikiStreamService', () => {
 
     it('should fallback to main thread if worker initialization fails', async () => {
       const originalWorker = globalThis.Worker
-      // @ts-ignore:  Worker 
+      // @ts-ignore: 强制删除 Worker 构造函数
       globalThis.Worker = undefined
 
       const code = 'const y = 2;'
@@ -82,7 +82,7 @@ describe('ShikiStreamService', () => {
       expect(result.lines.length).toBeGreaterThan(0)
       expect(result.recall).toBe(0)
 
-      // @ts-ignore:  Worker 
+      // @ts-ignore: 恢复 Worker 构造函数
       globalThis.Worker = originalWorker
     })
 
@@ -104,11 +104,11 @@ describe('ShikiStreamService', () => {
 
     beforeEach(() => {
       originalWorker = globalThis.Worker
-      // @ts-ignore:  Worker 
+      // @ts-ignore: 强制删除 Worker 构造函数
       globalThis.Worker = undefined
     })
     afterEach(() => {
-      // @ts-ignore:  Worker 
+      // @ts-ignore: 恢复 Worker 构造函数
       globalThis.Worker = originalWorker
     })
 
@@ -117,11 +117,11 @@ describe('ShikiStreamService', () => {
       const code2 = 'const b = 2;'
       const cacheKey = `${callerId}-${language}-${theme}`
 
-      //  tokenizer
+      // 先高亮一次，创建 tokenizer
       await shikiStreamService.highlightCodeChunk(code1, language, theme, callerId)
       const tokenizer1 = getTokenizerCache().get(cacheKey)
 
-      //  tokenizer
+      // 再高亮一次，应该复用 tokenizer
       await shikiStreamService.highlightCodeChunk(code2, language, theme, callerId)
       const tokenizer2 = getTokenizerCache().get(cacheKey)
 
@@ -185,16 +185,16 @@ describe('ShikiStreamService', () => {
       const cacheKey = `${callerId}-${language}-${theme}`
       expect(getTokenizerCache().has(cacheKey)).toBe(true)
 
-      // 
+      // 并发高亮和清理
       await Promise.all([
         shikiStreamService.highlightCodeChunk(code, language, theme, callerId),
         Promise.resolve(shikiStreamService.cleanupTokenizers(callerId)),
         shikiStreamService.highlightCodeChunk(code, language, theme, callerId)
       ])
 
-      // 
+      // 高亮后缓存应该存在
       expect(getTokenizerCache().has(cacheKey)).toBe(true)
-      // 
+      // 最后清理
       shikiStreamService.cleanupTokenizers(callerId)
       expect(getTokenizerCache().has(cacheKey)).toBe(false)
     })
@@ -202,11 +202,11 @@ describe('ShikiStreamService', () => {
 
   describe('dispose', () => {
     it('should release all resources and reset state', async () => {
-      // 
+      // 先初始化资源
       const code = 'const x = 1;'
       await shikiStreamService.highlightCodeChunk(code, language, theme, callerId)
 
-      // mock 
+      // mock 关键方法
       const worker = (shikiStreamService as any).worker
       const workerTerminateSpy = worker ? vi.spyOn(worker, 'terminate') : undefined
       // Don't spy on highlighter.dispose() since it's managed by AsyncInitializer now
@@ -241,7 +241,7 @@ describe('ShikiStreamService', () => {
     })
 
     it('should be idempotent when called multiple times', () => {
-      //  dispose 
+      // 重复 dispose 不抛异常
       expect(() => {
         shikiStreamService.dispose()
         shikiStreamService.dispose()

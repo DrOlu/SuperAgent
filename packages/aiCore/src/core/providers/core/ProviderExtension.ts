@@ -7,48 +7,48 @@ import type { ProviderVariant, ToolFactoryMap } from '../types'
 export type ProviderCreatorFunction<TSettings = any> = (settings?: TSettings) => ProviderV3 | Promise<ProviderV3>
 
 /**
- * Provider 
- * 
- *  default 
+ * Provider 模块类型
+ * 动态导入的模块应该包含至少一个创建函数
+ * 允许 default 导出和其他属性
  */
 export type ProviderModule<TSettings = any> = Record<string, any> & {
   [K: string]: ProviderCreatorFunction<TSettings> | any
 }
 
 /**
- * Provider Extension 
+ * Provider Extension 配置基础接口
  *
- * @typeParam TSettings - Provider 
- * @typeParam TProvider -  provider  variants
- * @typeParam TName - Provider 
+ * @typeParam TSettings - Provider 配置类型
+ * @typeParam TProvider - 实际 provider 类型（用于 variants）
+ * @typeParam TName - Provider 名称类型（用于字面量推导）
  */
 interface ProviderExtensionConfigBase<
   TSettings = any,
   TProvider extends ProviderV3 = ProviderV3,
   TName extends string = string
 > {
-  /** Provider  */
+  /** Provider 唯一标识 */
   name: TName
 
-  /**  */
+  /** 别名列表（可选） */
   aliases?: readonly string[]
 
-  /**  */
+  /** 默认配置选项 */
   defaultOptions?: Partial<TSettings>
 
-  /**  */
+  /** 是否支持图像生成 */
   supportsImageGeneration?: boolean
 
   /**
-   * Provider 
-   *  provider 
+   * Provider 变体配置
+   * 用于注册同一 provider 的不同模式
    */
   variants?: readonly ProviderVariant<TSettings, TProvider, any>[]
 
   /**
-   * Tool factory 
-   *  provider  webSearch
-   *  provider  .tools 
+   * Tool factory 映射
+   * 声明该 provider 支持的工具能力（如 webSearch）
+   * 工具工厂从 provider 实例的 .tools 属性提取
    */
   toolFactories?: ToolFactoryMap<TProvider>
 
@@ -57,7 +57,7 @@ interface ProviderExtensionConfigBase<
 }
 
 /**
- * Provider Extension  -  create 
+ * Provider Extension 配置接口 - 使用 create 函数
  */
 interface ProviderExtensionConfigWithCreate<
   TSettings = any,
@@ -72,7 +72,7 @@ interface ProviderExtensionConfigWithCreate<
 }
 
 /**
- * Provider Extension  - 
+ * Provider Extension 配置接口 - 使用动态导入
  */
 interface ProviderExtensionConfigWithImport<
   TSettings = any,
@@ -87,12 +87,12 @@ interface ProviderExtensionConfigWithImport<
 }
 
 /**
- * Provider Extension 
- *  create  import 
+ * Provider Extension 配置接口
+ * 使用联合类型确保 create 和 import 互斥
  *
- * @typeParam TSettings - Provider 
- * @typeParam TProvider -  provider  variants
- * @typeParam TName - Provider 
+ * @typeParam TSettings - Provider 配置类型
+ * @typeParam TProvider - 实际 provider 类型（用于 variants）
+ * @typeParam TName - Provider 名称类型（用于字面量推导）
  */
 export type ProviderExtensionConfig<
   TSettings = any,
@@ -103,11 +103,11 @@ export type ProviderExtensionConfig<
   | ProviderExtensionConfigWithImport<TSettings, TProvider, TName>
 
 /**
- * Provider Extension 
+ * Provider Extension 类
  *
- * @typeParam TSettings - Provider 
- * @typeParam TProvider -  provider  variants
- * @typeParam TConfig -  Provider IDs
+ * @typeParam TSettings - Provider 配置类型
+ * @typeParam TProvider - 实际 provider 类型（用于 variants）
+ * @typeParam TConfig - 配置对象类型（幻影类型参数，用于自动推导 Provider IDs）
  */
 export class ProviderExtension<
   TSettings = any,
@@ -118,10 +118,10 @@ export class ProviderExtension<
     string
   >
 > {
-  /** Provider  -  settings hash LRU  */
+  /** Provider 实例缓存 - 按 settings hash 存储，LRU 自动清理 */
   private instances: QuickLRU<string, TProvider>
 
-  /** In-flight promise map -  settings  provider */
+  /** In-flight promise map - 防止并发创建相同 settings 的 provider */
   private pendingCreations: Map<string, Promise<TProvider>> = new Map()
 
   /** Function identity is behaviorally significant for request-scoped fetch wrappers. */
@@ -140,7 +140,7 @@ export class ProviderExtension<
   }
 
   /**
-   *  -  Provider Extension
+   * 静态工厂方法 - 创建 Provider Extension
    */
   static create<
     const TConfig extends ProviderExtensionConfig<any, any, string>,
@@ -153,14 +153,14 @@ export class ProviderExtension<
   }
 
   /**
-   * Options getter - 
+   * Options getter - 只读配置
    */
   get options(): Readonly<Partial<TSettings>> {
     return Object.freeze({ ...this.config.defaultOptions })
   }
 
   /**
-   *  settings  hash
+   * 计算 settings 的稳定 hash
    */
   private computeHash(settings?: TSettings, variantSuffix?: string): string {
     const baseKey = (() => {
@@ -196,8 +196,8 @@ export class ProviderExtension<
   }
 
   /**
-   *  Provider 
-   *  settings  settings 
+   * 创建 Provider 实例
+   * 相同 settings 会复用实例，不同 settings 会创建新实例
    */
   async createProvider(settings?: TSettings, variantSuffix?: string): Promise<TProvider> {
     if (variantSuffix) {
@@ -235,8 +235,8 @@ export class ProviderExtension<
   }
 
   /**
-   *  provider 
-   *  provider  .tools 
+   * 获取基础 provider 实例（无变体转换）
+   * 用于访问 provider 的 .tools 属性
    */
   async getBaseProvider(settings?: TSettings): Promise<TProvider> {
     return this.createProvider(settings)
@@ -303,8 +303,8 @@ export class ProviderExtension<
   }
 
   /**
-   *  provider
-   *  Extension 
+   * 配置 provider（链式调用）
+   * 返回一个新的 Extension 实例，不修改原实例
    */
   configure(settings: Partial<TSettings>): ProviderExtension<TSettings, TProvider> {
     return new ProviderExtension({
@@ -314,7 +314,7 @@ export class ProviderExtension<
   }
 
   /**
-   *  provider IDs
+   * 获取所有 provider IDs（包含变体和别名）
    */
   getProviderIds(): string[] {
     const ids = [this.config.name, ...(this.config.aliases || [])]
@@ -329,21 +329,21 @@ export class ProviderExtension<
   }
 
   /**
-   *  ID  Extension
+   * 检查给定 ID 是否属于此 Extension
    */
   hasProviderId(id: string): boolean {
     return this.getProviderIds().includes(id)
   }
 
   /**
-   * 
+   * 获取变体配置
    */
   getVariant(suffix: string): ProviderVariant<TSettings, TProvider> | undefined {
     return this.config.variants?.find((v) => v.suffix === suffix)
   }
 
   /**
-   *  Provider 
+   * 清除所有缓存的 Provider 实例
    */
   clearCache(): void {
     this.instances.clear()
@@ -351,7 +351,7 @@ export class ProviderExtension<
   }
 
   /**
-   *  provider 
+   * 获取已缓存的 provider 实例（如果存在）
    */
   getCachedProvider(): TProvider | undefined {
     for (const [key, value] of this.instances) {
@@ -364,7 +364,7 @@ export class ProviderExtension<
   }
 
   /**
-   * 
+   * 获取缓存统计信息
    */
   getCacheStats(): { cachedInstances: number } {
     return {

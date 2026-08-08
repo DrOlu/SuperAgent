@@ -70,7 +70,7 @@ export function resolveRatio(params: PaintingData['params'], items: BaseConfigIt
 /**
  * Human-readable size label for the same effective value `resolveRatio` reads
  * (`params[key] ?? item.initialValue` over the size-bearing field) — e.g.
- * `1024×1024` or (localized) ``. Used by the artboard's prompt bar; distinct
+ * `1024×1024` or (localized) `自动`. Used by the artboard's prompt bar; distinct
  * from `resolveRatio` in that it keeps `auto` as a label instead of collapsing
  * it to a 1:1 ratio. Returns undefined when the model declares no size field or
  * a custom size has no explicit dimensions yet.

@@ -251,7 +251,7 @@ describe('MigrationDiagnosticPanel', () => {
   it('states that a metadata-only bundle is local, not uploaded, and contains only system information', async () => {
     await saveBundle('not_included')
 
-    expect(zhCN.migration.diagnostics.saved_local).toContain('')
+    expect(zhCN.migration.diagnostics.saved_local).toContain('未自动上传')
     expect(enUS.migration.diagnostics.saved_local).toContain('was not uploaded automatically')
     expect(
       screen.getByText(

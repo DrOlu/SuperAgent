@@ -74,7 +74,7 @@ const FormRow = ({ label, children }: FormRowProps) => (
   </div>
 )
 
-// 
+// 转换文件信息数组为树形结构
 const convertToTreeData = (files: FileInfo[]): TreeSelectOption[] => {
   const treeData: TreeSelectOption[] = [
     {
@@ -85,32 +85,32 @@ const convertToTreeData = (files: FileInfo[]): TreeSelectOption[] => {
     }
   ]
 
-  // 
+  // 记录已创建的节点路径
   const pathMap: Record<string, TreeSelectOption> = {
     '': treeData[0]
   }
 
-  // 
+  // 先按类型分组，确保先处理文件夹
   const folders = files.filter((file) => file.type === 'folder')
   const mdFiles = files.filter((file) => file.type === 'markdown')
 
-  // 
+  // 按路径排序，确保父文件夹先被创建
   const sortedFolders = [...folders].sort((a, b) => a.path.split('/').length - b.path.split('/').length)
 
-  // 
+  // 先处理所有文件夹，构建目录结构
   for (const folder of sortedFolders) {
     const parts = folder.path.split('/')
     let currentPath = ''
     let parentPath = ''
 
-    // 
+    // 遍历文件夹路径的每一部分，确保创建完整路径
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
 
-      // 
+      // 构建当前路径
       currentPath = currentPath ? `${currentPath}/${part}` : part
 
-      // 
+      // 如果这个路径节点还没创建
       if (!pathMap[currentPath]) {
         const node = {
           title: part,
@@ -121,7 +121,7 @@ const convertToTreeData = (files: FileInfo[]): TreeSelectOption[] => {
           children: []
         }
 
-        // children
+        // 获取父节点，将当前节点添加到父节点的children中
         const parentNode = pathMap[parentPath]
         if (parentNode) {
           if (!parentNode.children) {
@@ -133,21 +133,21 @@ const convertToTreeData = (files: FileInfo[]): TreeSelectOption[] => {
         pathMap[currentPath] = node
       }
 
-      // 
+      // 更新父路径为当前路径，为下一级做准备
       parentPath = currentPath
     }
   }
 
-  // md
+  // 然后处理md文件
   for (const file of mdFiles) {
     const fullPath = file.path
     const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'))
     const fileName = file.name
 
-    // 
+    // 获取父文件夹节点
     const parentNode = pathMap[dirPath] || pathMap['']
 
-    // 
+    // 创建文件节点
     const fileNode = {
       title: fileName,
       value: fullPath,
@@ -156,7 +156,7 @@ const convertToTreeData = (files: FileInfo[]): TreeSelectOption[] => {
       icon: <span style={{ marginRight: 4 }}>📄</span>
     }
 
-    // 
+    // 添加到父节点
     if (!parentNode.children) {
       parentNode.children = []
     }
@@ -228,7 +228,7 @@ const PopupContainer: React.FC<PopupContainerProps> = ({
           setSelectedVault(vaultToUse)
         }
       } catch (error) {
-        logger.error('Obsidian Vault:', error as Error)
+        logger.error('获取Obsidian Vault失败:', error as Error)
         setError(i18n.t('chat.topics.export.obsidian_fetch_error'))
       } finally {
         setLoading(false)
@@ -246,7 +246,7 @@ const PopupContainer: React.FC<PopupContainerProps> = ({
           const filesData = await ipcApi.request('export.obsidian.get_files', { vaultName: selectedVault })
           setFiles(filesData)
         } catch (error) {
-          logger.error('Obsidian:', error as Error)
+          logger.error('获取Obsidian文件失败:', error as Error)
           setError(i18n.t('chat.topics.export.obsidian_fetch_folders_error'))
         } finally {
           setLoading(false)

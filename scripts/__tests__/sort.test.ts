@@ -61,28 +61,28 @@ describe('sortedObjectByKeys', () => {
       translation: {
         backup: {
           progress: {
-            writing_data: '...',
-            preparing: '...',
-            completed: ''
+            writing_data: '写入数据...',
+            preparing: '准备备份...',
+            completed: '备份完成'
           }
         },
         agents: {
-          'delete.popup.content': '',
-          'edit.model.select.title': ''
+          'delete.popup.content': '确定要删除此智能体吗？',
+          'edit.model.select.title': '选择模型'
         }
       }
     }
     const sortedObj = {
       translation: {
         agents: {
-          'delete.popup.content': '',
-          'edit.model.select.title': ''
+          'delete.popup.content': '确定要删除此智能体吗？',
+          'edit.model.select.title': '选择模型'
         },
         backup: {
           progress: {
-            completed: '',
-            preparing: '...',
-            writing_data: '...'
+            completed: '备份完成',
+            preparing: '准备备份...',
+            writing_data: '写入数据...'
           }
         }
       }

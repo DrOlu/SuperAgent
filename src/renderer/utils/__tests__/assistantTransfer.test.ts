@@ -6,10 +6,10 @@ import { AssistantTransferError, parseAssistantImportContent, serializeAssistant
 function createAssistant(overrides: Partial<Assistant> = {}): Assistant {
   return {
     id: 'ast-1',
-    name: '',
+    name: '写作助手',
     prompt: 'You are helpful',
     emoji: '✍️',
-    description: '',
+    description: '擅长写作润色',
     settings: {
       temperature: 1,
       enableTemperature: false,
@@ -40,15 +40,15 @@ function createAssistant(overrides: Partial<Assistant> = {}): Assistant {
 
 describe('assistantTransfer', () => {
   it('serializes assistants using the legacy preset export shape', () => {
-    const content = serializeAssistantForExport(createAssistant(), '')
+    const content = serializeAssistantForExport(createAssistant(), '写作')
 
     expect(JSON.parse(content)).toEqual([
       {
-        name: '',
+        name: '写作助手',
         emoji: '✍️',
-        group: [''],
+        group: ['写作'],
         prompt: 'You are helpful',
-        description: '',
+        description: '擅长写作润色',
         regularPhrases: [],
         type: 'agent'
       }
@@ -58,16 +58,16 @@ describe('assistantTransfer', () => {
   it('parses legacy assistant imports with the original defaults', () => {
     const [draft] = parseAssistantImportContent(
       JSON.stringify({
-        name: '',
+        name: '旧助手',
         emoji: '🤖',
         prompt: 'legacy prompt',
         description: 'legacy desc',
-        group: ['', '']
+        group: ['写作', '生产力']
       })
     )
 
     expect(draft.dto).toMatchObject({
-      name: '',
+      name: '旧助手',
       emoji: '🤖',
       prompt: 'legacy prompt',
       description: 'legacy desc'
@@ -75,13 +75,13 @@ describe('assistantTransfer', () => {
     // modelId is intentionally not part of the DTO — the backend fills it from
     // the `chat.default_model_id` preference during create.
     expect(draft.dto).not.toHaveProperty('modelId')
-    expect(draft.groupName).toBe('')
+    expect(draft.groupName).toBe('写作')
   })
 
   it('uses the default emoji when a legacy import contains an empty emoji', () => {
     const [draft] = parseAssistantImportContent(
       JSON.stringify({
-        name: '',
+        name: '无图标助手',
         emoji: '',
         prompt: 'legacy prompt'
       })
@@ -93,18 +93,18 @@ describe('assistantTransfer', () => {
   it('ignores v2-only fields from imported content and still uses legacy defaults', () => {
     const [draft] = parseAssistantImportContent(
       JSON.stringify({
-        name: '',
+        name: '新助手',
         prompt: 'still required',
         settings: { temperature: 0.6, enableTemperature: true },
         modelId: 'custom::model',
         mcpServerIds: ['mcp-1'],
         knowledgeBaseIds: ['kb-1'],
-        group: ['']
+        group: ['编程']
       })
     )
 
     expect(draft.dto).toMatchObject({
-      name: '',
+      name: '新助手',
       prompt: 'still required'
     })
     // Fields we don't carry across the import boundary.
@@ -115,7 +115,7 @@ describe('assistantTransfer', () => {
       temperature: 1,
       enableTemperature: false
     })
-    expect(draft.groupName).toBe('')
+    expect(draft.groupName).toBe('编程')
   })
 
   it('throws invalid_format when required legacy fields are missing', () => {

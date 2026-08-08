@@ -21,7 +21,7 @@ import {
   unregisterToolbarCommand
 } from './command'
 import { ActionMenu, type ActionMenuItem } from './components/ActionMenu'
-// DragContextMenuWrapper  TipTap 
+// DragContextMenuWrapper 已被 TipTap 扩展替代
 import LinkEditor from './components/LinkEditor'
 import PlusButton from './components/PlusButton'
 import { findElementByLine } from './helpers/jumpToLine'
@@ -402,14 +402,14 @@ const RichEditor = ({
 
   const handlePlusButtonClick = useCallback(
     (event: MouseEvent) => {
-      // 
+      // 防止事件冒泡
       event.preventDefault()
       event.stopPropagation()
 
-      //  setTimeout 
+      // 使用 setTimeout 确保在下一个事件循环中执行
       setTimeout(() => {
         if (editor && !editor.isDestroyed) {
-          //  '/'
+          // 聚焦编辑器并插入 '/'
           editor.commands.insertContent('/')
         }
       }, 10)
@@ -477,11 +477,11 @@ const RichEditor = ({
           const { selection } = editor.state
           const { from, to, $from } = selection
 
-          // 
+          // 如果当前已经是链接，则取消链接
           if (editor.isActive('enhancedLink')) {
             editor.chain().focus().unsetEnhancedLink().run()
           } else {
-            // 
+            // 获取当前段落的文本内容
             if (from !== to) {
               const selectedText = editor.state.doc.textBetween(from, to)
               if (selectedText.trim()) {
@@ -493,7 +493,7 @@ const RichEditor = ({
             } else {
               const paragraphText = $from.parent.textContent
 
-              // 
+              // 如果段落有文本，将段落文本设置为链接
               if (paragraphText.trim()) {
                 const url = paragraphText.trim().startsWith('http')
                   ? paragraphText.trim()

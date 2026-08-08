@@ -30,10 +30,10 @@ import { v4 as uuidv4 } from 'uuid'
 
 const logger = loggerService.withContext('Utils:File')
 
-// 
+// 创建文件类型映射表，提高查找效率
 const fileTypeMap = new Map<string, FileType>()
 
-// 
+// 初始化映射表
 function initFileTypeMap() {
   imageExts.forEach((ext) => fileTypeMap.set(ext, FILE_TYPE.IMAGE))
   videoExts.forEach((ext) => fileTypeMap.set(ext, FILE_TYPE.VIDEO))
@@ -42,7 +42,7 @@ function initFileTypeMap() {
   documentExts.forEach((ext) => fileTypeMap.set(ext, FILE_TYPE.DOCUMENT))
 }
 
-// 
+// 初始化映射表
 initFileTypeMap()
 
 /**
@@ -201,10 +201,10 @@ export function decodeTextWithAutoEncoding(data: Buffer): string {
 }
 
 /**
- * 
- * @param filePath - 
- * @returns 
- * @throws 
+ * 读取文件内容并自动检测编码格式进行解码
+ * @param filePath - 文件路径
+ * @returns 解码后的文件内容
+ * @throws 如果路径不存在抛出错误
  */
 export async function readTextFileWithAutoEncoding(filePath: string): Promise<string> {
   const encoding = (await chardet.detectFile(filePath, { sampleSize: MB })) || 'UTF-8'
@@ -311,14 +311,14 @@ export async function base64Image(file: FileMetadata): Promise<{ mime: string; b
 }
 
 /**
- * 
- * @param baseDir 
- * @param fileName 
- * @param isFile 
- * @returns 
+ * 文件名唯一性约束
+ * @param baseDir 基础目录
+ * @param fileName 文件名
+ * @param isFile 是否为文件
+ * @returns 唯一的文件名
  */
 export function getName(baseDir: string, fileName: string, isFile: boolean): string {
-  // 
+  // 首先清理文件名
   const baseName = sanitizeFilename(fileName)
   let candidate = isFile ? baseName + '.md' : baseName
   let counter = 1
@@ -332,16 +332,16 @@ export function getName(baseDir: string, fileName: string, isFile: boolean): str
 }
 
 /**
- * 
- * @param fileName 
- * @throws 
- * @returns 
+ * 文件名合法性检查
+ * @param fileName 文件名
+ * @throws 如果文件名不合法则抛出异常
+ * @returns 合法的文件名
  */
 export function checkName(fileName: string): string {
   const baseName = path.basename(fileName)
   const validation = validateFileName(baseName)
   if (!validation.valid) {
-    // 
+    // 自动清理非法字符，而不是抛出错误
     const sanitized = sanitizeFilename(baseName)
     logger.warn(`File name contains invalid characters, auto-sanitized: "${baseName}" -> "${sanitized}"`)
     return sanitized

@@ -85,7 +85,7 @@ const PlantUmlPreview = ({
   enableToolbar = false,
   ref
 }: BasicPreviewProps & { ref?: React.RefObject<BasicPreviewHandles | null> }) => {
-  // 
+  // 定义渲染函数
   const renderPlantUml = useCallback(async (content: string, container: HTMLDivElement) => {
     const url = getPlantUMLImageUrl('svg', content, false)
     const response = await fetch(url)
@@ -107,12 +107,12 @@ const PlantUmlPreview = ({
     renderSvgInShadowHost(text, container)
   }, [])
 
-  //  hook
+  // 使用预览渲染器 hook
   const { containerRef, error, isLoading } = useDebouncedRender(children, renderPlantUml, {
     debounceDelay: 300
   })
 
-  // 
+  // 记录网络错误
   useEffect(() => {
     if (error && error.includes('Failed to fetch')) {
       logger.warn('Network Error: Unable to connect to PlantUML server. Please check your network connection.')

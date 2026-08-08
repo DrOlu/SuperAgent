@@ -1,7 +1,7 @@
 import type { AiPlugin, AiRequestContext } from './types'
 
 /**
- * 
+ * 插件管理器
  */
 export class PluginManager<TParams = unknown, TResult = unknown> {
   private plugins: AiPlugin<TParams, TResult>[] = []
@@ -11,7 +11,7 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   * 
+   * 添加插件
    */
   use(plugin: AiPlugin<TParams, TResult>): this {
     this.plugins = this.sortPlugins([...this.plugins, plugin])
@@ -19,7 +19,7 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   * 
+   * 移除插件
    */
   remove(pluginName: string): this {
     this.plugins = this.plugins.filter((p) => p.name !== pluginName)
@@ -27,7 +27,7 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   * pre -> normal -> post
+   * 插件排序：pre -> normal -> post
    */
   private sortPlugins(plugins: AiPlugin<TParams, TResult>[]): AiPlugin<TParams, TResult>[] {
     const pre: AiPlugin<TParams, TResult>[] = []
@@ -48,7 +48,7 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   *  First  - 
+   * 执行 First 钩子 - 返回第一个有效结果
    */
   async executeFirst<T>(
     hookName: 'resolveModel' | 'loadTemplate',
@@ -68,8 +68,8 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   *  transformParams  - 
-   *  Partial<TParams>
+   * 执行 transformParams 钩子 - 链式参数转换
+   * 每个插件返回 Partial<TParams>，逐步合并到原始参数
    */
   async executeTransformParams(initialValue: TParams, context: AiRequestContext<TParams, TResult>): Promise<TParams> {
     let result = initialValue
@@ -77,7 +77,7 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
     for (const plugin of this.plugins) {
       if (plugin.transformParams) {
         const partial = await plugin.transformParams(result, context)
-        //  Partial 
+        // 合并 Partial 到现有参数
         result = { ...result, ...partial }
       }
     }
@@ -86,16 +86,16 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   *  transformResult  - 
-   *  TResult
+   * 执行 transformResult 钩子 - 链式结果转换
+   * 每个插件接收并返回完整的 TResult
    */
   async executeTransformResult(initialValue: TResult, context: AiRequestContext<TParams, TResult>): Promise<TResult> {
     let result = initialValue
 
     for (const plugin of this.plugins) {
       if (plugin.transformResult) {
-        // SAFETY: transformResult  TResult
-        // 
+        // SAFETY: transformResult 的契约保证返回 TResult
+        // 由于插件接口定义，这个类型断言是安全的
         const transformed = await plugin.transformResult(result, context)
         result = transformed as TResult
       }
@@ -105,7 +105,7 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   *  ConfigureContext  - 
+   * 执行 ConfigureContext 钩子 - 串行配置上下文
    */
   async executeConfigureContext(context: AiRequestContext<TParams, TResult>): Promise<void> {
     for (const plugin of this.plugins) {
@@ -117,7 +117,7 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   *  Parallel  - 
+   * 执行 Parallel 钩子 - 并行副作用
    */
   async executeParallel(
     hookName: 'onRequestStart' | 'onRequestEnd' | 'onError',
@@ -141,12 +141,12 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
       })
       .filter(Boolean)
 
-    //  Promise.all  allSettled
+    // 使用 Promise.all 而不是 allSettled，让插件错误能够抛出
     await Promise.all(promises)
   }
 
   /**
-   * AI SDK 
+   * 收集所有流转换器（返回数组，AI SDK 原生支持）
    */
   collectStreamTransforms(params: TParams, context: AiRequestContext<TParams, TResult>) {
     return this.plugins
@@ -155,14 +155,14 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
   }
 
   /**
-   * 
+   * 获取所有插件信息
    */
   getPlugins(): AiPlugin<TParams, TResult>[] {
     return [...this.plugins]
   }
 
   /**
-   * 
+   * 获取插件统计信息
    */
   getStats() {
     const stats = {
@@ -183,12 +183,12 @@ export class PluginManager<TParams = unknown, TResult = unknown> {
     }
 
     this.plugins.forEach((plugin) => {
-      //  enforce 
+      // 统计 enforce 类型
       if (plugin.enforce === 'pre') stats.pre++
       else if (plugin.enforce === 'post') stats.post++
       else stats.normal++
 
-      // 
+      // 统计钩子数量
       Object.keys(stats.hooks).forEach((hookName) => {
         if (plugin[hookName as keyof AiPlugin]) {
           stats.hooks[hookName as keyof typeof stats.hooks]++

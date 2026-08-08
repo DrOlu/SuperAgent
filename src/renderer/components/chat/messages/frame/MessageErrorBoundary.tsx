@@ -15,7 +15,7 @@ interface State {
 const ErrorFallback = ({ fallback, error }: { fallback?: React.ReactNode; error?: Error }) => {
   const { t } = useTranslation()
 
-  // 
+  // 如果有详细错误信息，添加到描述中
   const errorDescription =
     !isProd && error ? `${t('error.render.description')}: ${error.message}` : t('error.render.description')
 

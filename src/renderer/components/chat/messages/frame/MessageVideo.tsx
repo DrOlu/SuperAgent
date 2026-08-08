@@ -23,7 +23,7 @@ const MessageVideo: FC<Props> = ({ url, filePath, videoPath, startTime }) => {
   }
 
   /**
-   * 
+   * 渲染本地视频文件
    */
   const renderLocalVideo = () => {
     if (!filePath) {

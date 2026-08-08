@@ -2,13 +2,13 @@ import { useTheme } from '@renderer/hooks/useTheme'
 import { ThemeMode } from '@shared/data/preference/preferenceTypes'
 import { useEffect, useState } from 'react'
 
-//  mermaid 
+// 跟踪 mermaid 模块状态，单例模式
 let mermaidModule: any = null
 let mermaidLoading = false
 let mermaidLoadPromise: Promise<any> | null = null
 
 /**
- *  mermaid 
+ * 导入 mermaid 库
  */
 const loadMermaidModule = async () => {
   if (mermaidModule) return mermaidModule
@@ -35,7 +35,7 @@ export const useMermaid = () => {
   const [error, setError] = useState<string | null>(null)
   const [forceRenderKey, setForceRenderKey] = useState(0)
 
-  //  mermaid 
+  // 初始化 mermaid 并监听主题变化
   useEffect(() => {
     let mounted = true
 
@@ -48,7 +48,7 @@ export const useMermaid = () => {
         if (!mounted) return
 
         mermaid.initialize({
-          startOnLoad: false, // 
+          startOnLoad: false, // 禁用自动启动
           theme: theme === ThemeMode.dark ? 'dark' : 'default'
         })
 

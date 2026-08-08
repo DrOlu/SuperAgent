@@ -96,7 +96,7 @@ describe('dashscope built-in web search: endpoint x model matrix', () => {
   const dashscope = (apiModelId: string) =>
     model({ id: `dashscope::${apiModelId}`, providerId: 'dashscope', apiModelId })
 
-  // Responses tool: "Responses API  Qwen3.7 MaxQwen3.6Qwen3.5qwen3-max".
+  // Responses tool: "Responses API 仅支持 Qwen3.7 Max系列、Qwen3.6、Qwen3.5、qwen3-max".
   it.each(['qwen3.7-max', 'qwen3.6-plus', 'qwen3.6-flash', 'qwen3.5-plus', 'qwen3.5-flash', 'qwen3-max'])(
     'attaches the Responses web_search tool for %s',
     (apiModelId) => {
@@ -124,7 +124,7 @@ describe('dashscope built-in web search: endpoint x model matrix', () => {
     expect(getWebSearchParams(dashscope(apiModelId), preset('dashscope'))).toMatchObject({ enable_search: true })
   })
 
-  // qwen3-max needs the agent strategy in either thinking mode ( requires `agent`).
+  // qwen3-max needs the agent strategy in either thinking mode (非思考模式 requires `agent`).
   it('pins search_strategy=agent for qwen3-max on chat', () => {
     expect(getWebSearchParams(dashscope('qwen3-max'), preset('dashscope'))).toEqual({
       enable_search: true,

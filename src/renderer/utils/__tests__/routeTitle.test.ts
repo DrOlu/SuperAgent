@@ -5,18 +5,18 @@ vi.mock('@renderer/i18n/resolver', () => ({
   default: {
     t: vi.fn((key: string) => {
       const translations: Record<string, string> = {
-        'common.chat': '',
-        'agent.session.group.conversation': '',
-        'agent.sidebar_title': '',
-        'title.work': '',
-        'title.paintings': '',
-        'title.translate': '',
-        'title.apps': '',
-        'title.knowledge': '',
-        'title.files': '',
+        'common.chat': '聊天',
+        'agent.session.group.conversation': '对话',
+        'agent.sidebar_title': '任务',
+        'title.work': '工作',
+        'title.paintings': '绘画',
+        'title.translate': '翻译',
+        'title.apps': '小程序',
+        'title.knowledge': '知识库',
+        'title.files': '文件',
         'title.code': 'Code',
-        'title.notes': '',
-        'title.settings': ''
+        'title.notes': '笔记',
+        'title.settings': '设置'
       }
       return translations[key] || key
     })
@@ -39,16 +39,16 @@ describe('routeTitle', () => {
   describe('getDefaultRouteTitle', () => {
     describe('exact route matches', () => {
       it.each([
-        ['/app/chat', ''],
-        ['/app/agents', ''],
-        ['/app/paintings', ''],
-        ['/app/translate', ''],
-        ['/app/mini-app', ''],
-        ['/app/knowledge', ''],
-        ['/app/files', ''],
+        ['/app/chat', '对话'],
+        ['/app/agents', '工作'],
+        ['/app/paintings', '绘画'],
+        ['/app/translate', '翻译'],
+        ['/app/mini-app', '小程序'],
+        ['/app/knowledge', '知识库'],
+        ['/app/files', '文件'],
         ['/app/code', 'Code'],
-        ['/app/notes', ''],
-        ['/settings', '']
+        ['/app/notes', '笔记'],
+        ['/settings', '设置']
       ])('should return correct title for %s', (url, expectedTitle) => {
         expect(getDefaultRouteTitle(url)).toBe(expectedTitle)
       })
@@ -56,26 +56,26 @@ describe('routeTitle', () => {
 
     describe('nested route matches', () => {
       it('should match base path for nested routes', () => {
-        expect(getDefaultRouteTitle('/app/chat/topic-123')).toBe('')
-        expect(getDefaultRouteTitle('/app/agents/session-123')).toBe('')
-        expect(getDefaultRouteTitle('/settings/provider')).toBe('')
-        expect(getDefaultRouteTitle('/settings/mcp/servers')).toBe('')
-        expect(getDefaultRouteTitle('/app/paintings/zhipu')).toBe('')
+        expect(getDefaultRouteTitle('/app/chat/topic-123')).toBe('对话')
+        expect(getDefaultRouteTitle('/app/agents/session-123')).toBe('工作')
+        expect(getDefaultRouteTitle('/settings/provider')).toBe('设置')
+        expect(getDefaultRouteTitle('/settings/mcp/servers')).toBe('设置')
+        expect(getDefaultRouteTitle('/app/paintings/zhipu')).toBe('绘画')
       })
     })
 
     describe('URL with query params and hash', () => {
       it('should handle URLs with query parameters', () => {
-        expect(getDefaultRouteTitle('/app/chat?topicId=123')).toBe('')
-        expect(getDefaultRouteTitle('/settings/provider?id=openai')).toBe('')
+        expect(getDefaultRouteTitle('/app/chat?topicId=123')).toBe('对话')
+        expect(getDefaultRouteTitle('/settings/provider?id=openai')).toBe('设置')
       })
 
       it('should handle URLs with hash', () => {
-        expect(getDefaultRouteTitle('/app/knowledge#section1')).toBe('')
+        expect(getDefaultRouteTitle('/app/knowledge#section1')).toBe('知识库')
       })
 
       it('should handle URLs with both query and hash', () => {
-        expect(getDefaultRouteTitle('/app/chat?id=1#message-5')).toBe('')
+        expect(getDefaultRouteTitle('/app/chat?id=1#message-5')).toBe('对话')
       })
     })
 
@@ -93,8 +93,8 @@ describe('routeTitle', () => {
 
     describe('edge cases', () => {
       it('should handle trailing slashes', () => {
-        expect(getDefaultRouteTitle('/app/chat/')).toBe('')
-        expect(getDefaultRouteTitle('/settings/')).toBe('')
+        expect(getDefaultRouteTitle('/app/chat/')).toBe('对话')
+        expect(getDefaultRouteTitle('/settings/')).toBe('设置')
       })
 
       it('should handle double slashes (protocol-relative URL)', () => {
@@ -105,8 +105,8 @@ describe('routeTitle', () => {
 
       it('should handle relative-like paths', () => {
         // URL constructor with base will normalize these
-        expect(getDefaultRouteTitle('app/chat')).toBe('')
-        expect(getDefaultRouteTitle('./app/chat')).toBe('')
+        expect(getDefaultRouteTitle('app/chat')).toBe('对话')
+        expect(getDefaultRouteTitle('./app/chat')).toBe('对话')
       })
     })
   })

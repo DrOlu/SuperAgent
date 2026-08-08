@@ -37,12 +37,12 @@ const VertexAiSettings: FC<Props> = ({ providerId }) => {
   const [serviceAccountJson, setServiceAccountJson] = useState('')
   const [serviceAccountJsonError, setServiceAccountJsonError] = useState(false)
 
-  // /
+  // 敏感内容显示/隐藏的状态
   const [showClientEmail, setShowClientEmail] = useState(false)
   const [showPrivateKey, setShowPrivateKey] = useState(false)
   const [showProjectId, setShowProjectId] = useState(false)
 
-  // 
+  // 地区下拉框展开状态
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const isDraftDirtyRef = useRef(false)

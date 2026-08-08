@@ -48,7 +48,7 @@ const meta: Meta<typeof Combobox> = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// Mock data - 
+// Mock data - 根据设计稿中的用户选择场景
 const userOptions = [
   {
     value: 'rachel-meyers',
@@ -92,7 +92,7 @@ const userOptions = [
   }
 ]
 
-// 
+// 简单选项数据
 const simpleOptions = [
   { value: 'option1', label: 'Option 1' },
   { value: 'option2', label: 'Option 2' },
@@ -100,7 +100,7 @@ const simpleOptions = [
   { value: 'option4', label: 'Option 4' }
 ]
 
-// 
+// 带图标的简单选项
 const iconOptions = [
   {
     value: 'user1',
@@ -260,7 +260,7 @@ const searchableToolOptions = [
 
 // ==================== Stories ====================
 
-// Default - 
+// Default - 占位符状态
 export const Default: Story = {
   args: {
     options: simpleOptions,
@@ -269,7 +269,7 @@ export const Default: Story = {
   }
 }
 
-//  - 
+// 带头像和描述 - 对应设计稿顶部的用户选择器
 export const WithAvatarAndDescription: Story = {
   args: {
     options: userOptions,
@@ -278,7 +278,7 @@ export const WithAvatarAndDescription: Story = {
   }
 }
 
-//  - 
+// 已选中状态 - 对应设计稿中有值的状态
 export const WithSelectedValue: Story = {
   args: {
     options: userOptions,
@@ -288,7 +288,7 @@ export const WithSelectedValue: Story = {
   }
 }
 
-//  - 
+// 带简单图标 - 对应设计稿中间部分
 export const WithSimpleIcon: Story = {
   args: {
     options: iconOptions,
@@ -297,7 +297,7 @@ export const WithSimpleIcon: Story = {
   }
 }
 
-//  - 
+// 多选模式 - 对应设计稿底部的标签形式
 export const MultipleSelection: Story = {
   args: {
     multiple: true,
@@ -307,7 +307,7 @@ export const MultipleSelection: Story = {
   }
 }
 
-// 
+// 多选已选中状态
 export const MultipleWithSelectedValues: Story = {
   args: {
     multiple: true,
@@ -318,7 +318,7 @@ export const MultipleWithSelectedValues: Story = {
   }
 }
 
-//  - Normal, Focus, Error
+// 所有状态展示 - 对应设计稿的三列（Normal, Focus, Error）
 export const AllStates: Story = {
   render: function AllStatesExample() {
     const [normalValue, setNormalValue] = useState('')
@@ -327,7 +327,7 @@ export const AllStates: Story = {
 
     return (
       <div className="flex flex-col gap-6">
-        {/* Normal State -  */}
+        {/* Normal State - 默认灰色边框 */}
         <div>
           <p className="mb-2 text-sm text-muted-foreground">Normal State</p>
           <Combobox
@@ -339,7 +339,7 @@ export const AllStates: Story = {
           />
         </div>
 
-        {/* Selected State -  (focus ) */}
+        {/* Selected State - 绿色边框 (focus 时) */}
         <div>
           <p className="mb-2 text-sm text-muted-foreground">Selected State</p>
           <Combobox
@@ -351,7 +351,7 @@ export const AllStates: Story = {
           />
         </div>
 
-        {/* Error State -  */}
+        {/* Error State - 红色边框 */}
         <div>
           <p className="mb-2 text-sm text-muted-foreground">Error State</p>
           <Combobox
@@ -381,7 +381,7 @@ export const AllStates: Story = {
   }
 }
 
-// 
+// 所有尺寸
 export const AllSizes: Story = {
   render: function AllSizesExample() {
     const [value, setValue] = useState('')
@@ -422,7 +422,7 @@ export const AllSizes: Story = {
   }
 }
 
-//  - 
+// 多选不同状态组合 - 对应设计稿底部区域
 export const MultipleStates: Story = {
   render: function MultipleStatesExample() {
     const [normalValue, setNormalValue] = useState<string[]>([])
@@ -475,7 +475,7 @@ export const MultipleStates: Story = {
   }
 }
 
-// 
+// 禁用选项
 export const WithDisabledOptions: Story = {
   args: {
     options: [...userOptions.slice(0, 2), { ...userOptions[2], disabled: true }, ...userOptions.slice(3)],
@@ -484,7 +484,7 @@ export const WithDisabledOptions: Story = {
   }
 }
 
-// 
+// 无搜索模式
 export const WithoutSearch: Story = {
   args: {
     searchable: false,
@@ -565,7 +565,7 @@ export const CustomFilterOption: Story = {
   }
 }
 
-//  - 
+// 实际使用场景 - 综合展示
 export const RealWorldExamples: Story = {
   render: function RealWorldExample() {
     const [assignee, setAssignee] = useState('')
@@ -580,7 +580,7 @@ export const RealWorldExamples: Story = {
 
     return (
       <div className="flex flex-col gap-8">
-        {/*  */}
+        {/* 分配任务给单个用户 */}
         <div>
           <h3 className="mb-3 text-sm font-semibold">Assign Task</h3>
           <Combobox
@@ -592,7 +592,7 @@ export const RealWorldExamples: Story = {
           />
         </div>
 
-        {/*  */}
+        {/* 添加多个成员 */}
         <div>
           <h3 className="mb-3 text-sm font-semibold">Add Team Members</h3>
           <Combobox
@@ -605,7 +605,7 @@ export const RealWorldExamples: Story = {
           />
         </div>
 
-        {/*  */}
+        {/* 选择状态 */}
         <div>
           <h3 className="mb-3 text-sm font-semibold">Task Status</h3>
           <Combobox
@@ -617,7 +617,7 @@ export const RealWorldExamples: Story = {
           />
         </div>
 
-        {/*  */}
+        {/* 错误提示场景 */}
         <div>
           <h3 className="mb-3 text-sm font-semibold">Required Field (Error)</h3>
           <Combobox

@@ -41,8 +41,8 @@ describe('formats', () => {
 
   describe('getFileNameFromHtmlTitle', () => {
     it('should preserve Chinese characters', () => {
-      expect(getFileNameFromHtmlTitle('')).toBe('')
-      expect(getFileNameFromHtmlTitle(' ')).toBe('-')
+      expect(getFileNameFromHtmlTitle('中文标题')).toBe('中文标题')
+      expect(getFileNameFromHtmlTitle('中文标题 测试')).toBe('中文标题-测试')
     })
 
     it('should preserve alphanumeric characters', () => {

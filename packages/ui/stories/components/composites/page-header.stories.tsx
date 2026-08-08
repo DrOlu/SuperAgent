@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>
 export const Default: Story = {
   render: () => (
     <div className="w-[260px] rounded-xl border border-border bg-background">
-      <PageHeader title="" />
+      <PageHeader title="设置" />
     </div>
   )
 }
@@ -35,7 +35,7 @@ export const WithAction: Story = {
   render: () => (
     <div className="w-[260px] rounded-xl border border-border bg-background">
       <PageHeader
-        title=""
+        title="模型服务"
         action={
           <button
             type="button"
@@ -79,11 +79,11 @@ export const SideBySide: Story = {
   render: () => (
     <div className="flex gap-0 rounded-xl border border-border bg-background">
       <div className="w-[220px] border-border border-r">
-        <PageHeader title="" />
+        <PageHeader title="设置" />
       </div>
       <div className="w-[260px]">
         <PageHeader
-          title=""
+          title="模型服务"
           action={
             <button
               type="button"
@@ -149,10 +149,10 @@ export const SectionTitleStyle: Story = {
   render: () => (
     <div className="flex gap-0 rounded-xl border border-border bg-background">
       <div className="w-[220px] border-border border-r">
-        <PageHeader title="" titleClassName="font-normal text-foreground-tertiary text-xs leading-4" />
+        <PageHeader title="模型" titleClassName="font-normal text-foreground-tertiary text-xs leading-4" />
       </div>
       <div className="w-[260px]">
-        <PageHeader title="" />
+        <PageHeader title="模型服务" />
       </div>
     </div>
   )

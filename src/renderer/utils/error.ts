@@ -72,17 +72,17 @@ export const isAbortError = (error: any): boolean => {
   // Convert message to string for consistent checking
   const errorMessage = String(error?.message || '')
 
-  // 
+  // 检查错误消息
   if (errorMessage === 'Request was aborted.') {
     return true
   }
 
-  //  DOMException 
+  // 检查是否为 DOMException 类型的中止错误
   if (error instanceof DOMException && error.name === 'AbortError') {
     return true
   }
 
-  //  OpenAI 
+  // 检查 OpenAI 特定的错误结构
   if (
     error &&
     typeof error === 'object' &&
@@ -128,7 +128,7 @@ const serializeNoSuchToolError = (error: NoSuchToolError): SerializedAiSdkNoSuch
 }
 
 export const serializeError = (error: AiSdkErrorUnion): SerializedError => {
-  // 
+  // 统一所有可能的错误字段
   const serializedError: SerializedError = {
     name: error.name ?? null,
     message: error.message ?? null,
@@ -190,10 +190,10 @@ export const serializeError = (error: AiSdkErrorUnion): SerializedError => {
   return serializedError
 }
 /**
- *  Zod 
- * @param error - Zod 
- * @param title - 
- * @returns 
+ * 格式化 Zod 验证错误信息为可读的字符串
+ * @param error - Zod 验证错误对象
+ * @param title - 可选的错误标题，会作为前缀添加到错误信息中
+ * @returns 格式化后的错误信息字符串。
  */
 export const formatZodError = (error: z.ZodError, title?: string) => {
   const readableErrors = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`)
@@ -202,17 +202,17 @@ export const formatZodError = (error: z.ZodError, title?: string) => {
 }
 
 /**
- * 
- * @param value - unknown 
- * @returns 
+ * 将任意值安全地转换为字符串
+ * @param value - 需要转换的值，unknown 类型
+ * @returns 转换后的字符串
  *
  * @description
- * :
- * - null  undefined  'null'
- * - 
- * - (bigint) String() 
- * -  JSON.stringify 
- * - 
+ * 该函数可以安全地处理以下情况:
+ * - null 和 undefined 会被转换为 'null'
+ * - 字符串直接返回
+ * - 原始类型(数字、布尔值、bigint等)使用 String() 转换
+ * - 对象和数组会尝试使用 JSON.stringify 序列化，并处理循环引用
+ * - 如果序列化失败，返回错误信息
  *
  * @example
  * ```ts
@@ -223,28 +223,28 @@ export const formatZodError = (error: z.ZodError, title?: string) => {
  * ```
  */
 export function safeToString(value: unknown): string {
-  //  null  undefined
+  // 处理 null 和 undefined
   if (value == null) {
     return 'null'
   }
 
-  // 
+  // 字符串直接返回
   if (typeof value === 'string') {
     return value
   }
 
-  // bigint  String()
+  // 数字、布尔值、bigint 等原始类型，安全用 String()
   if (typeof value !== 'object' && typeof value !== 'function') {
     return String(value)
   }
 
-  // 
+  // 处理对象（包括数组）
   if (typeof value === 'object') {
-    // 
+    // 处理函数
     if (typeof value === 'function') {
       return value.toString()
     }
-    // 
+    // 其他对象
     try {
       return JSON.stringify(value, getCircularReplacer())
     } catch (err) {
@@ -255,7 +255,7 @@ export function safeToString(value: unknown): string {
   return String(value)
 }
 
-//  JSON.stringify 
+// 防止循环引用导致的 JSON.stringify 崩溃
 function getCircularReplacer() {
   const seen = new WeakSet()
   return (_key: string, value: unknown) => {

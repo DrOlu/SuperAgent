@@ -61,7 +61,7 @@ const NotesSettings: FC = () => {
     }
 
     try {
-      // 
+      // 验证目录是否可用
       const isValidDir = await window.api.file.validateNotesDirectory(tempPath)
 
       if (!isValidDir) {

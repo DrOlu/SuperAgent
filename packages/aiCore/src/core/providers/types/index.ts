@@ -19,18 +19,18 @@ import type { ToolFactoryMap } from './toolFactory'
 // ============================================================================
 
 /**
- * 
+ * 提取对象类型中的字符串键
  * @example StringKeys<{ foo: 1, 0: 2 }> = 'foo'
  */
 export type StringKeys<T> = Extract<keyof T, string>
 
-/**  coreExtensions  Provider ID literal union */
+/** 从 coreExtensions 自动提取的 Provider ID literal union */
 export type RegisteredProviderId = StringKeys<CoreProviderSettingsMap>
 
-/**  ID provider */
+/** 允许已注册 ID（有自动补全）和任意字符串（动态 provider） */
 export type ProviderId = RegisteredProviderId | (string & {})
 
-// 
+// 错误类型
 export class ProviderError extends Error {
   constructor(
     message: string,
@@ -70,17 +70,17 @@ export type AiSdkMethodName<T extends AiSdkModelType> = (typeof METHOD_MAP)[T]
 export type AiSdkModelReturn<T extends AiSdkModelType> = AiSdkModelReturnMap[T]
 
 // ============================================================================
-// Provider Extension 
+// Provider Extension 类型定义
 // ============================================================================
 
 /**
- * Provider 
+ * Provider 变体配置
  *
- * @typeParam TSettings - Provider 
- * @typeParam TProvider -  provider transform 
- * @typeParam TOutput -  provider transform  TProvider 
- *                        transform  provider  azure-anthropic
- *                       toolFactories  resolveModel  TOutput 
+ * @typeParam TSettings - Provider 配置类型
+ * @typeParam TProvider - 基础 provider 类型（transform 的输入）
+ * @typeParam TOutput - 变体输出的 provider 类型（transform 的输出），默认与 TProvider 相同
+ *                       当 transform 返回不同类型的 provider 时（如 azure-anthropic），
+ *                       toolFactories 和 resolveModel 将基于 TOutput 类型
  */
 export interface ProviderVariant<
   TSettings = any,
@@ -90,10 +90,10 @@ export interface ProviderVariant<
   suffix: string
   name: string
 
-  /** provider.responses(modelId) / provider.chat(modelId) */
+  /** 类型安全的模型解析：provider.responses(modelId) / provider.chat(modelId) */
   resolveModel?: (provider: TOutput, modelId: string) => LanguageModel
 
-  /**  provider azure-anthropic resolveModel */
+  /** 替换整个 provider（如 azure-anthropic），简单方法切换用 resolveModel */
   transform?: (baseProvider: TProvider, settings?: TSettings) => TOutput
 
   toolFactories?: ToolFactoryMap<TOutput>
@@ -105,7 +105,7 @@ export interface ProviderVariant<
 
 /**
  * Extract all Provider IDs from an extension config
- *  string
+ * 保留字面量类型，避免被推断为 string
  */
 export type ExtractProviderIds<TConfig> = TConfig extends { name: infer TName }
   ? TName extends string
@@ -160,7 +160,7 @@ export type ExtensionToSettingsMap<T> = T extends ProviderExtension<infer TSetti
  */
 export type CoreProviderSettingsMap = UnionToIntersection<ExtensionToSettingsMap<(typeof coreExtensions)[number]>>
 
-//  ID
+// 辅助类型：提取所有变体 ID
 type ExtractVariantIds<TConfig, TName extends string> = TConfig extends {
   variants: readonly { suffix: infer TSuffix extends string }[]
 }
@@ -173,8 +173,8 @@ export type ExtensionConfigToIdResolutionMap<TConfig> = TConfig extends { name: 
         | TName
         | (TConfig extends { aliases: readonly (infer TAlias extends string)[] } ? TAlias : never)
         | ExtractVariantIds<TConfig, TName>]: K extends ExtractVariantIds<TConfig, TName>
-        ? K //  → 
-        : TName //  → TName
+        ? K // 变体 → 自身
+        : TName // 基础名和别名 → TName
     }
   : never
 

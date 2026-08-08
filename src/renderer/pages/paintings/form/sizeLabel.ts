@@ -27,7 +27,7 @@ function formatDims({ w, h }: Dim): string {
 }
 
 function splitParens(label: string): { head: string; inner: string } {
-  const m = label.match(/^(.*?)\s*[(]([^)]+)[)]\s*$/)
+  const m = label.match(/^(.*?)\s*[(（]([^)）]+)[)）]\s*$/)
   return m ? { head: m[1].trim(), inner: m[2].trim() } : { head: label.trim(), inner: '' }
 }
 
@@ -43,7 +43,7 @@ function splitParens(label: string): { head: string; inner: string } {
  *  - Label with parenthesized pixel dims like `"1:1 (1024×1024)"` →
  *    use the head (`"1:1"`).
  *  - Pixel-size value `WxH` → `W×H` (formatted with U+00D7).
- *  - Anything else (`"auto"` → `""`, `"1K"`, etc.) → the label
+ *  - Anything else (`"auto"` → `"自动"`, `"1K"`, etc.) → the label
  *    verbatim.
  */
 export function deriveChipLabel(label: string, value: string): string {

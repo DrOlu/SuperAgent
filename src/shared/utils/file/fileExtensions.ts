@@ -67,12 +67,12 @@ export const customTextExts = new Map([
       '.bashrc',
       '.browserslistrc',
       '.conf',
-      '.config', // 
+      '.config', // 通用配置
       '.dockerignore', // Docker ignore
       '.eslintignore',
       '.eslintrc', // ESLint
-      '.fishrc', // Fish shell
-      '.htaccess', // Apache
+      '.fishrc', // Fish shell配置
+      '.htaccess', // Apache配置
       '.npmignore',
       '.npmrc', // npm
       '.prettierignore',
@@ -86,21 +86,21 @@ export const customTextExts = new Map([
   [
     'document',
     [
-      '.authors', // 
-      '.changelog', // 
-      '.license', // 
-      '.nfo', // 
+      '.authors', // 作者文件
+      '.changelog', // 变更日志
+      '.license', // 许可证
+      '.nfo', // 信息文件
       '.readme',
-      '.text' // 
+      '.text' // 纯文本
     ]
   ],
   [
     'data',
     [
-      '.atom', // Feed
+      '.atom', // Feed格式
       '.ldif',
       '.map',
-      '.ndjson' // JSON
+      '.ndjson' // 换行分隔JSON
     ]
   ],
   [
@@ -121,7 +121,7 @@ export const customTextExts = new Map([
   [
     'web',
     [
-      '.openapi', // API
+      '.openapi', // API文档
       '.swagger'
     ]
   ],
@@ -138,7 +138,7 @@ export const customTextExts = new Map([
   [
     'subtitle',
     [
-      '.ass', // 
+      '.ass', // 字幕格式
       '.sub'
     ]
   ],
@@ -146,7 +146,7 @@ export const customTextExts = new Map([
     'log',
     [
       '.log',
-      '.rpt' //  (.out)
+      '.rpt' // 日志和报告 (移除了.out，因为通常是二进制可执行文件)
     ]
   ],
   [

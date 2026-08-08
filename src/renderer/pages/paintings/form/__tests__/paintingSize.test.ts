@@ -51,7 +51,7 @@ describe('resolveSizeLabel', () => {
   // Stand-in for i18next `t`: localizes the shared size `auto` key, echoes any
   // other key (there are none for literal size values). Mirrors how the real
   // hook passes `t` so chips and the prompt bar localize identically.
-  const translate = (key: string) => (key === 'paintings.image_size_options.auto' ? '' : key)
+  const translate = (key: string) => (key === 'paintings.image_size_options.auto' ? '自动' : key)
 
   it('formats a stored pixel size', () => {
     const fields = fieldsFor(supportWith('size', ['1024x768', '1024x1024'], '1024x1024'))
@@ -60,7 +60,7 @@ describe('resolveSizeLabel', () => {
 
   it('localizes auto via the shared option label instead of surfacing the raw enum', () => {
     const fields = fieldsFor(supportWith('size', ['auto', '1024x1024'], '1024x1024'))
-    expect(resolveSizeLabel({ size: 'auto' }, fields, translate)).toBe('')
+    expect(resolveSizeLabel({ size: 'auto' }, fields, translate)).toBe('自动')
   })
 
   it('formats a stored size that is no longer among the field options', () => {

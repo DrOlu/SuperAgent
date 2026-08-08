@@ -343,8 +343,8 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) =>
       ({
-        'agent.manage.title': '',
-        'agent.session.list.title': ''
+        'agent.manage.title': '管理智能体',
+        'agent.session.list.title': '任务'
       })[key] ?? key
   })
 }))
@@ -1245,7 +1245,7 @@ describe('AgentPage', () => {
 
     render(<AgentPage />)
 
-    expect(screen.getByTestId('resource-pane-count')).toHaveTextContent(':2')
+    expect(screen.getByTestId('resource-pane-count')).toHaveTextContent('任务:2')
     expect(screen.getByTestId('session-resource-panel')).toHaveAttribute('data-agent-id', 'agent-a')
     expect(screen.getByTestId('session-resource-panel')).toHaveAttribute('data-presentation', 'right-panel')
   })

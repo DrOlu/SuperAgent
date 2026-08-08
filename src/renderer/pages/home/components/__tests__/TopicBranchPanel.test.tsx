@@ -215,9 +215,9 @@ describe('TopicBranchPanel', () => {
   })
 
   it('renders the right-pane content and fetches the topic tree only while open', () => {
-    render(<TopicBranchPanel open={true} topicId="topic-1" topicName="AI " />)
+    render(<TopicBranchPanel open={true} topicId="topic-1" topicName="AI 聊天应用技术选型" />)
 
-    expect(screen.getByText('AI ')).toBeInTheDocument()
+    expect(screen.getByText('AI 聊天应用技术选型')).toBeInTheDocument()
     expect(screen.getByText('2 chat.message.flow.branches')).toBeInTheDocument()
     expect(screen.getByText('1 chat.message.flow.nodes')).toBeInTheDocument()
     expect(mocks.useQuery).toHaveBeenCalledWith('/topics/:topicId/tree', {

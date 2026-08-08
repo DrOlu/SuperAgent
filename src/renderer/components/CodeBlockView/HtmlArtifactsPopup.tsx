@@ -73,7 +73,7 @@ const CodePanel = memo<CodePanelProps>(
           wrapped
           style={{ minHeight: 0 }}
           options={{
-            stream: true, // FIXME: 
+            stream: true, // FIXME: 避免多余空行
             lineNumbers: true,
             keymap: true
           }}

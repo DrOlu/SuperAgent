@@ -97,7 +97,7 @@ vi.mock('react-i18next', () => ({
       if (key === 'common.expand') return 'Expand'
       if (key === 'common.collapse') return 'Collapse'
       if (key === 'common.reasoning_content') return 'Reasoning content'
-      if (key === 'message.tools.collapse') return ''
+      if (key === 'message.tools.collapse') return '收起'
       if (key === 'chat.input.tools.open_file') return 'Open File'
       if (key === 'chat.input.tools.open_with') return 'Open with'
       if (key === 'chat.input.tools.open_file_error') return 'Failed to open file'
@@ -1507,8 +1507,8 @@ describe('MessagePartsRenderer', () => {
 
       expect(screen.queryByTestId('tool-history-preview')).toBeNull()
       expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
-      expect(screen.queryByText('')).toBeNull()
-      expect(screen.queryByRole('button', { name: '' })).toBeNull()
+      expect(screen.queryByText('全量')).toBeNull()
+      expect(screen.queryByRole('button', { name: '收起' })).toBeNull()
       expect(screen.queryByTestId('tool-history-divider')).toBeNull()
     })
   })

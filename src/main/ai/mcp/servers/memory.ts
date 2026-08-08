@@ -3,7 +3,7 @@ import { loggerService } from '@logger'
 import { TraceMethod } from '@mcp-trace/trace-core'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from '@modelcontextprotocol/sdk/types.js'
-import { Mutex } from 'async-mutex' //  Mutex
+import { Mutex } from 'async-mutex' // 引入 Mutex
 import { promises as fs } from 'fs'
 import path from 'path'
 

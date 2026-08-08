@@ -1,5 +1,5 @@
 /**
- *  props
+ * 预览组件的基本 props
  */
 export interface BasicPreviewProps {
   children: string
@@ -7,7 +7,7 @@ export interface BasicPreviewProps {
 }
 
 /**
- *  useImperativeHandle 
+ * 通过 useImperativeHandle 暴露的方法类型
  */
 export interface BasicPreviewHandles {
   pan: (dx: number, dy: number, absolute?: boolean) => void

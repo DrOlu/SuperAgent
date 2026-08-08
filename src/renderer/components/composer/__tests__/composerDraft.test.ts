@@ -250,12 +250,12 @@ describe('composer draft serialization', () => {
       content: [
         {
           type: 'paragraph',
-          content: [{ type: 'text', text: 'Browser  chat.ts' }]
+          content: [{ type: 'text', text: 'Browser 电脑 chat.ts' }]
         }
       ]
     })
 
-    expect(draft).toEqual({ text: 'Browser  chat.ts', tokens: [] })
+    expect(draft).toEqual({ text: 'Browser 电脑 chat.ts', tokens: [] })
   })
 
   it('creates a display-only composer snapshot with safe file payload metadata', () => {

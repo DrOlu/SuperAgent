@@ -383,7 +383,7 @@ describe('EmojiPicker', () => {
     await waitFor(() => {
       expect(emojiPickerPropsMock.value.emojiData.emojis.smileys_people).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ a: '17', n: expect.arrayContaining(['']), u: '1faea' })
+          expect.objectContaining({ a: '17', n: expect.arrayContaining(['变形的脸']), u: '1faea' })
         ])
       )
     })

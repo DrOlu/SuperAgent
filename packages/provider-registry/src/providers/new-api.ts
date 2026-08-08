@@ -22,7 +22,7 @@ const openAIWebSearchModels = ['gpt-4o', 'gpt-4-1', 'gpt-5', 'o3', 'o4']
  * every user regardless of what their relay actually serves. The thinking wire it used to carry
  * (`extra_body.thinking.type`) reached no upstream anyway: `extra_body` is OpenAI-SDK-side sugar,
  * and the correct field depends on the channel behind the model — New API's own answer to that is
- * server-side , not a client guess.
+ * server-side 参数覆盖, not a client guess.
  */
 export default defineProvider({
   id: 'new-api',

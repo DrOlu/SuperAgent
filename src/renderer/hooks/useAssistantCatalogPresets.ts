@@ -29,23 +29,23 @@ export interface AssistantCatalogTab {
 }
 
 const ORDERED_GROUP_ALIASES = [
-  ['', 'Featured'],
-  ['', 'Career'],
-  ['', 'Business'],
-  ['', 'Tools'],
-  ['', 'Language'],
-  ['', 'Office'],
-  ['', 'General'],
-  ['', 'Writing'],
-  ['', 'Programming'],
-  ['', 'Emotional'],
-  ['', 'Education'],
-  ['', 'Creative'],
-  ['', 'Academic'],
-  ['', 'Design'],
-  ['', 'Art'],
-  ['', 'Entertainment'],
-  ['', 'Life']
+  ['精选', 'Featured'],
+  ['职业', 'Career'],
+  ['商业', 'Business'],
+  ['工具', 'Tools'],
+  ['语言', 'Language'],
+  ['办公', 'Office'],
+  ['通用', 'General'],
+  ['写作', 'Writing'],
+  ['编程', 'Programming'],
+  ['情感', 'Emotional'],
+  ['教育', 'Education'],
+  ['创意', 'Creative'],
+  ['学术', 'Academic'],
+  ['设计', 'Design'],
+  ['艺术', 'Art'],
+  ['娱乐', 'Entertainment'],
+  ['生活', 'Life']
 ]
 
 const orderedGroupRank = new Map<string, number>()

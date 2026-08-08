@@ -5,12 +5,12 @@ import { useTemporaryValue } from '../useTemporaryValue'
 
 describe('useTemporaryValue', () => {
   beforeEach(() => {
-    // 
+    // 使用假定时器
     vi.useFakeTimers()
   })
 
   afterEach(() => {
-    // 
+    // 恢复真实定时器
     vi.useRealTimers()
   })
 
@@ -26,14 +26,14 @@ describe('useTemporaryValue', () => {
       const { result } = renderHook(() => useTemporaryValue('default', 1000))
       const [, setTemporaryValue] = result.current
 
-      // 
+      // 设置临时值
       act(() => {
         setTemporaryValue('temporary')
       })
 
       expect(result.current[0]).toBe('temporary')
 
-      // 
+      // 快进定时器
       act(() => {
         vi.advanceTimersByTime(1000)
       })
@@ -45,19 +45,19 @@ describe('useTemporaryValue', () => {
       const { result } = renderHook(() => useTemporaryValue('default', 1000))
       const [, setTemporaryValue] = result.current
 
-      // 
+      // 设置与默认值相同的值
       act(() => {
         setTemporaryValue('default')
       })
 
       expect(result.current[0]).toBe('default')
 
-      // 
+      // 快进定时器（即使不需要恢复，也不会出错）
       act(() => {
         vi.advanceTimersByTime(1000)
       })
 
-      // 
+      // 应该保持默认值
       expect(result.current[0]).toBe('default')
     })
   })
@@ -67,45 +67,45 @@ describe('useTemporaryValue', () => {
       const { result, unmount } = renderHook(() => useTemporaryValue('default', 1000))
       const [, setTemporaryValue] = result.current
 
-      // 
+      // 设置临时值
       act(() => {
         setTemporaryValue('temporary')
       })
 
-      // 
+      // 验证值已更改
       expect(result.current[0]).toBe('temporary')
 
-      //  hook
+      // 卸载 hook
       unmount()
 
-      // 
+      // 快进定时器
       act(() => {
         vi.advanceTimersByTime(1000)
       })
 
-      // 
-      expect(result.current[0]).toBe('temporary') // 'temporary'
+      // 验证没有错误发生（值保持不变，因为我们已卸载）
+      expect(result.current[0]).toBe('temporary') // 注意：这里应该还是'temporary'，因为组件已卸载
     })
 
     it('should handle multiple calls correctly', () => {
       const { result } = renderHook(() => useTemporaryValue('default', 1000))
       const [, setTemporaryValue] = result.current
 
-      // 
+      // 设置临时值
       act(() => {
         setTemporaryValue('temporary1')
       })
 
       expect(result.current[0]).toBe('temporary1')
 
-      // 
+      // 在第一个值过期前设置另一个临时值
       act(() => {
         setTemporaryValue('temporary2')
       })
 
       expect(result.current[0]).toBe('temporary2')
 
-      // 
+      // 快进定时器
       act(() => {
         vi.advanceTimersByTime(1000)
       })
@@ -140,7 +140,7 @@ describe('useTemporaryValue', () => {
 
       expect(result.current[0]).toBe('temporary')
 
-      // 0ms
+      // 对于0ms的定时器，需要运行所有微任务
       act(() => {
         vi.runAllTimers()
       })

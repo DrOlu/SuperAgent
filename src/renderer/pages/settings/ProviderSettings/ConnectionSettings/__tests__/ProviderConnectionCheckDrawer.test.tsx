@@ -97,7 +97,7 @@ describe('ProviderConnectionCheckDrawer', () => {
       <ProviderConnectionCheckDrawer {...baseProps} onClose={onClose} onOpenModelHealthCheck={onOpenModelHealthCheck} />
     )
 
-    const healthCheckButtonName = /Check all models|/
+    const healthCheckButtonName = /Check all models|检测所有模型/
 
     fireEvent.click(screen.getByRole('button', { name: healthCheckButtonName }))
 
@@ -108,7 +108,7 @@ describe('ProviderConnectionCheckDrawer', () => {
   it('hides the model health check footer action when no handler is provided', () => {
     render(<ProviderConnectionCheckDrawer {...baseProps} />)
 
-    expect(screen.queryByRole('button', { name: /Check all models|/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Check all models|检测所有模型/ })).toBeNull()
   })
 
   it('renders local model options with icons and starts the check with the selected model', () => {
@@ -130,7 +130,7 @@ describe('ProviderConnectionCheckDrawer', () => {
     expect(screen.getAllByTestId('model-icon-provider-a::alpha').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: /Beta Search Model/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Start|/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Start|开始/ }))
 
     expect(onStart).toHaveBeenCalledWith({ model: betaModel, apiKey: 'sk-test' })
   })
@@ -149,7 +149,7 @@ describe('ProviderConnectionCheckDrawer', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /sk.*nd/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Start|/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Start|开始/ }))
 
     expect(onStart).toHaveBeenCalledWith({ model, apiKey: 'sk-second' })
   })
@@ -168,7 +168,7 @@ describe('ProviderConnectionCheckDrawer', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Start|/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Start|开始/ }))
 
     expect(onStart).toHaveBeenCalledWith({ model, apiKey: '' })
   })

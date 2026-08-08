@@ -94,21 +94,21 @@ describe('ProviderHeader', () => {
     useProviderMock.mockReturnValue({
       provider: {
         id: '35836b32-9bc1-40ab-9195-8b0b4ea3f342',
-        name: '',
+        name: '反反复',
         presetProviderId: undefined,
         isEnabled: true
       }
     })
     useProviderMetaMock.mockReturnValue({
-      fancyProviderName: '',
+      fancyProviderName: '反反复',
       docsWebsite: undefined,
       showApiOptionsButton: false
     })
 
     render(<ProviderHeader providerId="35836b32-9bc1-40ab-9195-8b0b4ea3f342" />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText('').closest('a')).toBeNull()
+    expect(screen.getByText('反反复')).toBeInTheDocument()
+    expect(screen.getByText('反反复').closest('a')).toBeNull()
     expect(screen.queryByText('provider-avatar')).not.toBeInTheDocument()
     expect(screen.queryByText('35836b32-9bc1-40ab-9195-8b0b4ea3f342')).not.toBeInTheDocument()
   })

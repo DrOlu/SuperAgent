@@ -32,10 +32,10 @@ describe('dashscope (Bailian) endpoint matrix', () => {
    * Bailian serves the whole qwen line on Chat Completions — the OpenAI-compatible Chat doc
    * (help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions) lists qwen3.7-max,
    * qwen3.6-plus, qwen3.6-flash and qwen3.8-max-preview among its supported models, and its only
-   * "…" carve-outs are Qwen-Audio / qwen-long / qwen-doc-turbo. So NO qwen may be pinned
+   * "仅…支持" carve-outs are Qwen-Audio / qwen-long / qwen-doc-turbo. So NO qwen may be pinned
    * Responses-only: the newest SKUs prefer Responses but must keep Chat selectable.
    *
-   * This previously regressed by reading "Responses API  Qwen3.7 MaxQwen3.6Qwen3.5
+   * This previously regressed by reading "Responses API 仅支持 Qwen3.7 Max系列、Qwen3.6、Qwen3.5、
    * qwen3-max" (a statement about which models the Responses *web-search tool* covers) as if it
    * said those models support only Responses.
    */
@@ -157,7 +157,7 @@ describe('doubao (Ark) endpoint matrix', () => {
 
   it.each([
     'doubao-seed-1-6-flash', // built-in tools discouraged on flash
-    'deepseek-v4-pro', // reasoning_effort on chat only (responses )
+    'deepseek-v4-pro', // reasoning_effort on chat only (responses 待支持)
     'doubao-1-5-thinking-pro' // pre-250615, not served by /responses at all
   ])('pins %s to Chat Completions, which is the only endpoint Ark serves for it', (modelId) => {
     expect(endpointsOf('doubao', modelId)).toEqual(['openai-chat-completions'])
@@ -181,7 +181,7 @@ describe('new-api single-host endpoints', () => {
    * An override is also a catalog row, so any entry here advertises a model to every New API user
    * regardless of what their relay serves. The wire such an entry would carry is unknowable too:
    * the thinking field depends on the channel behind the model, which is why New API solves this
-   * with server-side .
+   * with server-side 参数覆盖.
    */
   it('declares no per-model overrides', () => {
     expect(provider('new-api').overrides ?? []).toEqual([])

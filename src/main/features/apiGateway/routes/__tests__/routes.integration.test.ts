@@ -202,7 +202,7 @@ describe('API gateway routes (integration)', () => {
     it('GET /openapi renders a language dropdown offering every supported language, defaulting to the app language', async () => {
       const html = await (await get(app, '/openapi', {})).text()
       expect(html).toContain(`<option value="en-US" selected>English</option>`)
-      expect(html).toContain(`<option value="zh-CN"></option>`)
+      expect(html).toContain(`<option value="zh-CN">中文</option>`)
     })
 
     it('GET /openapi?lang=zh-CN renders Scalar chrome + the dropdown in the requested language', async () => {
@@ -210,7 +210,7 @@ describe('API gateway routes (integration)', () => {
       const config = JSON.parse(html.match(/data-configuration='(.+?)'/)![1])
       expect(config.url).toBe('http://localhost/openapi/json?lang=zh-CN')
       expect(config.localization).toEqual({ locale: 'zh-CN' })
-      expect(html).toContain(`<option value="zh-CN" selected></option>`)
+      expect(html).toContain(`<option value="zh-CN" selected>中文</option>`)
     })
   })
 

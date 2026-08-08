@@ -57,21 +57,21 @@ interface Props {
 }
 
 /**
- * 
+ * 代码块视图
  *
- * 
- * - preview: 
- * - edit: 
+ * 视图类型：
+ * - preview: 预览视图，其中非源代码的是特殊视图
+ * - edit: 编辑视图
  *
- * 
- * - source: 
- * - edit: 
- * - special: MermaidPlantUMLSVG
- * - split: 
+ * 视图模式：
+ * - source: 源代码视图模式
+ * - edit: 编辑视图模式
+ * - special: 特殊视图模式（Mermaid、PlantUML、SVG）
+ * - split: 分屏模式（源代码和特殊视图并排显示）
  *
- *  sticky 
- * - quick 
- * - core 
+ * 顶部 sticky 工具栏：
+ * - quick 工具
+ * - core 工具
  */
 export const CodeBlockView: React.FC<Props> = memo((props) => {
   const { children, language, onSave, editable = true, isStreaming = false, showToolbar = true, maxHeight } = props
@@ -114,14 +114,14 @@ export const CodeBlockView: React.FC<Props> = memo((props) => {
   const setViewMode = useCallback((newMode: ViewMode) => {
     setViewState((current) => ({
       mode: newMode,
-      //  'split' 
+      // 当新模式不是 'split' 时才更新
       previousMode: newMode !== 'split' ? newMode : current.previousMode
     }))
   }, [])
 
   const toggleSplitView = useCallback(() => {
     setViewState((current) => {
-      //  split 
+      // 如果当前是 split 模式，恢复到上一个模式
       if (current.mode === 'split') {
         return { ...current, mode: current.previousMode }
       }
@@ -154,12 +154,12 @@ export const CodeBlockView: React.FC<Props> = memo((props) => {
   const [wrapOverride, setWrapOverride] = useState(codeWrappable)
   const handleRequestExpand = useCallback(() => setExpandOverride(true), [])
 
-  // 
+  // 重置用户操作
   useEffect(() => {
     setExpandOverride(!codeCollapsible)
   }, [codeCollapsible])
 
-  // 
+  // 重置用户操作
   useEffect(() => {
     setWrapOverride(codeWrappable)
   }, [codeWrappable])
@@ -200,12 +200,12 @@ export const CodeBlockView: React.FC<Props> = memo((props) => {
     const { source: currentSource, language: currentLanguage } = latestActionContextRef.current
     let fileName = ''
 
-    //  HTML 
+    // 尝试提取 HTML 标题
     if (currentLanguage === 'html') {
       fileName = getFileNameFromHtmlTitle(extractHtmlTitle(currentSource)) || ''
     }
 
-    // 
+    // 默认使用日期格式命名
     if (!fileName) {
       fileName = `${dayjs().format('YYYYMMDDHHmm')}`
     }
@@ -303,7 +303,7 @@ export const CodeBlockView: React.FC<Props> = memo((props) => {
 
   const hasStatusBar = isExecutable && !!executionResult
 
-  // 
+  // 源代码视图组件
   const sourceView = useMemo(
     () =>
       isEditing ? (
@@ -356,7 +356,7 @@ export const CodeBlockView: React.FC<Props> = memo((props) => {
     ]
   )
 
-  // 
+  // 特殊视图组件映射
   const specialView = useMemo(() => {
     const SpecialView = SPECIAL_VIEW_COMPONENTS[language as keyof typeof SPECIAL_VIEW_COMPONENTS]
 
@@ -387,7 +387,7 @@ export const CodeBlockView: React.FC<Props> = memo((props) => {
     )
   }, [isInSpecialView, language])
 
-  // fallback
+  // 根据视图模式和语言选择组件，优先展示特殊视图，fallback是源代码视图
   const renderContent = useMemo(() => {
     const showSpecialView = !!specialView && ['special', 'split'].includes(viewMode)
     const showSourceView = !specialView || viewMode !== 'special'

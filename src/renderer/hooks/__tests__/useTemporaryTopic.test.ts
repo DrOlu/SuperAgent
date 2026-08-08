@@ -39,12 +39,12 @@ describe('useTemporaryTopic', () => {
     await waitFor(() => expect(result.current.ready).toBe(true))
 
     await act(async () => {
-      await result.current.persist(''.repeat(29) + '😀' + ''.repeat(10))
+      await result.current.persist('字'.repeat(29) + '😀' + '文'.repeat(10))
     })
 
     expect(dataApiService.patch).toHaveBeenCalledWith('/topics/temp-topic-1', {
       body: {
-        name: ''.repeat(29),
+        name: '字'.repeat(29),
         isNameManuallyEdited: false
       }
     })

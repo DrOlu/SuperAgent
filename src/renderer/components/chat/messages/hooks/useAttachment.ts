@@ -7,9 +7,9 @@ import { useTranslation } from 'react-i18next'
 const logger = loggerService.withContext('FileAction')
 
 /**
- * 
- *  Preview 
- * 
+ * 处理附件点击事件：
+ * 如果是文本文件，在 Preview 视图中打开，
+ * 否则使用默认打开接口
  */
 export function useAttachment() {
   const { t } = useTranslation()

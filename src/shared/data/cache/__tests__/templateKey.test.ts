@@ -40,7 +40,7 @@ describe('templateToRegex', () => {
 
   it('rejects non-ASCII characters in dynamic segment (contract test for [\\w\\-]+)', () => {
     const regex = templateToRegex('web_search.provider.last_used_key.${providerId}')
-    expect(regex.test('web_search.provider.last_used_key.id')).toBe(false)
+    expect(regex.test('web_search.provider.last_used_key.中文id')).toBe(false)
     expect(regex.test('web_search.provider.last_used_key.emoji😀')).toBe(false)
   })
 

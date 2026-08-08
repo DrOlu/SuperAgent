@@ -39,8 +39,8 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'knowledge.data_source.preview.failed': '',
-          'knowledge.data_source.preview.unavailable': ''
+          'knowledge.data_source.preview.failed': '预览原文失败',
+          'knowledge.data_source.preview.unavailable': '当前数据源没有可预览的原文'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -215,7 +215,7 @@ describe('usePreviewKnowledgeSource', () => {
 
     expect(mockOpenPath).not.toHaveBeenCalled()
     expect(mockOpenExternal).not.toHaveBeenCalled()
-    expect(toast.warning).toHaveBeenCalledWith('')
+    expect(toast.warning).toHaveBeenCalledWith('当前数据源没有可预览的原文')
   })
 
   it('shows an unavailable toast for invalid url sources', async () => {
@@ -227,7 +227,7 @@ describe('usePreviewKnowledgeSource', () => {
 
     expect(mockOpenPath).not.toHaveBeenCalled()
     expect(mockOpenExternal).not.toHaveBeenCalled()
-    expect(toast.warning).toHaveBeenCalledWith('')
+    expect(toast.warning).toHaveBeenCalledWith('当前数据源没有可预览的原文')
   })
 
   it('logs and shows a failure toast when previewing rejects', async () => {
@@ -239,7 +239,7 @@ describe('usePreviewKnowledgeSource', () => {
       await result.current.previewSource(createFileItem({ id: 'file-1', source: '/Users/me/report.pdf' }))
     })
 
-    expect(toast.error).toHaveBeenCalledWith(': open failed')
+    expect(toast.error).toHaveBeenCalledWith('预览原文失败: open failed')
     expect(previewFileMock).not.toHaveBeenCalled()
     expect(loggerErrorSpy).toHaveBeenCalledWith('Failed to preview knowledge source', previewError, {
       itemId: 'file-1',
@@ -268,7 +268,7 @@ describe('usePreviewKnowledgeSource', () => {
 
     expect(mockOpenExternal).not.toHaveBeenCalled()
     expect(previewFileMock).not.toHaveBeenCalled()
-    expect(toast.warning).toHaveBeenCalledWith('')
+    expect(toast.warning).toHaveBeenCalledWith('当前数据源没有可预览的原文')
     expect(toast.error).not.toHaveBeenCalled()
     expect(loggerErrorSpy).toHaveBeenCalledWith('Failed to preview knowledge source', previewError, {
       itemId: 'url-1',

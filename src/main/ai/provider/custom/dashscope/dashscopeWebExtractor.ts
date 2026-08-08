@@ -2,8 +2,8 @@
  * DashScope's `web_extractor` server tool (help.aliyun.com/zh/model-studio/web-extractor) is a
  * Responses tool that fetches full page content. Two constraints shape delivery:
  *
- * 1. It must ride the `tools` array **alongside** `web_search` — the doc: "
- *    ". It never works alone.
+ * 1. It must ride the `tools` array **alongside** `web_search` — the doc: "开启网页抓取必须同时开启
+ *    联网搜索工具". It never works alone.
  * 2. `@ai-sdk/openai`'s Responses adapter silently drops any tool id outside its own allowlist, so
  *    `web_extractor` cannot be delivered through a provider-tool factory. It is appended to the
  *    serialized request body here instead (installed as a custom `fetch` in `config.ts`).

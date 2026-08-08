@@ -39,12 +39,12 @@ vi.mock('react-i18next', () => ({
       (
         ({
           'knowledge.error.missing_embedding_model':
-            '',
-          'knowledge.restore.action': '',
-          'knowledge.status.completed': '',
-          'knowledge.status.failed': '',
-          'knowledge.tabs.rag_config': '',
-          'knowledge.tabs.recall_test': ''
+            '迁移时未找到原知识库使用的嵌入模型，请重建知识库并选择新的嵌入模型。',
+          'knowledge.restore.action': '重建知识库',
+          'knowledge.status.completed': '就绪',
+          'knowledge.status.failed': '失败',
+          'knowledge.tabs.rag_config': '知识库设置',
+          'knowledge.tabs.recall_test': '召回测试'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -82,7 +82,7 @@ describe('DetailHeader', () => {
     )
 
     expect(screen.getByText('Base 1')).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('就绪')).not.toBeInTheDocument()
   })
 
   it('renders the failed status as a clickable rebuild trigger', () => {
@@ -97,20 +97,20 @@ describe('DetailHeader', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('失败')).toBeInTheDocument()
 
-    const rebuildTrigger = screen.getByRole('button', { name: ', ' })
+    const rebuildTrigger = screen.getByRole('button', { name: '失败, 重建知识库' })
     fireEvent.click(rebuildTrigger)
     expect(onRebuild).toHaveBeenCalledOnce()
 
     // The failure reason itself lives in the rebuild dialog, not the header.
     expect(
-      screen.queryByText('')
+      screen.queryByText('迁移时未找到原知识库使用的嵌入模型，请重建知识库并选择新的嵌入模型。')
     ).not.toBeInTheDocument()
 
     // A failed base cannot be configured or recall-tested, so those actions are hidden.
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '知识库设置' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '召回测试' })).not.toBeInTheDocument()
   })
 
   it('does not expose a rebuild trigger when the base is not failed', () => {
@@ -125,8 +125,8 @@ describe('DetailHeader', () => {
       />
     )
 
-    expect(screen.queryByText('')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: // })).not.toBeInTheDocument()
+    expect(screen.queryByText('就绪')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /重建知识库/ })).not.toBeInTheDocument()
   })
 
   it('renders the header actions as icon-only buttons, with no more menu', () => {
@@ -142,13 +142,13 @@ describe('DetailHeader', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '知识库设置' }))
+    fireEvent.click(screen.getByRole('button', { name: '召回测试' }))
 
     expect(onOpenRagConfig).toHaveBeenCalledOnce()
     expect(onOpenRecallTest).toHaveBeenCalledOnce()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByText('知识库设置')).not.toBeInTheDocument()
+    expect(screen.getByText('召回测试')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '更多' })).not.toBeInTheDocument()
   })
 })

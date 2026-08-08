@@ -32,18 +32,18 @@ export const CodeStyleProvider: React.FC<PropsWithChildren> = ({ children }) => 
     }
   }, [codeEditorEnabled])
 
-  // 
+  // 获取支持的主题名称列表
   const themeNames = useMemo(() => {
-    // CodeMirror 
+    // CodeMirror 主题（异步加载，到位前为空列表）
     if (codeEditorEnabled) {
       return cmThemeNames
     }
 
-    // Shiki  BundledThemeInfo  id 
+    // Shiki 主题，取出所有 BundledThemeInfo 的 id 作为主题名
     return ['auto', ...shikiThemesInfo.map((info) => info.id)]
   }, [codeEditorEnabled, cmThemeNames, shikiThemesInfo])
 
-  //  Shiki 
+  // 获取当前使用的 Shiki 主题名称（只用于代码预览）
   const activeShikiTheme = useMemo(() => {
     const codeStyle = theme === ThemeMode.light ? codeViewerThemeLight : codeViewerThemeDark
 
@@ -58,7 +58,7 @@ export const CodeStyleProvider: React.FC<PropsWithChildren> = ({ children }) => 
     return themeInfo?.type === 'dark'
   }, [activeShikiTheme, shikiThemesInfo])
 
-  //  CodeMirror 
+  // 获取当前使用的 CodeMirror 主题对象（只用于编辑器；异步解析，到位前用基础明暗主题）
   const [activeCmTheme, setActiveCmTheme] = useState<CodeMirrorTheme>(() =>
     theme === ThemeMode.light ? 'light' : 'dark'
   )
@@ -81,7 +81,7 @@ export const CodeStyleProvider: React.FC<PropsWithChildren> = ({ children }) => 
     }
   }, [theme, codeEditorThemeLight, codeEditorThemeDark, themeNames])
 
-  //  shiki 
+  // 自定义 shiki 语言别名
   const languageAliases = useMemo(() => {
     return {
       bash: 'shell',
@@ -93,13 +93,13 @@ export const CodeStyleProvider: React.FC<PropsWithChildren> = ({ children }) => 
   }, [])
 
   useEffect(() => {
-    //  Worker
+    // 在组件卸载时清理 Worker
     return () => {
       shikiStreamService.dispose()
     }
   }, [])
 
-  //  token lines
+  // 流式代码高亮，返回已高亮的 token lines
   const highlightCodeChunk = useCallback(
     async (trunk: string, language: string, callerId: string) => {
       const normalizedLang = languageAliases[language] || language.toLowerCase()
@@ -108,12 +108,12 @@ export const CodeStyleProvider: React.FC<PropsWithChildren> = ({ children }) => 
     [activeShikiTheme, languageAliases]
   )
 
-  // 
+  // 清理代码高亮资源
   const cleanupTokenizers = useCallback((callerId: string) => {
     shikiStreamService.cleanupTokenizers(callerId)
   }, [])
 
-  // 
+  // 高亮流式输出的代码
   const highlightStreamingCode = useCallback(
     async (fullContent: string, language: string, callerId: string) => {
       const normalizedLang = languageAliases[language] || language.toLowerCase()
@@ -122,7 +122,7 @@ export const CodeStyleProvider: React.FC<PropsWithChildren> = ({ children }) => 
     [activeShikiTheme, languageAliases]
   )
 
-  //  Shiki pre 
+  // 获取 Shiki pre 标签属性
   const getShikiPreProperties = useCallback(
     async (language: string) => {
       const normalizedLang = languageAliases[language] || language.toLowerCase()
@@ -141,7 +141,7 @@ export const CodeStyleProvider: React.FC<PropsWithChildren> = ({ children }) => 
     [activeShikiTheme]
   )
 
-  //  Shiki  Markdown-it 
+  // 使用 Shiki 和 Markdown-it 渲染代码
   const shikiMarkdownIt = useCallback(
     async (code: string) => {
       const renderer = await getMarkdownIt(activeShikiTheme, code)

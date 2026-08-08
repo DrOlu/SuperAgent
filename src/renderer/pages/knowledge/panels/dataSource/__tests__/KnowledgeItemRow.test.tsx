@@ -21,7 +21,7 @@ vi.mock('@renderer/data/hooks/useCache', () => ({
 }))
 
 vi.mock('@renderer/utils/time', () => ({
-  formatRelativeTime: () => ''
+  formatRelativeTime: () => '刚刚'
 }))
 
 vi.mock('@renderer/utils/error', () => ({
@@ -171,30 +171,30 @@ vi.mock('react-i18next', () => ({
     },
     t: (key: string, options?: Record<string, number>) => {
       if (key === 'knowledge.data_source.status.copying') {
-        return ` ${options?.percent}%`
+        return `复制中 ${options?.percent}%`
       }
       const translations: Record<string, string> = {
-        'knowledge.data_source.status.ready': '',
-        'knowledge.data_source.status.error': '',
-        'knowledge.error.directory_not_migrated': '',
-        'knowledge.data_source.status.embedding': '',
-        'knowledge.data_source.status.chunking': '',
-        'knowledge.data_source.status.pending': '',
-        'knowledge.data_source.actions.preview_source': '',
-        'knowledge.data_source.actions.view_chunks': ' Chunks',
-        'knowledge.data_source.actions.reindex': '',
-        'knowledge.data_source.actions.delete': '',
-        'knowledge.data_source.delete_failed': '',
-        'knowledge.data_source.preview.failed': '',
-        'knowledge.data_source.reindex_failed': '',
-        'knowledge.data_source.filters.file': '',
-        'knowledge.data_source.filters.note': '',
-        'knowledge.data_source.filters.directory': '',
-        'knowledge.data_source.filters.url': '',
-        'knowledge.data_source.table.select_row': '',
-        'knowledge.data_source.table.open_row': '',
-        'common.more': '',
-        'knowledge.rag.file_processing': ''
+        'knowledge.data_source.status.ready': '就绪',
+        'knowledge.data_source.status.error': '失败',
+        'knowledge.error.directory_not_migrated': '该文件夹内容迁移失败，请删除后重新上传。',
+        'knowledge.data_source.status.embedding': '向量化中',
+        'knowledge.data_source.status.chunking': '分块中',
+        'knowledge.data_source.status.pending': '等待中',
+        'knowledge.data_source.actions.preview_source': '预览原文',
+        'knowledge.data_source.actions.view_chunks': '查看 Chunks',
+        'knowledge.data_source.actions.reindex': '重新索引',
+        'knowledge.data_source.actions.delete': '删除',
+        'knowledge.data_source.delete_failed': '删除数据源失败',
+        'knowledge.data_source.preview.failed': '预览原文失败',
+        'knowledge.data_source.reindex_failed': '数据源重新索引失败',
+        'knowledge.data_source.filters.file': '文件',
+        'knowledge.data_source.filters.note': '笔记',
+        'knowledge.data_source.filters.directory': '目录',
+        'knowledge.data_source.filters.url': '链接',
+        'knowledge.data_source.table.select_row': '选择行',
+        'knowledge.data_source.table.open_row': '打开行',
+        'common.more': '更多',
+        'knowledge.rag.file_processing': '文件处理'
       }
       return translations[key] ?? key
     }
@@ -226,8 +226,8 @@ describe('KnowledgeItemRow', () => {
     render(<KnowledgeItemRow item={createFileItem({ id: 'file-1', originName: 'old-name.md' })} {...defaultHandlers} />)
 
     expect(screen.getByText('old-name.md')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('文件')).toBeInTheDocument()
+    expect(screen.getByText('刚刚')).toBeInTheDocument()
     expect(mockUseQuery).not.toHaveBeenCalledWith('/files/entries/:id', expect.anything())
   })
 
@@ -237,19 +237,19 @@ describe('KnowledgeItemRow', () => {
     )
 
     expect(screen.getByText('fallback.md')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('文件')).toBeInTheDocument()
   })
 
   it('renders the completed status label for ready items', () => {
     render(<KnowledgeItemRow item={createFileItem({ id: 'file-1', status: 'completed' })} {...defaultHandlers} />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('就绪')).toBeInTheDocument()
   })
 
   it('renders the failed status label for failed items', () => {
     render(<KnowledgeItemRow item={createFileItem({ id: 'file-1', status: 'failed' })} {...defaultHandlers} />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('失败')).toBeInTheDocument()
     expect(screen.getByRole('tooltip')).toHaveTextContent('Indexing failed')
   })
 
@@ -266,13 +266,13 @@ describe('KnowledgeItemRow', () => {
     )
 
     // Red failure label with the localized migration-failed tooltip.
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByRole('tooltip')).toHaveTextContent('')
+    expect(screen.getByText('失败')).toBeInTheDocument()
+    expect(screen.getByRole('tooltip')).toHaveTextContent('该文件夹内容迁移失败')
 
     // Re-indexing restores the index, but there are no chunks to view yet.
     fireEvent.contextMenu(screen.getByRole('row'))
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: ' Chunks' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新索引' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '查看 Chunks' })).not.toBeInTheDocument()
   })
 
   it('omits the preview-original action for notes while keeping chunk viewing when completed', () => {
@@ -281,15 +281,15 @@ describe('KnowledgeItemRow', () => {
     fireEvent.contextMenu(screen.getByRole('row'))
 
     // Notes have no external source to preview — their text opens via the row's primary click.
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '预览原文' })).not.toBeInTheDocument()
     // Chunks remain reachable as a separate advanced action once the note is indexed.
-    expect(screen.getByRole('button', { name: ' Chunks' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '查看 Chunks' })).toBeInTheDocument()
   })
 
   it('renders the processing status label for in-flight items', () => {
     render(<KnowledgeItemRow item={createFileItem({ id: 'file-1', status: 'reading' })} {...defaultHandlers} />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('文件处理')).toBeInTheDocument()
   })
 
   it('shows the embedding percentage next to the status label while embedding', () => {
@@ -298,7 +298,7 @@ describe('KnowledgeItemRow', () => {
     render(<KnowledgeItemRow item={createFileItem({ id: 'file-1', status: 'embedding' })} {...defaultHandlers} />)
 
     expect(mockUseSharedCacheValue).toHaveBeenCalledWith('knowledge.item.embedding_progress.file-1')
-    expect(screen.getByText(' 42%')).toBeInTheDocument()
+    expect(screen.getByText('向量化中 42%')).toBeInTheDocument()
   })
 
   it('shows the bare embedding label while the job has not published a percentage yet', () => {
@@ -308,7 +308,7 @@ describe('KnowledgeItemRow', () => {
 
     render(<KnowledgeItemRow item={createFileItem({ id: 'file-1', status: 'embedding' })} {...defaultHandlers} />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('向量化中')).toBeInTheDocument()
     expect(screen.queryByText(/%/)).not.toBeInTheDocument()
   })
 
@@ -320,7 +320,7 @@ describe('KnowledgeItemRow', () => {
     )
 
     expect(mockUseSharedCacheValue).toHaveBeenCalledWith('knowledge.item.directory_copy_progress.directory-1')
-    expect(screen.getByText(' 38%')).toBeInTheDocument()
+    expect(screen.getByText('复制中 38%')).toBeInTheDocument()
   })
 
   it('shows the pending label before directory copy progress is available', () => {
@@ -328,7 +328,7 @@ describe('KnowledgeItemRow', () => {
       <KnowledgeItemRow item={createDirectoryItem({ id: 'directory-1', status: 'preparing' })} {...defaultHandlers} />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('等待中')).toBeInTheDocument()
   })
 
   it('does not subscribe to the progress key at all for non-embedding rows', () => {
@@ -338,7 +338,7 @@ describe('KnowledgeItemRow', () => {
 
     render(<KnowledgeItemRow item={createFileItem({ id: 'file-1', status: 'completed' })} {...defaultHandlers} />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('就绪')).toBeInTheDocument()
     expect(screen.queryByText(/42%/)).not.toBeInTheDocument()
     expect(mockUseSharedCacheValue).not.toHaveBeenCalled()
   })
@@ -402,7 +402,7 @@ describe('KnowledgeItemRow', () => {
       />
     )
 
-    const row = screen.getByRole('row', { name: '' })
+    const row = screen.getByRole('row', { name: '打开行' })
 
     expect(row).toHaveAttribute('tabindex', '0')
   })
@@ -434,7 +434,7 @@ describe('KnowledgeItemRow', () => {
       />
     )
 
-    fireEvent.keyDown(screen.getByRole('checkbox', { name: '' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('checkbox', { name: '选择行' }), { key: 'Enter' })
 
     expect(handleClick).not.toHaveBeenCalled()
   })
@@ -452,7 +452,7 @@ describe('KnowledgeItemRow', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '选择行' }))
 
     expect(handleToggle).toHaveBeenCalledWith(true)
     expect(handleClick).not.toHaveBeenCalled()
@@ -487,16 +487,16 @@ describe('KnowledgeItemRow', () => {
     )
 
     // The more button is always mounted (revealed on hover via CSS); its menu is closed at rest.
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更多' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '删除' })).not.toBeInTheDocument()
 
     // Clicking the more button opens the same actions as a right-click on the row.
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
     fireEvent.contextMenu(screen.getByRole('row'))
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument()
   })
 
   it('does not activate the row when a more-menu action is clicked', () => {
@@ -512,8 +512,8 @@ describe('KnowledgeItemRow', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    fireEvent.click(screen.getByRole('button', { name: '预览原文' }))
 
     expect(handlePreviewSource).toHaveBeenCalledTimes(1)
     expect(handleClick).not.toHaveBeenCalled()
@@ -549,7 +549,7 @@ describe('KnowledgeItemRow', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('row'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '预览原文' }))
 
     await waitFor(() => {
       expect(handlePreviewSource).toHaveBeenCalledTimes(1)
@@ -569,10 +569,10 @@ describe('KnowledgeItemRow', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('row'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '预览原文' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': preview failed')
+      expect(toast.error).toHaveBeenCalledWith('预览原文失败: preview failed')
     })
   })
 
@@ -590,7 +590,7 @@ describe('KnowledgeItemRow', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('row'))
-    fireEvent.click(screen.getByRole('button', { name: ' Chunks' }))
+    fireEvent.click(screen.getByRole('button', { name: '查看 Chunks' }))
 
     expect(handleViewChunks).toHaveBeenCalledTimes(1)
     expect(handleClick).not.toHaveBeenCalled()
@@ -603,8 +603,8 @@ describe('KnowledgeItemRow', () => {
 
       fireEvent.contextMenu(screen.getByRole('row'))
 
-      expect(screen.queryByRole('button', { name: ' Chunks' })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '查看 Chunks' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument()
     }
   )
 
@@ -622,7 +622,7 @@ describe('KnowledgeItemRow', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('row'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
       expect(handleDelete).toHaveBeenCalledTimes(1)
@@ -642,10 +642,10 @@ describe('KnowledgeItemRow', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('row'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': delete failed')
+      expect(toast.error).toHaveBeenCalledWith('删除数据源失败: delete failed')
     })
   })
 
@@ -663,7 +663,7 @@ describe('KnowledgeItemRow', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('row'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '重新索引' }))
 
     await waitFor(() => {
       expect(handleReindex).toHaveBeenCalledTimes(1)
@@ -683,10 +683,10 @@ describe('KnowledgeItemRow', () => {
     )
 
     fireEvent.contextMenu(screen.getByRole('row'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '重新索引' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': reindex failed')
+      expect(toast.error).toHaveBeenCalledWith('数据源重新索引失败: reindex failed')
     })
   })
 
@@ -695,7 +695,7 @@ describe('KnowledgeItemRow', () => {
 
     fireEvent.contextMenu(screen.getByRole('row'))
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新索引' })).toBeInTheDocument()
   })
 
   it.each(['idle', 'processing', 'reading', 'embedding', 'deleting'] as const)(
@@ -705,8 +705,8 @@ describe('KnowledgeItemRow', () => {
 
       fireEvent.contextMenu(screen.getByRole('row'))
 
-      expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '重新索引' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument()
     }
   )
 })

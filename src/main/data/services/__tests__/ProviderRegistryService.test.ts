@@ -519,7 +519,7 @@ describe('ProviderRegistryService', () => {
     })
 
     it('preserves provider display names and exact apiModelId identities for same-canonical variants', async () => {
-      // A provider serving one canonical model under several apiModelIds (tokenhub's dated  variants).
+      // A provider serving one canonical model under several apiModelIds (tokenhub's dated 原厂直供 variants).
       mockReadModels.mockReturnValue({
         version: '1.0',
         models: [{ id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', capabilities: ['function-call'] }]
@@ -532,7 +532,7 @@ describe('ProviderRegistryService', () => {
             providerId: 'tokenhub',
             modelId: 'deepseek-v4-flash',
             apiModelId: 'deepseek-v4-flash-202605',
-            name: 'DeepSeek-V4-Flash '
+            name: 'DeepSeek-V4-Flash 原厂直供'
           }
         ]
       } as ReturnType<typeof readProviderModelRegistry>)
@@ -559,12 +559,12 @@ describe('ProviderRegistryService', () => {
         }))
       ).toEqual([
         { apiModelId: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
-        { apiModelId: 'deepseek-v4-flash-202605', name: 'DeepSeek-V4-Flash ' }
+        { apiModelId: 'deepseek-v4-flash-202605', name: 'DeepSeek-V4-Flash 原厂直供' }
       ])
       // unique id rebuilt from the apiModelId (NOT collapsed to the canonical tokenhub::deepseek-v4-flash)
       expect(dated.id).toBe(createUniqueModelId('tokenhub', 'deepseek-v4-flash-202605'))
       expect(dated.apiModelId).toBe('deepseek-v4-flash-202605')
-      expect(dated.name).toBe('DeepSeek-V4-Flash ')
+      expect(dated.name).toBe('DeepSeek-V4-Flash 原厂直供')
       expect(dated.presetModelId).toBe('deepseek-v4-flash') // canonical preset preserved for metadata
     })
 

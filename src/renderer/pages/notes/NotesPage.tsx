@@ -310,14 +310,14 @@ const NotesPage: FC = () => {
   useEffect(() => {
     async function initialize() {
       if (!notesPath) {
-        // 
+        // 首次启动，获取默认路径
         const info = await ipcApi.request('app.get_info')
         const defaultPath = info.notesPath
         updateNotesPath(defaultPath)
         return
       }
 
-      // 
+      // 验证路径是否有效（处理跨平台恢复场景）
       try {
         const resolved = await resolveNotesPath(notesPath)
         if (!resolved.isFallback) {
@@ -330,10 +330,10 @@ const NotesPage: FC = () => {
           defaultPath
         })
 
-        // 
+        // 重置为默认路径
         updateNotesPath(defaultPath)
 
-        // 
+        // 检查默认路径下是否有笔记文件
         try {
           const entries = await window.api.file.listDirectory(defaultPath, {
             recursive: false,
@@ -341,14 +341,14 @@ const NotesPage: FC = () => {
             includeDirectories: true
           })
           if (!entries || entries.length === 0) {
-            // 
+            // 默认目录为空，提示用户需要迁移文件
             toast.warning({
               title: t('notes.crossPlatformRestoreWarning', { path: defaultPath }),
               timeout: 10000
             })
           }
         } catch (error) {
-          //  FileStorage 
+          // 目录不存在或读取失败，会由 FileStorage 自动创建
           logger.debug('Default notes directory will be created', { error })
         }
       } catch (error) {
@@ -364,10 +364,10 @@ const NotesPage: FC = () => {
     hasProjectedTree && !isTreeLoading && Boolean(activeFilePath) && !activeNode && fileSession.isDirty
   const editorNodeId = activeNode?.id ?? (shouldRetainMissingDraft ? activeFilePath : undefined)
 
-  // 
+  // 处理树同步时的状态管理
   useEffect(() => {
-    // activeFilePath
-    // 
+    // 如果有activeFilePath但找不到对应节点，清空选择
+    // 但要排除正在同步树结构、重命名或创建笔记的情况，避免在这些操作中误清空
     const shouldClearPath =
       hasProjectedTree &&
       !isTreeLoading &&
@@ -398,11 +398,11 @@ const NotesPage: FC = () => {
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
-    // 
+    // 获取编辑器当前内容
     const editorMarkdown = editor.getMarkdown()
 
-    // 
-    // 
+    // 只有当编辑器内容与期望内容不一致时才更新
+    // 这样既能处理初始化，也能处理后续的内容同步，还能避免光标跳动
     if (editorMarkdown !== currentContent) {
       editor.setMarkdown(currentContent)
     }
@@ -434,7 +434,7 @@ const NotesPage: FC = () => {
     })
   }, [activeFilePath, currentContent])
 
-  // 
+  // 获取目标文件夹路径（选中文件夹或根目录）
   const getTargetFolderPath = useCallback(
     (targetFolderId?: string) => {
       const folderId = targetFolderId || selectedFolderId
@@ -444,7 +444,7 @@ const NotesPage: FC = () => {
           return selectedNode.externalPath
         }
       }
-      return notesPath // 
+      return notesPath // 默认返回根目录
     },
     [selectedFolderId, notesTree, notesPath]
   )
@@ -538,7 +538,7 @@ const NotesPage: FC = () => {
     [notesTree, persistMetadataPatch]
   )
 
-  // 
+  // 创建文件夹
   const handleCreateFolder = useCallback(
     async (name: string, targetFolderId?: string) => {
       try {
@@ -585,7 +585,7 @@ const NotesPage: FC = () => {
     [getTargetFolderPath, refreshTree, setActiveFilePath, setFolderExpandedByPath, t]
   )
 
-  // 
+  // 创建笔记会离开当前编辑会话；用户取消时不创建空文件。
   const handleCreateNote = useCallback(
     async (name: string, targetFolderId?: string) => {
       requestFileTransition(() => void createNote(name, targetFolderId))
@@ -621,7 +621,7 @@ const NotesPage: FC = () => {
     [notesTree, persistMetadataPatch]
   )
 
-  // 
+  // 选择节点
   const handleSelectNode = useCallback(
     async (node: NotesTreeNode) => {
       if (node.type === 'file') {
@@ -639,7 +639,7 @@ const NotesPage: FC = () => {
     [activeFilePath, handleToggleExpanded, requestFileTransition, setActiveFilePath]
   )
 
-  // 
+  // 删除节点
   const handleDeleteNode = useCallback(
     async (nodeId: string) => {
       try {
@@ -694,7 +694,7 @@ const NotesPage: FC = () => {
     ]
   )
 
-  // 
+  // 重命名节点
   const handleRenameNode = useCallback(
     async (nodeId: string, newName: string) => {
       try {
@@ -780,7 +780,7 @@ const NotesPage: FC = () => {
     ]
   )
 
-  // 
+  // 处理文件上传
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
       try {
@@ -816,7 +816,7 @@ const NotesPage: FC = () => {
           return
         }
 
-        // 
+        // 检查上传结果
         if (result.fileCount === 0) {
           if (result.failedFiles > 0) {
             toast.error(t('notes.upload_all_failed', { failed: result.failedFiles }))
@@ -826,7 +826,7 @@ const NotesPage: FC = () => {
           return
         }
 
-        // 
+        // 排序并显示上传结果
         setFolderExpandedByPath(targetFolderPath, true)
         await refreshTree()
 
@@ -844,7 +844,7 @@ const NotesPage: FC = () => {
     [getTargetFolderPath, refreshTree, setFolderExpandedByPath, t]
   )
 
-  // 
+  // 处理节点移动
   const handleMoveNode = useCallback(
     async (sourceNodeId: string, targetNodeId: string, position: 'before' | 'after' | 'inside') => {
       if (!notesPath) {
@@ -954,7 +954,7 @@ const NotesPage: FC = () => {
     ]
   )
 
-  // 
+  // 处理节点排序
   const handleSortNodes = useCallback(
     async (newSortType: NotesSortType) => {
       updateSortType(newSortType)

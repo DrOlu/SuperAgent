@@ -173,7 +173,7 @@ export type JobProgress = z.infer<typeof JobProgressSchema>
 /**
  * Name soft-constraint validator. Length 1-200, no control chars, trim
  * surrounding whitespace, no `__` prefix (reserved for system schedules).
- * Allows Unicode (/emoji ok) — name is a user-facing label.
+ * Allows Unicode (中文/emoji ok) — name is a user-facing label.
  */
 export const JobScheduleNameAtomSchema = z
   .string()

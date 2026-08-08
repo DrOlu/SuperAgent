@@ -253,7 +253,7 @@ vi.mock('@renderer/components/command', async () => {
 })
 
 vi.mock('@renderer/utils/time', () => ({
-  formatRelativeTime: () => ''
+  formatRelativeTime: () => '刚刚'
 }))
 
 vi.mock('@renderer/utils/error', () => ({
@@ -282,84 +282,84 @@ vi.mock('react-i18next', () => ({
     },
     t: (key: string, options?: Record<string, unknown>) => {
       if (key === 'knowledge.data_source.bulk.selected_count') {
-        return ` ${options?.count} `
+        return `已选 ${options?.count} 项`
       }
 
       if (key === 'knowledge.data_source.bulk.loaded_only_hint') {
-        return ` ${options?.total} `
+        return `仅已加载，共 ${options?.total} 项`
       }
 
       if (key === 'knowledge.data_source.bulk.delete_confirm_description') {
-        return ` ${options?.count} `
+        return `确认删除选中的 ${options?.count} 个数据源`
       }
 
       if (key === 'knowledge.meta.updated_at') {
-        return ` ${options?.time ?? ''}`
+        return `更新于 ${options?.time ?? ''}`
       }
 
       return (
         (
           {
-            'knowledge.data_source.add_dialog.title': '',
-            'knowledge.data_source.toolbar.add': '',
-            'knowledge.data_source.empty.title': '',
-            'knowledge.data_source.empty.shortcuts.file.title': '',
-            'knowledge.data_source.empty.shortcuts.url.title': '',
-            'knowledge.data_source.empty.shortcuts.directory.title': '',
-            'knowledge.data_source.bulk.delete': '',
-            'knowledge.data_source.bulk.reindex': '',
-            'knowledge.data_source.bulk.delete_confirm_title': '',
-            'knowledge.data_source.table.columns.name': '',
-            'knowledge.data_source.table.columns.type': '',
-            'knowledge.data_source.table.columns.status': '',
-            'knowledge.data_source.table.columns.updated_at': '',
-            'knowledge.data_source.table.columns.actions': '',
-            'knowledge.data_source.table.select_all': '',
-            'knowledge.data_source.table.select_row': '',
-            'knowledge.data_source.table.aria_label': '',
-            'knowledge.data_source.back_to_parent': '',
-            'knowledge.data_source.empty_folder': '',
-            'knowledge.data_source.list.loading_more': '…',
-            'knowledge.data_source.list.end_reached': '',
-            'common.add': '',
-            'common.clear': '',
-            'common.loading': '...',
-            'common.cancel': '',
-            'common.delete': '',
-            'common.more': '',
-            'common.no_results': '',
-            'common.go_to_settings': '',
-            'knowledge.data_source.actions.preview_source': '',
-            'knowledge.data_source.actions.view_chunks': ' Chunks',
-            'knowledge.data_source.actions.reindex': '',
-            'knowledge.data_source.actions.delete': '',
-            'knowledge.data_source.delete_confirm_description': '',
-            'knowledge.data_source.delete_confirm_title': '',
-            'knowledge.data_source.delete_failed': '',
-            'knowledge.data_source.reindex_failed': '',
-            'knowledge.data_source.empty_description': '',
-            'knowledge.data_source.filters.file': '',
-            'knowledge.data_source.filters.note': '',
-            'knowledge.data_source.filters.directory': '',
-            'knowledge.data_source.filters.url': '',
-            'knowledge.data_source.add_dialog.sources.directory': '',
-            'knowledge.data_source.add_dialog.sources.file': '',
-            'knowledge.data_source.add_dialog.sources.note': '',
-            'knowledge.data_source.add_dialog.sources.url': '',
-            'knowledge.data_source.status.ready': '',
-            'knowledge.data_source.status.error': '',
-            'knowledge.data_source.status.embedding': '',
-            'knowledge.data_source.status.chunking': '',
-            'knowledge.data_source.status.pending': '',
-            'knowledge.error.directory_not_migrated': '',
-            'knowledge.rag.download_local_embedding_failed': '',
-            'knowledge.rag.download_local_embedding': '',
-            'knowledge.file_hint': ` ${options?.file_types} `,
-            'knowledge.status.processing': '',
-            'knowledge.rag.file_processing': '',
-            'settings.dependencies.localModels.embedding.name': '',
-            'settings.dependencies.localModels.status.downloading': '…',
-            'settings.dependencies.localModels.unsupported': ''
+            'knowledge.data_source.add_dialog.title': '添加数据源',
+            'knowledge.data_source.toolbar.add': '添加数据源',
+            'knowledge.data_source.empty.title': '上传第一个数据源',
+            'knowledge.data_source.empty.shortcuts.file.title': '文件',
+            'knowledge.data_source.empty.shortcuts.url.title': '链接',
+            'knowledge.data_source.empty.shortcuts.directory.title': '目录导入',
+            'knowledge.data_source.bulk.delete': '删除',
+            'knowledge.data_source.bulk.reindex': '重新索引',
+            'knowledge.data_source.bulk.delete_confirm_title': '确认批量删除',
+            'knowledge.data_source.table.columns.name': '名称',
+            'knowledge.data_source.table.columns.type': '类型',
+            'knowledge.data_source.table.columns.status': '状态',
+            'knowledge.data_source.table.columns.updated_at': '更新时间',
+            'knowledge.data_source.table.columns.actions': '操作',
+            'knowledge.data_source.table.select_all': '全选',
+            'knowledge.data_source.table.select_row': '选择行',
+            'knowledge.data_source.table.aria_label': '数据源列表',
+            'knowledge.data_source.back_to_parent': '返回上级',
+            'knowledge.data_source.empty_folder': '该文件夹为空',
+            'knowledge.data_source.list.loading_more': '加载更多…',
+            'knowledge.data_source.list.end_reached': '没有更多了',
+            'common.add': '添加数据源',
+            'common.clear': '清除',
+            'common.loading': '加载中...',
+            'common.cancel': '取消',
+            'common.delete': '删除',
+            'common.more': '更多',
+            'common.no_results': '暂无结果',
+            'common.go_to_settings': '前往设置',
+            'knowledge.data_source.actions.preview_source': '预览原文',
+            'knowledge.data_source.actions.view_chunks': '查看 Chunks',
+            'knowledge.data_source.actions.reindex': '重新索引',
+            'knowledge.data_source.actions.delete': '删除',
+            'knowledge.data_source.delete_confirm_description': '删除后将无法恢复该数据源及其索引数据。',
+            'knowledge.data_source.delete_confirm_title': '确认删除数据源',
+            'knowledge.data_source.delete_failed': '删除数据源失败',
+            'knowledge.data_source.reindex_failed': '重新索引数据源失败',
+            'knowledge.data_source.empty_description': '暂无数据源',
+            'knowledge.data_source.filters.file': '文件',
+            'knowledge.data_source.filters.note': '笔记',
+            'knowledge.data_source.filters.directory': '目录',
+            'knowledge.data_source.filters.url': '链接',
+            'knowledge.data_source.add_dialog.sources.directory': '目录',
+            'knowledge.data_source.add_dialog.sources.file': '文件',
+            'knowledge.data_source.add_dialog.sources.note': '笔记',
+            'knowledge.data_source.add_dialog.sources.url': '链接',
+            'knowledge.data_source.status.ready': '就绪',
+            'knowledge.data_source.status.error': '失败',
+            'knowledge.data_source.status.embedding': '向量化中',
+            'knowledge.data_source.status.chunking': '分块中',
+            'knowledge.data_source.status.pending': '等待中',
+            'knowledge.error.directory_not_migrated': '该文件夹内容迁移失败，请删除后重新上传。',
+            'knowledge.rag.download_local_embedding_failed': '本地嵌入模型下载失败',
+            'knowledge.rag.download_local_embedding': '下载本地模型',
+            'knowledge.file_hint': `支持 ${options?.file_types} 格式`,
+            'knowledge.status.processing': '处理中',
+            'knowledge.rag.file_processing': '文件处理',
+            'settings.dependencies.localModels.embedding.name': '本地嵌入模型',
+            'settings.dependencies.localModels.status.downloading': '下载中…',
+            'settings.dependencies.localModels.unsupported': '当前平台不支持本地模型。'
           } as Record<string, string>
         )[key] ?? key
       )
@@ -392,25 +392,25 @@ describe('DataSourcePanel', () => {
     const { rerender } = render(<DataSourcePanel {...props} />)
 
     expect(screen.getByRole('status')).toHaveTextContent('42%')
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText('…')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.getByText('本地嵌入模型')).toBeInTheDocument()
+    expect(screen.getByText('下载中…')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '添加数据源' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '文件' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '笔记' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '目录' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '链接' })).not.toBeInTheDocument()
 
     mockUseLocalModel.mockReturnValue({ status: 'ready', percent: 100 })
     rerender(<DataSourcePanel {...props} />)
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '添加数据源' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '文件' })).toBeInTheDocument()
   })
 
   it.each([
-    { status: 'not_downloaded' as const, label: '' },
-    { status: 'error' as const, label: '' }
+    { status: 'not_downloaded' as const, label: '下载本地模型' },
+    { status: 'error' as const, label: '本地嵌入模型下载失败' }
   ])('links the $status state to local model settings', async ({ status, label }) => {
     const user = userEvent.setup()
     mockUseLocalModel.mockReturnValue({ status, percent: 0 })
@@ -429,9 +429,9 @@ describe('DataSourcePanel', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(label)
     expect(screen.queryByText('0%')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '添加数据源' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '前往设置' }))
     expect(mockOpenSettingsTab).toHaveBeenCalledWith('/settings/local-models')
   })
 
@@ -450,9 +450,9 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('')
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('当前平台不支持本地模型。')
+    expect(screen.queryByRole('button', { name: '前往设置' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '添加数据源' })).not.toBeInTheDocument()
   })
 
   it('keeps existing sources visible while the header provides recovery and hides Add', async () => {
@@ -463,7 +463,7 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         embeddingModelId={LOCAL_EMBEDDING_UNIQUE_MODEL_ID}
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={vi.fn()}
@@ -471,11 +471,11 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    expect(screen.getByText('.pdf')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('')
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.getByText('季度报告.pdf')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('本地嵌入模型下载失败')
+    expect(screen.queryByRole('button', { name: '添加数据源' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '' }))
+    await user.click(screen.getByRole('button', { name: '前往设置' }))
     expect(mockOpenSettingsTab).toHaveBeenCalledWith('/settings/local-models')
   })
 
@@ -491,7 +491,7 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    expect(screen.getByText('...')).toBeInTheDocument()
+    expect(screen.getByText('加载中...')).toBeInTheDocument()
 
     rerender(
       <DataSourcePanel
@@ -504,12 +504,12 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.getByText('上传第一个数据源')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '文件' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '笔记' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '目录' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '链接' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '网站' })).not.toBeInTheDocument()
   })
 
   it('guides users from the empty data source state into file or URL add flows', () => {
@@ -526,17 +526,17 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.getByText('暂无数据源')).toBeInTheDocument()
+    expect(screen.getByText('上传第一个数据源')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '文件' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '笔记' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '目录' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '链接' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '网站' })).not.toBeInTheDocument()
 
     expect(document.querySelector('input[type="file"]')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '文件' }))
 
     expect(onAdd).toHaveBeenCalledWith('file')
 
@@ -550,7 +550,7 @@ describe('DataSourcePanel', () => {
         onReindex={vi.fn()}
       />
     )
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '链接' }))
 
     expect(onAdd).toHaveBeenCalledWith('url')
   })
@@ -560,7 +560,7 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createNoteItem({ id: 'note-1', content: '\n \n    \n' }),
+          createNoteItem({ id: 'note-1', content: '\n \n  第一行标题  \n第二行内容' }),
           createNoteItem({ id: 'note-2', content: '\n   \n' })
         ]}
         isLoading={false}
@@ -570,8 +570,8 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getAllByText('')).toHaveLength(2)
+    expect(screen.getByText('第一行标题')).toBeInTheDocument()
+    expect(screen.getAllByText('笔记')).toHaveLength(2)
   })
 
   it('renders url and directory items from their required source fields', () => {
@@ -580,7 +580,7 @@ describe('DataSourcePanel', () => {
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
           createUrlItem({ id: 'url-1', source: 'https://example.com/product-docs' }),
-          createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/' })
+          createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/本地资料夹' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -590,17 +590,17 @@ describe('DataSourcePanel', () => {
     )
 
     expect(screen.getByText('https://example.com/product-docs')).toBeInTheDocument()
-    const directoryTitle = screen.getByText('')
+    const directoryTitle = screen.getByText('本地资料夹')
     expect(directoryTitle).toBeInTheDocument()
-    expect(directoryTitle).toHaveAttribute('title', '/Users/eeee/')
-    expect(screen.getByText(' ')).toBeInTheDocument()
+    expect(directoryTitle).toHaveAttribute('title', '/Users/eeee/本地资料夹')
+    expect(screen.getByText('更新于 刚刚')).toBeInTheDocument()
   })
 
   it('renders processing directory rows as processing when no phase is available', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/', status: 'processing' })]}
+        items={[createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/本地资料夹', status: 'processing' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={vi.fn()}
@@ -608,11 +608,11 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    const directoryTitle = screen.getByText('')
+    const directoryTitle = screen.getByText('本地资料夹')
     expect(directoryTitle).toBeInTheDocument()
-    expect(directoryTitle).toHaveAttribute('title', '/Users/eeee/')
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(directoryTitle).toHaveAttribute('title', '/Users/eeee/本地资料夹')
+    expect(screen.getByText('处理中')).toBeInTheDocument()
+    expect(screen.queryByText('等待中')).not.toBeInTheDocument()
   })
 
   it('renders a migrated v1 directory as a red failure with a migration-failed tooltip', () => {
@@ -625,7 +625,7 @@ describe('DataSourcePanel', () => {
         items={[
           createDirectoryItem({
             id: 'directory-1',
-            source: '/Users/eeee/',
+            source: '/Users/eeee/本地资料夹',
             status: 'failed',
             error: KNOWLEDGE_ITEM_ERROR_DIRECTORY_NOT_MIGRATED
           })
@@ -637,8 +637,8 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.getByLabelText('')).toBeInTheDocument()
+    expect(screen.getByText('失败')).toBeInTheDocument()
+    expect(screen.getByLabelText('该文件夹内容迁移失败，请删除后重新上传。')).toBeInTheDocument()
   })
 
   it('does not open the add source dialog from the header button before a source is selected', () => {
@@ -647,7 +647,7 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={onAdd}
         onDelete={vi.fn()}
@@ -655,10 +655,10 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '添加数据源' }))
 
     expect(onAdd).not.toHaveBeenCalled()
-    expect(screen.getByText('.pdf')).toBeInTheDocument()
+    expect(screen.getByText('季度报告.pdf')).toBeInTheDocument()
   })
 
   it('opens the add dialog when selecting the file source from the header menu', () => {
@@ -667,7 +667,7 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={onAdd}
         onDelete={vi.fn()}
@@ -677,8 +677,8 @@ describe('DataSourcePanel', () => {
 
     expect(document.querySelector('input[type="file"]')).toBeNull()
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: '' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '' }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: '添加数据源' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '文件' }))
 
     expect(onAdd).toHaveBeenCalledWith('file')
   })
@@ -689,7 +689,7 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={onAdd}
         onDelete={vi.fn()}
@@ -697,8 +697,8 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: '' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '' }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: '添加数据源' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '目录' }))
 
     expect(onAdd).toHaveBeenCalledWith('directory')
   })
@@ -710,8 +710,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -721,13 +721,13 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '' }))
-    expect(screen.getByText(' 2 ')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }))
+    expect(screen.getByText('已选 2 项')).toBeInTheDocument()
 
     rerender(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={vi.fn()}
@@ -737,12 +737,12 @@ describe('DataSourcePanel', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(' 1 ')).toBeInTheDocument()
+      expect(screen.getByText('已选 1 项')).toBeInTheDocument()
     })
-    expect(screen.queryByText('.pdf')).not.toBeInTheDocument()
+    expect(screen.queryByText('会议记录.pdf')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
       expect(onDeleteItems).toHaveBeenCalledTimes(1)
@@ -752,7 +752,7 @@ describe('DataSourcePanel', () => {
 
   it('dispatches a file row click to source preview instead of viewing chunks', () => {
     const onItemClick = vi.fn()
-    const item = createFileItem({ id: 'file-1', originName: '.pdf' })
+    const item = createFileItem({ id: 'file-1', originName: '季度报告.pdf' })
 
     render(
       <DataSourcePanel
@@ -766,7 +766,7 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByText('.pdf'))
+    fireEvent.click(screen.getByText('季度报告.pdf'))
 
     expect(previewSourceMock).toHaveBeenCalledWith(item)
     expect(onItemClick).not.toHaveBeenCalled()
@@ -797,7 +797,7 @@ describe('DataSourcePanel', () => {
   it('views the original note content in-app on a note row click, not its chunks', () => {
     const onItemClick = vi.fn()
     const onViewNoteContent = vi.fn()
-    const item = createNoteItem({ id: 'note-1', content: '' })
+    const item = createNoteItem({ id: 'note-1', content: '会议纪要' })
 
     render(
       <DataSourcePanel
@@ -812,7 +812,7 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByText(''))
+    fireEvent.click(screen.getByText('会议纪要'))
 
     expect(onViewNoteContent).toHaveBeenCalledWith('note-1')
     expect(onItemClick).not.toHaveBeenCalled()
@@ -822,7 +822,7 @@ describe('DataSourcePanel', () => {
   it('drills into a directory on a directory row click', () => {
     const onItemClick = vi.fn()
     const onDrillIntoDirectory = vi.fn()
-    const item = createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/' })
+    const item = createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/本地资料夹' })
 
     render(
       <DataSourcePanel
@@ -837,7 +837,7 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByText(''))
+    fireEvent.click(screen.getByText('本地资料夹'))
 
     expect(invalidatePreviewRequestsMock).toHaveBeenCalledOnce()
     expect(invalidatePreviewRequestsMock.mock.invocationCallOrder[0]).toBeLessThan(
@@ -850,12 +850,12 @@ describe('DataSourcePanel', () => {
 
   it('shows a back-to-parent control inside a directory and navigates up on click', () => {
     const onNavigateUp = vi.fn()
-    const directory = createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/' })
+    const directory = createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/本地资料夹' })
 
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={vi.fn()}
@@ -865,10 +865,10 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    const backButton = screen.getByRole('button', { name: '' })
+    const backButton = screen.getByRole('button', { name: '返回上级' })
     expect(backButton).toBeInTheDocument()
     // The current folder's name is shown alongside the control.
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('本地资料夹')).toBeInTheDocument()
 
     fireEvent.click(backButton)
 
@@ -883,17 +883,17 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={vi.fn()}
         onReindex={vi.fn()}
-        currentDirectory={createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/' })}
+        currentDirectory={createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/本地资料夹' })}
         onNavigateUp={vi.fn()}
       />
     )
 
-    expect(screen.queryByRole('button', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '添加数据源' })).not.toBeInTheDocument()
   })
 
   it('shows an empty-folder message instead of add shortcuts inside an empty directory', () => {
@@ -905,18 +905,18 @@ describe('DataSourcePanel', () => {
         onAdd={vi.fn()}
         onDelete={vi.fn()}
         onReindex={vi.fn()}
-        currentDirectory={createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/' })}
+        currentDirectory={createDirectoryItem({ id: 'directory-1', source: '/Users/eeee/本地资料夹' })}
         onNavigateUp={vi.fn()}
       />
     )
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.getByText('该文件夹为空')).toBeInTheDocument()
+    expect(screen.queryByText('上传第一个数据源')).not.toBeInTheDocument()
   })
 
   it('forwards view chunks menu actions to the item chunk detail handler', () => {
     const onItemClick = vi.fn()
-    const item = createFileItem({ id: 'file-1', originName: '.pdf' })
+    const item = createFileItem({ id: 'file-1', originName: '季度报告.pdf' })
 
     render(
       <DataSourcePanel
@@ -930,8 +930,8 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.contextMenu(screen.getByText('.pdf'))
-    fireEvent.click(screen.getByRole('button', { name: ' Chunks' }))
+    fireEvent.contextMenu(screen.getByText('季度报告.pdf'))
+    fireEvent.click(screen.getByRole('button', { name: '查看 Chunks' }))
 
     expect(onItemClick).toHaveBeenCalledWith('file-1')
   })
@@ -942,7 +942,7 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={onDelete}
@@ -950,13 +950,13 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.contextMenu(screen.getByText('.pdf'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.contextMenu(screen.getByText('季度报告.pdf'))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
-    expect(screen.getByRole('dialog')).toHaveTextContent('')
-    expect(screen.getByRole('dialog')).toHaveTextContent('')
+    expect(screen.getByRole('dialog')).toHaveTextContent('确认删除数据源')
+    expect(screen.getByRole('dialog')).toHaveTextContent('删除后将无法恢复该数据源及其索引数据。')
 
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'file-1' }))
@@ -969,7 +969,7 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={onDelete}
@@ -977,12 +977,12 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.contextMenu(screen.getByText('.pdf'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '' }))
+    fireEvent.contextMenu(screen.getByText('季度报告.pdf'))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': delete failed')
+      expect(toast.error).toHaveBeenCalledWith('删除数据源失败: delete failed')
     })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
@@ -993,7 +993,7 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={vi.fn()}
@@ -1001,8 +1001,8 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.contextMenu(screen.getByText('.pdf'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.contextMenu(screen.getByText('季度报告.pdf'))
+    fireEvent.click(screen.getByRole('button', { name: '重新索引' }))
 
     await waitFor(() => {
       expect(onReindex).toHaveBeenCalledWith(expect.objectContaining({ id: 'file-1' }))
@@ -1016,8 +1016,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -1027,15 +1027,15 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getAllByRole('checkbox', { name: '' })[0])
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getAllByRole('checkbox', { name: '选择行' })[0])
+    fireEvent.click(screen.getByRole('button', { name: '重新索引' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': reindex failed')
+      expect(toast.error).toHaveBeenCalledWith('重新索引数据源失败: reindex failed')
     })
     expect(onReindexItems).toHaveBeenCalledOnce()
     expect(onReindexItems).toHaveBeenCalledWith(['file-1'])
-    expect(screen.getByText(' 1 ')).toBeInTheDocument()
+    expect(screen.getByText('已选 1 项')).toBeInTheDocument()
   })
 
   it('clears the current selection after bulk reindex succeeds', async () => {
@@ -1045,8 +1045,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -1056,15 +1056,15 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getAllByRole('checkbox', { name: '' })[0])
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getAllByRole('checkbox', { name: '选择行' })[0])
+    fireEvent.click(screen.getByRole('button', { name: '重新索引' }))
 
     await waitFor(() => {
       expect(onReindexItems).toHaveBeenCalledOnce()
     })
     expect(onReindexItems).toHaveBeenCalledWith(['file-1'])
     await waitFor(() => {
-      expect(screen.queryByText(' 1 ')).not.toBeInTheDocument()
+      expect(screen.queryByText('已选 1 项')).not.toBeInTheDocument()
     })
   })
 
@@ -1075,8 +1075,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -1086,22 +1086,22 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    const rowCheckboxes = screen.getAllByRole('checkbox', { name: '' })
+    const rowCheckboxes = screen.getAllByRole('checkbox', { name: '选择行' })
     fireEvent.click(rowCheckboxes[0])
     fireEvent.click(rowCheckboxes[1])
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
-    expect(screen.getByRole('dialog')).toHaveTextContent('')
-    expect(screen.getByRole('dialog')).toHaveTextContent(' 2 ')
+    expect(screen.getByRole('dialog')).toHaveTextContent('确认批量删除')
+    expect(screen.getByRole('dialog')).toHaveTextContent('确认删除选中的 2 个数据源')
 
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
       expect(onDeleteItems).toHaveBeenCalledOnce()
     })
     expect(onDeleteItems).toHaveBeenCalledWith(['file-1', 'file-2'])
     await waitFor(() => {
-      expect(screen.queryByText(' 2 ')).not.toBeInTheDocument()
+      expect(screen.queryByText('已选 2 项')).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
@@ -1113,8 +1113,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -1124,18 +1124,18 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    const rowCheckboxes = screen.getAllByRole('checkbox', { name: '' })
+    const rowCheckboxes = screen.getAllByRole('checkbox', { name: '选择行' })
     fireEvent.click(rowCheckboxes[0])
     fireEvent.click(rowCheckboxes[1])
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除' }))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(': delete failed')
+      expect(toast.error).toHaveBeenCalledWith('删除数据源失败: delete failed')
     })
     expect(onDeleteItems).toHaveBeenCalledOnce()
     expect(onDeleteItems).toHaveBeenCalledWith(['file-1', 'file-2'])
-    expect(screen.getByText(' 2 ')).toBeInTheDocument()
+    expect(screen.getByText('已选 2 项')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
@@ -1144,8 +1144,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -1154,20 +1154,20 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    const selectAllCheckbox = screen.getByRole('checkbox', { name: '' })
+    const selectAllCheckbox = screen.getByRole('checkbox', { name: '全选' })
 
     fireEvent.click(selectAllCheckbox)
 
-    expect(screen.getByText(' 2 ')).toBeInTheDocument()
-    const selectedRowCheckboxes = screen.getAllByRole('checkbox', { name: '' })
+    expect(screen.getByText('已选 2 项')).toBeInTheDocument()
+    const selectedRowCheckboxes = screen.getAllByRole('checkbox', { name: '选择行' })
     expect(selectedRowCheckboxes).toHaveLength(2)
     expect(selectedRowCheckboxes[0]).toBeChecked()
     expect(selectedRowCheckboxes[1]).toBeChecked()
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }))
 
     await waitFor(() => {
-      expect(screen.queryByText(' 2 ')).not.toBeInTheDocument()
+      expect(screen.queryByText('已选 2 项')).not.toBeInTheDocument()
     })
   })
 
@@ -1176,8 +1176,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         total={10}
         isLoading={false}
@@ -1187,12 +1187,12 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }))
 
     // Selection is accurate (2 loaded), but the bulk bar makes clear it won't touch the
     // other 8 rows that haven't been paged in yet.
-    expect(screen.getByText(' 2 ')).toBeInTheDocument()
-    expect(screen.getByText(' 10 ')).toBeInTheDocument()
+    expect(screen.getByText('已选 2 项')).toBeInTheDocument()
+    expect(screen.getByText('仅已加载，共 10 项')).toBeInTheDocument()
   })
 
   it('shows the header select-all checkbox as partially selected after deselecting one selected row', () => {
@@ -1200,8 +1200,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -1210,11 +1210,11 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '' }))
-    fireEvent.click(screen.getAllByRole('checkbox', { name: '' })[0])
+    fireEvent.click(screen.getByRole('checkbox', { name: '全选' }))
+    fireEvent.click(screen.getAllByRole('checkbox', { name: '选择行' })[0])
 
-    expect(screen.getByText(' 1 ')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: '' })).toHaveAttribute('aria-checked', 'mixed')
+    expect(screen.getByText('已选 1 项')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: '全选' })).toHaveAttribute('aria-checked', 'mixed')
   })
 
   it('prunes selected item ids when the backing item list changes', async () => {
@@ -1222,8 +1222,8 @@ describe('DataSourcePanel', () => {
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
         items={[
-          createFileItem({ id: 'file-1', originName: '.pdf' }),
-          createFileItem({ id: 'file-2', originName: '.pdf' })
+          createFileItem({ id: 'file-1', originName: '季度报告.pdf' }),
+          createFileItem({ id: 'file-2', originName: '会议记录.pdf' })
         ]}
         isLoading={false}
         onAdd={vi.fn()}
@@ -1232,13 +1232,13 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.click(screen.getAllByRole('checkbox', { name: '' })[0])
-    expect(screen.getByText(' 1 ')).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('checkbox', { name: '选择行' })[0])
+    expect(screen.getByText('已选 1 项')).toBeInTheDocument()
 
     rerender(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-2', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-2', originName: '会议记录.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onDelete={vi.fn()}
@@ -1247,7 +1247,7 @@ describe('DataSourcePanel', () => {
     )
 
     await waitFor(() => {
-      expect(screen.queryByText(' 1 ')).not.toBeInTheDocument()
+      expect(screen.queryByText('已选 1 项')).not.toBeInTheDocument()
     })
   })
 
@@ -1258,7 +1258,7 @@ describe('DataSourcePanel', () => {
     render(
       <DataSourcePanel
         updatedAt="2026-04-15T09:00:00+08:00"
-        items={[createFileItem({ id: 'file-1', originName: '.pdf' })]}
+        items={[createFileItem({ id: 'file-1', originName: '季度报告.pdf' })]}
         isLoading={false}
         onAdd={vi.fn()}
         onItemClick={onItemClick}
@@ -1267,8 +1267,8 @@ describe('DataSourcePanel', () => {
       />
     )
 
-    fireEvent.contextMenu(screen.getByText('.pdf'))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.contextMenu(screen.getByText('季度报告.pdf'))
+    fireEvent.click(screen.getByRole('button', { name: '重新索引' }))
 
     await waitFor(() => {
       expect(onReindex).toHaveBeenCalledWith(expect.objectContaining({ id: 'file-1' }))

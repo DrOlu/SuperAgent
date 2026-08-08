@@ -149,7 +149,7 @@ describe('useLaunchDialogController', () => {
         selectedCliTool: CodeCli.GEMINI_CLI,
         toolName: 'Gemini CLI',
         directory: '/tmp/project',
-        enabledProvider: { id: CLI_API_GATEWAY_PROVIDER_ID, name: '' } as Provider,
+        enabledProvider: { id: CLI_API_GATEWAY_PROVIDER_ID, name: '统一网关' } as Provider,
         isOwnLoginSelected: false,
         currentProviderConfig: { modelId: `${CLI_API_GATEWAY_PROVIDER_ID}::deepseek:deepseek-chat` },
         selectedTerminal: 'terminal',
@@ -267,7 +267,7 @@ describe('useLaunchDialogController', () => {
   // gateway (or a re-keyed/re-ported one) launched against a dead endpoint or stale on-disk
   // credentials. The gateway must be re-verified and the config rewritten before every launch.
   describe('cherry gateway launch', () => {
-    const gatewayProvider = { id: CLI_API_GATEWAY_PROVIDER_ID, name: '' } as Provider
+    const gatewayProvider = { id: CLI_API_GATEWAY_PROVIDER_ID, name: '统一网关' } as Provider
     const managedModel = {
       id: 'deepseek::deepseek-chat',
       providerId: 'deepseek',

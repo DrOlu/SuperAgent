@@ -423,7 +423,7 @@ export const useRichEditor = (options: UseRichEditorOptions = {}): UseRichEditor
         let processedFile: File | Blob = file
         let extension = file.type.split('/')[1] ? `.${file.type.split('/')[1]}` : '.png'
 
-        // 
+        // 如果图片需要压缩，先进行压缩
         if (shouldCompressImage(file)) {
           logger.info('Image needs compression, compressing...', {
             originalSize: file.size,
@@ -437,7 +437,7 @@ export const useRichEditor = (options: UseRichEditorOptions = {}): UseRichEditor
             outputFormat: file.type.includes('png') ? 'png' : 'jpeg'
           })
 
-          // 
+          // 更新扩展名
           extension = file.type.includes('png') ? '.png' : '.jpg'
 
           logger.info('Image compressed successfully', {

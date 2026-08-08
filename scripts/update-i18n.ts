@@ -1,5 +1,5 @@
 /**
- *  OpenAI  i18n  translate 
+ * 使用 OpenAI 兼容的模型生成 i18n 文本，并更新到 translate 目录
  *
  * API_KEY=sk-xxxx BASE_URL=xxxx MODEL=xxxx ts-node scripts/update-i18n.ts
  */
@@ -16,7 +16,7 @@ const BASE_URL = process.env.BASE_URL || 'https://dashscope.aliyuncs.com/compati
 const MODEL = process.env.MODEL || 'qwen-plus-latest'
 
 const INDEX = [
-  // 
+  // 语言的名称代码用来翻译的模型
   { name: 'France', code: 'fr-fr', model: MODEL },
   { name: 'Spanish', code: 'es-es', model: MODEL },
   { name: 'Portuguese', code: 'pt-pt', model: MODEL },
@@ -30,12 +30,12 @@ const openai = new OpenAI({
   baseURL: BASE_URL
 })
 
-// 
+// 递归遍历翻译
 async function translate(baseObj: I18N, targetObj: I18N, targetLang: string, model: string, updateFile) {
   const toTranslateTexts: { [key: string]: string } = {}
   for (const key in baseObj) {
     if (typeof baseObj[key] == 'object') {
-      // 
+      // 遍历下一层
       if (!targetObj[key] || typeof targetObj[key] != 'object') targetObj[key] = {}
       await translate(baseObj[key], targetObj[key], targetLang, model, updateFile)
     } else if (
@@ -43,7 +43,7 @@ async function translate(baseObj: I18N, targetObj: I18N, targetLang: string, mod
       typeof targetObj[key] != 'string' ||
       (typeof targetObj[key] === 'string' && targetObj[key].startsWith('[to be translated]'))
     ) {
-      // 
+      // 加入到本层待翻译列表
       toTranslateTexts[key] = baseObj[key]
     }
   }
@@ -63,10 +63,10 @@ Output in JSON.
 INPUT
 ######################################################
 ${JSON.stringify({
-  confirm: '',
-  select_model: '',
-  title: '',
-  deeply_thought: ' {{seconds}} '
+  confirm: '确定要备份数据吗？',
+  select_model: '选择模型',
+  title: '文件',
+  deeply_thought: '已深度思考（用时 {{seconds}} 秒）'
 })}
 ######################################################
 MAKE SURE TO OUTPUT IN Russian. DO NOT OUTPUT IN UNSPECIFIED LANGUAGE.
@@ -100,7 +100,7 @@ MAKE SURE TO OUTPUT IN ${targetLang}. DO NOT OUTPUT IN UNSPECIFIED LANGUAGE.
         }
       ]
     })
-    // 
+    // 添加翻译后的键值，并打印错译漏译内容
     try {
       const result = JSON.parse(completion.choices[0].message.content!)
       // console.debug('result', result)
@@ -118,13 +118,13 @@ MAKE SURE TO OUTPUT IN ${targetLang}. DO NOT OUTPUT IN UNSPECIFIED LANGUAGE.
       }
     }
   }
-  // 
+  // 删除多余的键值
   for (const e in targetObj) {
     if (!baseObj[e]) {
       delete targetObj[e]
     }
   }
-  // 
+  // 更新文件
   updateFile()
 }
 

@@ -96,7 +96,7 @@ describe('toFileUrl', () => {
   })
 
   it('encodes non-ASCII characters', () => {
-    expect(toFileUrl('/foo/.pdf' as AbsoluteFilePath)).toBe('file:///foo/%E4%B8%AD%E6%96%87.pdf')
+    expect(toFileUrl('/foo/中文.pdf' as AbsoluteFilePath)).toBe('file:///foo/%E4%B8%AD%E6%96%87.pdf')
   })
 
   // A UNC server belongs in the URL authority. Emitting `file:////server/...`
@@ -135,7 +135,7 @@ describe('toFileUrl', () => {
 describe('fileUrlToPath', () => {
   it('decodes unix file URLs with spaces and non-ASCII characters', () => {
     expect(fileUrlToPath('file:///foo/bar%20baz.pdf')).toBe('/foo/bar baz.pdf')
-    expect(fileUrlToPath(new URL('file:///foo/%E4%B8%AD%E6%96%87.pdf'))).toBe('/foo/.pdf')
+    expect(fileUrlToPath(new URL('file:///foo/%E4%B8%AD%E6%96%87.pdf'))).toBe('/foo/中文.pdf')
   })
 
   it('decodes Windows drive file URLs without a POSIX leading slash', () => {

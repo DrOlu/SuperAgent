@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 type Props = {
-  /**  */
+  /** 支持选择的扩展名 */
   extensions?: string[]
 }
 
@@ -24,14 +24,14 @@ export const useFiles = (props?: Props) => {
   }, [props?.extensions])
 
   /**
-   * 
-   * @param multipleSelections -  true
-   * @returns 
+   * 选择文件的回调函数
+   * @param multipleSelections - 是否允许多选文件，默认为 true
+   * @returns 返回选中的文件元数据数组
    * @description
-   * 1. 
-   * 2. 
-   * 3. 
-   * 4. 
+   * 1. 打开系统文件选择对话框
+   * 2. 根据扩展名过滤文件
+   * 3. 更新内部文件状态
+   * 4. 当选择了不支持的文件类型时，会显示提示信息
    */
   const onSelectFile = useCallback(
     async ({ multipleSelections = true }: { multipleSelections?: boolean }): Promise<FileMetadata[]> => {

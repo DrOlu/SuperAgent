@@ -17,11 +17,11 @@ export const languageEnglishNameMap: Record<LanguageVarious, string> = {
 
 /** Native-script display name for each language — mirrors the labels in AppearanceSettings' language picker. */
 export const languageNativeNameMap: Record<LanguageVarious, string> = {
-  'zh-CN': '',
-  'zh-TW': '',
+  'zh-CN': '中文',
+  'zh-TW': '中文（繁体）',
   'en-US': 'English',
   'de-DE': 'Deutsch',
-  'ja-JP': '',
+  'ja-JP': '日本語',
   'ru-RU': 'Русский',
   'el-GR': 'Ελληνικά',
   'es-ES': 'Español',

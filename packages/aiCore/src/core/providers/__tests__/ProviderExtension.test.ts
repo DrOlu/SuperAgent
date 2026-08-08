@@ -1,5 +1,5 @@
 /**
- * ProviderExtension 
+ * ProviderExtension 单元测试
  */
 
 import type { ProviderV3 } from '@ai-sdk/provider'
@@ -141,16 +141,16 @@ describe('ProviderExtension', () => {
 
       const configured = original.configure({ baseURL: 'https://api.test.com' })
 
-      // 
+      // 原实例不变
       expect(original.config.defaultOptions).toEqual({ apiKey: 'original-key' })
 
-      // 
+      // 新实例合并配置
       expect(configured.config.defaultOptions).toEqual({
         apiKey: 'original-key',
         baseURL: 'https://api.test.com'
       })
 
-      // 
+      // 是新实例
       expect(configured).not.toBe(original)
     })
 

@@ -48,8 +48,8 @@ function getBasePath(pathname: string): string {
  * @returns Translated title or URL path fallback
  *
  * @example
- * getDefaultRouteTitle('/settings') // ''
- * getDefaultRouteTitle('/app/chat/abc123') // ''
+ * getDefaultRouteTitle('/settings') // '设置'
+ * getDefaultRouteTitle('/app/chat/abc123') // '对话'
  * getDefaultRouteTitle('/unknown') // 'unknown'
  */
 export function getDefaultRouteTitle(url: string): string {

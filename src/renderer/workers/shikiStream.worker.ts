@@ -4,13 +4,13 @@ import { loggerService } from '@logger'
 import { LRUCache } from 'lru-cache'
 import type { HighlighterCore, SpecialLanguage, ThemedToken } from 'shiki/core'
 
-//  ShikiStreamTokenizer 
+// 注意保持 ShikiStreamTokenizer 依赖简单，避免打包出问题
 import type { ShikiStreamTokenizerOptions } from '../services/ShikiStreamTokenizer'
 import { ShikiStreamTokenizer } from '../services/ShikiStreamTokenizer'
 
 const logger = loggerService.initWindowSource('Worker').withContext('ShikiStream')
 
-// Worker 
+// Worker 消息类型
 type WorkerMessageType = 'init' | 'highlight' | 'cleanup' | 'dispose'
 
 interface WorkerRequest {
@@ -36,20 +36,20 @@ interface HighlightChunkResult {
   recall: number
 }
 
-// Worker 
+// Worker 全局变量
 let highlighter: HighlighterCore | null = null
 
-//  callerId-language-theme  tokenizer map
+// 保存以 callerId-language-theme 为键的 tokenizer map
 const tokenizerMap = new LRUCache<string, ShikiStreamTokenizer>({
-  max: 100, // 
-  ttl: 1000 * 60 * 15, // 15
+  max: 100, // 最大缓存数量
+  ttl: 1000 * 60 * 15, // 15分钟过期时间
   updateAgeOnGet: true,
   dispose: (value) => {
     if (value) value.clear()
   }
 })
 
-// 
+// 初始化高亮器
 async function initHighlighter(themes: string[], languages: string[]): Promise<void> {
   const { createHighlighter } = await import('shiki')
   highlighter = await createHighlighter({
@@ -58,7 +58,7 @@ async function initHighlighter(themes: string[], languages: string[]): Promise<v
   })
 }
 
-// 
+// 确保语言和主题已加载
 async function ensureLanguageAndThemeLoaded(
   language: string,
   theme: string
@@ -70,7 +70,7 @@ async function ensureLanguageAndThemeLoaded(
   let actualLanguage = language
   let actualTheme = theme
 
-  // 
+  // 加载语言
   if (!highlighter.getLoadedLanguages().includes(language)) {
     try {
       if (['text', 'ansi'].includes(language)) {
@@ -82,13 +82,13 @@ async function ensureLanguageAndThemeLoaded(
         await highlighter.loadLanguage(langData)
       }
     } catch (error) {
-      //  text
+      // 回退到 text
       await highlighter.loadLanguage('text')
       actualLanguage = 'text'
     }
   }
 
-  // 
+  // 加载主题
   if (!highlighter.getLoadedThemes().includes(theme)) {
     try {
       const { bundledThemes } = await import('shiki')
@@ -96,7 +96,7 @@ async function ensureLanguageAndThemeLoaded(
       const themeData = await themeImportFn()
       await highlighter.loadTheme(themeData)
     } catch (error) {
-      //  one-light
+      // 回退到 one-light
       logger.debug(`Worker: Failed to load theme '${theme}', falling back to 'one-light':`, error as Error)
       const { bundledThemes } = await import('shiki')
       const oneLightTheme = await bundledThemes['one-light']()
@@ -108,12 +108,12 @@ async function ensureLanguageAndThemeLoaded(
   return { actualLanguage, actualTheme }
 }
 
-//  tokenizer
+// 获取或创建 tokenizer
 async function getStreamTokenizer(callerId: string, language: string, theme: string): Promise<ShikiStreamTokenizer> {
-  // 
+  // 创建复合键
   const cacheKey = `${callerId}-${language}-${theme}`
 
-  // 
+  // 如果已存在，直接返回
   if (tokenizerMap.has(cacheKey)) {
     return tokenizerMap.get(cacheKey)!
   }
@@ -122,10 +122,10 @@ async function getStreamTokenizer(callerId: string, language: string, theme: str
     throw new Error('Highlighter not initialized')
   }
 
-  // 
+  // 确保语言和主题已加载
   const { actualLanguage, actualTheme } = await ensureLanguageAndThemeLoaded(language, theme)
 
-  //  tokenizer
+  // 创建新的 tokenizer
   const options: ShikiStreamTokenizerOptions = {
     highlighter,
     lang: actualLanguage,
@@ -138,7 +138,7 @@ async function getStreamTokenizer(callerId: string, language: string, theme: str
   return tokenizer
 }
 
-//  chunk
+// 高亮代码 chunk
 async function highlightCodeChunk(
   callerId: string,
   chunk: string,
@@ -146,13 +146,13 @@ async function highlightCodeChunk(
   theme: string
 ): Promise<HighlightChunkResult> {
   try {
-    //  tokenizer
+    // 获取 tokenizer
     const tokenizer = await getStreamTokenizer(callerId, language, theme)
 
-    //  chunk
+    // 处理代码 chunk
     const result = await tokenizer.enqueue(chunk)
 
-    // 
+    // 返回结果
     return {
       lines: [...result.stable, ...result.unstable],
       recall: result.recall
@@ -160,7 +160,7 @@ async function highlightCodeChunk(
   } catch (error) {
     logger.error('Worker failed to highlight code chunk:', error as Error)
 
-    //  fallback
+    // 提供简单的 fallback
     const fallbackToken: ThemedToken = { content: chunk || '', color: '#000000', offset: 0 }
     return {
       lines: [[fallbackToken]],
@@ -169,9 +169,9 @@ async function highlightCodeChunk(
   }
 }
 
-//  tokenizer
+// 清理特定调用者的 tokenizer
 function cleanupTokenizer(callerId: string): void {
-  // callerId
+  // 清理所有以callerId开头的缓存
   for (const key of tokenizerMap.keys()) {
     if (key.startsWith(`${callerId}-`)) {
       tokenizerMap.delete(key)
@@ -179,10 +179,10 @@ function cleanupTokenizer(callerId: string): void {
   }
 }
 
-//  worker 
+// 定义 worker 上下文类型
 declare const self: DedicatedWorkerGlobalScope
 
-// 
+// 监听消息
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const { id, type } = e.data
 

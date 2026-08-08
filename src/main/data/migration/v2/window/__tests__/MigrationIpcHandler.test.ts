@@ -251,9 +251,9 @@ describe('MigrationIpcHandler', () => {
     })
 
     it('uses the validated renderer-localized save dialog title', async () => {
-      await invoke(MigrationIpcChannels.SaveDiagnosticBundle, { ...savePayload, dialogTitle: '    ' })
+      await invoke(MigrationIpcChannels.SaveDiagnosticBundle, { ...savePayload, dialogTitle: '  保存诊断包  ' })
 
-      expect(dialog.showSaveDialog).toHaveBeenCalledWith(expect.objectContaining({ title: '' }))
+      expect(dialog.showSaveDialog).toHaveBeenCalledWith(expect.objectContaining({ title: '保存诊断包' }))
     })
 
     it('uses a filename-only default path and zip filter', async () => {

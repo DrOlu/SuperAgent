@@ -41,7 +41,7 @@ class ObsidianVaultService {
   }
 
   /**
-   * Obsidian Vault
+   * 获取所有的Obsidian Vault
    */
   getVaults(): VaultInfo[] {
     try {
@@ -68,13 +68,13 @@ class ObsidianVaultService {
   }
 
   /**
-   * VaultMarkdown
+   * 获取Vault中的文件夹和Markdown文件结构
    */
   async getVaultStructure(vaultPath: string): Promise<FileInfo[]> {
     const results: FileInfo[] = []
 
     try {
-      // vault
+      // 检查vault路径是否存在
       let stats: fs.Stats
       try {
         stats = await fs.promises.stat(vaultPath)
@@ -86,7 +86,7 @@ class ObsidianVaultService {
         throw error
       }
 
-      // 
+      // 检查是否是目录
       if (!stats.isDirectory()) {
         logger.error(`Vault path is not a directory: ${vaultPath}`)
         return []
@@ -101,11 +101,11 @@ class ObsidianVaultService {
   }
 
   /**
-   * Markdown
+   * 递归遍历目录获取所有文件夹和Markdown文件
    */
   private async traverseDirectory(dirPath: string, relativePath: string, results: FileInfo[]): Promise<void> {
     try {
-      // 
+      // 首先添加当前文件夹
       if (relativePath) {
         results.push({
           path: relativePath,
@@ -123,7 +123,7 @@ class ObsidianVaultService {
       }
 
       for (const item of items) {
-        // .
+        // 忽略以.开头的隐藏文件夹和文件
         if (item.name.startsWith('.')) {
           continue
         }
@@ -134,7 +134,7 @@ class ObsidianVaultService {
         if (item.isDirectory()) {
           await this.traverseDirectory(fullPath, newRelativePath, results)
         } else if (item.isFile() && item.name.endsWith('.md')) {
-          // .md
+          // 收集.md文件
           results.push({
             path: newRelativePath,
             type: 'markdown',
@@ -148,8 +148,8 @@ class ObsidianVaultService {
   }
 
   /**
-   * VaultMarkdown
-   * @param vaultName vault
+   * 获取指定Vault的文件夹和Markdown文件结构
+   * @param vaultName vault名称
    */
   async getFilesByVaultName(vaultName: string): Promise<FileInfo[]> {
     try {
@@ -170,29 +170,29 @@ class ObsidianVaultService {
   }
 
   /**
-   *  Linux  Obsidian 
-   *  XDG 
+   * 在 Linux 下解析 Obsidian 配置文件路径，兼容多种安装方式。
+   * 优先返回第一个存在的路径；若均不存在，则返回 XDG 默认路径。
    */
   private resolveLinuxObsidianConfigPath(): string {
     const home = application.getPath('sys.home')
     const xdgConfigHome = process.env.XDG_CONFIG_HOME || path.join(home, '.config')
 
-    // 
+    // 常见目录名与文件名大小写差异做兼容
     const configDirs = ['obsidian', 'Obsidian']
     const fileNames = ['obsidian.json', 'Obsidian.json']
 
     const candidates: string[] = []
 
-    // 1) AppImage/DEBXDG 
+    // 1) AppImage/DEB（XDG 标准路径）
     for (const dir of configDirs) {
       for (const file of fileNames) {
         candidates.push(path.join(xdgConfigHome, dir, file))
       }
     }
 
-    // 2) Snap 
-    // - ~/snap/obsidian/current/.config/obsidian/obsidian.json
-    // - ~/snap/obsidian/common/.config/obsidian/obsidian.json
+    // 2) Snap 安装：
+    // - 常见：~/snap/obsidian/current/.config/obsidian/obsidian.json
+    // - 兼容：~/snap/obsidian/common/.config/obsidian/obsidian.json
     for (const dir of configDirs) {
       for (const file of fileNames) {
         candidates.push(path.join(home, 'snap', 'obsidian', 'current', '.config', dir, file))
@@ -200,7 +200,7 @@ class ObsidianVaultService {
       }
     }
 
-    // 3) Flatpak ~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json
+    // 3) Flatpak 安装：~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json
     for (const dir of configDirs) {
       for (const file of fileNames) {
         candidates.push(path.join(home, '.var', 'app', 'md.obsidian.Obsidian', 'config', dir, file))

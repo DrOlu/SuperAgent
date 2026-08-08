@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { includeKeywords, matchKeywordsInProvider, matchKeywordsInString } from '../match'
 
-//  mock  zh-CN en-US 
+// 测试环境的 mock 偏好默认语言是 zh-CN，显式切到 en-US 以匹配英文断言
 let previousLanguage: string
 
 beforeAll(async () => {
@@ -93,7 +93,7 @@ describe('match', () => {
     it('should match i18n name, id, and name for system provider', () => {
       expect(matchKeywordsInProvider('dashscope', sysProvider)).toBe(true)
       expect(matchKeywordsInProvider('Alibaba', sysProvider)).toBe(true)
-      // system provider  name 
+      // system provider 现在也可以通过 name 字段匹配
       expect(matchKeywordsInProvider('doesnt matter', sysProvider)).toBe(true)
     })
   })

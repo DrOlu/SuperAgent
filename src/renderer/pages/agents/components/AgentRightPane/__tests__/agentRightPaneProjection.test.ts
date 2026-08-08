@@ -192,7 +192,7 @@ describe('agent right pane projections', () => {
         'output-available',
         {},
         {
-          tasks: [{ id: '1', subject: ' AI  PPT', status: 'completed', blockedBy: [] }]
+          tasks: [{ id: '1', subject: '构建瑞士风格 AI 产品发布 PPT', status: 'completed', blockedBy: [] }]
         }
       )
     ]
@@ -203,7 +203,7 @@ describe('agent right pane projections', () => {
     expect(status.tasks).toEqual([
       {
         id: '1',
-        title: ' AI  PPT',
+        title: '构建瑞士风格 AI 产品发布 PPT',
         status: 'completed'
       }
     ])
@@ -214,14 +214,14 @@ describe('agent right pane projections', () => {
   it('merges TaskUpdate into a pending TaskCreate by SDK ordinal id before create output arrives', () => {
     const parts = [
       toolPart('task-create', 'TaskCreate', undefined, 'input-available', {
-        subject: 'AIPPT',
-        description: ' PPT',
-        activeForm: 'AIPPT'
+        subject: '制作瑞士风格AI产品发布PPT',
+        description: '基于瑞士国际主义风格制作发布 PPT',
+        activeForm: '制作瑞士风格AI产品发布PPT'
       }),
       toolPart('task-update', 'TaskUpdate', undefined, 'output-available', {
         taskId: '1',
         status: 'in_progress',
-        activeForm: 'AIPPT'
+        activeForm: '制作瑞士风格AI产品发布PPT'
       })
     ]
     const messages = [message('m1', parts)]
@@ -231,8 +231,8 @@ describe('agent right pane projections', () => {
     expect(status.tasks).toEqual([
       {
         id: '1',
-        title: 'AIPPT',
-        activeText: 'AIPPT',
+        title: '制作瑞士风格AI产品发布PPT',
+        activeText: '制作瑞士风格AI产品发布PPT',
         status: 'in_progress'
       }
     ])

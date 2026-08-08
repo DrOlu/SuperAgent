@@ -218,7 +218,7 @@ export class AppUpdaterService extends BaseService {
     )
 
     if (this.updateCheckResult?.isUpdateAvailable && !autoUpdater.autoDownload) {
-      //  autoDownload  false
+      // 如果 autoDownload 为 false，则需要再调用下面的函数触发下
       // do not use await, because it will block the return of this function
       logger.info('downloadUpdate manual by check for updates', this.cancellationToken)
       void autoUpdater.downloadUpdate(this.cancellationToken)

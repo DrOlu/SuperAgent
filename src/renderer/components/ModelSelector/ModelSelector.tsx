@@ -288,8 +288,8 @@ export function ModelSelector(props: ModelSelectorProps) {
   const deferredSearchText = useDeferredValue(searchText)
   const [focusedItemKey, _setFocusedItemKey] = useState('')
   const [hasActivatedLazyData, setHasActivatedLazyData] = useState(openProp === true && mountStrategy === 'lazy-keep')
-  //  startTransition  layout lifecycleflushSync
-  //  onMouseEnter  setState  transition 
+  // 用 startTransition 包裹：滚动时虚拟列表内部可能已进入 layout lifecycle（flushSync），
+  // 此时 onMouseEnter 同步 setState 会与之冲突，转为 transition 避免竞争。
   const setFocusedItemKey = useCallback((key: string) => {
     startTransition(() => _setFocusedItemKey(key))
   }, [])
@@ -302,8 +302,8 @@ export function ModelSelector(props: ModelSelectorProps) {
   const malformedSelectionWarningKeyRef = useRef<string | null>(null)
   const hasActiveTagFilterRef = useRef(false)
   const [renderedOpen, setRenderedOpen] = useState(false)
-  //  onMouseEnter  setFocusedItemKey
-  //  virtualizer measureElement  flushSync  commit phase 
+  // 标记列表是否正在滚动：滚动期间 onMouseEnter 跳过 setFocusedItemKey，
+  // 避免与 virtualizer measureElement 的 flushSync 在同一 commit phase 冲突。
   const isScrollingRef = useRef(false)
   const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -595,8 +595,8 @@ export function ModelSelector(props: ModelSelectorProps) {
       skipNextFocusScroll.current = true
       setMultiSelectMode(nextEnabled)
 
-      //  value ID UI  value 
-      //  emit ——  value  visibleSelectedModelIdSet  UI 
+      // 只在关闭方向回写业务 value：塌缩到首个有效 ID，保证 UI 和 value 一致（稳定性诉求）。
+      // 打开方向不 emit —— 业务 value 保持原样，由 visibleSelectedModelIdSet 自行决定 UI 显示。
       if (nextEnabled) {
         return
       }
@@ -742,8 +742,8 @@ export function ModelSelector(props: ModelSelectorProps) {
       }
 
       return (
-        //  onMouseEnter  focusedItemKey Enter 
-        //  isScrollingRef  setState virtualizer flushSync 
+        // 静态时 onMouseEnter 同步 focusedItemKey（让 Enter 命中鼠标所在行）。
+        // 滚动中通过 isScrollingRef 跳过 setState，避免与 virtualizer flushSync 竞争。
         <div
           className="px-1 py-0.5"
           onMouseEnter={() => {

@@ -6,9 +6,9 @@ import { audioExts, createFilePathHandle, documentExts, imageExts, textExts, vid
 import mime from 'mime-types'
 
 /**
- * 
- * @param {string} filePath 
- * @returns {string} 
+ * 从文件路径中提取目录路径。
+ * @param {string} filePath 文件路径
+ * @returns {string} 目录路径
  */
 export function getFileDirectory(filePath: string): string {
   const parts = filePath.split('/')
@@ -16,9 +16,9 @@ export function getFileDirectory(filePath: string): string {
 }
 
 /**
- * 
- * @param {string} filePath 
- * @returns {string}  '.'
+ * 从文件路径中提取文件扩展名。
+ * @param {string} filePath 文件路径
+ * @returns {string} 文件扩展名（小写），如果没有则返回 '.'
  */
 export function getFileExtension(filePath: string): string {
   const parts = filePath.split('.')
@@ -30,9 +30,9 @@ export function getFileExtension(filePath: string): string {
 }
 
 /**
- * 
- * @param {string} filePath 
- * @returns {string} 
+ * 从文件路径中移除文件扩展名。
+ * @param {string} filePath 文件路径
+ * @returns {string} 移除扩展名后的文件路径
  */
 export function removeFileExtension(filePath: string): string {
   const parts = filePath.split('.')
@@ -43,9 +43,9 @@ export function removeFileExtension(filePath: string): string {
 }
 
 /**
- *  MB  KB 
- * @param {number} size 
- * @returns {string} 
+ * 格式化文件大小，根据大小返回以 MB 或 KB 为单位的字符串。
+ * @param {number} size 文件大小（字节）
+ * @returns {string} 格式化后的文件大小字符串
  */
 export function formatFileSize(size: number): string {
   if (size >= GB) {
@@ -64,11 +64,11 @@ export function formatFileSize(size: number): string {
 }
 
 /**
- * 
- * - 
- * - 
- * @param {string} str 
- * @returns {string} 
+ * 从文件名中移除特殊字符：
+ * - 替换非法字符为下划线
+ * - 替换换行符为空格。
+ * @param {string} str 输入字符串
+ * @returns {string} 处理后的文件名字符串
  */
 export function removeSpecialCharactersForFileName(str: string): string {
   return str
@@ -78,13 +78,13 @@ export function removeSpecialCharactersForFileName(str: string): string {
 }
 
 /**
- * 
- * :
- * 1. supportExts
- * 2. 
- * @param {string} filePath 
- * @param {Set<string>} supportExts 
- * @returns {Promise<boolean>} truefalse
+ * 检查文件是否为支持的类型。
+ * 支持的文件类型包括:
+ * 1. 文件扩展名在supportExts集合中的文件
+ * 2. 文本文件
+ * @param {string} filePath 文件路径
+ * @param {Set<string>} supportExts 支持的文件扩展名集合
+ * @returns {Promise<boolean>} 如果文件类型受支持返回true，否则返回false
  */
 export async function isSupportedFile(filePath: string, supportExts: Set<string>): Promise<boolean> {
   try {

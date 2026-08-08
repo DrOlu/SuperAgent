@@ -104,9 +104,9 @@ describe('useBundledCatalog', () => {
     expect(result.current).toEqual({ isLoading: true, items: [] })
 
     await act(async () => {
-      chinese.resolve([''])
+      chinese.resolve(['最新'])
     })
-    expect(result.current).toEqual({ isLoading: false, items: [''] })
+    expect(result.current).toEqual({ isLoading: false, items: ['最新'] })
   })
 
   it('degrades a failed reload to an empty catalog', async () => {

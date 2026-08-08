@@ -12,30 +12,30 @@ class PreferencesGenerator {
   }
 
   generate() {
-    console.log(' preferences.ts...')
+    console.log('开始生成 preferences.ts...')
 
-    // 
+    // 读取分类数据
     const classification = this.loadClassification()
 
-    // preferences
+    // 提取preferences相关数据
     const classificationData = this.extractPreferencesData(classification)
 
-    // target-key-definitions.jsontarget key
+    // 读取target-key-definitions.json（复杂映射的target key定义）
     const targetKeyDefinitions = this.loadTargetKeyDefinitions()
 
-    // target-key-definitions  classification
+    // 合并数据：target-key-definitions 覆盖 classification
     const preferencesData = this.mergeDataSources(classificationData, targetKeyDefinitions)
 
-    // 
+    // 构建类型结构
     const typeStructure = this.buildTypeStructure(preferencesData)
 
-    // TypeScript
+    // 生成TypeScript代码
     const content = this.generateTypeScriptCode(typeStructure, preferencesData)
 
-    // 
+    // 写入文件
     this.writePreferencesFile(content)
 
-    console.log('preferences.ts ')
+    console.log('preferences.ts 生成完成！')
     this.printSummary(preferencesData)
   }
 
@@ -45,13 +45,13 @@ class PreferencesGenerator {
    */
   loadTargetKeyDefinitions() {
     if (!fs.existsSync(this.targetKeyDefinitionsFile)) {
-      console.log('target-key-definitions.json ')
+      console.log('target-key-definitions.json 不存在，跳过')
       return { definitions: [] }
     }
 
     const content = fs.readFileSync(this.targetKeyDefinitionsFile, 'utf8')
     const data = JSON.parse(content)
-    console.log(` target-key-definitions.json: ${data.definitions?.length || 0} `)
+    console.log(`读取 target-key-definitions.json: ${data.definitions?.length || 0} 项定义`)
     return data
   }
 
@@ -95,22 +95,22 @@ class PreferencesGenerator {
         })
         if (existed) {
           definitionsCount.overridden++
-          console.log(`  : ${def.targetKey}`)
+          console.log(`  覆盖: ${def.targetKey}`)
         } else {
           definitionsCount.added++
-          console.log(`  : ${def.targetKey}`)
+          console.log(`  新增: ${def.targetKey}`)
         }
       } else if (def.status === 'pending' && targetKeyMap.has(def.targetKey)) {
         // status: pending can disable keys from classification
         targetKeyMap.delete(def.targetKey)
         definitionsCount.disabled++
-        console.log(`  : ${def.targetKey}`)
+        console.log(`  禁用: ${def.targetKey}`)
       }
     }
 
     if (definitionsCount.added + definitionsCount.overridden + definitionsCount.disabled > 0) {
       console.log(
-        `target-key-definitions :  ${definitionsCount.added},  ${definitionsCount.overridden},  ${definitionsCount.disabled}`
+        `target-key-definitions 处理完成: 新增 ${definitionsCount.added}, 覆盖 ${definitionsCount.overridden}, 禁用 ${definitionsCount.disabled}`
       )
     }
 
@@ -119,7 +119,7 @@ class PreferencesGenerator {
 
   loadClassification() {
     if (!fs.existsSync(this.classificationFile)) {
-      throw new Error(`: ${this.classificationFile}`)
+      throw new Error(`分类文件不存在: ${this.classificationFile}`)
     }
 
     const content = fs.readFileSync(this.classificationFile, 'utf8')
@@ -130,25 +130,25 @@ class PreferencesGenerator {
     const allPreferencesData = []
     const sources = ['electronStore', 'redux', 'localStorage', 'dexieSettings']
 
-    // children
+    // 递归提取项目，包括children
     const extractItems = (items, source, category, parentKey = '') => {
       if (!Array.isArray(items)) return
 
       items.forEach((item) => {
-        // children
+        // 处理有children的项目
         if (item.children && Array.isArray(item.children)) {
-          console.log(`children: ${source}/${category}/${item.originalKey}`)
+          console.log(`处理children项: ${source}/${category}/${item.originalKey}`)
           extractItems(item.children, source, category, `${parentKey}${item.originalKey}.`)
           return
         }
 
-        // 
+        // 处理普通项目
         if (item.category === 'preferences' && item.status === 'classified' && item.targetKey) {
           allPreferencesData.push({
             ...item,
             source,
             sourceCategory: category,
-            originalKey: parentKey + item.originalKey, // 
+            originalKey: parentKey + item.originalKey, // 包含父级路径
             fullPath: `${source}/${category}/${parentKey}${item.originalKey}`
           })
         }
@@ -164,9 +164,9 @@ class PreferencesGenerator {
       }
     })
 
-    console.log(` ${allPreferencesData.length} preferenceschildren`)
+    console.log(`提取到 ${allPreferencesData.length} 个preferences项（包含children）`)
 
-    // targetKeyredux
+    // 处理重复的targetKey，优先使用redux数据
     const targetKeyGroups = {}
     allPreferencesData.forEach((item) => {
       if (!targetKeyGroups[item.targetKey]) {
@@ -175,27 +175,27 @@ class PreferencesGenerator {
       targetKeyGroups[item.targetKey].push(item)
     })
 
-    // redux > dexieSettings > localStorage > electronStore
+    // 去重：按redux > dexieSettings > localStorage > electronStore优先级选择
     const sourcePriority = { redux: 4, dexieSettings: 3, localStorage: 2, electronStore: 1 }
     const deduplicatedData = []
 
     Object.keys(targetKeyGroups).forEach((targetKey) => {
       const items = targetKeyGroups[targetKey]
       if (items.length > 1) {
-        console.log(`targetKey: ${targetKey}${items.length}`)
+        console.log(`发现重复targetKey: ${targetKey}，共${items.length}项`)
         items.forEach((item) => console.log(`  - ${item.fullPath}`))
 
-        // 
+        // 按优先级排序，选择最高优先级的项
         items.sort((a, b) => sourcePriority[b.source] - sourcePriority[a.source])
         const selected = items[0]
-        console.log(`  : ${selected.fullPath}`)
+        console.log(`  选择: ${selected.fullPath}`)
         deduplicatedData.push(selected)
       } else {
         deduplicatedData.push(items[0])
       }
     })
 
-    console.log(` ${deduplicatedData.length} preferences`)
+    console.log(`去重后剩余 ${deduplicatedData.length} 个preferences项`)
     return deduplicatedData
   }
 
@@ -205,7 +205,7 @@ class PreferencesGenerator {
     preferencesData.forEach((item) => {
       if (!item.targetKey) return
 
-      // targetKey
+      // 直接使用targetKey作为键，不进行拆分
       structure.default[item.targetKey] = {
         type: this.mapType(item.type, item.defaultValue),
         defaultValue: item.defaultValue,
@@ -218,13 +218,13 @@ class PreferencesGenerator {
   }
 
   mapType(itemType, defaultValue) {
-    // typeunknown
+    // 优先使用明确定义的类型，只有当type为unknown时才进行类型推断
     // 'VALUE: null' is a special marker to indicate the value should be null and not overwritten
     const isNullable = defaultValue === null || defaultValue === undefined || defaultValue === 'VALUE: null'
 
-    // typeunknown
+    // 如果type不是unknown，直接使用定义好的类型
     if (itemType && itemType !== 'unknown') {
-      // 
+      // 处理简单的基础类型
       if (itemType === 'boolean') {
         return isNullable ? 'boolean | null' : 'boolean'
       }
@@ -235,14 +235,14 @@ class PreferencesGenerator {
         return isNullable ? 'number | null' : 'number'
       }
 
-      // string[]number[]
+      // 处理数组类型（支持string[]、number[]等格式）
       if (itemType.endsWith('[]')) {
         return isNullable ? `${itemType} | null` : itemType
       }
 
-      // array
+      // 处理array泛型类型
       if (itemType === 'array') {
-        // 
+        // 尝试从默认值推断数组元素类型
         if (Array.isArray(defaultValue) && defaultValue.length > 0) {
           const elementType = typeof defaultValue[0]
           return `${elementType}[]`
@@ -250,16 +250,16 @@ class PreferencesGenerator {
         return isNullable ? 'unknown[] | null' : 'unknown[]'
       }
 
-      // object
+      // 处理object类型
       if (itemType === 'object') {
         return isNullable ? 'Record<string, unknown> | null' : 'Record<string, unknown>'
       }
 
-      // 
+      // 对于其他明确定义的类型，直接使用
       return isNullable ? `${itemType} | null` : itemType
     }
 
-    // typeunknown
+    // 只有当type为unknown或未定义时，才基于默认值进行类型推断
     if (defaultValue !== null && defaultValue !== undefined) {
       const valueType = typeof defaultValue
       if (valueType === 'boolean' || valueType === 'string' || valueType === 'number') {
@@ -312,22 +312,22 @@ import * as PreferenceTypes from '@shared/data/preference/preferenceTypes'
   "interfaces": { "order": "alphabetically" },
   "typeLiterals": { "order": "alphabetically" }
 }] */`
-    // 
+    // 生成接口定义
     const interfaceCode = this.generateInterface(structure)
 
-    // 
+    // 生成默认值对象
     const defaultsCode = this.generateDefaults(structure)
 
     const footer = `
 // === AUTO-GENERATED CONTENT END ===
 
 /**
- * :
- * - : ${preferencesData.length}
- * - electronStore: ${preferencesData.filter((p) => p.source === 'electronStore').length}
- * - redux: ${preferencesData.filter((p) => p.source === 'redux').length}
- * - localStorage: ${preferencesData.filter((p) => p.source === 'localStorage').length}
- * - dexieSettings: ${preferencesData.filter((p) => p.source === 'dexieSettings').length}
+ * 生成统计:
+ * - 总配置项: ${preferencesData.length}
+ * - electronStore项: ${preferencesData.filter((p) => p.source === 'electronStore').length}
+ * - redux项: ${preferencesData.filter((p) => p.source === 'redux').length}
+ * - localStorage项: ${preferencesData.filter((p) => p.source === 'localStorage').length}
+ * - dexieSettings项: ${preferencesData.filter((p) => p.source === 'dexieSettings').length}
  */`
 
     return [header, interfaceCode, defaultsCode, footer].join('\n\n')
@@ -337,7 +337,7 @@ import * as PreferenceTypes from '@shared/data/preference/preferenceTypes'
     const indent = '  '.repeat(depth)
 
     if (depth === 0) {
-      // 
+      // 顶层接口
       let code = `export interface PreferenceSchemas {\n`
       Object.keys(structure)
         .sort()
@@ -355,18 +355,18 @@ import * as PreferenceTypes from '@shared/data/preference/preferenceTypes'
     const indent = '  '.repeat(depth)
     let code = ''
 
-    // 
+    // 获取所有键并排序
     const keys = Object.keys(obj).sort()
 
     keys.forEach((key) => {
       const value = obj[key]
 
       if (value.type) {
-        //  - targetKey
+        // 叶子节点 - 实际的配置项，直接使用targetKey
         const comment = value.description ? `${indent}// ${value.description}\n` : ''
         code += `${comment}${indent}'${key}': ${value.type}\n`
       } else {
-        //  - 
+        // 中间节点 - 嵌套对象
         code += `${indent}'${key}': {\n`
         code += this.generateInterfaceProperties(value, depth + 1)
         code += `${indent}}\n`
@@ -398,7 +398,7 @@ export const DefaultPreferences: PreferenceSchemas = {`
     const indent = '  '.repeat(depth)
     let code = ''
 
-    // 
+    // 获取所有键并排序
     const keys = Object.keys(obj).sort()
 
     keys.forEach((key, index) => {
@@ -406,11 +406,11 @@ export const DefaultPreferences: PreferenceSchemas = {`
       const isLast = index === keys.length - 1
 
       if (value.type) {
-        //  - targetKey
+        // 叶子节点 - 实际的配置项，直接使用targetKey
         const defaultVal = this.formatDefaultValue(value.defaultValue)
         code += `${indent}'${key}': ${defaultVal}${isLast ? '' : ','}\n`
       } else {
-        //  - 
+        // 中间节点 - 嵌套对象
         code += `${indent}'${key}': {\n`
         code += this.generateDefaultsProperties(value, depth + 1)
         code += `${indent}}${isLast ? '' : ','}\n`
@@ -454,33 +454,33 @@ export const DefaultPreferences: PreferenceSchemas = {`
   }
 
   printSummary(preferencesData) {
-    console.log(`\n:`)
-    console.log(`- : ${preferencesData.length}`)
-    console.log(`- electronStore: ${preferencesData.filter((p) => p.source === 'electronStore').length}`)
-    console.log(`- redux: ${preferencesData.filter((p) => p.source === 'redux').length}`)
-    console.log(`- localStorage: ${preferencesData.filter((p) => p.source === 'localStorage').length}`)
-    console.log(`- dexieSettings: ${preferencesData.filter((p) => p.source === 'dexieSettings').length}`)
-    console.log(`- : ${this.targetFile}`)
+    console.log(`\n生成摘要:`)
+    console.log(`- 总配置项: ${preferencesData.length}`)
+    console.log(`- electronStore项: ${preferencesData.filter((p) => p.source === 'electronStore').length}`)
+    console.log(`- redux项: ${preferencesData.filter((p) => p.source === 'redux').length}`)
+    console.log(`- localStorage项: ${preferencesData.filter((p) => p.source === 'localStorage').length}`)
+    console.log(`- dexieSettings项: ${preferencesData.filter((p) => p.source === 'dexieSettings').length}`)
+    console.log(`- 输出文件: ${this.targetFile}`)
 
-    // targetKey
+    // 显示一些示例targetKey
     const sampleKeys = preferencesData
       .slice(0, 5)
       .map((p) => p.targetKey)
       .filter(Boolean)
     if (sampleKeys.length > 0) {
-      console.log(`\n:`)
+      console.log(`\n示例配置键:`)
       sampleKeys.forEach((key) => console.log(`  - ${key}`))
     }
   }
 }
 
-// 
+// 主执行逻辑
 if (require.main === module) {
   try {
     const generator = new PreferencesGenerator()
     generator.generate()
   } catch (error) {
-    console.error(':', error.message)
+    console.error('生成失败:', error.message)
     process.exit(1)
   }
 }

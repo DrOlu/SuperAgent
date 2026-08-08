@@ -302,7 +302,7 @@ describe('AppearanceSettings selectors', () => {
       expect(mocks.request).toHaveBeenCalledWith('app.adjust_zoom', { delta: 0 })
     })
 
-    expect(screen.getByRole('combobox', { name: // })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /中文/ })).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: /English/ })).not.toBeInTheDocument()
   })
 

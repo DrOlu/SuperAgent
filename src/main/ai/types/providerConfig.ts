@@ -3,8 +3,8 @@ import type { StringKeys } from '@cherrystudio/ai-core/provider'
 import type { AppProviderSettingsMap, AppRuntimeConfig } from './merged'
 
 /**
- * Provider 
- *  RuntimeConfig provider 
+ * Provider 配置
+ * 基于 RuntimeConfig，用于构建 provider 实例的基础配置
  */
 export type ProviderConfig<T extends StringKeys<AppProviderSettingsMap> = StringKeys<AppProviderSettingsMap>> = Omit<
   AppRuntimeConfig<T>,

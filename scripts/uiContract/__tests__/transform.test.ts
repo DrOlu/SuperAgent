@@ -9,7 +9,7 @@ const options = { sourceFile: 'src/renderer/components/chat/Message.tsx' }
 describe('UI contract compiler', () => {
   it('keeps inferred semantics stable across formatting-only builds', () => {
     const compact = transformJsx(
-      'export function Message(){return <button onClick={handleCopy}></button>}',
+      'export function Message(){return <button onClick={handleCopy}>复制</button>}',
       options
     )
     const formatted = transformJsx(
@@ -21,7 +21,7 @@ describe('UI contract compiler', () => {
   })
 
   it('never derives semantics from translated display text', () => {
-    const chinese = transformJsx('const Message = () => <button></button>', options)
+    const chinese = transformJsx('const Message = () => <button>复制</button>', options)
     const english = transformJsx('const Message = () => <button>Copy</button>', options)
 
     expect(chinese.descriptors[0].semanticId).toBe(english.descriptors[0].semanticId)
@@ -92,7 +92,7 @@ describe('UI contract compiler', () => {
 
   it('uses file-relative SWC spans across files with leading comments and multibyte text', () => {
     transformJsx('const Previous = () => <aside />', options)
-    const source = `//  — editable
+    const source = `// 原始路径：组件 — editable
 const Message = () => {
   const handleClick = (event: Event) => event.preventDefault()
   return <div onClick={handleClick}><span /></div>

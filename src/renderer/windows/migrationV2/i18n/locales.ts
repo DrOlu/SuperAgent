@@ -4,184 +4,184 @@
  */
 
 export const zhCN = {
-  common: { close: '', error: '', loading: '', success: '' },
-  error: { unknown: '' },
+  common: { close: '关闭', error: '错误', loading: '加载中', success: '成功' },
+  error: { unknown: '未知错误' },
   settings: {
     theme: {
-      dark: '',
-      light: '',
-      system: ''
+      dark: '深色模式',
+      light: '浅色模式',
+      system: '跟随系统'
     }
   },
   migration: {
-    title: '',
+    title: '数据迁移向导',
     stages: {
-      introduction: '',
-      migration: '',
-      completed: ''
+      introduction: '介绍',
+      migration: '迁移',
+      completed: '完成'
     },
     buttons: {
-      start_migration: '',
-      restart: '',
-      retry: '',
-      close: '',
-      continue_v1: ' V1',
-      ignore_migration: '',
-      skip_migration: '',
-      more_options: ''
+      start_migration: '开始迁移',
+      restart: '重启应用',
+      retry: '重试',
+      close: '关闭应用',
+      continue_v1: '继续使用 V1',
+      ignore_migration: '忽略并使用默认值',
+      skip_migration: '跳过迁移',
+      more_options: '更多选项'
     },
     window: {
-      minimize: '',
-      close: '',
+      minimize: '最小化',
+      close: '关闭',
       confirm_close: {
-        title: '',
-        message: '',
-        continue: '',
-        quit: '',
-        quit_pending: '…'
+        title: '退出数据迁移',
+        message: '迁移流程尚未完成，关闭窗口将退出应用，下次启动需要重新开始。确定要退出吗？',
+        continue: '继续迁移',
+        quit: '退出',
+        quit_pending: '当前步骤完成后将自动退出应用，请稍候…'
       }
     },
     language: {
-      select: ''
+      select: '切换语言'
     },
     status: {
-      pending: '',
-      running: '',
-      completed: '',
-      failed: ''
+      pending: '等待中',
+      running: '进行中',
+      completed: '完成',
+      failed: '失败'
     },
     diagnostics: {
-      title: '',
-      save: '',
-      saving: '…',
+      title: '保存问题排查文件',
+      save: '保存诊断包',
+      saving: '正在保存…',
       export_description:
-        ' SuperAgent ',
-      open_from_error: '',
-      saved_title: '',
+        '诊断包包含迁移错误、系统信息和可用的应用日志。日志可能包含文件路径、错误堆栈、用户内容或凭据；文件只会保存到本地，不会自动上传，请仅发送给 SuperAgent 支持团队。',
+      open_from_error: '导出此错误的诊断包',
+      saved_title: '诊断包已保存',
       privacy:
-        ' SuperAgent ',
-      saved_local: '',
-      logs_not_included: '',
-      open_folder: '',
-      contact: '',
-      copy_success: '',
-      copy_failed: '',
-      save_failed: '',
-      open_folder_failed: ''
+        '应用日志可能包含文件路径、错误堆栈、用户内容或凭据，请勿分享到公开渠道或提供给 SuperAgent 支持团队之外的人员。',
+      saved_local: '诊断包已保存到本地且未自动上传，请发送至问题反馈邮箱以协助排查。',
+      logs_not_included: '未能加入应用日志，当前诊断包仅包含系统信息。',
+      open_folder: '打开文件所在位置',
+      contact: '复制问题反馈邮箱',
+      copy_success: '问题反馈邮箱已复制',
+      copy_failed: '问题反馈邮箱复制失败',
+      save_failed: '诊断包保存失败',
+      open_folder_failed: '无法打开文件所在位置'
     },
     more_options: {
-      description: '',
-      diagnostics_title: '',
-      use_v2_title: ' V2',
-      skip_description: '',
-      continue_v1_description: ' V1',
-      diagnostics_description: ''
+      description: '请选择接下来的处理方式。无论选择哪一种，旧版原始数据都不会被删除。',
+      diagnostics_title: '保存问题信息',
+      use_v2_title: '直接使用 V2',
+      skip_description: '不导入旧版数据，以默认配置开始使用。',
+      continue_v1_description: '下载并安装 V1，继续使用当前保留的原始数据。',
+      diagnostics_description: '将错误信息和应用日志保存到本地，方便发送给支持团队排查问题。'
     },
     introduction: {
-      title: '',
-      subtitle: 'SuperAgent V2 · ',
+      title: '将数据迁移到新的架构中',
+      subtitle: 'SuperAgent V2 · 全新数据架构',
       features: {
         architecture: {
-          title: '',
-          description: ''
+          title: '全新数据架构',
+          description: '存储与使用方式重构，效率与安全性大幅提升。'
         },
         migration: {
-          title: '',
-          description: ' V2 '
+          title: '需要迁移数据',
+          description: '旧版数据需要迁移后，才能在 V2 中继续使用。'
         },
         safety: {
-          title: '',
-          description: ''
+          title: '安全且可重试',
+          description: '旧版数据会保留在磁盘中，迁移失败后可重新尝试。'
         }
       },
-      data_location: '{{path}}'
+      data_location: '数据迁移目录：{{path}}'
     },
     skip_dialog: {
-      title: '',
-      warning_prefix: '',
-      warning_body: '',
+      title: '跳过数据迁移',
+      warning_prefix: '高危操作：',
+      warning_body: '将以默认配置启动，并不再自动提示迁移。',
       points: {
-        cleared_strong: '',
-        cleared_rest: '',
-        retained_strong: '',
-        retained_rest: '',
-        files: '',
-        skip_before: '',
-        skip_strong: '',
-        skip_after: ''
+        cleared_strong: '已迁移到新版数据库的记录将被清除',
+        cleared_rest: '（如有），新版将以默认数据启动。',
+        retained_strong: '旧版原始数据不会被删除',
+        retained_rest: '，仍保留在磁盘中，但对话、设置、知识库等内容不会出现在新版中。',
+        files: '迁移过程中已复制的文件可能仍占用磁盘空间，但不会出现在新版中。',
+        skip_before: '仅当你确定要',
+        skip_strong: '放弃本次自动迁移',
+        skip_after: '时继续。'
       },
-      cancel: '',
-      confirm: '',
-      confirm_countdown: ' ({{seconds}}s)',
-      failed: ''
+      cancel: '取消',
+      confirm: '已知晓风险，跳过并重启',
+      confirm_countdown: '已知晓风险，跳过并重启 ({{seconds}}s)',
+      failed: '跳过迁移失败，请重试。'
     },
     migration: {
-      title: '...',
-      do_not_close: '…'
+      title: '正在迁移数据...',
+      do_not_close: '迁移进行中，请勿关闭应用…'
     },
     progress: {
-      processing: '{{name}}...',
-      migrated_boot_config: ' {{processed}}/{{total}} ',
-      migrated_chats: ' {{processed}}/{{total}} {{messages}} ',
-      migrated_preferences: ' {{processed}}/{{total}} ',
-      migrated_knowledge: ' {{processed}}/{{total}} ',
-      migrated_knowledge_vectors: ' {{processed}}/{{total}} ',
-      migrated_assistants: ' {{processed}}/{{total}} ',
-      migrated_files: ' {{processed}}/{{total}} ',
-      migrated_mcp_servers: ' {{processed}}/{{total}}  MCP ',
-      migrated_miniapps: ' {{processed}}/{{total}} ',
-      migrated_translate_languages: ' {{processed}}/{{total}} ',
-      migrated_translate_history: ' {{processed}}/{{total}} ',
-      prepared_chats: ' {{processed}}/{{total}} ',
-      agents_claude_config: ' Agent …',
-      agents_claude_config_scanning_start: ' Agent …',
-      agents_claude_config_scanning: ' Agent {{processed}}/{{total}} {{byteCount}}/{{byteTotal}}',
-      agents_claude_config_copying: ' Agent {{processed}}/{{total}} {{byteCount}}/{{byteTotal}}',
+      processing: '正在处理{{name}}...',
+      migrated_boot_config: '已迁移 {{processed}}/{{total}} 条启动配置',
+      migrated_chats: '已迁移 {{processed}}/{{total}} 个对话，{{messages}} 条消息',
+      migrated_preferences: '已迁移 {{processed}}/{{total}} 条配置',
+      migrated_knowledge: '已迁移 {{processed}}/{{total}} 条知识库记录',
+      migrated_knowledge_vectors: '已迁移 {{processed}}/{{total}} 个知识库向量工作单元',
+      migrated_assistants: '已迁移 {{processed}}/{{total}} 个助手',
+      migrated_files: '已迁移 {{processed}}/{{total}} 个文件',
+      migrated_mcp_servers: '已迁移 {{processed}}/{{total}} 个 MCP 服务器',
+      migrated_miniapps: '已迁移 {{processed}}/{{total}} 个小程序',
+      migrated_translate_languages: '已迁移 {{processed}}/{{total}} 种翻译语言',
+      migrated_translate_history: '已迁移 {{processed}}/{{total}} 条翻译记录',
+      prepared_chats: '已准备 {{processed}}/{{total}} 个对话',
+      agents_claude_config: '正在迁移 Agent 配置…',
+      agents_claude_config_scanning_start: '正在统计 Agent 配置文件…',
+      agents_claude_config_scanning: '正在扫描 Agent 配置：{{processed}}/{{total}} 个文件，{{byteCount}}/{{byteTotal}}',
+      agents_claude_config_copying: '正在迁移 Agent 配置：{{processed}}/{{total}} 个文件，{{byteCount}}/{{byteTotal}}',
       agents_claude_config_verifying:
-        ' Agent {{processed}}/{{total}} {{byteCount}}/{{byteTotal}}',
-      agents_messages: ' Agent  {{processed}}/{{total}}…',
-      agents_database: ' Agent …',
-      agents_id_mapping: ' Agent …',
-      agents_identity: ' Agent  {{processed}}/{{total}}…',
-      agents_workspaces: ' Agent  {{processed}}/{{total}}…',
-      agents_claude_cache: ' Agent  {{processed}}/{{total}}…',
-      agents_validation: ' Agent …'
+        '正在验证 Agent 配置：{{processed}}/{{total}} 个文件，{{byteCount}}/{{byteTotal}}',
+      agents_messages: '正在准备 Agent 消息 {{processed}}/{{total}}…',
+      agents_database: '正在导入 Agent 数据库记录…',
+      agents_id_mapping: '正在更新 Agent 和会话标识…',
+      agents_identity: '正在迁移 Agent 身份文件 {{processed}}/{{total}}…',
+      agents_workspaces: '正在迁移 Agent 工作区 {{processed}}/{{total}}…',
+      agents_claude_cache: '正在迁移 Agent 会话缓存 {{processed}}/{{total}}…',
+      agents_validation: '正在验证 Agent 迁移数据…'
     },
     completed: {
-      title: ' SuperAgent V2',
-      description: ' V2',
-      steps_label: '',
-      items_label: '',
-      duration_label: '',
-      warning_heading: '{{count}} ',
-      warning_description: '',
-      warning_copy: '',
-      warning_copy_success: '',
-      warning_copy_failed: ''
+      title: '欢迎来到 SuperAgent V2',
+      description: '迁移完成，你的数据已经全部就位。重启应用即可开始使用 V2。',
+      steps_label: '步骤已完成',
+      items_label: '迁移项',
+      duration_label: '迁移耗时',
+      warning_heading: '{{count}} 条迁移提示',
+      warning_description: '数据已迁移完成，但以下内容需要注意。',
+      warning_copy: '复制全部提示',
+      warning_copy_success: '迁移提示已复制',
+      warning_copy_failed: '无法复制迁移提示'
     },
     error: {
-      title: '',
-      description: '',
-      error_prefix: '',
-      unknown: '',
+      title: '迁移失败',
+      description: '迁移未完成，但您的原始数据仍完好保留。',
+      error_prefix: '错误信息：',
+      unknown: '未知错误',
       v1_fallback: {
-        title: ' V1',
-        description: ' V1 ',
-        download: ' V1 ',
-        dismiss: '',
-        open_failed: ''
+        title: '下载并继续使用 V1',
+        description: '您的原始数据完好保存，下载并安装 V1 版本即可继续使用。',
+        download: '下载 V1 版本',
+        dismiss: '知道了',
+        open_failed: '无法打开下载页面'
       }
     },
     version_incompatible: {
-      title: '',
-      preamble: 'SuperAgent ',
+      title: '版本升级提示',
+      preamble: 'SuperAgent 对数据存储进行了重大重构，为了保证旧数据的安全迁移，我们对升级顺序有严格要求。',
       no_version_log:
-        ' {{requiredVersion}} ',
+        '无法确定您之前使用的版本。请先安装 {{requiredVersion}} 版本并运行一次，然后再安装此版本进行数据迁移。',
       v1_too_old:
-        '{{previousVersion}} {{requiredVersion}} ',
+        '您之前的版本（{{previousVersion}}）过旧，无法直接迁移。请先升级到 {{requiredVersion}} 版本并运行一次，然后再安装此版本。',
       v2_gateway_skipped:
-        ' {{previousVersion}}  {{currentVersion}} {{gatewayVersion}} ',
-      ignore_hint: ''
+        '无法从 {{previousVersion}} 直接升级到 {{currentVersion}}。请先安装 {{gatewayVersion}} 版本完成数据迁移，然后再升级到此版本。',
+      ignore_hint: '您也可以选择忽略旧数据，直接以全新默认配置启动。'
     }
   }
 }

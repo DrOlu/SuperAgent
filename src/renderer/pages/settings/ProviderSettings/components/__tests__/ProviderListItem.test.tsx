@@ -24,7 +24,7 @@ afterEach(() => {
 })
 
 describe('ProviderListItem', () => {
-  const provider = { id: 'silicon-flow', name: '' } as any
+  const provider = { id: 'silicon-flow', name: '硅基流动' } as any
 
   it.each(['Enter', ' '])('selects the provider when the row receives %j', (key) => {
     const onClick = vi.fn()

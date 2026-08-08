@@ -76,12 +76,12 @@ describe('syncMcpToolsToRegistry', () => {
 
   it('attaches raw MCP identity metadata before execution', async () => {
     const reg = new ToolRegistry()
-    list.mockReturnValue({ items: [{ ...activeServer('ocr-server'), name: ' OCR' }] })
+    list.mockReturnValue({ items: [{ ...activeServer('ocr-server'), name: '票据 OCR' }] })
     listTools.mockReturnValue([
       {
-        ...mcpTool('ocr-server', '', ''),
+        ...mcpTool('ocr-server', '识别发票', '识别票据中的结构化字段'),
         id: 'mcp__ocr__tool_1234567890abcdef1234',
-        serverName: ' OCR'
+        serverName: '票据 OCR'
       }
     ])
 
@@ -90,10 +90,10 @@ describe('syncMcpToolsToRegistry', () => {
     expect(reg.getByName('mcp__ocr__tool_1234567890abcdef1234')?.tool.metadata).toEqual({
       cherry: {
         tool: {
-          description: '',
-          name: '',
+          description: '识别票据中的结构化字段',
+          name: '识别发票',
           serverId: 'ocr-server',
-          serverName: ' OCR',
+          serverName: '票据 OCR',
           type: 'mcp'
         }
       }
@@ -191,15 +191,15 @@ describe('syncMcpToolsToRegistry', () => {
 
   it('exposes the server display name to the model while keeping serverId ownership', async () => {
     const reg = new ToolRegistry()
-    list.mockReturnValue({ items: [{ ...activeServer('server-a'), name: ' OCR' }] })
+    list.mockReturnValue({ items: [{ ...activeServer('server-a'), name: '票据 OCR' }] })
     listTools.mockReturnValue([mcpTool('server-a', 'query')])
 
     await syncMcpToolsToRegistry(reg)
 
     const entry = reg.getByName('mcp__server-a__query')!
     expect(entry.namespace).toBe('mcp:server-a')
-    expect(entry.namespaceLabel).toBe('mcp: OCR')
-    expect([...reg.getByNamespace({ query: '' }).keys()]).toEqual(['mcp: OCR'])
+    expect(entry.namespaceLabel).toBe('mcp:票据 OCR')
+    expect([...reg.getByNamespace({ query: '票据' }).keys()]).toEqual(['mcp:票据 OCR'])
   })
 
   it('deduplicates repeated descriptors for the same identity', async () => {
@@ -243,8 +243,8 @@ describe('syncMcpToolsToRegistry', () => {
       const elevator = { ...mcpTool('server-b', 'executeSql'), id: 'mcp__mysql__executeSql_b' }
       list.mockReturnValue({
         items: [
-          { ...activeServer('server-a'), name: 'mysql_' },
-          { ...activeServer('server-b'), name: 'mysql_' }
+          { ...activeServer('server-a'), name: 'mysql_报销' },
+          { ...activeServer('server-b'), name: 'mysql_电梯' }
         ]
       })
       listTools.mockImplementation((serverId: string) => (serverId === 'server-a' ? [reimbursement] : [elevator]))

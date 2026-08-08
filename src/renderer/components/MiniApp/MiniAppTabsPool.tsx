@@ -62,7 +62,7 @@ const MiniAppTabsPool: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appMetadataSignature])
 
-  /**  ref  */
+  /** 设置 ref 回调 */
   const handleSetRef = (appid: string, el: WebviewTag | null) => {
     if (el) {
       webviewRefs.current.set(appid, el)
@@ -71,7 +71,7 @@ const MiniAppTabsPool: React.FC = () => {
     }
   }
 
-  /** WebView  */
+  /** WebView 加载完成回调 */
   const handleLoaded = (appid: string) => {
     setWebviewLoaded(appid, true)
     logger.debug(`TabPool webview loaded: ${appid}`)

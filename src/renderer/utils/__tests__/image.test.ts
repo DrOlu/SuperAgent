@@ -18,7 +18,7 @@ import {
   prepareEntityImageBytes
 } from '../image'
 
-// mock 
+// mock 依赖
 vi.mock('html-to-image', () => ({
   toCanvas: vi.fn(() =>
     Promise.resolve({

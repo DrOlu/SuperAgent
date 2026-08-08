@@ -85,7 +85,7 @@ describe('api', () => {
 
   describe('formatApiKeys', () => {
     it('normalizes chinese commas and new lines', () => {
-      expect(formatApiKeys('key1key2\nkey3')).toBe('key1,key2,key3')
+      expect(formatApiKeys('key1，key2\nkey3')).toBe('key1,key2,key3')
     })
 
     it('returns empty string unchanged', () => {
@@ -99,8 +99,8 @@ describe('api', () => {
     })
 
     it('leaves chinese commas and new lines to explicit formatting', () => {
-      expect(splitApiKeyString('key1key2\nkey3')).toEqual(['key1key2\nkey3'])
-      expect(splitApiKeyString(formatApiKeys('key1key2\nkey3'))).toEqual(['key1', 'key2', 'key3'])
+      expect(splitApiKeyString('key1，key2\nkey3')).toEqual(['key1，key2\nkey3'])
+      expect(splitApiKeyString(formatApiKeys('key1，key2\nkey3'))).toEqual(['key1', 'key2', 'key3'])
     })
 
     it('handles escaped commas inside keys', () => {

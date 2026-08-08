@@ -24,44 +24,44 @@ export const relocationLocales = {
   'zh-CN': {
     translation: {
       relocation: {
-        title: '',
-        preparing: '...',
-        copying: '...',
-        committing: '...',
+        title: '数据目录迁移',
+        preparing: '正在准备迁移...',
+        copying: '正在复制数据...',
+        committing: '正在保存新的数据目录...',
         completed: {
-          title: '',
-          description: ' SuperAgent '
+          title: '迁移完成',
+          description: '请重启 SuperAgent 以使用新的数据目录。'
         },
         failed: {
-          title: '',
-          description: 'SuperAgent '
+          title: '迁移失败',
+          description: 'SuperAgent 将继续使用原数据目录。'
         },
-        restart_success: ' SuperAgent',
-        restart_failure: '',
-        from: '',
-        to: ''
+        restart_success: '重启 SuperAgent',
+        restart_failure: '继续使用原数据目录',
+        from: '当前目录',
+        to: '新目录'
       }
     }
   },
   'zh-TW': {
     translation: {
       relocation: {
-        title: '',
-        preparing: '...',
-        copying: '...',
-        committing: '...',
+        title: '資料目錄遷移',
+        preparing: '正在準備遷移...',
+        copying: '正在複製資料...',
+        committing: '正在儲存新的資料目錄...',
         completed: {
-          title: '',
-          description: ' SuperAgent '
+          title: '遷移完成',
+          description: '請重新啟動 SuperAgent 以使用新的資料目錄。'
         },
         failed: {
-          title: '',
-          description: 'SuperAgent '
+          title: '遷移失敗',
+          description: 'SuperAgent 將繼續使用原資料目錄。'
         },
-        restart_success: ' SuperAgent',
-        restart_failure: '',
-        from: '',
-        to: ''
+        restart_success: '重新啟動 SuperAgent',
+        restart_failure: '繼續使用原資料目錄',
+        from: '目前目錄',
+        to: '新目錄'
       }
     }
   }

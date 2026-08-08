@@ -61,10 +61,10 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       (
         ({
-          'common.more': '',
-          'knowledge.context.delete': '',
-          'knowledge.context.move_to': '',
-          'knowledge.context.rename': ''
+          'common.more': '更多',
+          'knowledge.context.delete': '删除知识库',
+          'knowledge.context.move_to': '移动到',
+          'knowledge.context.rename': '重命名'
         }) as Record<string, string>
       )[key] ?? key
   })
@@ -117,7 +117,7 @@ describe('KnowledgeBaseRow', () => {
     )
 
     expect(screen.getByText('Base 1')).toBeInTheDocument()
-    expect(screen.queryByText('3 ')).not.toBeInTheDocument()
+    expect(screen.queryByText('3 文档')).not.toBeInTheDocument()
     expect(container.querySelector('span[aria-label]')).not.toBeInTheDocument()
   })
 
@@ -136,6 +136,6 @@ describe('KnowledgeBaseRow', () => {
     )
 
     // Always mounted (revealed on hover via CSS); it opens the same menu as right-click.
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更多' })).toBeInTheDocument()
   })
 })

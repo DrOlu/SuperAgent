@@ -11,7 +11,7 @@ const FILE_PATH_RE = /^(\/[\w./@+-][^:]*[^:])(:.*)?$/
 
 export function GrepTool({ input, output }: { input?: GrepToolInput; output?: GrepToolOutput }): ToolDisclosureItem {
   const { t } = useTranslation()
-  // 
+  // 如果有输出，计算结果行数
   const resultLines = countLines(output)
   const { data: truncatedOutput, isTruncated, originalLength } = truncateOutput(output)
 

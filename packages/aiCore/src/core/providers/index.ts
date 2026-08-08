@@ -1,18 +1,18 @@
 /**
- * Providers  - Provider
+ * Providers 模块统一导出 - 独立Provider包
  */
 
-// ====================  ====================
+// ==================== 核心管理器 ====================
 
-// Provider 
+// Provider 核心功能
 export { coreExtensions, hasProviderConfig } from './core/initialization'
 
-// ====================  ====================
+// ==================== 基础数据和类型 ====================
 
-// 
+// 类型定义
 export type { AiSdkModel, ProviderError } from './types'
 
-// 
+// 类型提取工具
 export type {
   CoreProviderSettingsMap,
   ExtensionConfigToIdResolutionMap,
@@ -22,9 +22,9 @@ export type {
   UnionToIntersection
 } from './types'
 
-// ====================  ====================
+// ==================== 工具函数 ====================
 
-// 
+// 工具函数和错误类
 export { formatPrivateKey, ProviderCreationError } from './core/utils'
 export {
   createOpenAICompatibleRerankingModel,
@@ -33,9 +33,9 @@ export {
   type OpenAICompatibleRerankingModelSettings
 } from './openaiCompatible/rerankingModel'
 
-// ==================== Provider Extension  ====================
+// ==================== Provider Extension 系统 ====================
 
-// Extension 
+// Extension 核心类和类型
 export {
   type ProviderCreatorFunction,
   ProviderExtension,

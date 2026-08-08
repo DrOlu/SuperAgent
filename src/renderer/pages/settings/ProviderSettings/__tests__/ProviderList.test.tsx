@@ -207,7 +207,7 @@ describe('ProviderList', () => {
     expect(screen.getByTestId('provider-list-item-openai')).toHaveAttribute('data-selected', 'true')
     expect(screen.getByTestId('provider-list-item-anthropic')).toHaveAttribute('data-selected', 'false')
 
-    fireEvent.change(screen.getByPlaceholderText('...'), {
+    fireEvent.change(screen.getByPlaceholderText('搜索模型平台...'), {
       target: { value: 'anth' }
     })
 
@@ -293,7 +293,7 @@ describe('ProviderList', () => {
 
     expect(useReorderMock).toHaveBeenCalledWith('/providers', { revalidateOnSuccess: false })
     expect(screen.getByTestId('provider-editor-drawer')).toHaveAttribute('data-open', 'false')
-    fireEvent.click(screen.getAllByRole('button', { name: //i })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /添加/i })[0])
     expect(screen.getByTestId('provider-editor-drawer')).toHaveAttribute('data-open', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: 'trigger-reorder' }))
@@ -343,14 +343,14 @@ describe('ProviderList', () => {
   it('labels the provider filter icon button for assistive technology', () => {
     render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: '' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '筛选服务商' })).toBeInTheDocument()
   })
 
   it('restores the provider filter after leaving and returning to the page', () => {
     const first = render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '' }))
-    fireEvent.click(screen.getByRole('button', { name: '' }))
+    fireEvent.click(screen.getByRole('button', { name: '筛选服务商' }))
+    fireEvent.click(screen.getByRole('button', { name: '仅已禁用' }))
 
     expect(MockUseCacheUtils.getPersistCacheValue('settings.provider.filter_mode')).toBe('disabled')
 
@@ -364,10 +364,10 @@ describe('ProviderList', () => {
   it('keeps a single add action below the scrollable provider list', () => {
     render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
 
-    const addButton = screen.getByRole('button', { name: '' })
+    const addButton = screen.getByRole('button', { name: '添加服务商' })
     const scrollbar = screen.getByTestId('provider-list-scrollbar')
-    const filterButton = screen.getByRole('button', { name: '' })
-    const searchInput = screen.getByPlaceholderText('...')
+    const filterButton = screen.getByRole('button', { name: '筛选服务商' })
+    const searchInput = screen.getByPlaceholderText('搜索模型平台...')
     const searchWrap = searchInput.closest('div')
 
     expect(scrollbar).not.toContainElement(addButton)

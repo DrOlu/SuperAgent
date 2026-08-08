@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getMetadataByPath } from '../metadata'
 
 // UTF-8 text long enough for chardet to detect with high confidence.
-const TEXT_SAMPLE = '\n'.repeat(4)
+const TEXT_SAMPLE = '这是一段自定义格式的纯文本内容，长度足够让编码检测有信心地判定为文本。\n'.repeat(4)
 // Binary bytes (contains null) so isBinaryFile classifies it as non-text.
 const BINARY_SAMPLE = Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe, 0x00, 0x10])
 

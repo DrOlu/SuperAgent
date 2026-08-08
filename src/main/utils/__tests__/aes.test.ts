@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { decrypt, encrypt } from '../aes'
 
-const key = '12345678901234567890123456789012' // 32
-const iv = '1234567890abcdef1234567890abcdef' // 32hex16hex
+const key = '12345678901234567890123456789012' // 32字节
+const iv = '1234567890abcdef1234567890abcdef' // 32字节hex，实际应16字节hex
 
 function getIv16() {
-  // 16 hex
+  // 取前16字节作为 hex
   return iv.slice(0, 32)
 }
 
@@ -21,7 +21,7 @@ describe('aes utils', () => {
   })
 
   it('should support unicode and special chars', () => {
-    const text = '🌟🚀'
+    const text = '你好，世界！🌟🚀'
     const { encryptedData } = encrypt(text, key, getIv16())
     const decrypted = decrypt(encryptedData, getIv16(), key)
     expect(decrypted).toBe(text)

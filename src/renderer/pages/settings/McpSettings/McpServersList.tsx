@@ -148,15 +148,15 @@ const McpServersList: FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 
+  // 简单的滚动位置记忆
   useEffect(() => {
-    // 
+    // 恢复滚动位置
     const savedScroll = sessionStorage.getItem('mcp-list-scroll')
     if (savedScroll && scrollRef.current) {
       scrollRef.current.scrollTop = Number(savedScroll)
     }
 
-    // 
+    // 保存滚动位置
     const handleScroll = () => {
       if (scrollRef.current) {
         sessionStorage.setItem('mcp-list-scroll', String(scrollRef.current.scrollTop))
@@ -353,7 +353,7 @@ const McpServersList: FC = () => {
         visible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}
         onSuccess={handleAddServerSuccess}
-        existingServers={mcpServers} // 
+        existingServers={mcpServers} // 傳遞現有的伺服器列表
         initialImportMethod={modalType}
       />
 

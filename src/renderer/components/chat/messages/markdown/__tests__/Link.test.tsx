@@ -56,7 +56,7 @@ describe('Link', () => {
 
   it('renders a SuperAgent route link as an in-app navigation entry', async () => {
     const user = userEvent.setup()
-    render(<Link href="/app/paintings?source=assistant"></Link>)
+    render(<Link href="/app/paintings?source=assistant">打开画图功能</Link>)
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button'))

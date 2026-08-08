@@ -214,7 +214,7 @@ describe('ErrorBlock', () => {
   })
 
   it('refreshes an AI summary when the app language changes', async () => {
-    const diagnoseMessageError = vi.fn().mockResolvedValueOnce('English summary').mockResolvedValueOnce('')
+    const diagnoseMessageError = vi.fn().mockResolvedValueOnce('English summary').mockResolvedValueOnce('中文摘要')
     mocks.actions = { diagnoseMessageError }
     const error = {
       name: 'UnknownError',
@@ -229,7 +229,7 @@ describe('ErrorBlock', () => {
     mocks.language = 'zh-CN'
     rerender(<ErrorBlock partId="message-1-part-0" error={{ ...error }} message={message} />)
 
-    expect(await screen.findByText('')).toBeInTheDocument()
+    expect(await screen.findByText('中文摘要')).toBeInTheDocument()
     expect(diagnoseMessageError).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'zh-CN' }))
   })
 })

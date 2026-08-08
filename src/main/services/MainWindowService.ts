@@ -245,10 +245,10 @@ export class MainWindowService extends BaseService {
       const lastCrashTime = this.lastRendererProcessCrashTime
       this.lastRendererProcessCrashTime = currentTime
       if (currentTime - lastCrashTime > 60 * 1000) {
-        // 1
+        // 如果大于1分钟，则重启渲染进程
         mainWindow.webContents.reload()
       } else {
-        // 1, crash
+        // 如果小于1分钟，则退出应用, 可能是连续crash，需要退出应用
         application.forceExit(1)
       }
     })
@@ -256,7 +256,7 @@ export class MainWindowService extends BaseService {
 
   private setupMaximize(mainWindow: BrowserWindow, isMaximized: boolean) {
     if (isMaximized) {
-      // 
+      // 如果是从托盘启动，则需要延迟最大化，否则显示的就不是重启前的最大化窗口了
       application.get('PreferenceService').get('app.tray.on_launch')
         ? mainWindow.once('show', () => {
             mainWindow.maximize()
@@ -431,29 +431,29 @@ export class MainWindowService extends BaseService {
 
   private setupWindowLifecycleEvents(mainWindow: BrowserWindow) {
     mainWindow.on('close', (event) => {
-      // 
+      // 如果已经触发退出，直接放行窗口关闭
       if (application.isQuitting) {
         return
       }
 
-      // 
+      // 托盘及关闭行为设置
       const preferenceService = application.get('PreferenceService')
       const isShowTray = preferenceService.get('app.tray.enabled')
       const isTrayOnClose = preferenceService.get('app.tray.on_close')
 
-      // 
+      // 没有开启托盘，或者开启了托盘，但设置了直接关闭，应执行直接退出
       if (!isShowTray || (isShowTray && !isTrayOnClose)) {
-        // WindowsLinux
-        // mac
+        // 如果是Windows或Linux，直接退出
+        // mac按照系统默认行为，不退出
         if (isWin || isLinux) {
           return application.quit()
         }
       }
 
       /**
-       * :
-       * win/linux: "+"
-       * mac: mac
+       * 上述逻辑以下:
+       * win/linux: 是"开启托盘+设置关闭时最小化到托盘"的情况
+       * mac: 任何情况都会到这里，因此需要单独处理mac
        */
 
       if (!mainWindow.isFullScreen()) {
@@ -518,8 +518,8 @@ export class MainWindowService extends BaseService {
        *  AppleScript may be a solution, but it's not worth
        *
        * [Linux] Known Issue
-       *  setVisibleOnAllWorkspaces  Linux  KDE Wayland""
-       *   Linux 
+       *  setVisibleOnAllWorkspaces 在 Linux 环境下（特别是 KDE Wayland）会导致窗口进入"假弹出"状态
+       *  因此在 Linux 环境下不执行这两行代码
        */
       if (!isLinux) {
         mainWindow.setVisibleOnAllWorkspaces(true)
@@ -582,8 +582,8 @@ export class MainWindowService extends BaseService {
   }
 
   /**
-   * 
-   * @param text 
+   * 引用文本到主窗口
+   * @param text 原始文本（未格式化）
    */
   public quoteToMainWindow(text: string): void {
     try {

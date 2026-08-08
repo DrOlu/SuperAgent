@@ -72,7 +72,7 @@ function formatSummaryValue(
       const h = params?.customSize_height
       return w && h ? `${String(w)}×${String(h)}` : undefined
     }
-    // Localize the selected option (e.g. `auto` → ``) the same way the chips
+    // Localize the selected option (e.g. `auto` → `自动`) the same way the chips
     // and the artboard prompt bar do, instead of formatting the raw enum.
     return sizeOptionLabel(item, String(value), params, translate)
   }

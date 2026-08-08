@@ -54,7 +54,7 @@ describe('useTranslateHistory', () => {
 
     await result.current.add({
       sourceText: 'Hello',
-      targetText: '',
+      targetText: '你好',
       sourceLanguage: 'unknown',
       targetLanguage: 'unknown'
     })
@@ -62,7 +62,7 @@ describe('useTranslateHistory', () => {
     expect(addTrigger).toHaveBeenCalledWith({
       body: {
         sourceText: 'Hello',
-        targetText: '',
+        targetText: '你好',
         sourceLanguage: null,
         targetLanguage: null
       }

@@ -402,14 +402,14 @@ describe('buildSystemPrompt — builtin Cherry Assistant definition', () => {
   it('uses the bundled template when DB instructions are empty and resolves it on every build', async () => {
     mockLoadBuiltinAgentDefinition
       .mockReturnValueOnce({ instructions: 'English bundled instructions' })
-      .mockReturnValueOnce({ instructions: '' })
+      .mockReturnValueOnce({ instructions: '中文内置指令' })
     const agent = makeAgent({ instructions: '', configuration: { builtin_role: 'assistant' } as never })
 
     const en = await buildSystemPrompt(makeSession(), agent, '/tmp/cwd')
     const zh = await buildSystemPrompt(makeSession(), agent, '/tmp/cwd')
 
     expect(promptText(en)).toContain('English bundled instructions')
-    expect(promptText(zh)).toContain('')
+    expect(promptText(zh)).toContain('中文内置指令')
     expect(mockLoadBuiltinAgentDefinition).toHaveBeenCalledTimes(2)
   })
 

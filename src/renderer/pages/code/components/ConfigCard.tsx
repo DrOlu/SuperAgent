@@ -76,7 +76,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
             {modelName && (
               <>
                 <span aria-hidden className="shrink-0 text-foreground-tertiary text-xs">
-                  
+                  ｜
                 </span>
                 <span className="min-w-0 truncate font-mono text-[11px] text-foreground-tertiary">{modelName}</span>
               </>

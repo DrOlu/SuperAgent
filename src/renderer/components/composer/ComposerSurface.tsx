@@ -91,7 +91,7 @@ import {
 const COMPOSER_SIDE_PADDING_PX = 24
 const ROOT_QUICK_PANEL_TRIGGER_SOURCES = [
   { char: ComposerPanelSymbol.Root, pluginKey: 'composer-root-suggestion' },
-  { char: '', pluginKey: 'composer-root-ideographic-comma-suggestion' }
+  { char: '、', pluginKey: 'composer-root-ideographic-comma-suggestion' }
 ] as const
 const EMPTY_SUGGESTION_SOURCES: readonly ComposerSuggestionSource[] = []
 interface ComposerClipboardCopyView {

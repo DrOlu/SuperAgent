@@ -459,7 +459,7 @@ describe('HistoryRecordsView agent mode', () => {
     expect(onRecordSelect).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
     expect(screen.queryByText('Messages')).not.toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.queryByText('消息')).not.toBeInTheDocument()
     expect(screen.getByText('Alpha session')).toBeInTheDocument()
     // Rows are single-line: the session description is searchable but not rendered.
     expect(screen.queryByText('Planning notes')).not.toBeInTheDocument()

@@ -53,7 +53,7 @@ const CodeBlock: React.FC<Props> = ({
   const { codeFancyBlock } = useMessageRenderConfig()
   const isIncomplete = useIsCodeFenceIncomplete()
 
-  //  id
+  // 代码块 id
   const id = useMemo(() => getCodeBlockId(node?.position?.start), [node?.position?.start])
 
   const actions = useOptionalMessageListActions()

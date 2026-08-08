@@ -526,8 +526,8 @@ export class KnowledgeIndexStore {
       return []
     }
     // Short terms (2-char CJK words, "Go") produce no trigram, but they are often
-    // the query's content words — AND each as a LIKE substring filter so 
-    //   PDF does not degrade to a bare MATCH "PDF". Preferred, not
+    // the query's content words — AND each as a LIKE substring filter so 「公司
+    // 年假 政策 PDF」 does not degrade to a bare MATCH "PDF". Preferred, not
     // required: a filler short term absent from the target chunk ('to' against a
     // chunk containing 'timeout' but no literal 'to') would zero out the whole
     // query, so when the filters eliminate every candidate they are relaxed.

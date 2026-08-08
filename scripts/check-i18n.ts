@@ -14,20 +14,20 @@ type I18NValue = string | { [key: string]: I18NValue }
 type I18N = { [key: string]: I18NValue }
 
 /**
- * 
- * 
+ * 递归检查目标对象与模板对象的键值结构是否完全一致（缺键、多键、嵌套结构不符都会抛错）。
+ * 用于确保所有翻译文件与基准模板（中文翻译文件）保持相同的键值结构。
  */
 function checkRecursively(target: I18N, template: I18N): void {
   for (const key in template) {
     if (!(key in target)) {
-      throw new Error(` ${key}`)
+      throw new Error(`缺少属性 ${key}`)
     }
     if (key.includes('.')) {
-      throw new Error(` ${key}`)
+      throw new Error(`应该使用严格嵌套结构 ${key}`)
     }
     if (typeof template[key] === 'object' && template[key] !== null) {
       if (typeof target[key] !== 'object' || target[key] === null) {
-        throw new Error(` ${key} `)
+        throw new Error(`属性 ${key} 不是对象`)
       }
       checkRecursively(target[key] as I18N, template[key] as I18N)
     }
@@ -35,7 +35,7 @@ function checkRecursively(target: I18N, template: I18N): void {
 
   for (const targetKey in target) {
     if (!(targetKey in template)) {
-      throw new Error(` ${targetKey}`)
+      throw new Error(`多余属性 ${targetKey}`)
     }
   }
 }
@@ -45,7 +45,7 @@ function isSortedI18N(obj: I18N): boolean {
 }
 
 /**
- *  JSON 
+ * 检查 JSON 对象中是否存在重复键，并收集所有重复键（若无重复则返回空数组）。
  */
 function checkDuplicateKeys(obj: I18N): string[] {
   const keys = new Set<string>()
@@ -73,44 +73,44 @@ function checkDuplicateKeys(obj: I18N): string[] {
 
 function readI18N(filePath: string): I18N {
   if (!fs.existsSync(filePath)) {
-    throw new Error(` ${filePath} `)
+    throw new Error(`文件 ${filePath} 不存在，请检查路径或文件名`)
   }
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
   } catch (error) {
-    throw new Error(` ${filePath} ${error}`)
+    throw new Error(`解析 ${filePath} 出错。${error}`)
   }
 }
 
 /**
- * 
+ * 校验一组翻译文件：基准模板无重复键且有序，其余文件有序且与基准结构完全一致。
  *
- * @param label  renderer / main
- * @param baseFilePath 
- * @param files 
+ * @param label 分组名（用于报错信息，如 renderer / main）
+ * @param baseFilePath 基准模板文件（通常是中文翻译）
+ * @param files 该组需要校验的全部翻译文件（含基准模板本身）
  */
 function checkCatalog(label: string, baseFilePath: string, files: string[]): I18N {
   const baseJson = readI18N(baseFilePath)
 
   const duplicateKeys = checkDuplicateKeys(baseJson)
   if (duplicateKeys.length > 0) {
-    throw new Error(`[${label}]  ${path.basename(baseFilePath)} \n${duplicateKeys.join('\n')}`)
+    throw new Error(`[${label}] 主模板 ${path.basename(baseFilePath)} 存在以下重复键：\n${duplicateKeys.join('\n')}`)
   }
   if (!isSortedI18N(baseJson)) {
-    throw new Error(`[${label}]  ${path.basename(baseFilePath)} `)
+    throw new Error(`[${label}] 主模板 ${path.basename(baseFilePath)} 的键值未按字典序排序。`)
   }
 
   for (const filePath of files) {
     if (path.resolve(filePath) === path.resolve(baseFilePath)) continue
     const targetJson = readI18N(filePath)
     if (!isSortedI18N(targetJson)) {
-      throw new Error(`[${label}]  ${path.basename(filePath)} `)
+      throw new Error(`[${label}] 翻译文件 ${path.basename(filePath)} 的键值未按字典序排序。`)
     }
     try {
       checkRecursively(targetJson, baseJson)
     } catch (e) {
       console.error(e)
-      throw new Error(`[${label}]  ${filePath} `)
+      throw new Error(`[${label}] 在检查 ${filePath} 时出错`)
     }
   }
 
@@ -192,10 +192,10 @@ function checkMainKeyCoverage(mainBaseJson: I18N): void {
 
   const errors: string[] = []
   if (dynamic.size > 0) {
-    errors.push(`main  t()  key\n${[...dynamic].join('\n')}`)
+    errors.push(`main 源码存在无法静态校验的非字面量 t() 调用（请改用字面量 key）：\n${[...dynamic].join('\n')}`)
   }
   if (missing.size > 0) {
-    errors.push(`main  main catalogsrc/main/i18n i18n key\n${[...missing].join('\n')}`)
+    errors.push(`main 源码使用了 main catalog（src/main/i18n）中不存在的 i18n key：\n${[...missing].join('\n')}`)
   }
   if (errors.length > 0) {
     throw new Error(errors.join('\n\n'))
@@ -221,10 +221,10 @@ function checkTranslations(): void {
 export function main() {
   try {
     checkTranslations()
-    console.log('i18n ')
+    console.log('i18n 检查已通过')
   } catch (e) {
     console.error(e)
-    throw new Error(` pnpm i18n:sync `)
+    throw new Error(`检查未通过。尝试运行 pnpm i18n:sync 以解决问题。`)
   }
 }
 

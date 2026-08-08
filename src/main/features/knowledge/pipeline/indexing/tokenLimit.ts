@@ -13,7 +13,7 @@ interface TextRange {
 }
 
 const BOUNDARY_MIN_RATIO = 0.5
-const PREFERRED_BOUNDARIES = ['\n\n', '\n', '', '', '', '. ', '! ', '? ', '', '; ', '', ', ', ' ']
+const PREFERRED_BOUNDARIES = ['\n\n', '\n', '。', '！', '？', '. ', '! ', '? ', '；', '; ', '，', ', ', ' ']
 
 export async function refineChunksByTokenLimit(
   chunked: ChunkedKnowledgeContent,

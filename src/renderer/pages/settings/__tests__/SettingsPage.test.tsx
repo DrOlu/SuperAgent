@@ -43,22 +43,22 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       ({
         'agent.settings.toolsMcp.mcp.tab': 'MCP',
-        'selection.name': '',
-        'settings.channels.title': '',
-        'settings.dependencies.title': '',
-        'settings.dependencies.localModels.title': '',
-        'settings.menuGroups.automation': '',
-        'settings.menuGroups.capabilities': '',
-        'settings.menuGroups.personal': '',
-        'settings.menuGroups.quickAccess': '',
-        'settings.model': '',
-        'settings.quickAssistant.title': '',
-        'settings.scheduledTasks.title': '',
-        'settings.shortcuts.title': '',
-        'settings.skills.title': '',
-        'settings.system.title': '',
+        'selection.name': '划词助手',
+        'settings.channels.title': '频道',
+        'settings.dependencies.title': '环境依赖',
+        'settings.dependencies.localModels.title': '本地模型',
+        'settings.menuGroups.automation': '效率',
+        'settings.menuGroups.capabilities': '工具',
+        'settings.menuGroups.personal': '偏好',
+        'settings.menuGroups.quickAccess': '快捷入口',
+        'settings.model': '默认模型',
+        'settings.quickAssistant.title': '快捷助手',
+        'settings.scheduledTasks.title': '定时任务',
+        'settings.shortcuts.title': '快捷键',
+        'settings.skills.title': '技能',
+        'settings.system.title': '系统',
         'settings.tool.file_processing.features.image_to_text.title': 'OCR',
-        'settings.tool.file_processing.features.document_to_markdown.title': ''
+        'settings.tool.file_processing.features.document_to_markdown.title': '文档处理'
       })[key] ?? key
   })
 }))
@@ -75,10 +75,10 @@ describe('SettingsPage', () => {
     expect(container.querySelector('[data-ui="settings.view"]')).toBeInTheDocument()
     expect(container.querySelector('[data-ui="settings.navigation"]')).toBeInTheDocument()
     expect(container.querySelector('[data-ui="settings.content"]')).toBeInTheDocument()
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('偏好')).toBeInTheDocument()
 
-    const defaultModelItem = screen.getByRole('button', { name: '' })
-    const localModelsItem = screen.getByRole('button', { name: '' })
+    const defaultModelItem = screen.getByRole('button', { name: '默认模型' })
+    const localModelsItem = screen.getByRole('button', { name: '本地模型' })
 
     expect(defaultModelItem.nextElementSibling).toBe(localModelsItem)
     fireEvent.click(localModelsItem)
@@ -88,15 +88,15 @@ describe('SettingsPage', () => {
   it('keeps document processing and OCR together in tools and places dependencies below system', () => {
     render(<SettingsPage />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
+    expect(screen.getByText('工具')).toBeInTheDocument()
 
-    const documentProcessingItem = screen.getByRole('button', { name: '' })
+    const documentProcessingItem = screen.getByRole('button', { name: '文档处理' })
     const ocrItem = screen.getByRole('button', { name: 'OCR' })
     expect(documentProcessingItem.nextElementSibling).toBe(ocrItem)
     expect(ocrItem.nextElementSibling).toHaveAttribute('data-testid', 'menu-divider')
 
-    const systemItem = screen.getByRole('button', { name: '' })
-    const dependenciesItem = screen.getByRole('button', { name: '' })
+    const systemItem = screen.getByRole('button', { name: '系统' })
+    const dependenciesItem = screen.getByRole('button', { name: '环境依赖' })
     expect(systemItem.nextElementSibling).toBe(dependenciesItem)
     fireEvent.click(dependenciesItem)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/dependencies' })
@@ -106,7 +106,7 @@ describe('SettingsPage', () => {
     render(<SettingsPage />)
 
     const mcpItem = screen.getByText('MCP').closest('button')
-    const skillsItem = screen.getByRole('button', { name: '' })
+    const skillsItem = screen.getByRole('button', { name: '技能' })
 
     expect(mcpItem).not.toBeNull()
     expect(mcpItem?.nextElementSibling).toBe(skillsItem)
@@ -117,10 +117,10 @@ describe('SettingsPage', () => {
   it('merges quick access into efficiency and places both assistants last', () => {
     render(<SettingsPage />)
 
-    expect(screen.getByText('')).toBeInTheDocument()
-    expect(screen.queryByText('')).not.toBeInTheDocument()
+    expect(screen.getByText('效率')).toBeInTheDocument()
+    expect(screen.queryByText('快捷入口')).not.toBeInTheDocument()
 
-    const efficiencyItems = ['', '', '', '', ''].map((name) =>
+    const efficiencyItems = ['频道', '定时任务', '快捷键', '快捷助手', '划词助手'].map((name) =>
       screen.getByRole('button', { name })
     )
     const menuItems = screen.getAllByTestId('menu-item')

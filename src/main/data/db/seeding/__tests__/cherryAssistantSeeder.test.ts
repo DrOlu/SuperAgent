@@ -87,7 +87,7 @@ describe('SuperAgentSeeder', () => {
     new SuperAgentSeeder().run(dbh.db)
 
     const [agent] = builtinAgents(dbh.db)
-    expect(agent.name).toBe('Cherry ')
+    expect(agent.name).toBe('Cherry 小助手')
   })
 
   it('falls back to the English name when preferred system languages are unavailable', () => {

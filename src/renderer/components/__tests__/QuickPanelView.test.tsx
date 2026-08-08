@@ -86,7 +86,7 @@ function createInputAdapter(initialText = '', initialCursor = initialText.length
   }
 }
 
-//  open 
+// 用于测试 open 行为的组件
 function OpenPanelOnMount({
   list,
   panelOptions,
@@ -174,7 +174,7 @@ function renderOpenPanel({
 
 describe('QuickPanelView', () => {
   beforeEach(() => {
-    //  composer textarea  document.body
+    // 添加一个假的 composer textarea 到 document.body
     const inputbar = document.createElement('div')
     inputbar.dataset.testid = 'composer-fixture'
     const textarea = document.createElement('textarea')
@@ -326,16 +326,16 @@ describe('QuickPanelView', () => {
   })
 
   describe('focusing', () => {
-    //  focused item 
+    // 执行一系列按键，检查 focused item 是否正确
     async function runKeySequenceAndCheck(panel: HTMLElement, sequence: KeyStep[]) {
       for (const { key, ctrlKey, expected } of sequence) {
         fireEvent.keyDown(screen.getByTestId('quick-panel-body'), { key, ctrlKey })
         fireEvent.keyUp(screen.getByTestId('quick-panel-body'), { key, ctrlKey: false })
 
-        //  focused item
+        // 检查是否只有一个 focused item
         const focused = panel.querySelectorAll('.focused')
         expect(focused.length).toBe(1)
-        //  focused item 
+        // 检查 focused item 是否包含预期文本
         const text = focused[0].textContent || ''
         if (typeof expected === 'string') {
           expect(text).toContain(expected)
@@ -387,10 +387,10 @@ describe('QuickPanelView', () => {
 
       const keySequence = [
         { key: 'PageDown', expected: `Item ${PAGE_SIZE + 1}` },
-        { key: 'PageUp', expected: 'Item 1' }, // PageUp 
-        { key: 'ArrowUp', expected: 'Item 100' }, //  ArrowUp 
-        { key: 'PageDown', expected: 'Item 100' }, //  PageDown 
-        { key: 'PageUp', expected: `Item ${100 - PAGE_SIZE}` } // PageUp 9992Item 93
+        { key: 'PageUp', expected: 'Item 1' }, // PageUp 会选中第一个
+        { key: 'ArrowUp', expected: 'Item 100' }, // 从第一个按 ArrowUp 会到最后一个
+        { key: 'PageDown', expected: 'Item 100' }, // 从最后一个按 PageDown 仍然是最后一个
+        { key: 'PageUp', expected: `Item ${100 - PAGE_SIZE}` } // PageUp 会向上翻页，从索引99到92，对应Item 93
       ]
 
       await runKeySequenceAndCheck(screen.getByTestId('quick-panel'), keySequence)
@@ -407,10 +407,10 @@ describe('QuickPanelView', () => {
         { key: 'ArrowDown', ctrlKey: true, expected: `Item ${PAGE_SIZE * 2 + 1}` },
         { key: 'ArrowUp', ctrlKey: true, expected: `Item ${PAGE_SIZE + 1}` },
         { key: 'ArrowUp', ctrlKey: true, expected: 'Item 1' },
-        //  Ctrl+ArrowUp PAGE_SIZE 
-        // 
+        // 翻页采用统一环绕（与单步方向键一致）：在顶部再按 Ctrl+ArrowUp 会按一页（PAGE_SIZE 个位置）回绕，
+        // 而非跳到最后一项。
         { key: 'ArrowUp', ctrlKey: true, expected: `Item ${100 - PAGE_SIZE + 1}` },
-        { key: 'ArrowDown', ctrlKey: true, expected: 'Item 1' } //  Ctrl+ArrowDown 
+        { key: 'ArrowDown', ctrlKey: true, expected: 'Item 1' } // 再按 Ctrl+ArrowDown 前进一页回到顶部
       ]
 
       await runKeySequenceAndCheck(screen.getByTestId('quick-panel'), keySequence)

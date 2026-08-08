@@ -183,7 +183,7 @@ const HeaderNavbar = ({
     if (activeNode && titleValue.trim() && titleValue.trim() !== activeNode.name.replace('.md', '')) {
       onRenameNode?.(activeNode.id, titleValue.trim())
     } else if (activeNode) {
-      // 
+      // 如果没有更改或为空，恢复原始值
       setTitleValue(activeNode.name.replace('.md', ''))
     }
   }, [activeNode, titleValue, onRenameNode])
@@ -262,14 +262,14 @@ const HeaderNavbar = ({
     )
   }
 
-  // 
+  // 同步标题值
   useEffect(() => {
     if (activeNode?.type === 'file') {
       setTitleValue(activeNode.name.replace('.md', ''))
     }
   }, [activeNode])
 
-  // 
+  // 构建面包屑路径
   useEffect(() => {
     if (!activeNode || !notesTree) {
       setBreadcrumbItems([])

@@ -841,7 +841,7 @@ const MigrationApp: React.FC = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="zh-CN"></SelectItem>
+                <SelectItem value="zh-CN">中文</SelectItem>
                 <SelectItem value="en-US">English</SelectItem>
               </SelectContent>
             </Select>

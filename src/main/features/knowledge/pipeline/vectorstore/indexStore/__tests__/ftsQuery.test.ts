@@ -10,11 +10,11 @@ describe('extractMatchTerms', () => {
   it('windows an unsegmented CJK run into overlapping trigrams', () => {
     // The run is a clause, not a word: quoting it whole would make MATCH demand the
     // entire clause as one contiguous substring.
-    expect(extractMatchTerms('')).toEqual(['', ''])
+    expect(extractMatchTerms('报销流程')).toEqual(['报销流', '销流程'])
   })
 
   it('splits a token that mixes Latin and CJK, windowing only the CJK part', () => {
-    expect(extractMatchTerms('RAG')).toEqual(['RAG', '', ''])
+    expect(extractMatchTerms('RAG检索增强')).toEqual(['RAG', '检索增', '索增强'])
   })
 
   it('keeps a katakana run whole across the prolonged sound mark', () => {
@@ -22,23 +22,23 @@ describe('extractMatchTerms', () => {
     // plain Script= terminated the run at every ー, splitting サーバー into
     // fragments too short to index — 'サーバーエラー' yielded no term at all.
     expect(extractMatchTerms('サーバーエラー')).toEqual(['サーバ', 'ーバー', 'バーエ', 'ーエラ', 'エラー'])
-    expect(extractMatchTerms('データベース')).toEqual(['データ', 'ータベ', 'タベー', 'ベース', 'ース', 'ス'])
+    expect(extractMatchTerms('データベース設計')).toEqual(['データ', 'ータベ', 'タベー', 'ベース', 'ース設', 'ス設計'])
   })
 
   it('omits sub-trigram terms from MATCH — extractShortTerms surfaces them instead', () => {
-    // 'to' and '' cannot be indexed, but the indexable terms must still be searched.
+    // 'to' and '天气' cannot be indexed, but the indexable terms must still be searched.
     expect(extractMatchTerms('how to configure')).toEqual(['how', 'configure'])
-    expect(extractMatchTerms('the  today')).toEqual(['the', 'today'])
+    expect(extractMatchTerms('the 天气 today')).toEqual(['the', 'today'])
   })
 
   it('keeps an exactly-3-character run as one term', () => {
-    expect(extractMatchTerms('')).toEqual([''])
+    expect(extractMatchTerms('系统统')).toEqual(['系统统'])
   })
 
   it('de-duplicates repeated terms', () => {
     expect(extractMatchTerms('proxy proxy')).toEqual(['proxy'])
     // Overlapping windows of a repeated clause collapse to the distinct trigrams.
-    expect(extractMatchTerms('')).toEqual(['', ''])
+    expect(extractMatchTerms('报销报销')).toEqual(['报销报', '销报销'])
   })
 
   it('caps the term count so a long CJK question cannot explode the FTS query', () => {
@@ -61,27 +61,27 @@ describe('extractMatchTerms', () => {
   it('is empty when nothing in the text can be indexed', () => {
     expect(extractMatchTerms('')).toEqual([])
     expect(extractMatchTerms('!!! --- ???')).toEqual([])
-    expect(extractMatchTerms('')).toEqual([])
+    expect(extractMatchTerms('天气')).toEqual([])
   })
 })
 
 describe('extractShortTerms', () => {
   it('returns the sub-trigram terms MATCH cannot see, so the store can AND them as LIKE filters', () => {
     // 2-character words are the modal word length in Chinese — dropping them
-    // outright would turn    PDF into a bare MATCH "PDF".
-    expect(extractShortTerms(' architecture')).toEqual([''])
-    expect(extractShortTerms('   PDF')).toEqual(['', '', ''])
+    // outright would turn 「公司 年假 政策 PDF」 into a bare MATCH "PDF".
+    expect(extractShortTerms('系统 architecture')).toEqual(['系统'])
+    expect(extractShortTerms('公司 年假 政策 PDF')).toEqual(['公司', '年假', '政策'])
     expect(extractShortTerms('how to configure')).toEqual(['to'])
   })
 
   it('splits mixed-script tokens the same way as extractMatchTerms', () => {
-    expect(extractShortTerms('RAG')).toEqual([''])
+    expect(extractShortTerms('RAG检索')).toEqual(['检索'])
   })
 
   it('de-duplicates, and is empty when every term is indexable', () => {
-    expect(extractShortTerms('  hello')).toEqual([''])
+    expect(extractShortTerms('天气 天气 hello')).toEqual(['天气'])
     expect(extractShortTerms('configure proxy timeout')).toEqual([])
-    expect(extractShortTerms('')).toEqual([])
+    expect(extractShortTerms('报销流程')).toEqual([])
   })
 })
 
@@ -96,11 +96,11 @@ describe('toFtsMatchQuery', () => {
   it('ORs the trigrams of a CJK question', () => {
     // Regression: the whole clause was one quoted token, i.e. an exact-substring
     // demand, so a question phrased around the indexed words never matched.
-    expect(toFtsMatchQuery('')).toBe('"" OR "" OR "" OR "" OR ""')
+    expect(toFtsMatchQuery('公司的报销流程')).toBe('"公司的" OR "司的报" OR "的报销" OR "报销流" OR "销流程"')
   })
 
   it('quotes each term; embedded quotes cannot pass the token charset but are escaped defensively', () => {
-    expect(toFtsMatchQuery('rag2  v_2')).toBe('"rag2" OR "v_2"')
+    expect(toFtsMatchQuery('rag2 系统 v_2')).toBe('"rag2" OR "v_2"')
   })
 
   it('returns null when the text yields no indexable term', () => {
@@ -115,17 +115,17 @@ describe('toFtsMatchQuery', () => {
 describe('needsLikeFallback', () => {
   it('is false when at least one term is indexable', () => {
     expect(needsLikeFallback('hello world')).toBe(false)
-    expect(needsLikeFallback('rag2 ')).toBe(false)
+    expect(needsLikeFallback('rag2 系统统')).toBe(false)
     expect(needsLikeFallback('サーバーエラー')).toBe(false)
   })
 
   it('is false for a mixed query, whose short terms become LIKE filters rather than a LIKE reroute', () => {
     // A short token no longer poisons the query, so the ranked MATCH path is kept.
-    expect(needsLikeFallback('the  today')).toBe(false)
+    expect(needsLikeFallback('the 天气 today')).toBe(false)
   })
 
   it('is true only when tokens exist but none can be indexed', () => {
-    expect(needsLikeFallback('')).toBe(true)
+    expect(needsLikeFallback('天气')).toBe(true)
     expect(needsLikeFallback('ab')).toBe(true)
   })
 

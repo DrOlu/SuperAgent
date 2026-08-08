@@ -125,7 +125,7 @@ describe('ApiHost', () => {
 
     render(<ApiHost providerId="openai" />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^$|^Copy$/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^复制$|^Copy$/ }))
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://api.example.com')
@@ -151,7 +151,7 @@ describe('ApiHost', () => {
 
     render(<ApiHost providerId="openai" />)
 
-    const apiHostInput = screen.getByRole('textbox', { name: /^API $|^API Host$/ })
+    const apiHostInput = screen.getByRole('textbox', { name: /^API 地址$|^API Host$/ })
     fireEvent.click(apiHostInput)
     fireEvent.change(apiHostInput, { target: { value: 'https://api2.example.com' } })
     fireEvent.blur(apiHostInput)
@@ -187,7 +187,7 @@ describe('ApiHost', () => {
 
     render(<ApiHost providerId="openai" onRequestModelPullGuide={onRequestModelPullGuide} />)
 
-    const apiHostInput = screen.getByRole('textbox', { name: /^API $|^API Host$/ })
+    const apiHostInput = screen.getByRole('textbox', { name: /^API 地址$|^API Host$/ })
     fireEvent.change(apiHostInput, { target: { value: 'https://api2.example.com' } })
     fireEvent.blur(apiHostInput)
 
@@ -212,7 +212,7 @@ describe('ApiHost', () => {
     render(<ApiHost providerId="openai" />)
 
     expect(screen.queryByTestId('request-config-drawer')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^$|^Add Endpoint$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^添加端点$|^Add Endpoint$/i }))
     expect(screen.getByTestId('request-config-drawer')).toHaveAttribute('data-provider', 'openai')
   })
 
@@ -242,12 +242,12 @@ describe('ApiHost', () => {
 
     render(<ApiHost providerId="openai" />)
 
-    /** `settings.provider.api.url.reset`: en-US "Reset", zh-CN "" */
-    fireEvent.click(screen.getByRole('button', { name: /^$|^Reset$/ }))
+    /** `settings.provider.api.url.reset`: en-US "Reset", zh-CN "重置" */
+    fireEvent.click(screen.getByRole('button', { name: /^重置$|^Reset$/ }))
     expect(resetApiHost).toHaveBeenCalled()
 
-    const addEndpointButton = screen.getByRole('button', { name: /^$|^Add Endpoint$/i })
-    expect(addEndpointButton).toHaveTextContent(/^$|^Add Endpoint$/i)
+    const addEndpointButton = screen.getByRole('button', { name: /^添加端点$|^Add Endpoint$/i })
+    expect(addEndpointButton).toHaveTextContent(/^添加端点$|^Add Endpoint$/i)
     fireEvent.click(addEndpointButton)
 
     expect(screen.getByTestId('request-config-drawer')).toHaveAttribute('data-provider', 'openai')
@@ -284,14 +284,14 @@ describe('ApiHost', () => {
 
     render(<ApiHost providerId="openai" />)
 
-    const anthropicHostInput = screen.getByRole('textbox', { name: /^Anthropic API $|^Anthropic API Host$/ })
+    const anthropicHostInput = screen.getByRole('textbox', { name: /^Anthropic API 地址$|^Anthropic API Host$/ })
     fireEvent.change(anthropicHostInput, { target: { value: 'https://anthropic2.example.com' } })
     fireEvent.blur(anthropicHostInput)
     expect(endpointState.setAnthropicApiHost).toHaveBeenCalledWith('https://anthropic2.example.com')
     expect(commitAnthropicApiHost).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId('request-config-drawer')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^$|^Add Endpoint$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^添加端点$|^Add Endpoint$/i }))
 
     expect(screen.getByTestId('request-config-drawer')).toHaveAttribute('data-provider', 'openai')
   })

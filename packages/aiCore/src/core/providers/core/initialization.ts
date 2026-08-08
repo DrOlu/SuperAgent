@@ -1,7 +1,7 @@
 /**
- * Provider 
- *  providers 
- *  Extension 
+ * Provider 初始化器
+ * 负责根据配置创建 providers 并注册到全局管理器
+ * 使用新的 Extension 系统
  */
 
 import type { AnthropicProvider, AnthropicProviderSettings } from '@ai-sdk/anthropic'
@@ -94,7 +94,7 @@ const AzureExtension = ProviderExtension.create({
           })
       }
     },
-    // Azure  Claude  Anthropic SDK
+    // Azure 上的 Claude 模型走 Anthropic SDK
     // https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry
     {
       suffix: 'anthropic',
@@ -257,7 +257,7 @@ const XaiExtension = ProviderExtension.create({
 } as const satisfies ProviderExtensionConfig<XaiProviderSettings, XaiProvider, 'xai'>)
 
 /**
- *  provider extensions 
+ * 核心 provider extensions 列表
  */
 type CoreExtensions = readonly [
   typeof OpenAIExtension,
@@ -284,8 +284,8 @@ export const coreExtensions: CoreExtensions = [
 ]
 
 /**
- *  Provider IDs 
- *  coreExtensions  provider IDs aliases  variants
+ * 核心 Provider IDs 类型
+ * 从 coreExtensions 数组自动提取所有 provider IDs（包括 aliases 和 variants）
  *
  */
 export type CoreProviderId = ExtractExtensionIds<(typeof coreExtensions)[number]>
@@ -317,20 +317,20 @@ export const registeredProviderIds: ProviderIdsMap = (() => {
   return map
 })()
 
-// ====================  Extension Registry ====================
+// ==================== 初始化 Extension Registry ====================
 
 /**
- *  extensions  registry
- * 
+ * 注册所有通用 extensions 到全局 registry
+ * 在模块加载时自动执行
  *
- *  provider extensionsOpenAI, Anthropic, Google 
- *  extensions 
+ * 注意：只注册通用的 provider extensions（OpenAI, Anthropic, Google 等）
+ * 项目特定的 extensions 应该在应用层单独注册
  */
 // register() is idempotent — safe to call on HMR / re-import
 extensionRegistry.registerAll(coreExtensions)
 
 /**
- * Provider 
+ * Provider 初始化错误类型
  */
 class ProviderInitializationError extends Error {
   constructor(
@@ -344,12 +344,12 @@ class ProviderInitializationError extends Error {
 }
 
 /**
- *  Provider Extension
+ * 检查是否有对应的 Provider Extension
  */
 export function hasProviderConfig(providerId: string): boolean {
   return extensionRegistry.has(providerId)
 }
 
-// ====================  ====================
+// ==================== 导出错误类型 ====================
 
 export { ProviderInitializationError }

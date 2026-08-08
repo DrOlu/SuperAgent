@@ -50,10 +50,10 @@ interface AddMcpServerModalProps {
 }
 
 interface ParsedServerData extends McpServer {
-  url?: string // JSON  baseUrl
+  url?: string // JSON 可能包含此欄位，而不是 baseUrl
 }
 
-//  JSON 
+// 預設的 JSON 範例內容
 const initialJsonExample = `// Example JSON (stdio):
 // {
 //   "mcpServers": {
@@ -124,11 +124,11 @@ const AddMcpServerModal: FC<AddMcpServerModalProps> = ({
   }, [initialImportMethod])
 
   /**
-   * JSONMCP
-   * @param inputValue - JSON
-   * @returns 
-   * - serversToAdd: null
-   * - error: null
+   * 从JSON字符串中解析MCP服务器配置
+   * @param inputValue - JSON格式的服务器配置字符串
+   * @returns 包含解析后的服务器配置列表和可能的错误信息的对象
+   * - serversToAdd: 解析成功时返回服务器配置列表，失败时返回null
+   * - error: 解析失败时返回错误信息，成功时返回null
    */
   const getServersFromJson = (
     inputValue: string
@@ -313,14 +313,14 @@ const AddMcpServerModal: FC<AddMcpServerModalProps> = ({
           return
         }
 
-        // 
+        // 如果成功解析並通過所有檢查，立即加入伺服器（非啟用狀態）並關閉對話框
         const installTimestamp = Date.now()
         const serverDtos = serversToAdd.map((serverToAdd) =>
           toCreateMcpServerDto({
             ...serverToAdd,
             name: serverToAdd.name || t('settings.mcp.newServer'),
             baseUrl: serverToAdd.baseUrl ?? serverToAdd.url ?? '',
-            isActive: false, // 
+            isActive: false, // 初始狀態為非啟用
             installSource: 'manual' as const,
             isTrusted: true,
             installedAt: installTimestamp,
@@ -332,7 +332,7 @@ const AddMcpServerModal: FC<AddMcpServerModalProps> = ({
         form.reset({ serverConfig: '' })
         onClose()
 
-        // 
+        // 在背景非同步檢查伺服器可用性並更新狀態
         for (const createdServer of createdServers) {
           ipcApi
             .request('mcp.server.check_connectivity', { serverId: createdServer.id })

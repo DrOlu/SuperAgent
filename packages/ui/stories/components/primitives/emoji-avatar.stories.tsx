@@ -12,21 +12,21 @@ const meta: Meta<typeof EmojiAvatar> = {
   argTypes: {
     children: {
       control: 'text',
-      description: 'Emoji ',
+      description: 'Emoji 字符',
       defaultValue: '😊'
     },
     size: {
       control: { type: 'range', min: 20, max: 100, step: 1 },
-      description: '',
+      description: '头像尺寸',
       defaultValue: 31
     },
     fontSize: {
       control: { type: 'range', min: 10, max: 50, step: 1 },
-      description: ' size * 0.5'
+      description: '字体大小（默认为 size * 0.5）'
     },
     className: {
       control: 'text',
-      description: ''
+      description: '自定义类名'
     }
   }
 } satisfies Meta<typeof EmojiAvatar>
@@ -34,7 +34,7 @@ const meta: Meta<typeof EmojiAvatar> = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// 
+// 基础用法
 export const Default: Story = {
   args: {
     children: '😊',
@@ -42,7 +42,7 @@ export const Default: Story = {
   }
 }
 
-// 
+// 不同尺寸展示
 export const Sizes: Story = {
   render: (args) => (
     <div className="flex items-center gap-4">
@@ -56,7 +56,7 @@ export const Sizes: Story = {
   )
 }
 
-//  Emoji
+// 各种 Emoji
 export const VariousEmojis: Story = {
   render: (args) => (
     <div className="grid grid-cols-6 gap-4">
@@ -92,27 +92,27 @@ export const VariousEmojis: Story = {
   )
 }
 
-// 
+// 自定义字体大小
 export const CustomFontSize: Story = {
   render: (args) => (
     <div className="flex items-center gap-4">
       <div className="text-center">
         <EmojiAvatar {...args} children="🎯" size={50} fontSize={15} />
-        <p className="mt-2 text-xs text-gray-500">: 15px</p>
+        <p className="mt-2 text-xs text-gray-500">字体: 15px</p>
       </div>
       <div className="text-center">
         <EmojiAvatar {...args} children="🎯" size={50} fontSize={25} />
-        <p className="mt-2 text-xs text-gray-500">: 25px ()</p>
+        <p className="mt-2 text-xs text-gray-500">字体: 25px (默认)</p>
       </div>
       <div className="text-center">
         <EmojiAvatar {...args} children="🎯" size={50} fontSize={35} />
-        <p className="mt-2 text-xs text-gray-500">: 35px</p>
+        <p className="mt-2 text-xs text-gray-500">字体: 35px</p>
       </div>
     </div>
   )
 }
 
-// 
+// 点击交互
 export const Interactive: Story = {
   args: {
     children: '👆',
@@ -121,7 +121,7 @@ export const Interactive: Story = {
   }
 }
 
-// 
+// 自定义样式
 export const CustomStyles: Story = {
   render: (args) => (
     <div className="flex items-center gap-4">
@@ -133,7 +133,7 @@ export const CustomStyles: Story = {
   )
 }
 
-// 
+// 组合使用
 export const WithLabels: Story = {
   render: (args) => (
     <div className="flex items-center gap-6">
@@ -152,11 +152,11 @@ export const WithLabels: Story = {
   )
 }
 
-// 
+// 网格展示
 export const Grid: Story = {
   render: (args) => (
     <div className="w-96">
-      <h3 className="mb-4 text-lg font-semibold"></h3>
+      <h3 className="mb-4 text-lg font-semibold">选择你的心情</h3>
       <div className="grid grid-cols-8 gap-2">
         {[
           '😊',

@@ -201,9 +201,9 @@ describe('read (text)', () => {
 
   it('reads UTF-8 text content (default)', async () => {
     const f = path.join(tmp, 't.txt')
-    await writeFile(f, ' hello', 'utf-8')
+    await writeFile(f, '你好 hello', 'utf-8')
     const out = await read(f as AbsoluteFilePath)
-    expect(out).toBe(' hello')
+    expect(out).toBe('你好 hello')
   })
 
   it('reads with explicit text encoding option', async () => {

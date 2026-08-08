@@ -15,7 +15,7 @@ description:  GitHub IssueGitHub Bug Report  GitHub Feature Request “”“”
 
 ## GitHub 
 
-**Bug Report**: (////) →  `gh search issues "[]" --repo Hyperspace Technologies/superagent --state open --limit 5` →  `.github/ISSUE_TEMPLATE/0_bug_report.yml` →  →  `gh issue create` → 
+**Bug Report**: (////) →  `gh search issues "[]" --repo DrOlu/SuperAgent --state open --limit 5` →  `.github/ISSUE_TEMPLATE/0_bug_report.yml` →  →  `gh issue create` → 
 
 **Feature Request**: →→ `1_feature_request.yml`→→→→ `.cherry-assistant/feature-requests.md`
 
@@ -30,7 +30,7 @@ Bug  `.cherry-assistant/bug-reports.md`Feature  `feature-requests.md`
 ---
 ```
 
-: GitHub() https://github.com/Hyperspace Technologies/superagent/issues |  linux.do |  https://mcnnox2fhjfq.feishu.cn/share/base/form/shrcnsjfFkx4gy6wx9LQ70tMaKe
+: GitHub() https://github.com/DrOlu/SuperAgent/issues |  linux.do |  https://mcnnox2fhjfq.feishu.cn/share/base/form/shrcnsjfFkx4gy6wx9LQ70tMaKe
 
 ****: →→→→ #
 

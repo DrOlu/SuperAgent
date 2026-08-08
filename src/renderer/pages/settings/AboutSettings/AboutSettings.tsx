@@ -211,7 +211,7 @@ const AboutSettings: FC = () => {
           <button
             type="button"
             aria-label={t('settings.about.repository')}
-            onClick={() => onOpenWebsite('https://github.com/Hyperspace Technologies/superagent')}
+            onClick={() => onOpenWebsite('https://github.com/DrOlu/SuperAgent')}
             className="inline-flex items-center justify-center rounded-md p-1 text-foreground transition-colors hover:bg-muted">
             <Github className="size-5" />
           </button>
@@ -224,7 +224,7 @@ const AboutSettings: FC = () => {
             <button
               type="button"
               aria-label="SuperAgent"
-              onClick={() => onOpenWebsite('https://github.com/Hyperspace Technologies/superagent')}
+              onClick={() => onOpenWebsite('https://github.com/DrOlu/SuperAgent')}
               className="relative cursor-pointer">
               {appUpdateState.downloading && appUpdateState.downloadProgress > 0 && (
                 <div className="-top-0.5 -left-0.5 pointer-events-none absolute">
@@ -247,7 +247,7 @@ const AboutSettings: FC = () => {
               <button
                 type="button"
                 aria-label={t('settings.about.releases.title')}
-                onClick={() => onOpenWebsite('https://github.com/Hyperspace Technologies/superagent/releases')}
+                onClick={() => onOpenWebsite('https://github.com/DrOlu/SuperAgent/releases')}
                 className="mt-1.5">
                 <Badge className="cursor-pointer rounded-md border-primary/20 bg-primary/10 px-1.5 py-0 text-[11px] text-primary leading-4 transition-colors hover:bg-primary/15">
                   v{version}

@@ -5,14 +5,14 @@
   "keywords": ["ai-sdk", "provider", "cherryin", "vercel-ai-sdk", "superagent"],
   "author": "SuperAgent",
   "license": "MIT",
-  "homepage": "https://github.com/Hyperspace Technologies/superagent",
+  "homepage": "https://github.com/DrOlu/SuperAgent",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Hyperspace Technologies/superagent.git",
+    "url": "git+https://github.com/DrOlu/SuperAgent.git",
     "directory": "packages/ai-sdk-provider"
   },
   "bugs": {
-    "url": "https://github.com/Hyperspace Technologies/superagent/issues"
+    "url": "https://github.com/DrOlu/SuperAgent/issues"
   },
   "type": "module",
   "main": "dist/index.cjs",

@@ -17,7 +17,7 @@ body:
       options:
         - label: I understand that Issues are for feedback and problem-solving, not for complaints, and I will provide as much information as possible to help resolve the issue.
           required: true
-        - label: I have checked the pinned Issues and searched through existing [open Issues](https://github.com/Hyperspace Technologies/superagent/issues) and [closed Issues](https://github.com/Hyperspace Technologies/superagent/issues?q=is%3Aissue%20state%3Aclosed%20) and didn't find similar questions.
+        - label: I have checked the pinned Issues and searched through existing [open Issues](https://github.com/DrOlu/SuperAgent/issues) and [closed Issues](https://github.com/DrOlu/SuperAgent/issues?q=is%3Aissue%20state%3Aclosed%20) and didn't find similar questions.
           required: true
         - label: I have written a short and clear title that helps developers quickly understand the nature of my question, rather than vague titles like "A question" or "Help needed".
           required: true

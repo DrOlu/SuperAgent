@@ -29,12 +29,12 @@
 </div>
 
 <h1 align="center">
-  <a href="https://github.com/Hyperspace Technologies/superagent/releases">
-    <img src="https://github.com/Hyperspace Technologies/superagent/blob/main/build/icon.png?raw=true" width="150" height="150" alt="banner" /><br>
+  <a href="https://github.com/DrOlu/SuperAgent/releases">
+    <img src="https://github.com/DrOlu/SuperAgent/blob/main/build/icon.png?raw=true" width="150" height="150" alt="banner" /><br>
   </a>
 </h1>
 
-<p align="center">English | <a href="https://superagent.ng">Official Site</a> | <a href="https://docs.superagent.ng/docs/en-us">Documents</a> | <a href="./docs/guides/development.md">Development</a> | <a href="https://github.com/Hyperspace Technologies/superagent/issues">Feedback</a><br></p>
+<p align="center">English | <a href="https://superagent.ng">Official Site</a> | <a href="https://docs.superagent.ng/docs/en-us">Documents</a> | <a href="./docs/guides/development.md">Development</a> | <a href="https://github.com/DrOlu/SuperAgent/issues">Feedback</a><br></p>
 
 <div align="center">
 
@@ -150,7 +150,7 @@ We're actively working on the following features and improvements:
 
 Track our progress and contribute on our [project board](https://github.com/orgs/Hyperspace Technologies/projects/7).
 
-Want to influence our roadmap? Join our [GitHub Discussions](https://github.com/Hyperspace Technologies/superagent/discussions) to share your ideas and feedback!
+Want to influence our roadmap? Join our [GitHub Discussions](https://github.com/DrOlu/SuperAgent/discussions) to share your ideas and feedback!
 
 # 🌈 Theme
 
@@ -244,7 +244,7 @@ The Enterprise Edition addresses core challenges in team collaboration by centra
 | Feature           | Community Edition                                                                    | Enterprise Edition                                                                                                                      |
 | :---------------- | :----------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
 | **Open Source**   | ✅ Yes                                                                               | ⭕️ Partially released to customers                                                                                                      |
-| **Cost**          | [AGPL-3.0 License](https://github.com/Hyperspace Technologies/superagent?tab=AGPL-3.0-1-ov-file) | Buyout / Subscription Fee                                                                                                               |
+| **Cost**          | [AGPL-3.0 License](https://github.com/DrOlu/SuperAgent?tab=AGPL-3.0-1-ov-file) | Buyout / Subscription Fee                                                                                                               |
 | **Admin Backend** | —                                                                                    | ● Centralized **Model** Access<br>● **Employee** Management<br>● Shared **Knowledge Base**<br>● **Access** Control<br>● **Data** Backup |
 | **Server**        | —                                                                                    | ✅ Dedicated Private Deployment                                                                                                         |
 
@@ -267,8 +267,8 @@ We believe the Enterprise Edition will become your team's AI productivity engine
 
 # 🚀 Contributors
 
-<a href="https://github.com/Hyperspace Technologies/superagent/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Hyperspace Technologies/superagent" />
+<a href="https://github.com/DrOlu/SuperAgent/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=DrOlu/SuperAgent" />
 </a>
 <br /><br />
 
@@ -278,11 +278,11 @@ We believe the Enterprise Edition will become your team's AI productivity engine
 
 # ⭐️ Star History
 
-<a href="https://www.star-history.com/#Hyperspace Technologies/superagent&Date">
+<a href="https://www.star-history.com/#DrOlu/SuperAgent&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Hyperspace Technologies/superagent&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Hyperspace Technologies/superagent&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Hyperspace Technologies/superagent&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=DrOlu/SuperAgent&type=Date" />
  </picture>
 </a>
 
@@ -297,7 +297,7 @@ Should you require a commercial license that provides an exemption from the AGPL
 <!-- Links & Images -->
 
 [deepwiki-shield]: https://img.shields.io/badge/Deepwiki-Hyperspace Technologies-0088CC?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNy45MyAzMiI+PHBhdGggZD0iTTE5LjMzIDE0LjEyYy42Ny0uMzkgMS41LS4zOSAyLjE4IDBsMS43NCAxYy4wNi4wMy4xMS4wNi4xOC4wN2guMDRjLjA2LjAzLjEyLjAzLjE4LjAzaC4wMmMuMDYgMCAuMTEgMCAuMTctLjAyaC4wM2MuMDYtLjAyLjEyLS4wNS4xNy0uMDhoLjAybDMuNDgtMi4wMWMuMjUtLjE0LjQtLjQxLjQtLjdWOC40YS44MS44MSAwIDAgMC0uNC0uN2wtMy40OC0yLjAxYS44My44MyAwIDAgMC0uODEgMEwxOS43NyA3LjdoLS4wMWwtLjE1LjEyLS4wMi4wMnMtLjA3LjA5LS4xLjE0VjhhLjQuNCAwIDAgMC0uMDguMTd2LjA0Yy0uMDMuMDYtLjAzLjEyLS4wMy4xOXYyLjAxYzAgLjc4LS40MSAxLjQ5LTEuMDkgMS44OC0uNjcuMzktMS41LjM5LTIuMTggMGwtMS43NC0xYS42LjYgMCAwIDAtLjIxLS4wOGMtLjA2LS4wMS0uMTItLjAyLS4xOC0uMDJoLS4wM2MtLjA2IDAtLjExLjAxLS4xNy4wMmgtLjAzYy0uMDYuMDItLjEyLjA0LS4xNy4wN2gtLjAybC0zLjQ3IDIuMDFjLS4yNS4xNC0uNC40MS0uNC43VjE4YzAgLjI5LjE1LjU1LjQuN2wzLjQ4IDIuMDFoLjAyYy4wNi4wNC4xMS4wNi4xNy4wOGguMDNjLjA1LjAyLjExLjAzLjE3LjAzaC4wMmMuMDYgMCAuMTIgMCAuMTgtLjAyaC4wNGMuMDYtLjAzLjEyLS4wNS4xOC0uMDhsMS43NC0xYy42Ny0uMzkgMS41LS4zOSAyLjE3IDBzMS4wOSAxLjExIDEuMDkgMS44OHYyLjAxYzAgLjA3IDAgLjEzLjAyLjE5di4wNGMuMDMuMDYuMDUuMTIuMDguMTd2LjAycy4wOC4wOS4xMi4xM2wuMDIuMDJzLjA5LjA4LjE1LjExYzAgMCAuMDEgMCAuMDEuMDFsMy40OCAyLjAxYy4yNS4xNC41Ni4xNC44MSAwbDMuNDgtMi4wMWMuMjUtLjE0LjQtLjQxLjQtLjd2LTQuMDFhLjgxLjgxIDAgMCAwLS40LS43bC0zLjQ4LTIuMDFoLS4wMmMtLjA1LS4wNC0uMTEtLjA2LS4xNy0uMDhoLS4wM2EuNS41IDAgMCAwLS4xNy0uMDNoLS4wM2MtLjA2IDAtLjEyIDAtLjE4LjAyLS4wNy4wMi0uMTUuMDUtLjIxLjA4bC0xLjc0IDFjLS42Ny4zOS0xLjUuMzktMi4xNyAwYTIuMTkgMi4xOSAwIDAgMS0xLjA5LTEuODhjMC0uNzguNDItMS40OSAxLjA5LTEuODhaIiBzdHlsZT0iZmlsbDojNWRiZjlkIi8+PHBhdGggZD0ibS40IDEzLjExIDMuNDcgMi4wMWMuMjUuMTQuNTYuMTQuOCAwbDMuNDctMi4wMWguMDFsLjE1LS4xMi4wMi0uMDJzLjA3LS4wOS4xLS4xNGwuMDItLjAyYy4wMy0uMDUuMDUtLjExLjA3LS4xN3YtLjA0Yy4wMy0uMDYuMDMtLjEyLjAzLS4xOVYxMC40YzAtLjc4LjQyLTEuNDkgMS4wOS0xLjg4czEuNS0uMzkgMi4xOCAwbDEuNzQgMWMuMDcuMDQuMTQuMDcuMjEuMDguMDYuMDEuMTIuMDIuMTguMDJoLjAzYy4wNiAwIC4xMS0uMDEuMTctLjAyaC4wM2MuMDYtLjAyLjEyLS4wNC4xNy0uMDdoLjAybDMuNDctMi4wMmMuMjUtLjE0LjQtLjQxLjQtLjd2LTRhLjgxLjgxIDAgMCAwLS40LS43bC0zLjQ2LTJhLjgzLjgzIDAgMCAwLS44MSAwbC0zLjQ4IDIuMDFoLS4wMWwtLjE1LjEyLS4wMi4wMi0uMS4xMy0uMDIuMDJjLS4wMy4wNS0uMDUuMTEtLjA3LjE3di4wNGMtLjAzLjA2LS4wMy4xMi0uMDMuMTl2Mi4wMWMwIC43OC0uNDIgMS40OS0xLjA5IDEuODhzLTEuNS4zOS0yLjE4IDBsLTEuNzQtMWEuNi42IDAgMCAwLS4yMS0uMDhjLS4wNi0uMDEtLjEyLS4wMi0uMTgtLjAyaC0uMDNjLS4wNiAwLS4xMS4wMS0uMTcuMDJoLS4wM2MtLjA2LjAyLS4xMi4wNS0uMTcuMDhoLS4wMkwuNCA3LjcxYy0uMjUuMTQtLjQuNDEtLjQuNjl2NC4wMWMwIC4yOS4xNS41Ni40LjciIHN0eWxlPSJmaWxsOiM0NDY4YzQiLz48cGF0aCBkPSJtMTcuODQgMjQuNDgtMy40OC0yLjAxaC0uMDJjLS4wNS0uMDQtLjExLS4wNi0uMTctLjA4aC0uMDNhLjUuNSAwIDAgMC0uMTctLjAzaC0uMDNjLS4wNiAwLS4xMiAwLS4xOC4wMmgtLjA0Yy0uMDYuMDMtLjEyLjA1LS4xOC4wOGwtMS43NCAxYy0uNjcuMzktMS41LjM5LTIuMTggMGEyLjE5IDIuMTkgMCAwIDEtMS4wOS0xLjg4di0yLjAxYzAtLjA2IDAtLjEzLS4wMi0uMTl2LS4wNGMtLjAzLS4wNi0uMDUtLjExLS4wOC0uMTdsLS4wMi0uMDJzLS4wNi0uMDktLjEtLjEzTDguMjkgMTlzLS4wOS0uMDgtLjE1LS4xMWgtLjAxbC0zLjQ3LTIuMDJhLjgzLjgzIDAgMCAwLS44MSAwTC4zNyAxOC44OGEuODcuODcgMCAwIDAtLjM3LjcxdjQuMDFjMCAuMjkuMTUuNTUuNC43bDMuNDcgMi4wMWguMDJjLjA1LjA0LjExLjA2LjE3LjA4aC4wM2MuMDUuMDIuMTEuMDMuMTYuMDNoLjAzYy4wNiAwIC4xMiAwIC4xOC0uMDJoLjA0Yy4wNi0uMDMuMTItLjA1LjE4LS4wOGwxLjc0LTFjLjY3LS4zOSAxLjUtLjM5IDIuMTcgMHMxLjA5IDEuMTEgMS4wOSAxLjg4djIuMDFjMCAuMDcgMCAuMTMuMDIuMTl2LjA0Yy4wMy4wNi4wNS4xMS4wOC4xN2wuMDIuMDJzLjA2LjA5LjEuMTRsLjAyLjAycy4wOS4wOC4xNS4xMWguMDFsMy40OCAyLjAyYy4yNS4xNC41Ni4xNC44MSAwbDMuNDgtMi4wMWMuMjUtLjE0LjQtLjQxLjQtLjdWMjUuMmEuODEuODEgMCAwIDAtLjQtLjdaIiBzdHlsZT0iZmlsbDojNDI5M2Q5Ii8+PC9zdmc+
-[deepwiki-link]: https://deepwiki.com/Hyperspace Technologies/superagent
+[deepwiki-link]: https://deepwiki.com/DrOlu/SuperAgent
 [twitter-shield]: https://img.shields.io/badge/Twitter-SuperAgentApp-0088CC?logo=x
 [twitter-link]: https://twitter.com/SuperAgentHQ
 [discord-shield]: https://img.shields.io/badge/Discord-@SuperAgent-0088CC?logo=discord
@@ -307,12 +307,12 @@ Should you require a commercial license that provides an exemption from the AGPL
 
 <!-- Links & Images -->
 
-[github-release-shield]: https://img.shields.io/github/v/release/Hyperspace Technologies/superagent?logo=github
-[github-release-link]: https://github.com/Hyperspace Technologies/superagent/releases
-[github-nightly-shield]: https://img.shields.io/github/actions/workflow/status/Hyperspace Technologies/superagent/nightly-build.yml?label=nightly%20build&logo=github
-[github-nightly-link]: https://github.com/Hyperspace Technologies/superagent/actions/workflows/nightly-build.yml
-[github-contributors-shield]: https://img.shields.io/github/contributors/Hyperspace Technologies/superagent?logo=github
-[github-contributors-link]: https://github.com/Hyperspace Technologies/superagent/graphs/contributors
+[github-release-shield]: https://img.shields.io/github/v/release/DrOlu/SuperAgent?logo=github
+[github-release-link]: https://github.com/DrOlu/SuperAgent/releases
+[github-nightly-shield]: https://img.shields.io/github/actions/workflow/status/DrOlu/SuperAgent/nightly-build.yml?label=nightly%20build&logo=github
+[github-nightly-link]: https://github.com/DrOlu/SuperAgent/actions/workflows/nightly-build.yml
+[github-contributors-shield]: https://img.shields.io/github/contributors/DrOlu/SuperAgent?logo=github
+[github-contributors-link]: https://github.com/DrOlu/SuperAgent/graphs/contributors
 
 <!-- Links & Images -->
 
@@ -321,4 +321,4 @@ Should you require a commercial license that provides an exemption from the AGPL
 [commercial-shield]: https://img.shields.io/badge/License-Contact-white.svg?logoColor=white&logo=telegram&color=blue
 [commercial-link]: mailto:license@superagent.ng?subject=Commercial%20License%20Inquiry
 [sponsor-shield]: https://img.shields.io/badge/Sponsor-FF6699.svg?logo=githubsponsors&logoColor=white
-[sponsor-link]: https://github.com/Hyperspace Technologies/superagent/blob/main/docs/sponsor.md
+[sponsor-link]: https://github.com/DrOlu/SuperAgent/blob/main/docs/sponsor.md

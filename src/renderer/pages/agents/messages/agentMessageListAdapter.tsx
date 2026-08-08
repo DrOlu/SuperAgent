@@ -118,7 +118,7 @@ interface AgentMessageListParams {
  * `AgentWorkspacePathSchema` is only `z.string().min(1)`, so the guarantee does
  * not survive the process boundary as a type. Re-asserting it here is the cost
  * of that gap, not redundant validation — tracked in
- * https://github.com/Hyperspace Technologies/superagent/issues/17431.
+ * https://github.com/DrOlu/SuperAgent/issues/17431.
  */
 const resolveWorkspaceFilePath = (workspacePath: string | undefined, rawPath: string): AbsoluteFilePath | null => {
   const normalizedPath = normalizeInlineFilePath(resolveInlineFilePath(rawPath))

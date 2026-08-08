@@ -1,7 +1,7 @@
 # Linux Packaging
 
 Linux packages use x64 and ARM64 `better-sqlite3` prebuilds from the pinned
-[`Hyperspace Technologies/superagent-better-sqlite3`](https://github.com/Hyperspace Technologies/superagent-better-sqlite3) GitHub Release.
+[`DrOlu/SuperAgent-better-sqlite3`](https://github.com/DrOlu/SuperAgent-better-sqlite3) GitHub Release.
 
 ## Build
 

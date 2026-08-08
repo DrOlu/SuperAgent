@@ -24,12 +24,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Hyperspace Technologies/superagent.git"
+    "url": "git+https://github.com/DrOlu/SuperAgent.git"
   },
   "bugs": {
-    "url": "https://github.com/Hyperspace Technologies/superagent/issues"
+    "url": "https://github.com/DrOlu/SuperAgent/issues"
   },
-  "homepage": "https://github.com/Hyperspace Technologies/superagent#readme",
+  "homepage": "https://github.com/DrOlu/SuperAgent#readme",
   "exports": {
     ".": {
       "import": {

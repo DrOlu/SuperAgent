@@ -15,9 +15,9 @@ description: Create or update GitHub pull requests using the repository-required
    git push -u <remote> <head-branch>
    ```
 4. Determine the base branch:
-   - For official repo(Hyperspace Technologies/superagent) as `origin`: default base is `main` from `origin`, but allow the user to explicitly indicate a base branch.
+   - For official repo(DrOlu/SuperAgent) as `origin`: default base is `main` from `origin`, but allow the user to explicitly indicate a base branch.
    - `main` is the active v2 development line. v1 maintenance fixes (head branch `hotfix/*`, critical user-facing bug fixes only) must target `v1`, not `main` — set the base to `v1` for these.
-   - For fork repo as `origin`: check available remotes with `git remote -v`, default base may be `upstream/main` or another remote. Always assume that user wants to merge head to Hyperspace Technologies/superagent/main, unless the user explicitly indicates a base branch.
+   - For fork repo as `origin`: check available remotes with `git remote -v`, default base may be `upstream/main` or another remote. Always assume that user wants to merge head to DrOlu/SuperAgent/main, unless the user explicitly indicates a base branch.
    - Ask the user to confirm the base branch if it's not the default.
 5. Create a temp file and write the PR body using a single Bash heredoc
    (avoids `mktemp` + `Write` tool path-mismatch on Windows):

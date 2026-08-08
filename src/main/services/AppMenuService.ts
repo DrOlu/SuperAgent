@@ -167,14 +167,14 @@ export class AppMenuService extends BaseService {
             type: 'custom',
             label: appMenu.feedback,
             click: () => {
-              void shell.openExternal('https://github.com/Hyperspace Technologies/superagent/issues/new/choose')
+              void shell.openExternal('https://github.com/DrOlu/SuperAgent/issues/new/choose')
             }
           },
           {
             type: 'custom',
             label: appMenu.releases,
             click: () => {
-              void shell.openExternal('https://github.com/Hyperspace Technologies/superagent/releases')
+              void shell.openExternal('https://github.com/DrOlu/SuperAgent/releases')
             }
           }
         ]

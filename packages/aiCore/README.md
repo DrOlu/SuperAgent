@@ -388,7 +388,7 @@ await client.streamObject({
 ## 📚 
 
 - [Vercel AI SDK ](https://ai-sdk.dev/)
-- [SuperAgent ](https://github.com/Hyperspace Technologies/superagent)
+- [SuperAgent ](https://github.com/DrOlu/SuperAgent)
 - [AI SDK Providers](https://ai-sdk.dev/providers/ai-sdk-providers)
 
 ## 
@@ -400,7 +400,7 @@ await client.streamObject({
 
 ## 📄 License
 
-MIT License -  [LICENSE](https://github.com/Hyperspace Technologies/superagent/blob/main/LICENSE) 
+MIT License -  [LICENSE](https://github.com/DrOlu/SuperAgent/blob/main/LICENSE) 
 
 ---
 

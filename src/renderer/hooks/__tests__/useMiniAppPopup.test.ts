@@ -643,7 +643,7 @@ describe('useMiniAppPopup', () => {
       expect(mockClearWebviewState).toHaveBeenCalledWith('b')
     })
 
-    // Regression for https://github.com/Hyperspace Technologies/superagent/pull/14049 —
+    // Regression for https://github.com/DrOlu/SuperAgent/pull/14049 —
     // before the fix, switching between miniapp tabs that the user had pinned
     // in the AppShell tab bar would still evict them from keep-alive (the
     // hook didn't know about pin status), so the side-bar mini-tab list

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "repository": "Hyperspace Technologies/superagent-better-sqlite3",
+  "repository": "CherryHQ/cherry-studio-better-sqlite3",
   "tag": "better-sqlite3-v12.11.1-electron-v41.8.0-r1",
   "metadata": {
     "electronVersion": "41.8.0",

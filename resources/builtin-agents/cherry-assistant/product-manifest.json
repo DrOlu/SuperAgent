@@ -4,7 +4,7 @@
     "name": "SuperAgent",
     "version": "2.0.3",
     "description": "A powerful AI assistant for producer.",
-    "homepage": "https://github.com/Hyperspace Technologies/superagent"
+    "homepage": "https://github.com/DrOlu/SuperAgent"
   },
   "routes": {
     "primary": [

@@ -6,7 +6,7 @@ At SuperAgent, we take security seriously and appreciate your efforts to respons
 
 **Please do not create public issues for security-related reports.**
 
-- To report a security issue, please use the GitHub Security Advisories tab to "[Open a draft security advisory](https://github.com/Hyperspace Technologies/superagent/security/advisories/new)".
+- To report a security issue, please use the GitHub Security Advisories tab to "[Open a draft security advisory](https://github.com/DrOlu/SuperAgent/security/advisories/new)".
 - Include a detailed description of the issue, steps to reproduce, potential impact, and any possible mitigations.
 - If applicable, please also attach proof-of-concept code or screenshots.
 

@@ -74,7 +74,7 @@ function downloadFixture(arch: Arch) {
   }
   const config = {
     schemaVersion: 1,
-    repository: 'Hyperspace Technologies/superagent-better-sqlite3',
+    repository: 'CherryHQ/cherry-studio-better-sqlite3',
     tag: 'better-sqlite3-v12.11.1-electron-v41.8.0-r1',
     metadata,
     artifacts: { [arch]: assets }
@@ -216,10 +216,10 @@ describe('Linux package replacement', () => {
 })
 
 describe('pinned Linux native release', () => {
-  it('matches the installed SuperAgent build inputs', () => {
+  it('matches the installed Cherry Studio build inputs', () => {
     const config = readReleaseConfig()
     expect(config.metadata).toEqual(readProjectBuildMetadata(projectRoot))
-    expect(config.repository).toBe('Hyperspace Technologies/superagent-better-sqlite3')
+    expect(config.repository).toBe('CherryHQ/cherry-studio-better-sqlite3')
     expect(config.tag).not.toContain('latest')
   })
 })

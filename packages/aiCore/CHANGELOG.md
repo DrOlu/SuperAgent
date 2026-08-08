@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- [#14087](https://github.com/Hyperspace Technologies/superagent/pull/14087) [`1f72f98`](https://github.com/Hyperspace Technologies/superagent/commit/1f72f9890508c6fc0bc95793e286cf61b991c51c) Thanks [@DeJeune](https://github.com/DeJeune)! - fix(providers): azure-anthropic variant uses correct Anthropic toolFactories for web search
+- [#14087](https://github.com/DrOlu/SuperAgent/pull/14087) [`1f72f98`](https://github.com/DrOlu/SuperAgent/commit/1f72f9890508c6fc0bc95793e286cf61b991c51c) Thanks [@DeJeune](https://github.com/DeJeune)! - fix(providers): azure-anthropic variant uses correct Anthropic toolFactories for web search
 
   - Add `TOutput` generic to `ProviderVariant` so `transform` output type flows to `toolFactories` and `resolveModel`
   - Add Anthropic-specific `toolFactories` to `azure-anthropic` variant (fixes `provider.tools.webSearchPreview is not a function`)
@@ -15,7 +15,7 @@
 
 ### Major Changes
 
-- [#12235](https://github.com/Hyperspace Technologies/superagent/pull/12235) [`1c0a5a9`](https://github.com/Hyperspace Technologies/superagent/commit/1c0a5a95faeea8a9b55e1ae647bc55692d167aec) Thanks [@DeJeune](https://github.com/DeJeune)! - Migrate to AI SDK v6 - complete rewrite of provider and middleware architecture
+- [#12235](https://github.com/DrOlu/SuperAgent/pull/12235) [`1c0a5a9`](https://github.com/DrOlu/SuperAgent/commit/1c0a5a95faeea8a9b55e1ae647bc55692d167aec) Thanks [@DeJeune](https://github.com/DeJeune)! - Migrate to AI SDK v6 - complete rewrite of provider and middleware architecture
 
   - **BREAKING**: Remove all legacy API clients, middleware pipeline, and barrel `index.ts`
   - **Image generation**: Migrate to native AI SDK `generateImage`/`editImage`, remove legacy image middleware
@@ -27,9 +27,9 @@
 
 ### Patch Changes
 
-- [#13787](https://github.com/Hyperspace Technologies/superagent/pull/13787) [`6b4c928`](https://github.com/Hyperspace Technologies/superagent/commit/6b4c92805679e00440c7610c82bdf02eb4916b1a) Thanks [@EurFelux](https://github.com/EurFelux)! - Add missing @openrouter/ai-sdk-provider dependency to fix package build
+- [#13787](https://github.com/DrOlu/SuperAgent/pull/13787) [`6b4c928`](https://github.com/DrOlu/SuperAgent/commit/6b4c92805679e00440c7610c82bdf02eb4916b1a) Thanks [@EurFelux](https://github.com/EurFelux)! - Add missing @openrouter/ai-sdk-provider dependency to fix package build
 
-- [#12783](https://github.com/Hyperspace Technologies/superagent/pull/12783) [`336176b`](https://github.com/Hyperspace Technologies/superagent/commit/336176be086c8294d9aa21da9ce83242af8aa9a8) Thanks [@EurFelux](https://github.com/EurFelux)! - Baseline release for previously unmanaged package changes while introducing changesets-based publishing
+- [#12783](https://github.com/DrOlu/SuperAgent/pull/12783) [`336176b`](https://github.com/DrOlu/SuperAgent/commit/336176be086c8294d9aa21da9ce83242af8aa9a8) Thanks [@EurFelux](https://github.com/EurFelux)! - Baseline release for previously unmanaged package changes while introducing changesets-based publishing
 
-- Updated dependencies [[`336176b`](https://github.com/Hyperspace Technologies/superagent/commit/336176be086c8294d9aa21da9ce83242af8aa9a8)]:
+- Updated dependencies [[`336176b`](https://github.com/DrOlu/SuperAgent/commit/336176be086c8294d9aa21da9ce83242af8aa9a8)]:
   - @cherrystudio/ai-sdk-provider@0.1.6

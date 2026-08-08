@@ -30,7 +30,7 @@ If no PR is specified, list recent PRs and ask the user to choose unless they
 requested the latest:
 
 ```bash
-gh pr list --repo Hyperspace Technologies/superagent --state open --limit 10 \
+gh pr list --repo DrOlu/SuperAgent --state open --limit 10 \
   --json number,title,author,createdAt,headRefName,changedFiles
 ```
 

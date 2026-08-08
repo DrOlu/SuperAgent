@@ -119,7 +119,7 @@ they become first-turn nodes.)
   reliable check. Do **not** infer "first turn" from "parent not in the loaded list" (the
   branch is paginated, the root is never in the response) nor from the v1 `askId` field
   (role-coupled, `undefined` for user messages). When `rootId` is unknown, treat nothing as a
-  first turn (fail-safe). See [#16120](https://github.com/Hyperspace Technologies/superagent/issues/16120).
+  first turn (fail-safe). See [#16120](https://github.com/DrOlu/SuperAgent/issues/16120).
 - **`getPathRowsToNodeTx`** walks from a node up to the virtual root and **excludes** the
   root — the displayed conversation starts at the first user message.
 - **`getTree`** finds the virtual root (`parentId IS NULL`), drops it from the active

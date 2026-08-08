@@ -19,7 +19,7 @@ body:
       options:
         - label: I understand that issues are for reporting problems and requesting features, not for off-topic comments, and I will provide as much detail as possible to help resolve the issue.
           required: true
-        - label: I have checked the pinned issues and searched through the existing [open issues](https://github.com/Hyperspace Technologies/superagent/issues), [closed issues](https://github.com/Hyperspace Technologies/superagent/issues?q=is%3Aissue%20state%3Aclosed), and [discussions](https://github.com/Hyperspace Technologies/superagent/discussions) and did not find a similar suggestion.
+        - label: I have checked the pinned issues and searched through the existing [open issues](https://github.com/DrOlu/SuperAgent/issues), [closed issues](https://github.com/DrOlu/SuperAgent/issues?q=is%3Aissue%20state%3Aclosed), and [discussions](https://github.com/DrOlu/SuperAgent/discussions) and did not find a similar suggestion.
           required: true
         - label: I have provided a short and descriptive title so that developers can quickly understand the issue when browsing the issue list, rather than vague titles like "A suggestion" or "Stuck."
           required: true

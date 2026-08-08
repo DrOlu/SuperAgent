@@ -17,7 +17,7 @@ body:
       options:
         - label: I understand that issues are meant for feedback and problem-solving, not for venting, and I will provide as much detail as possible to help resolve the issue.
           required: true
-        - label: I have checked the pinned issues and searched through the existing [open issues](https://github.com/Hyperspace Technologies/superagent/issues), [closed issues](https://github.com/Hyperspace Technologies/superagent/issues?q=is%3Aissue%20state%3Aclosed), and [discussions](https://github.com/Hyperspace Technologies/superagent/discussions) and did not find a similar suggestion.
+        - label: I have checked the pinned issues and searched through the existing [open issues](https://github.com/DrOlu/SuperAgent/issues), [closed issues](https://github.com/DrOlu/SuperAgent/issues?q=is%3Aissue%20state%3Aclosed), and [discussions](https://github.com/DrOlu/SuperAgent/discussions) and did not find a similar suggestion.
           required: true
         - label: I confirm that I am here to ask questions and discuss issues, not to report bugs or request features.
           required: true

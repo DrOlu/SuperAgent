@@ -583,7 +583,7 @@ Boot config
 redux () > dexieSettings > localStorage > electronStore ()
 ```
 
-**** [PR #10162 comment](https://github.com/Hyperspace Technologies/superagent/pull/10162#issuecomment-4010796619):
+**** [PR #10162 comment](https://github.com/DrOlu/SuperAgent/pull/10162#issuecomment-4010796619):
 
 Dexie `settings`  KV `{ id: string, value: any }` `image://`  `ImageStorage` 
 

@@ -289,7 +289,7 @@ export function isCustomProviderNamespace(
 /**
  * For `openai-compatible`, rename `reasoning_effort` → `reasoningEffort` —
  * AI SDK silently drops the snake_case form.
- * See https://github.com/Hyperspace Technologies/superagent/issues/11987.
+ * See https://github.com/DrOlu/SuperAgent/issues/11987.
  */
 export function mergeCustomProviderParameters(
   providerOptions: Record<string, Record<string, JSONValue>>,

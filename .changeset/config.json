@@ -5,7 +5,7 @@
   },
   "access": "public",
   "baseBranch": "main",
-  "changelog": ["@changesets/changelog-github", { "repo": "Hyperspace Technologies/superagent" }],
+  "changelog": ["@changesets/changelog-github", { "repo": "DrOlu/SuperAgent" }],
   "commit": false,
   "fixed": [],
   "ignore": ["@cherrystudio/ui", "@cherrystudio/provider-registry"],

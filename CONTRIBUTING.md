@@ -32,7 +32,7 @@ For a comprehensive overview of the project architecture, tech stack, convention
 
 ## Getting Started
 
-To help you get familiar with the codebase, we recommend tackling issues tagged with one or more of the following labels: [good-first-issue](https://github.com/Hyperspace Technologies/superagent/labels/good%20first%20issue), [help-wanted](https://github.com/Hyperspace Technologies/superagent/labels/help%20wanted), or [kind/bug](https://github.com/Hyperspace Technologies/superagent/labels/kind%2Fbug). Any help is welcome.
+To help you get familiar with the codebase, we recommend tackling issues tagged with one or more of the following labels: [good-first-issue](https://github.com/DrOlu/SuperAgent/labels/good%20first%20issue), [help-wanted](https://github.com/DrOlu/SuperAgent/labels/help%20wanted), or [kind/bug](https://github.com/DrOlu/SuperAgent/labels/kind%2Fbug). Any help is welcome.
 
 ### Testing
 
@@ -93,6 +93,6 @@ We appreciate your understanding and continued support during this important dev
 If you have any questions or suggestions, feel free to contact us through the following ways:
 
 - WeChat: hyperspace
-- [GitHub Issues](https://github.com/Hyperspace Technologies/superagent/issues)
+- [GitHub Issues](https://github.com/DrOlu/SuperAgent/issues)
 
 Thank you for your support and contributions! We look forward to working with you to make SuperAgent a better product.

@@ -1,0 +1,290 @@
+name: Sync Upstream & Release
+
+# Pulls the latest Cherry Studio, overlays SuperAgent customizations,
+# rebrands, bumps SuperAgent's OWN version, builds all platforms, and
+# publishes a release — preserving every SuperAgent-specific change.
+#
+# Runs on a schedule (daily check) and manually. Skips automatically when
+# upstream hasn't moved since the last sync.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force a release even if upstream is unchanged"
+        required: false
+        default: "false"
+      version:
+        description: "Exact version to release (e.g. 2.0.6). Omit to auto-bump patch."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: superagent-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync, rebrand & bump
+    runs-on: ubuntu-latest
+    outputs:
+      upstream_sha: ${{ steps.upstream.outputs.sha }}
+      upstream_changed: ${{ steps.check.outputs.changed }}
+      new_version: ${{ steps.bump.outputs.version }}
+      release_tag: ${{ steps.bump.outputs.tag }}
+      build_sha: ${{ steps.commit.outputs.sha }}
+      do_release: ${{ steps.check.outputs.do_release }}
+    steps:
+      - name: Checkout SuperAgent
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "Hyperspace Technologies"
+          git config user.email "agent@superagent.ng"
+
+      - name: Install icon tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin imagemagick icnsutils rsync jq
+
+      - name: Fetch latest upstream SHA
+        id: upstream
+        run: |
+          SHA=$(curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/CherryHQ/cherry-studio/commits/main" | jq -r .sha)
+          echo "Cherry Studio main = $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Check if upstream moved since last sync
+        id: check
+        run: |
+          LAST=$(git log -1 --pretty=%B --grep="^upstream:" main 2>/dev/null | grep -oE 'upstream: [a-f0-9]+' | awk '{print $2}' || true)
+          echo "last synced upstream = ${LAST:-none}"
+          FORCE="${{ github.event.inputs.force }}"
+          if [ "$FORCE" = "true" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "do_release=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$LAST" ] || [ "$LAST" != "${{ steps.upstream.outputs.sha }}" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "do_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "do_release=false" >> "$GITHUB_OUTPUT"
+            echo "Upstream unchanged since $LAST — skipping."
+          fi
+
+      - name: Save preserved files
+        if: steps.check.outputs.do_release == 'true'
+        run: |
+          mkdir -p /tmp/keep/scripts /tmp/keep/.github/workflows
+          cp -a scripts/rebrand.py /tmp/keep/scripts/
+          cp -a scripts/generate_icons.sh /tmp/keep/scripts/
+          cp superagent_logo.svg /tmp/keep/
+          cp -a .github/workflows/*.yml /tmp/keep/.github/workflows/ 2>/dev/null || true
+
+      - name: Clone latest Cherry Studio
+        if: steps.check.outputs.do_release == 'true'
+        run: git clone --depth=1 https://github.com/CherryHQ/cherry-studio /tmp/cs
+
+      - name: Replace tree with upstream (preserve SuperAgent files)
+        if: steps.check.outputs.do_release == 'true'
+        run: |
+          git rm -rf . >/dev/null 2>&1 || true
+          rsync -a --delete --exclude='.git' /tmp/cs/ ./
+          rm -rf .github/workflows
+          mkdir -p .github/workflows scripts
+          # restore our preserved workflows + scripts + logo
+          cp /tmp/keep/.github/workflows/*.yml .github/workflows/
+          cp /tmp/keep/scripts/rebrand.py scripts/rebrand.py
+          cp /tmp/keep/scripts/generate_icons.sh scripts/generate_icons.sh
+          chmod +x scripts/generate_icons.sh
+          cp /tmp/keep/superagent_logo.svg ./superagent_logo.svg
+
+      - name: Run rebrand
+        if: steps.check.outputs.do_release == 'true'
+        run: python3 scripts/rebrand.py .
+
+      - name: Generate icons
+        if: steps.check.outputs.do_release == 'true'
+        run: bash scripts/generate_icons.sh superagent_logo.svg
+
+      - name: Bump SuperAgent version
+        id: bump
+        if: steps.check.outputs.do_release == 'true'
+        run: |
+          INPUT_VER="${{ github.event.inputs.version }}"
+          if [ -n "$INPUT_VER" ]; then
+            VER="$INPUT_VER"
+          else
+            # auto-bump: latest SuperAgent release tag -> patch+1
+            LATEST_TAG=$(gh release list -L 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
+            LATEST="${LATEST_TAG#v}"
+            if [ -z "$LATEST" ]; then LATEST="2.0.4"; fi
+            IFS='.' read -r MAJ MIN PAT <<< "$LATEST"
+            VER="${MAJ}.${MIN}.$((PAT+1))"
+          fi
+          echo "SuperAgent version = $VER"
+          # set in package.json
+          jq --arg v "$VER" '.version = $v' package.json > /tmp/pkg.json && mv /tmp/pkg.json package.json
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VER" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push
+        id: commit
+        if: steps.check.outputs.do_release == 'true'
+        run: |
+          git add -A
+          git commit -m "Sync upstream ${{ steps.upstream.outputs.sha }} -> SuperAgent ${{ steps.bump.outputs.version }}
+
+          upstream: ${{ steps.upstream.outputs.sha }}" || echo "nothing to commit"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Compile ${{ matrix.os }}
+    needs: sync
+    if: needs.sync.outputs.do_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            cmd: build:linux
+          - os: macos-latest
+            target: mac
+            cmd: build:mac
+          - os: windows-2022
+            target: win
+            cmd: build:win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout SuperAgent (synced)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync.outputs.build_sha }}
+          fetch-depth: 1
+
+      - name: Install Linux native build deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libevdev-dev libxtst-dev libx11-dev libxfixes-dev libwayland-dev
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Get pnpm store
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Create .env
+        run: cp .env.example .env
+        shell: bash
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        shell: bash
+
+      - name: Compile ${{ matrix.target }}
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_VITE_CHERRYAI_CLIENT_SECRET: ${{ secrets.MAIN_VITE_CHERRYAI_CLIENT_SECRET || 'placeholder' }}
+          MAIN_VITE_MINERU_API_KEY: ${{ secrets.MAIN_VITE_MINERU_API_KEY || 'placeholder' }}
+          RENDERER_VITE_AIHUBMIX_SECRET: ${{ secrets.RENDERER_VITE_AIHUBMIX_SECRET || 'placeholder' }}
+          RENDERER_VITE_PPIO_APP_SECRET: ${{ secrets.RENDERER_VITE_PPIO_APP_SECRET || 'placeholder' }}
+        run: pnpm ${{ matrix.cmd }}
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: superagent-${{ matrix.target }}-${{ github.run_id }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            dist/*.appimage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.yml
+            dist/latest*.yml
+            dist/**/*.dmg
+            dist/**/*.exe
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    name: Publish Release
+    needs: [sync, build]
+    if: needs.sync.outputs.do_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.run_id }}
+          path: artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Flatten installers + checksums
+        shell: bash
+        run: |
+          mkdir -p release
+          find artifacts -type f \( \
+            -name "SuperAgent-*.dmg" -o -name "SuperAgent-*.zip" \
+            -o -name "SuperAgent-*-setup.exe" -o -name "SuperAgent-*-portable.exe" \
+            -o -name "SuperAgent-*.AppImage" -o -name "SuperAgent-*.deb" \
+            -o -name "SuperAgent-*.rpm" -o -name "SuperAgent-*.blockmap" \
+            -o -name "latest*.yml" \) \
+            -exec cp {} release/ \;
+          cd release && sha256sum * > SHA256SUMS.txt
+          ls -la
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.sync.outputs.release_tag }}
+          name: SuperAgent ${{ needs.sync.outputs.release_tag }}
+          body: |
+            # SuperAgent ${{ needs.sync.outputs.release_tag }}
+
+            Synced from Cherry Studio upstream `${{ needs.sync.outputs.upstream_sha }}`.
+
+            Maintained by **Hyperspace Technologies** (`agent@superagent.ng`). Built from the open-source Cherry Studio codebase under its original (AGPLv3) license — only visible branding, strings, logos, and the app icon were changed; functional code is unmodified.
+
+            ## Installers
+            - **macOS**: `.dmg` / `.zip` (arm64 + x64)
+            - **Windows**: `.exe` NSIS setup + portable (arm64 + x64)
+            - **Linux**: `.AppImage` / `.deb` / `.rpm` (arm64 + x64)
+
+            See `SHA256SUMS.txt` for checksums.
+          files: release/*
+          fail_on_unmatched_files: true
+          make_latest: true

@@ -228,6 +228,10 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
   return (
     <div
       ref={stackRef}
+      // Lets an ancestor map a pointer target back to the leaf stack it landed
+      // in — CanvasNode uses it to learn WHICH pane of a split mini-dock the
+      // user pressed, so focus goes to that pane and not the first leaf.
+      data-dock-stack-id={stack.id}
       className="flex flex-col h-full min-h-0 relative"
       // Mark this stack's active tab as the active panel on any pointer-down
       // inside it (tab bar OR content), so a panel-create shortcut lands here —
@@ -406,15 +410,15 @@ export default function DockTabStack({ stack, zone: zoneProp, renderPanel, getPa
             No panel
           </div>
         )}
-        {/* Worktree chip — overlaid on the panel's top-right rather than crammed
+        {/* Terminal worktree chip — overlaid on the panel's top-right rather than crammed
             into the tab strip (where it starved the title). Collapsed to its icon
             until hovered so it covers almost no content (#370). Self-hides for
-            non-terminal/agent panels and single-worktree workspaces, and stands
+            single-worktree workspaces, and stands
             down while the panel claims the corner for its own UI (see
             panelChrome) rather than sitting on top of it. */}
-        {activePanel && effectiveWorkspaceId && !cornerClaimed && (
-          // right-3 (12px), not right-1.5: terminal/agent panels are xterm-backed
-          // and always reserve a 6px scrollbar lane (overflow-y: scroll). Offset
+        {activePanel?.type === 'terminal' && effectiveWorkspaceId && !cornerClaimed && (
+          // right-3 (12px), not right-1.5: terminal panels reserve a 6px
+          // scrollbar lane (overflow-y: scroll). Offset
           // past it so the chip clears the scrollbar and leaves a 6px gap that
           // matches the 6px top inset (top-1.5).
           <div className="absolute top-1.5 right-3 z-10">

@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { CaretRight } from '@phosphor-icons/react'
 import type { RemoteConnectSpec, SshHostEntry } from '../../shared/types'
+import {
+  ABSOLUTE_RUNTIME_PATH_ERROR,
+  assertAbsoluteRuntimePath,
+  isAbsoluteRuntimePath,
+} from '../../shared/runtimeLocator'
 import { btn, inputCls, SEGMENT } from './Modal'
 
 // In-panel connect form (no modal) for a remote SSH server or a WSL distro.
@@ -29,15 +34,19 @@ export interface RemoteConnectFields {
 /** Pure: assemble a validated RemoteConnectSpec from raw form fields. */
 export function buildConnectSpec(kind: Kind, f: RemoteConnectFields): RemoteConnectSpec {
   if (kind === 'wsl') {
-    return { kind: 'wsl', distro: f.distro.trim(), distroPath: f.distroPath.trim() }
+    const distroPath = f.distroPath.trim()
+    assertAbsoluteRuntimePath(distroPath)
+    return { kind: 'wsl', distro: f.distro.trim(), distroPath }
   }
+  const remotePath = f.remotePath.trim()
+  assertAbsoluteRuntimePath(remotePath)
   const portNum = f.port.trim() ? Number(f.port.trim()) : undefined
   return {
     kind: 'server',
     host: f.host.trim(),
     user: f.user.trim(),
     port: portNum !== undefined && Number.isFinite(portNum) ? portNum : undefined,
-    remotePath: f.remotePath.trim(),
+    remotePath,
     auth: {
       keyPath: f.keyPath.trim() || undefined,
       passphrase: f.passphrase || undefined,
@@ -149,24 +158,26 @@ export function RemoteConnect({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Apply a ~/.ssh/config alias: fill the connection string + key, and reveal
-  // Advanced when the host carries an IdentityFile so the prefill is visible.
+  // Preserve the alias exactly. The main process passes it to system OpenSSH,
+  // which resolves User/HostName/Port, certificates, agents, and proxy rules
+  // from the complete configuration (including Include and Match blocks).
   const pickSavedHost = (alias: string): void => {
     setSavedAlias(alias)
     const h = sshHosts?.find((e) => e.alias === alias)
     if (!h) return
-    setTarget(formatTarget(h.user, h.host, h.port))
-    if (h.identityFile) {
-      setKeyPath(h.identityFile)
-      setAdvancedOpen(true)
-    }
+    setTarget(h.alias)
   }
 
   const parsed = parseSshTarget(target)
+  const activePath = (kind === 'server' ? remotePath : distroPath).trim()
+  const pathError = activePath && !isAbsoluteRuntimePath(activePath)
+    ? ABSOLUTE_RUNTIME_PATH_ERROR
+    : null
   const canSubmit =
     !pending &&
+    !pathError &&
     (kind === 'server'
-      ? !!parsed.host && !!parsed.user && !!remotePath.trim()
+      ? !!parsed.host && !!remotePath.trim()
       : (distros?.length ?? 0) > 0 && distro.trim() && distroPath.trim())
 
   const submit = (): void => {
@@ -222,7 +233,7 @@ export function RemoteConnect({
               setTarget(e.target.value)
               setSavedAlias('')
             }}
-            placeholder="user@host:port"
+            placeholder="[user@]host[:port] or SSH alias"
             autoFocus
           />
 
@@ -231,7 +242,9 @@ export function RemoteConnect({
             value={remotePath}
             onChange={(e) => setRemotePath(e.target.value)}
             placeholder="Remote path"
+            aria-invalid={!!pathError}
           />
+          {pathError && <div className="text-[12px] text-red-400 px-0.5">{pathError}</div>}
 
           <button
             type="button"
@@ -297,7 +310,9 @@ export function RemoteConnect({
             value={distroPath}
             onChange={(e) => setDistroPath(e.target.value)}
             placeholder="Path in distro"
+            aria-invalid={!!pathError}
           />
+          {pathError && <div className="text-[12px] text-red-400 px-0.5">{pathError}</div>}
         </>
       )}
 

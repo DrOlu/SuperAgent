@@ -6,11 +6,17 @@
 //   sidebar.json           { session: SidebarSession|null }  sidebar order + active
 //   remote-workspaces.json { workspaces: RemoteProjectEntry[] } cate-runtime:// restore snapshots
 //   layouts.json           { layouts: Record<string, unknown> } named saved canvas layouts
+//   trusted-projects.json  { projects: string[] }            locators trusted to auto-restore
+//
+// trusted-projects.json lives HERE, in userData, and never in the project — a
+// repo must not be able to vouch for itself (GHSA-8769-jp52-985f).
 // =============================================================================
 
 import { createJsonStateFile } from './jsonStateFile'
 import { isPlainObject } from './jsonUtils'
 import type { SidebarSession, RemoteProjectEntry } from '../shared/types'
+import { isRuntimeLocator } from '../shared/runtimeLocator'
+import { isRemoteRuntimeConnection } from '../shared/runtimeConnection'
 
 const MAX_RECENT_PROJECTS = 10
 
@@ -18,9 +24,8 @@ function isRemoteProjectEntry(value: unknown): value is RemoteProjectEntry {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const entry = value as Partial<RemoteProjectEntry>
   return typeof entry.locator === 'string'
-    && entry.locator.startsWith('cate-runtime://')
-    && !!entry.connection
-    && entry.connection.kind !== 'local'
+    && isRuntimeLocator(entry.locator)
+    && isRemoteRuntimeConnection(entry.connection)
     && !!entry.snapshot
     && typeof entry.snapshot === 'object'
 }
@@ -34,6 +39,7 @@ interface RecentProjectsFile { projects: string[] }
 interface SidebarFile { session: SidebarSession | null }
 interface RemoteWorkspacesFile { workspaces: RemoteProjectEntry[] }
 interface LayoutsFile { layouts: Record<string, unknown> }
+interface TrustedProjectsFile { projects: string[] }
 
 function asObject(parsed: unknown): Record<string, unknown> {
   return isPlainObject(parsed) ? parsed : {}
@@ -82,6 +88,19 @@ const layoutsStore = createJsonStateFile<LayoutsFile>({
     const o = asObject(parsed)
     const layouts = isPlainObject(o.layouts) ? o.layouts : defaults.layouts
     return { layouts }
+  },
+})
+
+// Unbounded on purpose (unlike recent-projects): forgetting a trust decision
+// because the list grew would silently re-prompt on a project the user already
+// vouched for, training them to click through the banner.
+const trustedProjectsStore = createJsonStateFile<TrustedProjectsFile>({
+  filename: 'trusted-projects.json',
+  defaults: { projects: [] },
+  normalize: (parsed, defaults) => {
+    const o = asObject(parsed)
+    const projects = Array.isArray(o.projects) ? o.projects.filter((p): p is string => typeof p === 'string') : defaults.projects
+    return { projects }
   },
 })
 
@@ -143,13 +162,33 @@ export function deleteLayout(name: string): string[] {
   return listLayoutNames()
 }
 
-/** Start watching all four files for external edits. `onLayoutsChanged` lets the
+/** Locators (local paths or cate-runtime:// URLs) the user has explicitly
+ *  trusted to auto-restore process-bearing panels and load project MCP config. */
+export function getTrustedProjects(): string[] {
+  return trustedProjectsStore.get().projects
+}
+
+export function isProjectTrusted(locator: string): boolean {
+  return !!locator && trustedProjectsStore.get().projects.includes(locator)
+}
+
+/** Record (or revoke) an explicit user trust decision for a project locator. */
+export function setProjectTrusted(locator: string, trusted: boolean): void {
+  if (!locator) return
+  trustedProjectsStore.update((cur) => {
+    const without = cur.projects.filter((p) => p !== locator)
+    return { projects: trusted ? [...without, locator] : without }
+  })
+}
+
+/** Start watching all five files for external edits. `onLayoutsChanged` lets the
  *  caller re-push the native Layouts menu when layouts.json is hand-edited. */
 export function startWatchingWorkspaceState(onLayoutsChanged: (names: string[]) => void): void {
   recentProjectsStore.startWatching(() => { /* read on demand */ })
   sidebarStore.startWatching(() => { /* read on demand */ })
   remoteWorkspacesStore.startWatching(() => { /* read on demand */ })
   layoutsStore.startWatching((next) => onLayoutsChanged(Object.keys(next.layouts)))
+  trustedProjectsStore.startWatching(() => { /* read on demand */ })
 }
 
 /** Flush any pending debounced writes synchronously (call on app quit). */
@@ -158,4 +197,5 @@ export function flushWorkspaceStateSync(): void {
   sidebarStore.flushPendingWritesSync()
   remoteWorkspacesStore.flushPendingWritesSync()
   layoutsStore.flushPendingWritesSync()
+  trustedProjectsStore.flushPendingWritesSync()
 }

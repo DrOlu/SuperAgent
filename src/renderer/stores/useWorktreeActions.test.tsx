@@ -28,7 +28,11 @@ vi.mock('../lib/worktreeSync', () => ({
 
 import { useAppStore } from './appStore'
 import { useSettingsStore } from './settingsStore'
-import { useWorktreeActions, type WorktreeActions } from './useWorktreeActions'
+import {
+  discardCreatedWorktreeForWorkspace,
+  useWorktreeActions,
+  type WorktreeActions,
+} from './useWorktreeActions'
 
 const ROOT = '/repo/'
 const WS = 'ws-1'
@@ -70,6 +74,8 @@ beforeEach(() => {
   ;(window as unknown as { electronAPI: unknown }).electronAPI = {
     gitWorktreeAdd: vi.fn().mockResolvedValue(undefined),
     gitWorktreeAddFromPr: vi.fn(),
+    gitWorktreeRemove: vi.fn().mockResolvedValue(undefined),
+    gitBranchDelete: vi.fn().mockResolvedValue(undefined),
   }
   host = document.createElement('div')
   document.body.appendChild(host)
@@ -123,6 +129,41 @@ describe('useWorktreeActions', () => {
     expect(h.refresh).not.toHaveBeenCalled()
   })
 
+  it('rolls back a preflight-only worktree, branch, and renderer registration', async () => {
+    const created = await actions.createWorktree('Agent mission')
+    expect(created).not.toBeNull()
+
+    await discardCreatedWorktreeForWorkspace(ROOT, WS, 'Agent mission', created!)
+
+    expect(window.electronAPI.gitWorktreeRemove).toHaveBeenCalledWith(
+      ROOT,
+      '/repo/.cate/worktrees/Agent-mission',
+      { force: true },
+      WS,
+    )
+    expect(window.electronAPI.gitBranchDelete).toHaveBeenCalledWith(
+      ROOT,
+      'Agent-mission',
+      true,
+      WS,
+    )
+    expect(workspace().worktrees).toEqual([{ id: 'primary', path: '/repo', color: '#112233' }])
+    expect(workspace().additionalRoots).not.toContain('/repo/.cate/worktrees/Agent-mission')
+    expect(h.refresh).toHaveBeenLastCalledWith(ROOT)
+  })
+
+  it('clears removed-worktree metadata while surfacing a branch cleanup failure', async () => {
+    const created = await actions.createWorktree('Agent mission')
+    vi.mocked(window.electronAPI.gitBranchDelete).mockRejectedValueOnce(new Error('branch locked'))
+
+    await expect(discardCreatedWorktreeForWorkspace(
+      ROOT, WS, 'Agent mission', created!,
+    )).rejects.toThrow('branch locked')
+
+    expect(workspace().worktrees).toEqual([{ id: 'primary', path: '/repo', color: '#112233' }])
+    expect(workspace().additionalRoots).not.toContain('/repo/.cate/worktrees/Agent-mission')
+  })
+
   it('rejects an empty sanitized name before invoking git', async () => {
     await expect(actions.createWorktree(' !!! ')).rejects.toThrow('Please enter a name')
 
@@ -159,6 +200,7 @@ describe('useWorktreeActions', () => {
         id: 'wt-test',
         path: '/runtime/repo/.cate/worktrees/pr-42-fork-feature',
         label: '#42 fork/feature',
+        prNumber: 42,
       }),
     ]))
     expect(workspace().additionalRoots).toContain('/runtime/repo/.cate/worktrees/pr-42-fork-feature')

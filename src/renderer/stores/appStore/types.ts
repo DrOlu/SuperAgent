@@ -17,6 +17,7 @@ import type {
   RuntimeConnection,
   RuntimePhase,
 } from '../../../shared/types'
+import type { CodingAgentLaunch, CodingAgentRun } from '../../../shared/codingAgentRuns'
 
 // -----------------------------------------------------------------------------
 // Panel placement — specifies where a newly created panel should go
@@ -33,7 +34,15 @@ export type PanelPlacement =
    *  for background creates (Cate Agent terminals). An off-view unfocused node
    *  is culled, so a creator that needs it mounted (a terminal booting its pty)
    *  must keep it exempt itself (see useVisibleNodeIds' alwaysMount). */
-  | { target: 'canvas'; position?: Point; canvasPanelId?: string; size?: Size; focus?: boolean }
+  | {
+      target: 'canvas'
+      position?: Point
+      canvasPanelId?: string
+      size?: Size
+      focus?: boolean
+      /** Opaque affinity: automatic creates sharing this value stack together. */
+      placementGroupId?: string
+    }
   /** `stackId` docks the panel as a new tab in a SPECIFIC stack (the one the
    *  user is working in — e.g. the focused pane of a split). Without it the
    *  panel lands in the zone's default stack. A stale stackId falls back to the
@@ -73,12 +82,19 @@ export interface AppStoreActions {
   removeWorkspace: (id: string, forgetRecent?: boolean) => void
 
   // Panel creation — each adds a PanelState to the workspace AND places it
-  createTerminal: (workspaceId: string, initialInput?: string, position?: Point, placement?: PanelPlacement, cwd?: string) => string
+  createTerminal: (
+    workspaceId: string,
+    initialInput?: string,
+    position?: Point,
+    placement?: PanelPlacement,
+    cwd?: string,
+    codingAgentLaunch?: CodingAgentLaunch,
+  ) => string
   createBrowser: (workspaceId: string, url?: string, position?: Point, placement?: PanelPlacement, proxyUrl?: string) => string
   createEditor: (workspaceId: string, filePath?: string, position?: Point, placement?: PanelPlacement) => string
   createDiffEditor: (workspaceId: string, filePath: string, diffMode: 'staged' | 'working', position?: Point, placement?: PanelPlacement) => string
   createCanvas: (workspaceId: string, position?: Point, placement?: PanelPlacement) => string
-  createAgent: (workspaceId: string, position?: Point, placement?: PanelPlacement) => string
+  createCateAgent: (workspaceId: string, position?: Point, placement?: PanelPlacement) => string
   createDocument: (workspaceId: string, filePath?: string, documentType?: 'pdf' | 'docx' | 'image', position?: Point, placement?: PanelPlacement) => string
   /** Open an extension-hosted panel on the canvas. `extensionPanelId` selects
    *  which panel from the extension's manifest. `title` defaults to the panel
@@ -109,7 +125,10 @@ export interface AppStoreActions {
   setPanelDirty: (workspaceId: string, panelId: string, dirty: boolean) => void
   setPanelMarkdownPreview: (workspaceId: string, panelId: string, preview: boolean) => void
   setPanelUnsavedContent: (workspaceId: string, panelId: string, content: string | undefined) => void
+  setPanelInitialChat: (workspaceId: string, panelId: string, chatId: string) => void
   setPanelAgentSession: (workspaceId: string, panelId: string, session: TerminalAgentSession | null) => void
+  setPanelCodingAgentLaunch: (workspaceId: string, panelId: string, launch: CodingAgentLaunch | undefined) => void
+  setPanelCodingAgentRun: (workspaceId: string, panelId: string, run: CodingAgentRun | undefined) => void
   addPanel: (workspaceId: string, panel: PanelState) => void
   removePanelRecord: (workspaceId: string, panelId: string) => void
 

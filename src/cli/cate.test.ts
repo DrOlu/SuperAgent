@@ -1,748 +1,310 @@
-// Coverage for the `cate` CLI's pure core: argv → {method,args} mapping (the
-// `api` passthrough + several `browser` verbs), the response unwrapper (accepts
-// {result}, treats {error} and {result:{error}} as failure), and run()'s
-// exit-code mapping. fetch and env are injected, so no live endpoint is needed.
-
-import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest'
-import { build } from 'esbuild'
-import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
 import {
-  buildRequest,
-  unwrap,
-  run,
-  formatHuman,
-  shortId,
-  resolvePanel,
   ApiError,
-  UsageError,
   CLI_VERSION,
+  EnvError,
+  UsageError,
+  buildRequest,
+  formatHuman,
+  parseCli,
+  parseFileTarget,
+  resolvePanel,
+  run,
+  send,
+  shortId,
+  unwrap,
   type Flags,
   type RunDeps,
   type SendDeps,
 } from './cate'
 
-const noFlags: Flags = { json: false, help: false, version: false }
+const flags: Flags = { json: false, help: false, version: false }
 
-describe('buildRequest — browser group', () => {
-  it('open -> cate.browser.open {url}', () => {
-    expect(buildRequest(['browser', 'open', 'https://a.com'], noFlags)).toEqual({
+describe('thin browser CLI', () => {
+  it('makes open a new tab and keeps replacement navigation explicit', () => {
+    expect(buildRequest(['browser', 'open', 'https://a.test'], flags)).toEqual({
       method: 'cate.browser.open',
-      args: { url: 'https://a.com' },
+      args: { url: 'https://a.test', newTab: true },
+    })
+    expect(buildRequest(['browser', 'navigate', 'https://b.test'], flags)).toEqual({
+      method: 'cate.browser.open',
+      args: { url: 'https://b.test' },
+    })
+    expect(buildRequest(['browser', 'new-panel', 'https://c.test'], flags)).toEqual({
+      method: 'cate.browser.open',
+      args: { url: 'https://c.test', newPanel: true },
     })
   })
 
-  it('reload takes no args; removed verbs are unknown (panel list / open / wait cover them)', () => {
-    expect(buildRequest(['browser', 'reload'], noFlags).args).toEqual({})
-    expect(() => buildRequest(['browser', 'list'], noFlags)).toThrow(/unknown browser verb/)
-    expect(() => buildRequest(['browser', 'current'], noFlags)).toThrow(/unknown browser verb/)
-    expect(() => buildRequest(['browser', 'back'], noFlags)).toThrow(/unknown browser verb/)
-    expect(() => buildRequest(['browser', 'forward'], noFlags)).toThrow(/unknown browser verb/)
-  })
-
-  it('click -> {ref}', () => {
-    expect(buildRequest(['browser', 'click', 'e12'], noFlags)).toEqual({
-      method: 'cate.browser.click',
-      args: { ref: 'e12' },
+  it('passes native read commands through without translating their grammar', () => {
+    expect(buildRequest(
+      ['browser', 'snapshot', '-i', '--compact', '--depth', '4'],
+      flags,
+    )).toEqual({
+      method: 'cate.browser.readCommand',
+      args: { command: ['snapshot', '-i', '--compact', '--depth', '4'] },
+    })
+    expect(buildRequest(['browser', 'get', 'text', '@s2e7'], flags)).toEqual({
+      method: 'cate.browser.readCommand',
+      args: { command: ['get', 'text', '@s2e7'] },
     })
   })
 
-  it('type joins trailing positionals into text', () => {
-    expect(buildRequest(['browser', 'type', 'e7', 'hello', 'world'], noFlags)).toEqual({
-      method: 'cate.browser.type',
-      args: { ref: 'e7', text: 'hello world' },
+  it('passes native acting commands through without Cate locator parsing', () => {
+    expect(buildRequest(
+      ['browser', 'find', 'role', 'button', 'click', '--name', 'Save'],
+      flags,
+    )).toEqual({
+      method: 'cate.browser.command',
+      args: { command: ['find', 'role', 'button', 'click', '--name', 'Save'] },
+    })
+    expect(buildRequest(['browser', 'fill', '@s1e3', 'hello world'], flags)).toEqual({
+      method: 'cate.browser.command',
+      args: { command: ['fill', '@s1e3', 'hello world'] },
     })
   })
 
-  it('--panel injects args.panelId and marks browser-kind resolution', () => {
-    const req = buildRequest(['browser', 'reload'], { ...noFlags, panel: 'p9' })
-    expect(req.args).toEqual({ panelId: 'p9' })
-    expect(req.resolvePanel).toBe('browser')
+  it('keeps Cate-owned tab and presentation operations small and explicit', () => {
+    expect(buildRequest(['browser', 'tabs'], flags).method).toBe('cate.browser.tabs')
+    expect(buildRequest(['browser', 'new-tab'], flags)).toEqual({
+      method: 'cate.browser.tabNew',
+      args: {},
+    })
+    expect(buildRequest(['browser', 'select-tab', 'abcd'], flags).args).toEqual({ tabId: 'abcd' })
+    expect(buildRequest(['browser', 'close-tab', 'abcd'], flags).method).toBe('cate.browser.tabClose')
+    expect(buildRequest(['browser', 'viewport', 'mobile'], flags).args).toEqual({
+      preset: 'mobile',
+      width: 390,
+      height: 844,
+    })
+    expect(buildRequest(['browser', 'viewport', '1024', '700'], flags).args).toEqual({
+      preset: 'custom',
+      width: 1024,
+      height: 700,
+    })
+    expect(buildRequest(['browser', 'resize', '640', '480'], flags).args).toEqual({
+      width: 640,
+      height: 480,
+    })
   })
 
-  it('missing required arg is a usage error', () => {
-    expect(() => buildRequest(['browser', 'open'], noFlags)).toThrow(/url/)
+  it('targets browser commands with a uniquely resolved panel prefix', () => {
+    expect(buildRequest(
+      ['browser', 'click', '@s1e1'],
+      { ...flags, panel: 'abcd1234' },
+    )).toEqual({
+      method: 'cate.browser.command',
+      args: { command: ['click', '@s1e1'], panelId: 'abcd1234' },
+      resolvePanel: 'browser',
+    })
   })
 
-  it('unknown group / verb are usage errors', () => {
-    expect(() => buildRequest(['nope', 'x'], noFlags)).toThrow(/unknown command/)
-    expect(() => buildRequest(['browser', 'fly'], noFlags)).toThrow(/unknown browser verb/)
+  it('rejects native surfaces that can escape Cate ownership', () => {
+    for (const command of [
+      ['browser', 'tab', 'list'],
+      ['browser', 'connect', '9222'],
+      ['browser', 'batch', 'click @e1'],
+      ['browser', 'upload', '#file', '/tmp/x'],
+      ['browser', 'click', '#x', '--session', 'other'],
+      ['browser', 'screenshot', '/tmp/owned.png'],
+    ]) {
+      expect(() => buildRequest(command, flags)).toThrow(UsageError)
+    }
+  })
+
+  it('does not retain compatibility aliases or the custom locator grammar', () => {
+    expect(() => buildRequest(['browser', 'tab', 'new'], flags)).toThrow(/unsupported-browser-command/)
+    expect(buildRequest(['browser', 'click', 'role=button'], flags).args).toEqual({
+      command: ['click', 'role=button'],
+    })
   })
 })
 
-describe('buildRequest — per-scope groups', () => {
-  it('workspace / theme are not terminal command groups (the shell already knows)', () => {
-    expect(() => buildRequest(['workspace', 'get'], noFlags)).toThrow(/unknown command/)
-    expect(() => buildRequest(['theme', 'get'], noFlags)).toThrow(/unknown command/)
-  })
-
-  it('ui notify joins trailing positionals into message', () => {
-    expect(buildRequest(['ui', 'notify', 'build', 'done'], noFlags)).toEqual({
-      method: 'cate.ui.notify',
-      args: { message: 'build done' },
+describe('global parsing', () => {
+  it('extracts only Cate global flags and preserves native argv', () => {
+    expect(parseCli([
+      'browser', 'wait', '#done', '--timeout', '5000',
+      '--panel', 'abc', '--json',
+    ])).toEqual({
+      positionals: ['browser', 'wait', '#done', '--timeout', '5000'],
+      flags: { panel: 'abc', json: true, help: false, version: false },
     })
   })
 
-  it('editor open -> {path}', () => {
-    expect(buildRequest(['editor', 'open', 'src/a.ts'], noFlags)).toEqual({
+  it('keeps option-looking action values intact', () => {
+    expect(parseCli(['browser', 'fill', '#input', '--literal-value']).positionals)
+      .toEqual(['browser', 'fill', '#input', '--literal-value'])
+  })
+})
+
+describe('non-browser surface', () => {
+  it('opens file positions and creates only supported panel types', () => {
+    expect(parseFileTarget('src/a.ts:42:7')).toEqual({ path: 'src/a.ts', line: 42, column: 7 })
+    expect(parseFileTarget('C:\\x\\a.ts')).toEqual({ path: 'C:\\x\\a.ts' })
+    expect(buildRequest(['editor', 'open', 'src/a.ts:42'], flags)).toEqual({
       method: 'cate.editor.openFile',
-      args: { path: 'src/a.ts' },
+      args: { path: 'src/a.ts', line: 42 },
     })
-  })
-
-  it('panel create -> {type} (still the cate.canvas.createPanel host method)', () => {
-    expect(buildRequest(['panel', 'create', 'terminal'], noFlags)).toEqual({
+    expect(buildRequest(['panel', 'create', 'terminal'], flags)).toEqual({
       method: 'cate.canvas.createPanel',
       args: { type: 'terminal' },
     })
+    expect(() => buildRequest(['panel', 'create', 'browser'], flags)).toThrow(/supports terminal or canvas/)
   })
 
-  it('panel create browser accepts an optional url', () => {
-    expect(buildRequest(['panel', 'create', 'browser', 'https://x.com'], noFlags)).toEqual({
-      method: 'cate.canvas.createPanel',
-      args: { type: 'browser', url: 'https://x.com' },
+  it('requires explicit targeting for terminal input', () => {
+    expect(() => buildRequest(['terminal', 'type', 'npm', 'test'], flags)).toThrow(/requires --panel/)
+    expect(buildRequest(
+      ['terminal', 'type', 'npm', 'test'],
+      { ...flags, panel: 'term1234' },
+    )).toEqual({
+      method: 'cate.terminal.type',
+      args: { text: 'npm test', panelId: 'term1234' },
+      resolvePanel: 'terminal',
     })
   })
 
-  it('panel create rejects a url for non-browser types', () => {
-    expect(() => buildRequest(['panel', 'create', 'terminal', 'https://x.com'], noFlags)).toThrow(/browser/)
-  })
-
-  it('the canvas group is gone; its usage error points at panel create', () => {
-    expect(() => buildRequest(['canvas', 'create', 'terminal'], noFlags)).toThrow(/use: cate panel create/)
-    expect(() => buildRequest(['canvas', 'anything'], noFlags)).toThrow(UsageError)
-  })
-
-  it('panel set-title joins the title', () => {
-    expect(buildRequest(['panel', 'set-title', 'My', 'Panel'], noFlags)).toEqual({
-      method: 'cate.panel.setTitle',
-      args: { title: 'My Panel' },
-    })
-  })
-
-  it('missing required args are usage errors', () => {
-    expect(() => buildRequest(['ui', 'notify'], noFlags)).toThrow(/message/)
-    expect(() => buildRequest(['editor', 'open'], noFlags)).toThrow(/path/)
-  })
-})
-
-// The `agent` and `storage` scopes are never granted to the first-party terminal
-// endpoint this CLI talks to (workspaceCateApi GRANTED_SCOPES omits them), so the
-// CLI must not advertise them as command groups — they can never succeed. They
-// are unknown groups, exactly like any other bogus command, and help omits them.
-describe('agent / storage are not terminal command groups', () => {
-  it('agent is an unknown group (never granted to a terminal caller)', () => {
-    expect(() => buildRequest(['agent', 'run', 'do', 'it'], noFlags)).toThrow(/unknown command/)
-  })
-
-  it('storage is an unknown group (never granted to a terminal caller)', () => {
-    expect(() => buildRequest(['storage', 'get', 'k'], noFlags)).toThrow(/unknown command/)
-  })
-
-  it('help output no longer lists agent or storage groups', async () => {
-    const deps = makeDeps()
-    expect(await run(['--help'], deps)).toBe(0)
-    const help = deps.out.join('\n')
-    expect(help).not.toMatch(/\bagent\b/)
-    expect(help).not.toMatch(/\bstorage\b/)
-  })
-
-  it('a still-valid group (browser) is unaffected', () => {
-    expect(buildRequest(['browser', 'open', 'https://a.com'], noFlags)).toEqual({
-      method: 'cate.browser.open',
-      args: { url: 'https://a.com' },
-    })
-  })
-})
-
-describe('unwrap', () => {
-  it('returns the value from {result}', () => {
-    expect(unwrap('cate.version', 200, { result: 2 })).toBe(2)
-    expect(unwrap('cate.browser.open', 200, { result: { url: 'https://x' } })).toEqual({ url: 'https://x' })
-  })
-
-  it('treats an in-band {result:{error}} as failure', () => {
-    expect(() => unwrap('cate.browser.click', 200, { result: { error: 'no-such-browser' } })).toThrow(ApiError)
-  })
-
-  it('treats a top-level {error} as failure', () => {
-    try {
-      unwrap('cate.version', 401, { error: 'unauthorized' })
-      throw new Error('should have thrown')
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError)
-      expect((err as ApiError).detail).toBe('unauthorized')
-    }
-  })
-
-  it('a malformed body is a failure', () => {
-    expect(() => unwrap('cate.version', 200, 'nope')).toThrow(ApiError)
-  })
-})
-
-describe('formatHuman — matches the host contract shapes', () => {
-  it('screenshot -> just the path', () => {
-    expect(formatHuman('cate.browser.screenshot', { path: '/tmp/a.png' })).toBe('/tmp/a.png')
-  })
-
-  it('open -> resulting url', () => {
-    expect(formatHuman('cate.browser.open', { panelId: 'b1', url: 'https://x' })).toBe('https://x')
-  })
-
-  it('click ({ ok: true }) -> ok', () => {
-    expect(formatHuman('cate.browser.click', { ok: true })).toBe('ok')
-  })
-
-  it('snapshot -> url/title + one line per ref', () => {
-    const out = formatHuman('cate.browser.snapshot', {
-      url: 'https://x',
-      title: 'X',
-      refs: [
-        { ref: 'e12', role: 'link', name: 'Home' },
-        { ref: 'e13', role: 'button', name: 'Sign in' },
-      ],
-    })
-    expect(out).toBe('url: https://x\ntitle: X\n[e12] link "Home"\n[e13] button "Sign in"')
-  })
-
-  it('screenshot without a path field falls back to JSON', () => {
-    expect(formatHuman('cate.browser.screenshot', { note: 'x' })).toBe('{"note":"x"}')
-    expect(formatHuman('cate.browser.screenshot', 42)).toBe('42')
-  })
-
-  it('snapshot with nothing to show -> (empty snapshot)', () => {
-    expect(formatHuman('cate.browser.snapshot', {})).toBe('(empty snapshot)')
-  })
-
-  it('reload / type -> ok', () => {
-    expect(formatHuman('cate.browser.reload', { ok: true })).toBe('ok')
-    expect(formatHuman('cate.browser.type', { ok: true })).toBe('ok')
-  })
-})
-
-// --- run() exit-code mapping -------------------------------------------------
-
-function makeDeps(over: Partial<RunDeps> = {}): RunDeps & { out: string[]; err: string[] } {
-  const out: string[] = []
-  const err: string[] = []
-  return {
-    fetch: vi.fn() as unknown as typeof fetch,
-    env: { CATE_API: 'http://127.0.0.1:1234', CATE_TOKEN: 'tok' },
-    stdout: (s) => out.push(s),
-    stderr: (s) => err.push(s),
-    out,
-    err,
-    ...over,
-  }
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return { status, json: async () => body } as unknown as Response
-}
-
-describe('run — exit codes', () => {
-  it('CATE_API unset -> exit 3 with a how-to-enable message', async () => {
-    const deps = makeDeps({ env: {} })
-    const code = await run(['browser', 'wait'], deps)
-    expect(code).toBe(3)
-    const err = deps.err.join('\n')
-    expect(err).toMatch(/CATE_API\/CATE_TOKEN unset/)
-    expect(err).toMatch(/Settings → CLI/)
-  })
-
-  it('happy path -> exit 0, url on stdout', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ result: { url: 'https://x.com' } }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['browser', 'open', 'https://x.com'], deps)
-    expect(code).toBe(0)
-    expect(deps.out).toEqual(['https://x.com'])
-    // Sent the expected method/args over the wire.
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body)
-    expect(body).toEqual({ method: 'cate.browser.open', args: { url: 'https://x.com' } })
-  })
-
-  it('--json prints one JSON line of the unwrapped result', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ result: [{ id: 'p1' }] }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['panel', 'list', '--json'], deps)
-    expect(code).toBe(0)
-    expect(deps.out).toEqual(['[{"id":"p1"}]'])
-  })
-
-  it('in-band error -> exit 1 with cate: <method>: <error>', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ result: { error: 'no-such-browser' } }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['browser', 'click', 'e1'], deps)
-    expect(code).toBe(1)
-    expect(deps.err.join('\n')).toContain('cate: cate.browser.click: no-such-browser')
-  })
-
-  it('transport-level {error} response -> exit 1', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ error: 'unauthorized' }, 401))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    expect(await run(['version'], deps)).toBe(1)
-  })
-
-  it('fetch failure -> exit 3', async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['browser', 'wait'], deps)
-    expect(code).toBe(3)
-    expect(deps.err.join('\n')).toMatch(/failed/)
-  })
-
-  it('unknown command -> exit 2', async () => {
-    const deps = makeDeps()
-    expect(await run(['bogus'], deps)).toBe(2)
-  })
-
-  it('--version -> prints the version, exit 0, no request', async () => {
-    const fetchMock = vi.fn()
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    expect(await run(['--version'], deps)).toBe(0)
-    expect(deps.out).toEqual([`cate cli ${CLI_VERSION}`])
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('--help / -h -> prints usage, exit 0, no request', async () => {
-    const fetchMock = vi.fn()
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    expect(await run(['--help'], deps)).toBe(0)
-    expect(deps.out.join('\n')).toMatch(/Usage:/)
-    expect(await run(['-h'], makeDeps())).toBe(0)
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('no command -> exit 2 with usage on stderr', async () => {
-    const deps = makeDeps()
-    expect(await run([], deps)).toBe(2)
-    expect(deps.err.join('\n')).toMatch(/Usage:/)
-  })
-
-  it('a valid --timeout is passed into the send path', async () => {
-    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ result: { url: 'https://x' } }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['browser', 'open', 'https://x', '--timeout', '5000'], deps)
-    expect(code).toBe(0)
-    expect(timeoutSpy).toHaveBeenCalledWith(5000)
-    timeoutSpy.mockRestore()
-  })
-
-  it('an invalid --timeout -> exit 2, nothing dispatched', async () => {
-    const fetchMock = vi.fn()
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    expect(await run(['browser', 'wait', '--timeout', '0'], deps)).toBe(2)
-    expect(await run(['browser', 'wait', '--timeout', 'abc'], deps)).toBe(2)
-    expect(deps.err.join('\n')).toMatch(/invalid --timeout/)
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('a reachable server with an unparseable body -> exit 3', async () => {
-    const badBody = {
-      status: 500,
-      json: async () => {
-        throw new Error('Unexpected token < in JSON')
-      },
-    } as unknown as Response
-    const fetchMock = vi.fn().mockResolvedValue(badBody)
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['version'], deps)
-    expect(code).toBe(3)
-    expect(deps.err.join('\n')).toMatch(/bad response from .* \(HTTP 500\)/)
-  })
-
-  it('a non-typed thrown error -> exit 3 (generic catch)', async () => {
-    // json() resolves, but reading res.status (outside send's json try/catch)
-    // throws a plain Error, so it bubbles past the typed-error branches.
-    const boomResponse = {
-      json: async () => ({ result: 1 }),
-      get status(): number {
-        throw new Error('boom')
-      },
-    } as unknown as Response
-    const fetchMock = vi.fn().mockResolvedValue(boomResponse)
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['version'], deps)
-    expect(code).toBe(3)
-    expect(deps.err.join('\n')).toMatch(/boom/)
-  })
-})
-
-// --- short ids: output truncation + --panel prefix resolution ----------------
-
-describe('shortId', () => {
-  it('truncates ids longer than 8 chars', () => {
-    expect(shortId('abcd1234ef56')).toBe('abcd1234')
-  })
-  it('leaves short ids untouched', () => {
-    expect(shortId('e1')).toBe('e1')
-    expect(shortId('abcd1234')).toBe('abcd1234')
-  })
-})
-
-describe('panel list output shows short ids in human mode, full in --json', () => {
-  const listBody = { result: [{ panelId: 'abcd1234ef56', type: 'browser', title: 'Docs', url: 'https://x.com', focused: true }] }
-
-  it('human output truncates the panelId to 8 chars and prefers the url label', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(listBody))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    await run(['panel', 'list'], deps)
-    expect(deps.out.join('\n')).toContain('* abcd1234\tbrowser\thttps://x.com')
-    expect(deps.out.join('\n')).not.toContain('abcd1234ef56')
-  })
-
-  it('--json keeps the full panelId', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(listBody))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    await run(['panel', 'list', '--json'], deps)
-    expect(deps.out.join('')).toContain('abcd1234ef56')
-  })
-})
-
-describe('resolvePanel', () => {
-  const deps = (ids: string[], type = 'browser'): SendDeps => ({
-    fetch: vi.fn().mockResolvedValue(
-      jsonResponse({ result: ids.map((id) => ({ panelId: id, type })) }),
-    ) as unknown as typeof fetch,
-    env: { CATE_API: 'http://127.0.0.1:1', CATE_TOKEN: 't' },
-    timeout: 1000,
-  })
-
-  it('resolves a unique 8-char prefix to the full id', async () => {
-    expect(await resolvePanel('abcd1234', 'browser', deps(['abcd1234ef56', 'ff009900aa']))).toBe('abcd1234ef56')
-  })
-  it('returns an exact full id unchanged', async () => {
-    expect(await resolvePanel('abcd1234ef56', 'browser', deps(['abcd1234ef56']))).toBe('abcd1234ef56')
-  })
-  it('throws UsageError on no match', async () => {
-    await expect(resolvePanel('zzzz', 'browser', deps(['abcd1234ef56']))).rejects.toThrow(UsageError)
-  })
-  it('throws UsageError on an ambiguous prefix', async () => {
-    await expect(resolvePanel('ab', 'browser', deps(['ab111111', 'ab222222']))).rejects.toThrow(/ambiguous/)
-  })
-  it("kind 'browser' ignores non-browser panels; kind 'panel' matches any", async () => {
-    await expect(resolvePanel('ab', 'browser', deps(['ab111111'], 'terminal'))).rejects.toThrow(/no browser panel/)
-    expect(await resolvePanel('ab', 'panel', deps(['ab111111'], 'terminal'))).toBe('ab111111')
-  })
-})
-
-describe('run resolves a short --panel before dispatching', () => {
-  it('lists, matches the prefix, then sends the full panelId', async () => {
-    const fetchMock = vi
-      .fn()
-      // first call: cate.panel.list (for resolution)
-      .mockResolvedValueOnce(jsonResponse({ result: [{ panelId: 'abcd1234ef56', type: 'browser' }, { panelId: 'ff00aa11', type: 'terminal' }] }))
-      // second call: the actual back command
-      .mockResolvedValueOnce(jsonResponse({ result: { ok: true } }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-
-    const code = await run(['browser', 'reload', '--panel', 'abcd1234'], deps)
-    expect(code).toBe(0)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    const listBody = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body)
-    expect(listBody.method).toBe('cate.panel.list')
-    const reloadBody = JSON.parse((fetchMock.mock.calls[1][1] as { body: string }).body)
-    expect(reloadBody).toEqual({ method: 'cate.browser.reload', args: { panelId: 'abcd1234ef56' } })
-  })
-
-  it('an unresolvable --panel prefix -> exit 2, no command dispatched', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ result: [{ panelId: 'abcd1234ef56', type: 'browser' }] }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['browser', 'reload', '--panel', 'zzzz'], deps)
-    expect(code).toBe(2)
-    expect(deps.err.join('\n')).toMatch(/no browser panel matching/)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // only the list lookup
-  })
-})
-
-// --- new verbs: wait/press, editor open:line, panel list/focus, version -------
-
-describe('buildRequest — new verbs', () => {
-  it('browser wait takes an optional timeout', () => {
-    expect(buildRequest(['browser', 'wait'], noFlags)).toEqual({
-      method: 'cate.browser.wait',
-      args: {},
-    })
-    expect(buildRequest(['browser', 'wait', '2000'], noFlags)).toEqual({
-      method: 'cate.browser.wait',
-      args: { timeoutMs: 2000 },
-    })
-    expect(() => buildRequest(['browser', 'wait', 'soon'], noFlags)).toThrow(UsageError)
-  })
-
-  it('browser press: one positional is the key, two are ref + key', () => {
-    expect(buildRequest(['browser', 'press', 'Enter'], noFlags)).toEqual({
-      method: 'cate.browser.press',
-      args: { key: 'Enter' },
-    })
-    expect(buildRequest(['browser', 'press', '@e3', 'Enter'], noFlags)).toEqual({
-      method: 'cate.browser.press',
-      args: { ref: '@e3', key: 'Enter' },
-    })
-    expect(() => buildRequest(['browser', 'press'], noFlags)).toThrow(/key/)
-  })
-
-  it('editor open parses a trailing :line[:col] into args', () => {
-    expect(buildRequest(['editor', 'open', 'src/a.ts:42'], noFlags).args).toEqual({
-      path: 'src/a.ts',
-      line: 42,
-    })
-    expect(buildRequest(['editor', 'open', 'src/a.ts:42:7'], noFlags).args).toEqual({
-      path: 'src/a.ts',
-      line: 42,
-      column: 7,
-    })
-    // No trailing digits -> the colon stays part of the path.
-    expect(buildRequest(['editor', 'open', 'C:\\x\\a.ts'], noFlags).args).toEqual({
-      path: 'C:\\x\\a.ts',
-    })
-  })
-
-  it('panel list takes no args; editor active is gone (derive from panel list)', () => {
-    expect(buildRequest(['panel', 'list'], noFlags)).toEqual({
-      method: 'cate.panel.list',
-      args: {},
-    })
-    expect(() => buildRequest(['editor', 'active'], noFlags)).toThrow(/unknown editor verb/)
-  })
-
-  it('panel focus resolves its positional id against panel.list', () => {
-    expect(buildRequest(['panel', 'focus', 'abcd1234'], noFlags)).toEqual({
-      method: 'cate.panel.focus',
-      args: { panelId: 'abcd1234' },
-      resolvePanel: 'panel',
-    })
-  })
-
-  it('`cate version` maps to cate.version (the host API version)', () => {
-    expect(buildRequest(['version'], noFlags)).toEqual({ method: 'cate.version', args: {} })
-  })
-})
-
-describe('formatHuman — new output shapes', () => {
-  it('wait prints the settled url, press prints ok', () => {
-    expect(formatHuman('cate.browser.wait', { url: 'https://x.com', loading: false })).toBe('https://x.com')
-    expect(formatHuman('cate.browser.press', { ok: true })).toBe('ok')
-  })
-
-  it('snapshot shows a non-empty input value', () => {
-    const snap = {
-      url: 'u',
-      title: 't',
-      refs: [
-        { ref: '@e1', role: 'textbox', name: 'Search', value: 'query' },
-        { ref: '@e2', role: 'button', name: 'Go', value: '' },
-      ],
-    }
-    const out = formatHuman('cate.browser.snapshot', snap)
-    expect(out).toContain('[@e1] textbox "Search" = "query"')
-    expect(out).toContain('[@e2] button "Go"')
-    expect(out).not.toContain('[@e2] button "Go" =')
-  })
-
-  it('snapshot caps ref lines at --max and says how many were dropped', () => {
-    const refs = Array.from({ length: 5 }, (_, i) => ({ ref: `@e${i + 1}`, role: 'link', name: `L${i}` }))
-    const out = formatHuman('cate.browser.snapshot', { url: 'u', title: 't', refs }, { max: 2 })
-    expect(out).toContain('[@e2]')
-    expect(out).not.toContain('[@e3]')
-    expect(out).toContain('(+3 more refs')
-    const all = formatHuman('cate.browser.snapshot', { url: 'u', title: 't', refs }, { max: 0 })
-    expect(all).toContain('[@e5]')
-  })
-
-  it('panel list -> id, type, filePath-or-title per line, focused marked', () => {
-    const out = formatHuman('cate.panel.list', [
-      { panelId: 'abcd1234ef56', type: 'editor', title: 'a.ts', focused: true, filePath: '/w/src/a.ts' },
-      { panelId: 'ff00aa11bb22', type: 'terminal', title: 'zsh', focused: false },
-    ])
-    expect(out).toContain('* abcd1234\teditor\t/w/src/a.ts')
-    expect(out).toContain('  ff00aa11\tterminal\tzsh')
-  })
-
-  it('editor open / panel create -> the short panelId handle', () => {
-    expect(formatHuman('cate.editor.openFile', { panelId: 'abcd1234ef56' })).toBe('abcd1234')
-    expect(formatHuman('cate.canvas.createPanel', { panelId: 'abcd1234ef56' })).toBe('abcd1234')
-  })
-})
-
-describe('run resolves a short `panel focus` id against panel.list', () => {
-  it('lists panels, matches the prefix, then sends the full panelId', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ result: [{ panelId: 'abcd1234ef56' }, { panelId: 'ff00aa11' }] }))
-      .mockResolvedValueOnce(jsonResponse({ result: undefined }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['panel', 'focus', 'abcd1234'], deps)
-    expect(code).toBe(0)
-    const firstBody = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
-    expect(firstBody.method).toBe('cate.panel.list')
-    const secondBody = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)
-    expect(secondBody).toEqual({ method: 'cate.panel.focus', args: { panelId: 'abcd1234ef56' } })
-  })
-})
-
-describe('--max validation', () => {
-  it('a non-integer --max is a usage error', async () => {
-    const deps = makeDeps()
-    expect(await run(['browser', 'snapshot', '--max', 'lots'], deps)).toBe(2)
-    expect(deps.err.join('\n')).toMatch(/invalid --max/)
-  })
-})
-
-describe('strict command contracts', () => {
-  it('rejects unexpected positional arguments instead of silently ignoring them', () => {
-    expect(() => buildRequest(['panel', 'list', 'extra'], noFlags)).toThrow(/unexpected argument/)
-    expect(() => buildRequest(['browser', 'open', 'https://x', 'extra'], noFlags)).toThrow(/unexpected argument/)
-    expect(() => buildRequest(['browser', 'press', '@e1', 'Enter', 'extra'], noFlags)).toThrow(/unexpected argument/)
-  })
-
-  it('rejects command-specific flags on unrelated commands', () => {
-    expect(() => buildRequest(['version'], { ...noFlags, max: '1' })).toThrow(/--max is only valid/)
-    expect(() => buildRequest(['editor', 'open', 'x.ts'], { ...noFlags, panel: 'p1' })).toThrow(/--panel is not valid/)
-  })
-
-  it('maps panel close and resolves its short id', () => {
-    expect(buildRequest(['panel', 'close', 'abcd1234'], noFlags)).toEqual({
+  it('keeps the host version and close-panel operations', () => {
+    expect(buildRequest(['version'], flags)).toEqual({ method: 'cate.version', args: {} })
+    expect(buildRequest(['panel', 'close', 'abcd1234'], flags)).toEqual({
       method: 'cate.panel.close',
       args: { panelId: 'abcd1234' },
       resolvePanel: 'panel',
     })
   })
+})
 
-  it('resolves --panel for set-title against all panel types', () => {
-    expect(buildRequest(['panel', 'set-title', 'Renamed'], { ...noFlags, panel: 'abcd1234' })).toEqual({
-      method: 'cate.panel.setTitle',
-      args: { title: 'Renamed', panelId: 'abcd1234' },
-      resolvePanel: 'panel',
+describe('transport and panel resolution', () => {
+  const response = (body: unknown, status = 200) => ({
+    status,
+    json: async () => body,
+  }) as Response
+
+  it('unwraps the reverse API envelope and reports both error shapes', () => {
+    expect(unwrap('cate.version', 200, { result: { apiVersion: 1 } })).toEqual({ apiVersion: 1 })
+    expect(() => unwrap('cate.x', 200, { error: 'bad' })).toThrow(ApiError)
+    expect(() => unwrap('cate.x', 200, { result: { error: 'bad' } })).toThrow(ApiError)
+  })
+
+  it('sends auth and placement affinity', async () => {
+    const fetch = vi.fn(async () => response({ result: 'ok' }))
+    await expect(send('cate.browser.command', { command: ['click', '#x'] }, {
+      fetch: fetch as typeof globalThis.fetch,
+      env: {
+        CATE_API: 'http://127.0.0.1:1',
+        CATE_TOKEN: 'secret',
+        CATE_PLACEMENT_GROUP: 'group-1',
+      },
+      timeout: 123,
+    })).resolves.toBe('ok')
+    const call = fetch.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(call[1].body as string)).toEqual({
+      method: 'cate.browser.command',
+      args: { command: ['click', '#x'], placementGroupId: 'group-1' },
+      clientId: 'group-1',
     })
+    expect(call[1].headers).toMatchObject({
+      Authorization: 'Bearer secret',
+    })
+  })
+
+  it('uses a dedicated CLI session id independently of placement affinity', async () => {
+    const fetch = vi.fn(async () => response({ result: 'ok' }))
+    await send('cate.browser.command', { command: ['snapshot', '-i'] }, {
+      fetch: fetch as typeof globalThis.fetch,
+      env: {
+        CATE_API: 'http://127.0.0.1:1',
+        CATE_TOKEN: 'secret',
+        CATE_PANEL_ID: 'origin-panel',
+        CATE_CLI_SESSION_ID: 'cli-session',
+      },
+      timeout: 123,
+    })
+
+    const call = fetch.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(call[1].body as string)).toEqual({
+      method: 'cate.browser.command',
+      args: { command: ['snapshot', '-i'], placementGroupId: 'origin-panel' },
+      clientId: 'cli-session',
+    })
+  })
+
+  it('fails clearly outside a Cate shell', async () => {
+    await expect(send('cate.version', {}, {
+      fetch: vi.fn() as unknown as typeof globalThis.fetch,
+      env: {},
+      timeout: 1,
+    })).rejects.toThrow(EnvError)
+  })
+
+  function panelDeps(panels: unknown[]): SendDeps {
+    return {
+      fetch: vi.fn(async () => response({ result: panels })) as unknown as typeof globalThis.fetch,
+      env: { CATE_API: 'http://127.0.0.1:1', CATE_TOKEN: 'x' },
+      timeout: 100,
+    }
+  }
+
+  it('resolves exact or unique short panel ids by type', async () => {
+    const deps = panelDeps([
+      { panelId: 'abcd1234-browser', type: 'browser' },
+      { panelId: 'abcd1234-terminal', type: 'terminal' },
+    ])
+    await expect(resolvePanel('abcd1234-b', 'browser', deps)).resolves.toBe('abcd1234-browser')
+    await expect(resolvePanel('abcd1234-t', 'browser', deps)).rejects.toThrow(/no browser panel/)
   })
 })
 
-describe('buildRequest — terminal group', () => {
-  const withPanel: Flags = { ...noFlags, panel: 'ff00aa11' }
+describe('output and run loop', () => {
+  it('keeps only useful human rendering', () => {
+    expect(shortId('abcdefgh-more')).toBe('abcdefgh')
+    expect(formatHuman('cate.browser.readCommand', {
+      url: 'https://x.test',
+      title: 'X',
+      snapshotId: 's1',
+      snapshot: '- button "Save" [ref=s1e1]',
+    })).toContain('- button "Save" [ref=s1e1]')
+    expect(formatHuman('cate.browser.readCommand', { path: '/tmp/shot.png' })).toBe('/tmp/shot.png')
+    expect(formatHuman('cate.terminal.read', { text: 'one\ntwo' })).toBe('one\ntwo')
+  })
 
-  it('read -> cate.terminal.read, no --panel needed (focused-terminal default)', () => {
-    expect(buildRequest(['terminal', 'read'], noFlags)).toEqual({
-      method: 'cate.terminal.read',
-      args: {},
+  function runDeps(body: unknown = { result: null }): RunDeps & { out: string[]; err: string[] } {
+    const out: string[] = []
+    const err: string[] = []
+    return {
+      fetch: vi.fn(async () => ({
+        status: 200,
+        json: async () => body,
+      })) as unknown as typeof globalThis.fetch,
+      env: { CATE_API: 'http://127.0.0.1:1', CATE_TOKEN: 'x' },
+      stdout: (line) => out.push(line),
+      stderr: (line) => err.push(line),
+      out,
+      err,
+    }
+  }
+
+  it('prints version/help without transport', async () => {
+    const deps = runDeps()
+    expect(await run(['--version'], deps)).toBe(0)
+    expect(deps.out).toEqual([`cate cli ${CLI_VERSION}`])
+    expect(deps.fetch).not.toHaveBeenCalled()
+  })
+
+  it('sends native browser argv in one request', async () => {
+    const deps = runDeps({ result: { clicked: true } })
+    expect(await run(['browser', 'click', '@s1e1'], deps)).toBe(0)
+    const request = JSON.parse((deps.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body)
+    expect(request).toEqual({
+      method: 'cate.browser.command',
+      args: { command: ['click', '@s1e1'] },
     })
   })
 
-  it('read with --panel resolves against terminal panels', () => {
-    expect(buildRequest(['terminal', 'read'], withPanel)).toEqual({
-      method: 'cate.terminal.read',
-      args: { panelId: 'ff00aa11' },
-      resolvePanel: 'terminal',
-    })
-  })
-
-  it('type joins trailing positionals and never appends a newline', () => {
-    const req = buildRequest(['terminal', 'type', 'ls', '-la'], withPanel)
-    expect(req).toEqual({
-      method: 'cate.terminal.type',
-      args: { text: 'ls -la', panelId: 'ff00aa11' },
-      resolvePanel: 'terminal',
-    })
-    expect((req.args.text as string).endsWith('\n')).toBe(false)
-  })
-
-  it('type and press REQUIRE --panel (a misresolved keystroke runs in the wrong shell)', () => {
-    expect(() => buildRequest(['terminal', 'type', 'ls'], noFlags)).toThrow(/requires --panel/)
-    expect(() => buildRequest(['terminal', 'press', 'enter'], noFlags)).toThrow(/requires --panel/)
-  })
-
-  it('press -> {key}; missing key is a usage error', () => {
-    expect(buildRequest(['terminal', 'press', 'ctrl-c'], withPanel)).toEqual({
-      method: 'cate.terminal.press',
-      args: { key: 'ctrl-c', panelId: 'ff00aa11' },
-      resolvePanel: 'terminal',
-    })
-    expect(() => buildRequest(['terminal', 'press'], withPanel)).toThrow(/key/)
-    expect(() => buildRequest(['terminal', 'press', 'enter', 'extra'], withPanel)).toThrow(/unexpected argument/)
-  })
-
-  it('--max is valid for terminal read (and still for snapshot), nothing else', () => {
-    expect(() => buildRequest(['terminal', 'read'], { ...noFlags, max: '5' })).not.toThrow()
-    expect(() => buildRequest(['browser', 'snapshot'], { ...noFlags, max: '5' })).not.toThrow()
-    expect(() => buildRequest(['terminal', 'press', 'enter'], { ...withPanel, max: '5' })).toThrow(/--max is only valid/)
-  })
-})
-
-describe('formatHuman — terminal read', () => {
-  it('prints the text; type/press print ok', () => {
-    expect(formatHuman('cate.terminal.read', { panelId: 'p1', alt: false, text: 'a\nb' })).toBe('a\nb')
-    expect(formatHuman('cate.terminal.type', { ok: true })).toBe('ok')
-    expect(formatHuman('cate.terminal.press', { ok: true })).toBe('ok')
-  })
-
-  it('caps at --max keeping the TAIL, with a note; --max 0 prints all', () => {
-    const text = Array.from({ length: 5 }, (_, i) => `line${i + 1}`).join('\n')
-    const out = formatHuman('cate.terminal.read', { panelId: 'p1', alt: false, text }, { max: 2 })
-    expect(out).toBe('(+3 earlier lines; rerun with --max 0 for all)\nline4\nline5')
-    expect(formatHuman('cate.terminal.read', { panelId: 'p1', alt: false, text }, { max: 0 })).toBe(text)
-  })
-})
-
-describe('run resolves a short terminal --panel against terminal rows only', () => {
-  it('lists, matches among terminals, then sends the full panelId', async () => {
-    const fetchMock = vi
-      .fn()
-      // Both ids share the prefix, but only one is a terminal — no ambiguity.
-      .mockResolvedValueOnce(jsonResponse({ result: [
-        { panelId: 'ab111111cc', type: 'browser' },
-        { panelId: 'ab222222dd', type: 'terminal' },
-      ] }))
-      .mockResolvedValueOnce(jsonResponse({ result: { ok: true } }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    const code = await run(['terminal', 'press', 'enter', '--panel', 'ab'], deps)
-    expect(code).toBe(0)
-    const pressBody = JSON.parse((fetchMock.mock.calls[1][1] as { body: string }).body)
-    expect(pressBody).toEqual({ method: 'cate.terminal.press', args: { key: 'enter', panelId: 'ab222222dd' } })
-  })
-
-  it('no terminal matching the prefix -> exit 2, nothing dispatched', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ result: [{ panelId: 'ab111111cc', type: 'browser' }] }))
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    expect(await run(['terminal', 'read', '--panel', 'ab'], deps)).toBe(2)
-    expect(deps.err.join('\n')).toMatch(/no terminal panel matching/)
-    expect(fetchMock).toHaveBeenCalledTimes(1) // only the list lookup
-  })
-})
-
-describe('terminal panel identity', () => {
-  it('uses CATE_PANEL_ID for an unaddressed set-title', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ result: null }))
-    const deps = makeDeps({
-      fetch: fetchMock as unknown as typeof fetch,
-      env: { CATE_API: 'http://127.0.0.1:1', CATE_TOKEN: 't', CATE_PANEL_ID: 'full-panel-id' },
-    })
-    expect(await run(['panel', 'set-title', 'My', 'Terminal'], deps)).toBe(0)
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
-    expect(body).toEqual({ method: 'cate.panel.setTitle', args: { title: 'My Terminal', panelId: 'full-panel-id' } })
-    expect(deps.out).toEqual(['ok'])
-  })
-
-  it('requires --panel when the shell has no panel identity', async () => {
-    const fetchMock = vi.fn()
-    const deps = makeDeps({ fetch: fetchMock as unknown as typeof fetch })
-    expect(await run(['panel', 'set-title', 'x'], deps)).toBe(2)
-    expect(deps.err.join('\n')).toMatch(/requires --panel/)
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-})
-
-describe('human-facing output and help', () => {
-  it('formats ui.notify as ok', () => {
-    expect(formatHuman('cate.ui.notify', { ok: true })).toBe('ok')
-  })
-
-  it('shows group-specific help', async () => {
-    const deps = makeDeps()
-    expect(await run(['browser', '--help'], deps)).toBe(0)
-    expect(deps.out.join('\n')).toMatch(/^Usage: cate browser/)
-    expect(deps.out.join('\n')).not.toContain('Groups:')
+  it('returns usage errors before transport', async () => {
+    const deps = runDeps()
+    expect(await run(['browser', 'tab', 'list'], deps)).toBe(2)
+    expect(deps.err.join('\n')).toContain('unsupported-browser-command:tab')
+    expect(deps.fetch).not.toHaveBeenCalled()
   })
 })

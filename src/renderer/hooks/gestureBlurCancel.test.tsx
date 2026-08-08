@@ -191,6 +191,40 @@ describe('pan — window-level cleanup', () => {
     expect(bodyClassRefCount('canvas-interacting')).toBe(0)
     expect(document.body.classList.contains('canvas-interacting')).toBe(false)
   })
+
+  it('releases the interaction lock when the canvas unmounts mid-pan', () => {
+    const store = freshStore()
+    const el = renderPanProbe(store)
+
+    mouseDownOn(el, 2, 100, 100)
+    expect(bodyClassRefCount('canvas-interacting')).toBe(1)
+
+    // App.tsx keys the canvas subtree by workspace/reload epoch, so switching
+    // workspace or reloading its layout can unmount it before mouseup/blur.
+    act(() => root.render(<></>))
+
+    expect(bodyClassRefCount('canvas-interacting')).toBe(0)
+    expect(document.body.classList.contains('canvas-interacting')).toBe(false)
+  })
+
+  it('takes only ONE reference when a second pan button presses mid-pan', () => {
+    const store = freshStore()
+    const el = renderPanProbe(store)
+
+    // Right button starts the pan, then the middle button goes down before it
+    // is released. endPanDrag is idempotent and releases exactly once, so a
+    // second acquire here would strand the lock for the rest of the session —
+    // no remount or workspace switch can clear a reference whose owner is gone.
+    mouseDownOn(el, 2, 100, 100)
+    mouseDownOn(el, 1, 120, 120)
+    expect(bodyClassRefCount('canvas-interacting')).toBe(1)
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup', { button: 1, bubbles: true }))
+    })
+    expect(bodyClassRefCount('canvas-interacting')).toBe(0)
+    expect(document.body.classList.contains('canvas-interacting')).toBe(false)
+  })
 })
 
 // =============================================================================
@@ -242,6 +276,24 @@ describe('resize — blur cancellation', () => {
     act(() => window.dispatchEvent(new MouseEvent('mousemove', { clientX: 900, clientY: 300, bubbles: true })))
     flushRaf()
     expect(store.getState().nodes['A'].size.width).toBe(widthAfterMove)
+  })
+
+  it('releases the interaction lock when the resize owner unmounts mid-gesture', () => {
+    const store = freshStore()
+    addNode(store, 'A', { x: 100, y: 100 }, { width: 500, height: 400 })
+    act(() => root.render(<ResizeProbe nodeId="A" edge="right" panelType="editor" store={store} />))
+    const handle = container.querySelector<HTMLElement>('[data-testid="resize-handle"]')!
+
+    act(() => {
+      handle.dispatchEvent(new MouseEvent('mousedown', { button: 0, clientX: 600, clientY: 300, bubbles: true }))
+    })
+    expect(bodyClassRefCount('canvas-interacting')).toBe(1)
+
+    act(() => root.render(<></>))
+
+    expect(bodyClassRefCount('canvas-interacting')).toBe(0)
+    expect(document.body.classList.contains('canvas-interacting')).toBe(false)
+    expect(document.body.style.cursor).toBe('')
   })
 })
 

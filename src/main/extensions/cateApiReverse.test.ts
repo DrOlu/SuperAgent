@@ -13,9 +13,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Dispatch core: an in-memory storage impl so the set->get round-trip is real.
 const store = vi.hoisted(() => new Map<string, unknown>())
 const dispatchCateInvoke = vi.hoisted(() => vi.fn())
+const forwardToOwner = vi.hoisted(() => vi.fn(async () => ({ ok: true })))
+const authorizeCateInvoke = vi.hoisted(() => vi.fn((): unknown => null))
+const windowPanels = vi.hoisted(() => [] as Array<{
+  panelId: string
+  type: string
+  workspaceId: string
+}>)
 vi.mock('./cateApiHandlers', () => ({
+  authorizeCateInvoke,
   dispatchCateInvoke,
   forwardToActiveWindow: vi.fn(async () => ({ error: 'no-host-window' })),
+  forwardToOwner,
+}))
+vi.mock('../windowPanels', () => ({
+  getWindowPanels: () => windowPanels,
 }))
 vi.mock('../logger', () => ({ default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 
@@ -88,7 +100,10 @@ function request(
 
 beforeEach(() => {
   store.clear()
+  windowPanels.length = 0
   dispatchCateInvoke.mockReset()
+  authorizeCateInvoke.mockReset()
+  authorizeCateInvoke.mockReturnValue(null)
   // Mirror the real dispatch for the two storage methods the round-trip uses.
   dispatchCateInvoke.mockImplementation(async (_scope, method: string, args: { key?: string; value?: unknown }) => {
     if (method === 'cate.storage.set') { store.set(String(args.key), args.value); return { ok: true } }
@@ -98,6 +113,34 @@ beforeEach(() => {
 })
 
 describe('createCateApiReverse — server-side CATE_API endpoint', () => {
+  it('binds Cate Agent forwarding to its owning renderer', async () => {
+    const host = makeRuntime()
+    const owner = { isDestroyed: () => false } as never
+    const endpoint = createCateApiReverse({
+      extensionId: 'cate-agent',
+      workspaceId: 'ws-1',
+      token: TOKEN,
+      runtime: host.runtime,
+      caller: 'cate-agent',
+      ownerWebContents: owner,
+    })
+    await request(endpoint, host.output, {
+      json: { method: 'cate.codingAgent.create', args: { prompt: 'Implement it' } },
+    })
+
+    const scope = dispatchCateInvoke.mock.calls[0][0]
+    const payload = {
+      extensionId: 'cate-agent',
+      workspaceId: 'ws-1',
+      panelId: '',
+      method: 'cate.codingAgent.create',
+      args: {},
+    }
+    await scope.forward(payload)
+    expect(forwardToOwner).toHaveBeenCalledWith(owner, payload)
+    endpoint.dispose()
+  })
+
   it('round-trips storage.set then storage.get (the Kitchen Sink roundtrip)', async () => {
     // Two requests = two connections (HTTP/1.1 Connection: close). Each endpoint
     // gets its own runtime/output, but both dispatch into the shared store, so
@@ -215,6 +258,110 @@ describe('createCateApiReverse — server-side CATE_API endpoint', () => {
     expect(() => { unwrapped = unwrap('cate.panel.setTitle', res.status, res.body) }).not.toThrow(ApiError)
     expect(unwrapped).toBeNull()
     endpoint.dispose()
+  })
+
+  it('drops a stale selected panel instead of poisoning later browser calls', async () => {
+    windowPanels.push({ panelId: 'browser-1', type: 'browser', workspaceId: 'ws-1' })
+    const first = makeRuntime()
+    const endpoint = createCateApiReverse({
+      extensionId: 'first-party',
+      workspaceId: 'ws-1',
+      token: TOKEN,
+      runtime: first.runtime,
+      caller: 'first-party',
+      grantedScopes: ['browser', 'panel'],
+    })
+
+    const selected = await request(endpoint, first.output, {
+      json: {
+        method: 'cate.panel.target.set',
+        args: { panelId: 'browser-1' },
+        clientId: 'cli-session',
+      },
+    })
+    expect(selected.body).toEqual({
+      result: { panelId: 'browser-1', type: 'browser' },
+    })
+
+    windowPanels.length = 0
+    dispatchCateInvoke.mockResolvedValue({ snapshot: '- document' })
+    const second = makeRuntime()
+    const secondEndpoint = createCateApiReverse({
+      extensionId: 'first-party',
+      workspaceId: 'ws-1',
+      token: TOKEN,
+      runtime: second.runtime,
+      caller: 'first-party',
+      grantedScopes: ['browser', 'panel'],
+    })
+    const snapshot = await request(secondEndpoint, second.output, {
+      json: {
+        method: 'cate.browser.snapshot',
+        args: {},
+        clientId: 'cli-session',
+      },
+    })
+
+    expect(snapshot.body).toEqual({ result: { snapshot: '- document' } })
+    expect(dispatchCateInvoke).toHaveBeenLastCalledWith(
+      expect.any(Object),
+      'cate.browser.snapshot',
+      {},
+    )
+    endpoint.dispose()
+    secondEndpoint.dispose()
+  })
+
+  it('checks panel-target authorization before reading or changing the target', async () => {
+    windowPanels.push({ panelId: 'browser-1', type: 'browser', workspaceId: 'ws-1' })
+    authorizeCateInvoke.mockReturnValueOnce({
+      error: 'Panels Read access is disabled in Settings → CLI.',
+      method: 'cate.panel.target.set',
+    })
+    const first = makeRuntime()
+    const endpoint = createCateApiReverse({
+      extensionId: 'first-party',
+      workspaceId: 'ws-1',
+      token: TOKEN,
+      runtime: first.runtime,
+      caller: 'first-party',
+      grantedScopes: ['panel'],
+    })
+
+    const denied = await request(endpoint, first.output, {
+      json: {
+        method: 'cate.panel.target.set',
+        args: { panelId: 'browser-1' },
+        clientId: 'cli-session',
+      },
+    })
+    expect(denied.body).toEqual({
+      result: {
+        error: 'Panels Read access is disabled in Settings → CLI.',
+        method: 'cate.panel.target.set',
+      },
+    })
+
+    const second = makeRuntime()
+    const secondEndpoint = createCateApiReverse({
+      extensionId: 'first-party',
+      workspaceId: 'ws-1',
+      token: TOKEN,
+      runtime: second.runtime,
+      caller: 'first-party',
+      grantedScopes: ['panel'],
+    })
+    const current = await request(secondEndpoint, second.output, {
+      json: { method: 'cate.panel.target.current', args: {}, clientId: 'cli-session' },
+    })
+    expect(current.body).toEqual({ result: { panelId: null } })
+    expect(authorizeCateInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({ caller: 'first-party', grantedScopes: ['panel'] }),
+      'cate.panel.target.set',
+      { panelId: 'browser-1' },
+    )
+    endpoint.dispose()
+    secondEndpoint.dispose()
   })
 
   it('400s when no method is supplied', async () => {

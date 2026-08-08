@@ -22,9 +22,10 @@ import { placementForBackgroundPanel } from '../lib/workspace/canvasAccess'
 import { setPendingReveal } from '../lib/editor/editorReveal'
 import { closePanelWithConfirm } from '../lib/closePanelWithConfirm'
 import { toAbsolutePath, pathKey } from '../../shared/pathUtils'
-import { parseLocator, formatLocator } from '../../main/runtime/locator'
+import { parseLocator, formatLocator } from '../../shared/runtimeLocator'
 import { handleBrowserMethod } from '../lib/browser/browserDriver'
 import { handleTerminalMethod } from '../lib/terminal/terminalDriver'
+import { handleCodingAgentMethod } from '../lib/agent/codingAgentDriver'
 import { browserPanelUrl, isStartPageUrl, type PanelType, type Point } from '../../shared/types'
 import type { PanelPlacement } from '../stores/appStore'
 
@@ -33,11 +34,14 @@ import type { PanelPlacement } from '../stores/appStore'
 // selection/focus, or move the user's camera. An explicit { position } still
 // chooses the canvas point while preserving those background semantics.
 function placementFromArgs(workspaceId: string, args: Record<string, unknown>): PanelPlacement | undefined {
+  const placementGroupId = typeof args.placementGroupId === 'string' && args.placementGroupId
+    ? args.placementGroupId
+    : undefined
   const p = args.position
   if (p && typeof p === 'object' && typeof (p as Point).x === 'number' && typeof (p as Point).y === 'number') {
-    return { ...placementForBackgroundPanel(workspaceId), position: p as Point }
+    return { ...placementForBackgroundPanel(workspaceId, placementGroupId), position: p as Point }
   }
-  return placementForBackgroundPanel(workspaceId)
+  return placementForBackgroundPanel(workspaceId, placementGroupId)
 }
 
 interface HostActionPayload {
@@ -136,6 +140,13 @@ export function useCateHostActionResponder(): void {
             : reply(false, { error: outcome.error })
         }
 
+        if (method.startsWith('cate.codingAgent.')) {
+          const outcome = await handleCodingAgentMethod(workspaceId, payload.panelId, method, args)
+          return outcome.ok
+            ? reply(true, { result: outcome.result })
+            : reply(false, { error: outcome.error })
+        }
+
         switch (method) {
           case 'cate.editor.openFile': {
             const filePath = typeof args.path === 'string' ? args.path : undefined
@@ -153,7 +164,12 @@ export function useCateHostActionResponder(): void {
             } catch {
               return reply(false, { error: 'file-not-found' })
             }
-            const newPanelId = openFileAsPanel(workspaceId, resolved, undefined, placementForBackgroundPanel(workspaceId))
+            const newPanelId = openFileAsPanel(
+              workspaceId,
+              resolved,
+              undefined,
+              placementFromArgs(workspaceId, args),
+            )
             if (!newPanelId) return reply(false, { error: 'open failed' })
             // Honor an optional { line } (and column) by stashing a one-shot
             // editor reveal — the SAME path search results and terminal file

@@ -15,6 +15,7 @@ import { focusedNodeId as focusedNodeIdOf } from '../stores/canvas/selectionMode
 import { isMouseWheel, type WheelLike } from '../lib/wheelIntent'
 import { acquireBodyClass, releaseBodyClass } from '../lib/dom/bodyClassRefcount'
 import { ZOOM_MIN, ZOOM_MAX } from '../../shared/types'
+import { zoomEaseForElapsed } from '../lib/canvas/zoomAnimation'
 import type { Point } from '../../shared/types'
 
 // How many pixels the mouse must move before a right-click becomes a drag
@@ -25,6 +26,7 @@ const RIGHT_CLICK_DRAG_THRESHOLD = 4
 // at any zoom level; a discrete notch can't use the delta-proportional path the
 // trackpad pinch uses.
 const MOUSE_WHEEL_ZOOM_FACTOR = 0.15
+const FRAME_MS_60HZ = 1000 / 60
 
 // CSS cursor for the canvas when idle (not actively panning), per active tool.
 function idleCursorForTool(): string {
@@ -68,6 +70,8 @@ export function useCanvasInteraction(
   // Smooth zoom refs
   const targetZoom = useRef<number | null>(null)
   const zoomRafId = useRef<number>(0)
+  const lastZoomFrameAt = useRef<number | null>(null)
+  const zoomInteractionActive = useRef(false)
   const cursorViewPoint = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   // Wheel-pan throttle refs
@@ -77,6 +81,11 @@ export function useCanvasInteraction(
   // We add the class when a wheel pan starts and remove it after the wheel goes quiet.
   const wheelPanActive = useRef(false)
   const wheelPanEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelMarqueeRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => cancelMarqueeRef.current?.()
+  }, [])
 
   const [canvasContextMenu, setCanvasContextMenu] =
     useState<CanvasContextMenuState | null>(null)
@@ -98,6 +107,11 @@ export function useCanvasInteraction(
       zoomRafId.current = 0
     }
     targetZoom.current = null
+    lastZoomFrameAt.current = null
+    if (zoomInteractionActive.current) {
+      releaseBodyClass('canvas-zooming')
+      zoomInteractionActive.current = false
+    }
     if (panRafId.current) {
       cancelAnimationFrame(panRafId.current)
       panRafId.current = 0
@@ -141,7 +155,7 @@ export function useCanvasInteraction(
   // Smooth zoom animation — interpolates zoomLevel toward targetZoom each frame
   // ---------------------------------------------------------------------------
 
-  const smoothZoomTick = useCallback(() => {
+  const smoothZoomTick = useCallback((now: number) => {
     if (targetZoom.current === null) return
 
     const state = canvasStoreApi.getState()
@@ -158,11 +172,22 @@ export function useCanvasInteraction(
       })
       targetZoom.current = null
       zoomRafId.current = 0
+      lastZoomFrameAt.current = null
+      if (zoomInteractionActive.current) {
+        releaseBodyClass('canvas-zooming')
+        zoomInteractionActive.current = false
+      }
       return
     }
 
-    // Lerp toward target (0.15 per 16.67ms frame equivalent)
-    const newZoom = current + diff * 0.15
+    // Preserve the 60 Hz feel while advancing by elapsed time. A busy browser
+    // guest can make Chromium skip compositor frames; a fixed per-frame lerp
+    // would then make the zoom itself take longer and feel sticky.
+    const previousAt = lastZoomFrameAt.current ?? now - FRAME_MS_60HZ
+    const elapsedMs = Math.max(0, now - previousAt)
+    lastZoomFrameAt.current = now
+    const ease = zoomEaseForElapsed(elapsedMs)
+    const newZoom = current + diff * ease
     const canvasPoint = viewToCanvas(cursorViewPoint.current, current, state.viewportOffset)
     canvasStoreApi.getState().setZoomAndOffset(newZoom, {
       x: cursorViewPoint.current.x - canvasPoint.x * newZoom,
@@ -213,6 +238,11 @@ export function useCanvasInteraction(
       targetZoom.current = Math.min(Math.max(next, ZOOM_MIN), ZOOM_MAX)
 
       if (!zoomRafId.current) {
+        if (!zoomInteractionActive.current) {
+          acquireBodyClass('canvas-zooming', 'canvas-wheel-zoom')
+          zoomInteractionActive.current = true
+        }
+        lastZoomFrameAt.current = performance.now()
         zoomRafId.current = requestAnimationFrame(smoothZoomTick)
       }
     },
@@ -276,17 +306,6 @@ export function useCanvasInteraction(
         }
       }
 
-      // Sticky-note content scrolls natively when it can scroll in the wheel's
-      // primary direction (annotations aren't canvas nodes).
-      const annotationContent = target.closest?.('[data-annotation-content]') as HTMLElement | null
-      if (annotationContent) {
-        const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY)
-        const canScroll = isHorizontal
-          ? annotationContent.scrollWidth > annotationContent.clientWidth
-          : annotationContent.scrollHeight > annotationContent.clientHeight
-        if (canScroll) return
-      }
-
       const panelContent = target.closest?.('[data-panel-content]')
       if (panelContent) {
         const nodeEl = panelContent.closest('[data-node-id]')
@@ -332,7 +351,7 @@ export function useCanvasInteraction(
       e.stopPropagation()
       if (!wheelPanActive.current) {
         wheelPanActive.current = true
-        acquireBodyClass('canvas-interacting')
+        acquireBodyClass('canvas-interacting', 'canvas-wheel-pan')
       }
       if (wheelPanEndTimer.current) clearTimeout(wheelPanEndTimer.current)
       wheelPanEndTimer.current = setTimeout(() => {
@@ -372,13 +391,23 @@ export function useCanvasInteraction(
         cancelInertia.current()
         cancelInertia.current = null
       }
+      // A second pan press while one is already running (right button then
+      // middle, or a nested canvas whose mousedown also bubbles to its parent
+      // canvas) must not take a SECOND reference: endPanDrag is idempotent and
+      // releases exactly once, so the extra reference would strand the lock for
+      // the rest of the session. Re-aim the existing pan instead.
+      if (isPanning.current) {
+        panButton.current = button
+        lastPanPos.current = { x: clientX, y: clientY }
+        return
+      }
       isPanning.current = true
       panButton.current = button
       lastPanPos.current = { x: clientX, y: clientY }
       if (canvasRef.current) {
         canvasRef.current.style.cursor = 'grabbing'
       }
-      acquireBodyClass('canvas-interacting')
+      acquireBodyClass('canvas-interacting', 'canvas-pan-drag')
     },
     [canvasRef],
   )
@@ -412,6 +441,7 @@ export function useCanvasInteraction(
     return () => {
       window.removeEventListener('mouseup', onWindowMouseUp)
       window.removeEventListener('blur', onWindowBlur)
+      endPanDrag()
     }
   }, [endPanDrag])
 
@@ -493,7 +523,7 @@ export function useCanvasInteraction(
               // its webview/terminal/editor content swallows the window-level
               // mousemove/mouseup and the marquee freezes + mis-selects the moment
               // the cursor crosses onto the focused panel.
-              acquireBodyClass('canvas-interacting')
+              acquireBodyClass('canvas-interacting', 'canvas-marquee')
               acquiredInteracting = true
               // Drop DOM focus from any panel (e.g. a Monaco textarea) so the
               // window-level keyboard shortcuts — Delete/Backspace over the new
@@ -525,6 +555,9 @@ export function useCanvasInteraction(
             window.removeEventListener('mousemove', handleMarqueeMove)
             window.removeEventListener('mouseup', handleMarqueeUp)
             window.removeEventListener('blur', handleMarqueeBlur)
+            if (cancelMarqueeRef.current === handleMarqueeBlur) {
+              cancelMarqueeRef.current = null
+            }
             if (acquiredInteracting) {
               releaseBodyClass('canvas-interacting')
               acquiredInteracting = false
@@ -575,6 +608,7 @@ export function useCanvasInteraction(
             canvasStoreApi.getState().selectNodes(hitNodeIds, true)
           }
 
+          cancelMarqueeRef.current = handleMarqueeBlur
           window.addEventListener('mousemove', handleMarqueeMove)
           window.addEventListener('mouseup', handleMarqueeUp)
           window.addEventListener('blur', handleMarqueeBlur)
@@ -627,7 +661,7 @@ export function useCanvasInteraction(
         // — but only if the click landed on empty canvas (not on a node).
         if (!rightClickDidDrag.current && rightClickStart.current) {
           const target = e.target as HTMLElement
-          const isOnInteractive = target.closest('[data-node-id]') !== null || target.closest('[data-annotation-id]') !== null
+          const isOnInteractive = target.closest('[data-node-id]') !== null
           if (!isOnInteractive) {
             const rect = canvasRef.current?.getBoundingClientRect()
             if (rect) {

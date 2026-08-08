@@ -18,6 +18,15 @@
 
 import { createHash } from 'crypto'
 import type { AgentId } from './agents'
+import {
+  resolveAgentHookMode,
+  type AgentHookConfig,
+} from './agentHookModes'
+export {
+  resolveAgentHookMode,
+  type AgentHookConfig,
+  type AgentHookMode,
+} from './agentHookModes'
 
 // ---------------------------------------------------------------------------
 // Env contract — planted on every PTY by the daemon; echoed back by hooks
@@ -38,10 +47,10 @@ export type AgentHookEventKind =
   | 'turn-start'
   | 'turn-end'
   | 'permission-wait'
-  /** A blocked permission-wait resolved and the turn is in flight again
-   *  (claude/codex PostToolUse, opencode permission.replied). Also fires on
-   *  every ordinary tool call for claude/codex — consumers treat it as an
-   *  idempotent "the turn is running" re-assertion. */
+  /** An idempotent "the turn is running" re-assertion. OpenCode emits it when
+   *  a permission reply arrives; other CLIs emit it after a tool completes.
+   *  Claude/Codex/Grok do not hook the actual approval reply, so renderer
+   *  terminal input supplies that earlier resume edge. */
   | 'turn-resume'
 
 export interface AgentHookEvent {
@@ -91,16 +100,6 @@ export interface HookInjectionContext {
  * PTY regardless — it leaves no repo trace, and a hook file that never gets
  * written simply never reads it.
  */
-export type AgentHookMode = 'auto' | 'on' | 'off'
-
-/** Sparse per-agent overrides; any agent absent resolves to 'auto'. */
-export type AgentHookConfig = Partial<Record<AgentId, AgentHookMode>>
-
-/** The effective mode for one agent (missing → 'auto'). */
-export function resolveAgentHookMode(config: AgentHookConfig | undefined, agentId: AgentId): AgentHookMode {
-  return config?.[agentId] ?? 'auto'
-}
-
 /** Result of a projectFile's `strip`: leave it (null), delete an owned file,
  *  or rewrite a shared file without our entries. */
 export type AgentHookStrip = null | { delete: true } | { content: string }
@@ -120,6 +119,50 @@ export interface AgentHookAgentState {
 }
 
 export interface AgentHookSpec {
+  /**
+   * Whether this CLI pushes a mapped turn-end when the USER INTERRUPTS a
+   * running turn (Esc / Ctrl+C), the one turn boundary that is NOT a normal
+   * completion.
+   *
+   *  - true: the CLI's interrupt path fires an event that normalize() turns
+   *    into 'turn-end' (cursor's stop{status:aborted}, pi's agent_end,
+   *    opencode's session.idle — each verified live and pinned in
+   *    agentHookContracts.itest.ts). Cate's FSM idles correctly, unaided.
+   *  - false: the CLI pushes NOTHING on interrupt. claude and codex both do
+   *    this — verified live with EVERY one of their hook events registered
+   *    (claude's Stop emitter runs at end-turn, through the very abort signal
+   *    the interrupt trips; codex is identically silent, proven against a
+   *    control turn that DID fire Stop). Cate's running indicator therefore
+   *    stays stuck until the next prompt.
+   *
+   * For the false agents Cate recovers the turn-end out-of-band, from the one
+   * interrupt channel that is still deterministic and file-based (not a
+   * keystroke, not screen scraping, not a settle timer): the CLI writes an
+   * interrupt MARKER into its own transcript, and `interruptRecovery.marker`
+   * below matches it. The runtime arms a transcript tail-watch at turn-start
+   * and synthesizes a turn-end the moment the marker lands (see
+   * runtime/capabilities/agentHooks.ts) — so the FSM idles like it does for the
+   * self-healing agents, just via the transcript rather than a hook.
+   *
+   * The flag itself stays a truthful statement about the CLI: it still pushes
+   * no hook, so the "a user interrupt pushes NO hook event" tests keep guarding
+   * the day claude/codex ship a real interrupt event — the signal to flip this
+   * flag true (they would then self-heal via the hook and the transcript watch
+   * is no longer armed).
+   */
+  reportsTurnEndOnInterrupt: boolean
+  /**
+   * For an agent that pushes NO hook on interrupt (reportsTurnEndOnInterrupt
+   * false), how the runtime recovers the turn-end from the transcript instead.
+   * `marker` matches the transcript's newly-appended tail once the CLI has
+   * written its interrupt marker for the just-aborted turn (claude's
+   * "[Request interrupted by user]", codex's rollout abort record) — both
+   * pinned live against the real transcript in agentHookContracts.itest.ts.
+   * Undefined for the self-healing agents (they get a real hook turn-end and
+   * never need this) and for any false agent whose transcript carries no
+   * distinguishable marker (then the gap simply stays open, honestly).
+   */
+  interruptRecovery?: { marker: RegExp }
   /**
    * Workspace-scoped hook files (claude's .claude/settings.local.json,
    * codex's .codex/hooks.json, pi's .pi/extensions/cate-hook.ts,
@@ -302,6 +345,12 @@ export function agentHookFolder(agentId: AgentId): string | null {
 const CLAUDE_EVENTS = ['SessionStart', 'UserPromptSubmit', 'Notification', 'PostToolUse', 'Stop', 'SessionEnd']
 
 const claudeSpec: AgentHookSpec = {
+  // No hook fires on a user interrupt — pinned live (see the field doc).
+  reportsTurnEndOnInterrupt: false,
+  // Recovered from the transcript: claude appends a user-role message whose
+  // content is exactly "[Request interrupted by user]" (also the "…for tool
+  // use" variant) when a turn is aborted. Pinned live in agentHookContracts.
+  interruptRecovery: { marker: /\[Request interrupted by user/ },
   projectFiles: [
     {
       relPath: '.claude/settings.local.json',
@@ -323,9 +372,9 @@ const claudeSpec: AgentHookSpec = {
     switch (p.hook_event_name) {
       case 'SessionStart': return { kind: 'session-start', ...base }
       case 'UserPromptSubmit': return { kind: 'turn-start', ...base }
-      // Fires after EVERY executed tool call; the one after a permission-wait
-      // is the approval resolution (denial produces no PostToolUse — the turn
-      // just Stops).
+      // Fires after EVERY executed tool call. This confirms the turn is still
+      // active, but is too late to represent approval resolution: an approved
+      // long-running tool fires it only after finishing.
       case 'PostToolUse': return { kind: 'turn-resume', ...base }
       case 'Stop': return { kind: 'turn-end', ...base }
       case 'SessionEnd': return { kind: 'session-end', ...base }
@@ -373,6 +422,18 @@ const CODEX_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PermissionRequest', '
 const CODEX_HOOK_TIMEOUT = 60
 
 const codexSpec: AgentHookSpec = {
+  // Identically silent on interrupt (Ctrl+C) — pinned live against a control
+  // turn that DID fire Stop, so it is a real gap, not a wiring failure.
+  reportsTurnEndOnInterrupt: false,
+  // Recovered from the rollout: codex writes an event_msg whose payload type is
+  // `turn_aborted` (reason "interrupted") when a running turn is cancelled —
+  // confirmed against real rollouts and the 0.145.0 binary's EventMsg enum. The
+  // marker is deliberately the serialized record TYPE, not free text, so
+  // ordinary assistant output can't trip it; it also serializes for the other
+  // abort reasons (budget/context exceeded), which is correct — any aborted
+  // turn has ended. Pinned live against the real rollout tail in
+  // agentHookContracts.itest.ts.
+  interruptRecovery: { marker: /"turn_aborted"/ },
   projectFiles: [
     {
       relPath: '.codex/hooks.json',
@@ -395,8 +456,9 @@ const codexSpec: AgentHookSpec = {
       case 'UserPromptSubmit': return { kind: 'turn-start', ...base }
       case 'Stop': return { kind: 'turn-end', ...base }
       case 'PermissionRequest': return { kind: 'permission-wait', ...base }
-      // Fires after EVERY executed tool call; the one after a PermissionRequest
-      // is the approval resolution (denial produces no PostToolUse).
+      // Fires after EVERY executed tool call. This confirms the turn is still
+      // active, but is too late to represent approval resolution: an approved
+      // long-running tool fires it only after finishing.
       case 'PostToolUse': return { kind: 'turn-resume', ...base }
       // SessionEnd never fires (pinned live) — no mapping on purpose.
       default: return null
@@ -438,6 +500,8 @@ interface CursorHooksJson {
 }
 
 const cursorSpec: AgentHookSpec = {
+  // Interrupt (Esc) pushes stop{status:aborted} ~100ms later → turn-end.
+  reportsTurnEndOnInterrupt: true,
   projectFiles: [
     {
       relPath: '.cursor/hooks.json',
@@ -568,6 +632,9 @@ export default function (pi: any) {
 `
 
 const piSpec: AgentHookSpec = {
+  // Interrupt (Esc) aborts the provider stream; pi then fires agent_end
+  // ~130ms later → turn-end.
+  reportsTurnEndOnInterrupt: true,
   projectFiles: [
     {
       relPath: '.pi/extensions/cate-hook.ts',
@@ -626,6 +693,12 @@ const GROK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'Notification', 'PostTo
 const GROK_HOOK_TIMEOUT = 60
 
 const grokSpec: AgentHookSpec = {
+  // Ctrl+C on an in-flight turn fires Stop → turn-end, pinned live on the
+  // approval-parked turn in agentHookContracts.itest.ts (a free-streaming turn
+  // could not be tested — the account's grok-4.5-build quota was exhausted —
+  // but the cancel mechanism is the same, and grok's docs list Stop as firing
+  // on a "cancelled" turn).
+  reportsTurnEndOnInterrupt: true,
   projectFiles: [
     {
       // `cate.json` is ours alone — grok merges every file in the dir, so a
@@ -649,8 +722,8 @@ const grokSpec: AgentHookSpec = {
     switch (p.hookEventName) {
       case 'session_start': return { kind: 'session-start', ...base }
       case 'user_prompt_submit': return { kind: 'turn-start', ...base }
-      // Fires after every executed tool call; the one following a
-      // permission_prompt is the approval resolution.
+      // Fires after every executed tool call. Terminal input supplies the
+      // earlier approval-answer edge for long-running approved tools.
       case 'post_tool_use': return { kind: 'turn-resume', ...base }
       case 'stop': return { kind: 'turn-end', ...base }
       case 'session_end': return { kind: 'session-end', ...base }
@@ -717,6 +790,9 @@ export const CateHookBridge = async () => {
 `
 
 const opencodeSpec: AgentHookSpec = {
+  // Interrupt (Ctrl+C) aborts the turn and fires session.idle ~45ms later →
+  // turn-end.
+  reportsTurnEndOnInterrupt: true,
   projectFiles: [
     {
       // `.js`, not `.mjs`: opencode's scan glob is `*.{ts,js}` only.

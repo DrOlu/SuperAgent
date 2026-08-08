@@ -2,7 +2,8 @@
 // Type declaration for window.electronAPI exposed via contextBridge
 // =============================================================================
 
-import type { AgentCreateOptions, AgentEventEnvelope, AgentExtensionUIResponse, AgentImageAttachment, AgentModelRef, AgentModelDescriptor, AgentRpcState, AgentSessionListEntry, AgentSessionStats, AgentSlashCommand, AgentThinkingLevel, AppSettings, AgentState, AuthProviderDescriptor, AuthProviderStatus, CustomOpenAIProvider, DockWindowInitPayload, DockWindowSyncState, DetachedDockWindowSnapshot, WindowPanelInfo, WindowPanelReport, FileSearchOptions, FileSearchResult, FileTreeNode, SearchOptions, SearchResultBatch, SearchDoneEvent, NotificationAction, OAuthFlowEvent, PanelTransferSnapshot, PerfSnapshot, Point, ProviderVerification, SidebarSession, TerminalActivity, TerminalAgentSession, WorkspaceInfo, WorkspaceMutationResult, RemoteConnectSpec, RuntimeConnectResult, RuntimeStatusEvent, RuntimeConnection, RuntimePhase, RemoteProjectEntry, SshHostEntry, UIState } from './types'
+import type { CodingCreateOptions, CodingEventEnvelope, CodingExtensionUIResponse, CodingImageAttachment, CateAgentModelRef, CodingModelDescriptor, CodingRpcState, CodingSessionListEntry, CodingSessionStats, CodingSlashCommand, CodingThinkingLevel, AppSettings, AgentState, AuthProviderDescriptor, AuthProviderStatus, CustomOpenAIProvider, DockWindowInitPayload, DockWindowSyncState, DetachedDockWindowSnapshot, WindowPanelInfo, WindowPanelReport, FileSearchOptions, FileSearchResult, FileTreeNode, SearchOptions, SearchResultBatch, SearchDoneEvent, NotificationAction, OAuthFlowEvent, PanelTransferSnapshot, PerfSnapshot, Point, ProviderVerification, SidebarSession, TerminalActivity, TerminalAgentSession, WorkspaceInfo, WorkspaceMutationResult, RemoteConnectSpec, RuntimeConnectResult, RuntimeStatusEvent, RuntimeConnection, RuntimePhase, RemoteProjectEntry, SshHostEntry, UIState } from './types'
+import type { CodingAgentLaunch } from './codingAgentRuns'
 import type { SavedSkill, InstalledSkill, SkillEntry, SkillSource, SkillTargetId } from './skills'
 import type { AgentHookEvent, AgentHookAgentState } from './agentHooks'
 import type { ExtensionListEntry, ExtensionManifest } from './extensions'
@@ -32,6 +33,55 @@ export interface NativeContextMenuItem {
   submenu?: NativeContextMenuItem[]
 }
 
+export interface BrowserViewState {
+  webContentsId: number
+  url: string
+  title: string
+  loading: boolean
+  canGoBack: boolean
+  canGoForward: boolean
+}
+
+export interface BrowserViewEvent {
+  panelId: string
+  webContentsId: number
+  state?: BrowserViewState
+  type:
+    | 'dom-ready'
+    | 'did-navigate'
+    | 'did-navigate-in-page'
+    | 'page-favicon-updated'
+    | 'page-title-updated'
+    | 'did-fail-load'
+    | 'did-start-loading'
+    | 'did-stop-loading'
+    | 'render-process-gone'
+    | 'password-focus'
+  url?: string
+  title?: string
+  favicons?: string[]
+  errorDescription?: string
+  errorCode?: number
+  isMainFrame?: boolean
+  reason?: string
+  payload?: unknown
+}
+
+export type BrowserViewCommand =
+  | { op: 'loadURL'; url: string }
+  | { op: 'reload' | 'reloadIgnoringCache' | 'goBack' | 'goForward' | 'focus' }
+  | { op: 'executeJavaScript'; code: string }
+  | { op: 'sendInputEvent'; event: Electron.MouseInputEvent | Electron.MouseWheelInputEvent | Electron.KeyboardInputEvent }
+  | { op: 'capturePage' }
+  | { op: 'getState' }
+
+export interface BrowserViewLayout {
+  rect: { x: number; y: number; width: number; height: number }
+  rendererSize: { width: number; height: number }
+  visible: boolean
+  zoomFactor: number
+}
+
 export interface ElectronAPI {
   /** True when launched with CATE_E2E=1 (Playwright). Renderer uses this to
    *  install the test harness on window.__cateE2E. */
@@ -59,6 +109,10 @@ export interface ElectronAPI {
     workspaceId?: string
     /** Owning Cate panel, exposed to the spawned shell as CATE_PANEL_ID. */
     panelId?: string
+    /** Opaque canvas affinity, exposed to the shell for host-API creates. */
+    placementGroupId?: string
+    /** Closed agent launch contract; main resolves the executable and argv. */
+    codingAgentLaunch?: CodingAgentLaunch
   }): Promise<string>
 
   /** Write data (keystrokes) to a terminal. */
@@ -232,6 +286,21 @@ export interface ElectronAPI {
     unstaged: number
     untracked: number
   } | null>
+
+  /** Review committed and uncommitted changes in a worktree relative to the
+   *  target branch before offering integration. */
+  gitWorktreeReview(worktreePath: string, baseBranch: string, workspaceId: string): Promise<{
+    branch: string
+    baseBranch: string
+    dirty: boolean
+    canApply: boolean
+    commits: Array<{ hash: string; message: string }>
+    files: Array<{ path: string; status: string }>
+    workingFiles: string[]
+    diff: string
+    truncated: boolean
+    message?: string
+  }>
 
   /** Fetch + checkout `toBranch` + merge `fromBranch` into it. Returns
    *  `{ ok: false, conflict }` on merge failure so the renderer can show a
@@ -458,12 +527,6 @@ export interface ElectronAPI {
     session: import('./types').ProjectSessionFile | null
   } | null>
 
-  /** Load per-workspace Cate Agent enablement from .cate/cateAgent.json. */
-  projectCateAgentLoad(rootPath: string): Promise<import('./types').ProjectCateAgentFile>
-
-  /** Persist per-workspace Cate Agent enablement to .cate/cateAgent.json. */
-  projectCateAgentSave(rootPath: string, state: import('./types').ProjectCateAgentFile): Promise<void>
-
   /** Load the per-workspace Cate Agent chats from .cate/chats.json (empty if absent). */
   projectChatsLoad(rootPath: string): Promise<import('./types').Chat[]>
 
@@ -527,6 +590,11 @@ export interface ElectronAPI {
    *  Returns 'discard' | 'cancel'. */
   confirmDiscardJob(payload: { hasWorktree?: boolean; terminalCount?: number }): Promise<'discard' | 'cancel'>
 
+  /** Native confirmation shown when the agent panel's working directory is
+   *  switched to another worktree, which disposes its open chats and reopens a
+   *  single fresh one in the new checkout. Returns 'switch' | 'cancel'. */
+  confirmSwitchAgentWorktree(payload: { chatCount: number; hasMessages: boolean; worktreeName?: string }): Promise<'switch' | 'cancel'>
+
   /** Native confirmation shown when external files/folders are dropped onto the
    *  file explorer. Returns 'copy' (duplicate into the directory), 'move'
    *  (relocate into the directory, removing the originals), or 'cancel'. */
@@ -550,6 +618,18 @@ export interface ElectronAPI {
 
   /** Remove a project path from the recent projects list (issue #220 — forget on close). */
   recentProjectsRemove(projectPath: string): Promise<void>
+
+  // ---------------------------------------------------------------------------
+  // Workspace trust (GHSA-8769-jp52-985f)
+  // ---------------------------------------------------------------------------
+
+  /** Locators the user has explicitly trusted to auto-restore process-bearing
+   *  panels (agent/terminal/browser/extension) and load project MCP config.
+   *  Machine-local — a repo can never vouch for itself. */
+  projectTrustGet(): Promise<string[]>
+
+  /** Record or revoke a trust decision. Returns the updated list. */
+  projectTrustSet(locator: string, trusted: boolean): Promise<string[]>
 
   // ---------------------------------------------------------------------------
   // Browser history + bookmarks (global, shared across all workspaces/windows)
@@ -623,9 +703,68 @@ export interface ElectronAPI {
   webviewScreenshot(webContentsId: number, options: { wantDataUrl: false; saveTo?: 'desktop' | 'temp' }): Promise<{ filePath: string } | null>
   webviewScreenshot(webContentsId: number, options?: { wantDataUrl?: boolean; saveTo?: 'desktop' | 'temp' }): Promise<{ filePath: string; dataUrl: string } | null>
 
+  browserViewCreate(request: { panelId: string; partition: string }): Promise<BrowserViewState | null>
+  browserViewCommand(panelId: string, webContentsId: number, command: BrowserViewCommand): Promise<unknown>
+  browserViewDestroy(panelId: string, webContentsId: number): Promise<void>
+  browserViewSetBounds(panelId: string, webContentsId: number, layout: BrowserViewLayout): void
+  onBrowserViewEvent(callback: (event: BrowserViewEvent) => void): () => void
+
+  /** Main-process agent-browser control plane. The target must be a webview
+   *  guest of the calling window. See main/ipc/browserControl. */
+  browserControl(request: {
+    op:
+      | 'registerAgentBrowser'
+      | 'agentBrowser'
+      | 'downloads'
+    webContentsId: number
+    panelId?: string
+    tabId?: string
+    method?: string
+    args?: Record<string, unknown>
+  }): Promise<{
+    error?: string
+    ok?: boolean
+    result?: unknown
+    cursor?: {
+      kind: 'move' | 'click' | 'dblclick' | 'hover' | 'drag' | 'scroll' | 'type' | 'press'
+      x?: number
+      y?: number
+      rect?: [number, number, number, number]
+      label: string
+    }
+    downloads?: Array<{ url: string; filePath: string; state: string; at: number }>
+  }>
+
   /** Configure the proxy for a browser panel's session partition (issue #241).
    *  Pass an empty/undefined proxyUrl to use a direct connection. */
   browserSetProxy(partition: string, proxyUrl?: string): Promise<void>
+
+  /** Chrome profile metadata and imported-password count. Never includes a password. */
+  browserCredentialProfiles(): Promise<import('./types').BrowserCredentialProfilesResult>
+  /** All saved credential metadata for the in-browser password manager. */
+  browserCredentialList(): Promise<import('./types').BrowserCredentialSuggestion[]>
+  /** Explicitly import one discovered Chrome profile into Cate's encrypted store. */
+  browserCredentialImport(profileId: string): Promise<{ imported: number; skipped: number; total: number }>
+  /** Import Chrome's portable CSV export selected through Cate's native file picker. */
+  browserCredentialImportFile(): Promise<{
+    canceled: boolean
+    imported: number
+    skipped: number
+    total: number
+  }>
+  browserCredentialRemove(credentialId: string): Promise<void>
+  /** Matching usernames for the current URL of an owned browser guest. */
+  browserCredentialSuggestions(webContentsId: number): Promise<{
+    suggestions?: import('./types').BrowserCredentialSuggestion[]
+    error?: string
+  }>
+  /** Main-process-only decrypt + agent-browser fill; password never returns over IPC. */
+  browserCredentialFill(request: {
+    webContentsId: number
+    credentialId: string
+    targetId: string
+  }): Promise<{ ok?: true; error?: string }>
+  browserCredentialClear(): Promise<void>
 
   /** Initiate a native OS file drag from the renderer. */
   nativeFileDrag(filePath: string): Promise<void>
@@ -908,10 +1047,10 @@ export interface ElectronAPI {
   quitAndInstallUpdate(): Promise<boolean>
 
   // -------------------------------------------------------------------------
-  // Analytics — post-update feedback prompt
+  // Post-update changelog + feedback prompt
   // -------------------------------------------------------------------------
 
-  /** Subscribe to the main-process request to show the feedback modal. */
+  /** Subscribe to the main-process request to show the changelog + feedback modal. */
   onFeedbackPrompt(
     callback: (payload: { fromVersion: string; toVersion: string }) => void,
   ): () => void
@@ -941,17 +1080,17 @@ export interface ElectronAPI {
   // ---------------------------------------------------------------------------
 
   /** Create a new agent session bound to a panel. */
-  agentCreate(options: AgentCreateOptions): Promise<{ ok: true } | { ok: false; error: string }>
+  agentCreate(options: CodingCreateOptions): Promise<{ ok: true } | { ok: false; error: string }>
 
   /** Send a user prompt to the panel's agent. Optional images go alongside as
    *  pi `ImageContent` blocks (base64 + mime). */
-  agentPrompt(panelId: string, text: string, images?: AgentImageAttachment[]): Promise<void>
+  agentPrompt(panelId: string, text: string, images?: CodingImageAttachment[]): Promise<void>
 
   /** Queue a steering message to deliver after the current assistant turn. */
-  agentSteer(panelId: string, text: string, images?: AgentImageAttachment[]): Promise<void>
+  agentSteer(panelId: string, text: string, images?: CodingImageAttachment[]): Promise<void>
 
   /** Set the reasoning level (off/minimal/low/medium/high/xhigh). */
-  agentSetThinkingLevel(panelId: string, level: AgentThinkingLevel): Promise<void>
+  agentSetThinkingLevel(panelId: string, level: CodingThinkingLevel): Promise<void>
 
   /** Manually compact session context. */
   agentCompact(panelId: string, customInstructions?: string): Promise<unknown>
@@ -963,16 +1102,19 @@ export interface ElectronAPI {
   agentAbortRetry(panelId: string): Promise<void>
 
   /** Get token + cost + context-usage stats for the current session. */
-  agentGetSessionStats(panelId: string): Promise<AgentSessionStats>
+  agentGetSessionStats(panelId: string): Promise<CodingSessionStats>
 
-  /** Read the user-defined custom OpenAI-compatible provider config. */
-  agentCustomModelsGet(): Promise<CustomOpenAIProvider | null>
+  /** Read Cate-managed custom OpenAI-compatible provider configs. */
+  agentCustomModelsGet(): Promise<CustomOpenAIProvider[]>
 
-  /** Save (or clear, with null) the custom OpenAI-compatible provider config. */
-  agentCustomModelsSave(cfg: CustomOpenAIProvider | null): Promise<void>
+  /** Add or update a Cate-managed custom OpenAI-compatible provider. */
+  agentCustomModelsSave(cfg: CustomOpenAIProvider): Promise<void>
+
+  /** Delete one Cate-managed custom OpenAI-compatible provider. */
+  agentCustomModelsDelete(providerId: string): Promise<void>
 
   /** Get pi's RPC session state snapshot. */
-  agentGetState(panelId: string): Promise<AgentRpcState>
+  agentGetState(panelId: string): Promise<CodingRpcState>
 
   /** Fork from a specific prior user message. */
   agentFork(panelId: string, entryId: string): Promise<{ text: string; cancelled: boolean }>
@@ -982,13 +1124,13 @@ export interface ElectronAPI {
 
   /** Selectable models, derived session-independently from connected providers
    *  in auth.json + the custom OpenAI endpoint. No agent session required. */
-  agentListModels(): Promise<AgentModelDescriptor[]>
+  agentListModels(): Promise<CodingModelDescriptor[]>
 
   /** Reply to a pending extension UI request (fire-and-forget). */
-  agentUiResponse(panelId: string, response: AgentExtensionUIResponse): void
+  agentUiResponse(panelId: string, response: CodingExtensionUIResponse): void
 
   /** List pi sessions on disk for a given workspace cwd. Newest first. */
-  agentListSessions(cwd: string): Promise<AgentSessionListEntry[]>
+  agentListSessions(cwd: string): Promise<CodingSessionListEntry[]>
 
   /** Load a pi session file from disk and return a renderer-shape transcript. */
   agentLoadSessionMessages(sessionFile: string): Promise<unknown[]>
@@ -999,29 +1141,18 @@ export interface ElectronAPI {
   /** Interrupt the running agent (cancels current turn). */
   agentInterrupt(panelId: string): Promise<void>
 
-  /** Dispose the agent session for this panel. */
-  agentDispose(panelId: string): Promise<void>
+  /** Dispose the agent session for this panel. Deleting a durable mission chat
+   *  also stops the coding-agent workers owned by that session. */
+  agentDispose(panelId: string, options?: {
+    stopCodingAgents?: boolean
+    workspaceId?: string
+  }): Promise<void>
 
   /** Change the model used by an existing agent session. */
-  agentSetModel(panelId: string, model: AgentModelRef): Promise<void>
+  agentSetModel(panelId: string, model: CateAgentModelRef): Promise<void>
 
   /** Available slash commands (skills, prompt templates, extension commands). */
-  agentGetCommands(panelId: string): Promise<AgentSlashCommand[]>
-
-  /** Open <cwd>/.cate/pi-agent/{agents|prompts} in the OS file manager. */
-  agentOpenSkillsFolder(cwd: string, kind: 'agents' | 'prompts'): Promise<void>
-
-  /** Open a single agent/prompt file in the OS default editor. */
-  agentOpenSkillFile(filePath: string): Promise<void>
-
-  /** Delete an agent/prompt file. Only allowed under the workspace's pi-agent dir. */
-  agentDeleteSkillFile(cwd: string, filePath: string): Promise<void>
-
-  /** Create a new agent/prompt file from a template, then open it. */
-  agentCreateSkill(cwd: string, kind: 'agents' | 'prompts', name: string): Promise<string>
-
-  /** List user files under <cwd>/.cate/pi-agent/{agents|prompts}. */
-  agentListSkillFiles(cwd: string, kind: 'agents' | 'prompts'): Promise<Array<{ name: string; description?: string; path: string }>>
+  agentGetCommands(panelId: string): Promise<CodingSlashCommand[]>
 
   // ---------------------------------------------------------------------------
   // Cross-agent skills
@@ -1033,11 +1164,13 @@ export interface ElectronAPI {
   skillsRefresh(): Promise<SkillEntry[]>
   /** Fetch a skill's SKILL.md body for the detail preview. */
   skillsGetPreview(entry: SkillEntry): Promise<string>
-  /** Install a skill into a workspace agent. Reuses an existing local install of
-   *  the same skill, then the saved-library cache, else fetches from GitHub. */
-  skillsInstall(entry: SkillEntry, targetId: SkillTargetId, cwd: string): Promise<{ ok: boolean; error?: string; warnings?: string[]; installed?: InstalledSkill }>
+  /** Install/update a skill from its source. Existing workspace/library bytes
+   *  are used only as an offline fallback (reported in warnings). */
+  skillsInstall(entry: SkillEntry, targetId: SkillTargetId, cwd: string, workspaceId?: string): Promise<{ ok: boolean; error?: string; warnings?: string[]; installed?: InstalledSkill }>
   /** Uninstall a skill from a workspace agent. */
-  skillsUninstall(skillId: string, name: string, targetId: SkillTargetId, cwd: string): Promise<{ ok: boolean; error?: string }>
+  skillsUninstall(skillId: string, name: string, targetId: SkillTargetId, cwd: string, workspaceId?: string): Promise<{ ok: boolean; error?: string }>
+  /** Replace installed cate-cli skill copies in a workspace with the bundled version. */
+  skillsReinstallCateCli(cwd: string, workspaceId?: string): Promise<{ ok: boolean; error?: string; warnings?: string[]; installedTargets?: number }>
   /** Installs recorded in this workspace's .cate/skills.json. */
   skillsListInstalled(cwd: string): Promise<InstalledSkill[]>
   /** Skills saved to the user's Cate library (cached in userData). */
@@ -1058,7 +1191,7 @@ export interface ElectronAPI {
   skillsSetToken(token: string | null): Promise<{ ok: boolean }>
 
   /** Stream of agent events forwarded from the main process. */
-  onAgentEvent(callback: (envelope: AgentEventEnvelope) => void): () => void
+  onAgentEvent(callback: (envelope: CodingEventEnvelope) => void): () => void
 
   // ---------------------------------------------------------------------------
   // Pi auth / providers

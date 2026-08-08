@@ -17,6 +17,7 @@
 // =============================================================================
 
 import type { AppSettings } from './types'
+import { isReadOnlyAgentBrowserCommand, validateAgentBrowserCommand } from './agentBrowserCommand'
 
 export type CliPermissionKey = Extract<
   keyof AppSettings,
@@ -56,26 +57,26 @@ export const CLI_PERMISSIONS: CliPermissionSurface[] = [
   {
     label: 'Browser',
     prefixes: ['cate.browser.'],
+    // Observation only. Anything that can change the page, the guest's
+    // environment, or the machine's clipboard is control — including
+    // `evaluate`, which cannot be proven read-only from its text.
     readMethods: [
-      'cate.browser.current',
-      'cate.browser.list',
-      'cate.browser.screenshot',
-      'cate.browser.snapshot',
-      'cate.browser.wait',
+      'cate.browser.readCommand',
+      'cate.browser.tabs',
     ],
     read: {
       key: 'cliBrowserReadEnabled',
       access: 'Read',
       code: 'browser-read-disabled',
       detail:
-        '`cate browser screenshot / snapshot / wait` — see the page in the built-in browser panel, which shows your live logged-in sessions.',
+        '`cate browser snapshot / get / is / console / screenshot / wait` — inspect the page in the built-in browser panel, which shows your live logged-in sessions.',
     },
     control: {
       key: 'cliBrowserControlEnabled',
       access: 'Control',
       code: 'browser-control-disabled',
       detail:
-        '`cate browser open / reload / click / type / press` — act on the page in the built-in browser panel, using your live logged-in sessions.',
+        '`cate browser open / click / fill / type / press / eval` — act on the page with native agent-browser commands, using your live logged-in sessions.',
     },
   },
   {
@@ -102,7 +103,12 @@ export const CLI_PERMISSIONS: CliPermissionSurface[] = [
     // canvas.createPanel is the host method behind `cate panel create`, so the
     // canvas namespace belongs to this row too.
     prefixes: ['cate.panel.', 'cate.canvas.'],
-    readMethods: ['cate.panel.list'],
+    readMethods: [
+      'cate.panel.list',
+      'cate.panel.target.current',
+      'cate.panel.target.set',
+      'cate.panel.target.clear',
+    ],
     read: {
       key: 'cliPanelReadEnabled',
       access: 'Read',
@@ -115,7 +121,7 @@ export const CLI_PERMISSIONS: CliPermissionSurface[] = [
       access: 'Control',
       code: 'panel-control-disabled',
       detail:
-        '`cate panel create / focus / close / set-title` — add panels to the canvas, focus, close and rename them.',
+        '`cate panel create / close` — add terminal or canvas panels and close panels.',
     },
   },
   {
@@ -162,6 +168,27 @@ export function cliPermissionForMethod(method: string): CliPermissionCell | unde
     return cell
   }
   return undefined
+}
+
+/** Request-aware variant used by the first-party gate. It prevents a caller
+ * from placing an acting native command inside the read-only method envelope. */
+export function cliPermissionForRequest(
+  method: string,
+  args: unknown,
+): CliPermissionCell | undefined {
+  if (method === 'cate.browser.readCommand') {
+    try {
+      const raw = args && typeof args === 'object'
+        ? (args as { command?: unknown }).command
+        : undefined
+      if (!isReadOnlyAgentBrowserCommand(validateAgentBrowserCommand(raw))) {
+        return CLI_PERMISSIONS[0].control
+      }
+    } catch {
+      return CLI_PERMISSIONS[0].control
+    }
+  }
+  return cliPermissionForMethod(method)
 }
 
 /** The cell owning a setting key. Every key in CliPermissionKey has one. */

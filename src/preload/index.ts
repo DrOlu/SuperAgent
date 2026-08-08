@@ -42,6 +42,7 @@ import {
   GIT_WORKTREE_REMOVE,
   GIT_WORKTREE_PRUNE,
   GIT_WORKTREE_STATUS,
+  GIT_WORKTREE_REVIEW,
   GIT_WORKTREE_MERGE_TO,
   GIT_WORKTREE_ADD_FROM_PR,
   GIT_WORKTREE_UPDATE_FROM,
@@ -80,8 +81,6 @@ import {
   SESSION_FLUSH_SAVE_DONE,
   PROJECT_STATE_SAVE,
   PROJECT_STATE_LOAD,
-  PROJECT_CATE_AGENT_LOAD,
-  PROJECT_CATE_AGENT_SAVE,
   PROJECT_CHATS_LOAD,
   PROJECT_CHATS_SAVE,
   WORKSPACE_EXTERNAL_EDIT,
@@ -92,6 +91,11 @@ import {
   MENU_TRIGGER_ACTION,
   MENU_LOAD_LAYOUT,
   BROWSER_SHORTCUT,
+  BROWSER_VIEW_CREATE,
+  BROWSER_VIEW_COMMAND,
+  BROWSER_VIEW_BOUNDS,
+  BROWSER_VIEW_DESTROY,
+  BROWSER_VIEW_EVENT,
   MENU_SHOW_CONTEXT,
   MENU_GET_BAR_ITEMS,
   MENU_POPUP_BAR_ITEM,
@@ -104,11 +108,14 @@ import {
   DIALOG_CONFIRM_CLOSE_CANVAS,
   DIALOG_CONFIRM_RELOAD_WORKSPACE,
   DIALOG_CONFIRM_DISCARD_JOB,
+  DIALOG_CONFIRM_SWITCH_AGENT_WORKTREE,
   DIALOG_CONFIRM_IMPORT,
   DIALOG_TERMINAL_LINK_OPEN,
   RECENT_PROJECTS_GET,
   RECENT_PROJECTS_ADD,
   RECENT_PROJECTS_REMOVE,
+  PROJECT_TRUST_GET,
+  PROJECT_TRUST_SET,
   SIDEBAR_SESSION_GET,
   SIDEBAR_SESSION_SET,
   REMOTE_PROJECTS_GET,
@@ -187,7 +194,16 @@ import {
   RUNTIME_RETRY_LOCAL,
   RUNTIME_PICK_SSH_KEY,
   WEBVIEW_SCREENSHOT,
+  BROWSER_CONTROL,
   BROWSER_SET_PROXY,
+  BROWSER_CREDENTIAL_PROFILES,
+  BROWSER_CREDENTIAL_LIST,
+  BROWSER_CREDENTIAL_IMPORT,
+  BROWSER_CREDENTIAL_IMPORT_FILE,
+  BROWSER_CREDENTIAL_REMOVE,
+  BROWSER_CREDENTIAL_SUGGESTIONS,
+  BROWSER_CREDENTIAL_FILL,
+  BROWSER_CREDENTIAL_CLEAR,
   NATIVE_FILE_DRAG,
   UPDATE_STATUS,
   UPDATE_QUIT_AND_INSTALL,
@@ -200,39 +216,36 @@ import {
   ANALYTICS_TRACK_USAGE,
   TELEMETRY_ACKNOWLEDGE_NOTICE,
   OPEN_EXTERNAL_URL,
-  AGENT_CREATE,
-  AGENT_PROMPT,
-  AGENT_INTERRUPT,
-  AGENT_DISPOSE,
-  AGENT_SET_MODEL,
-  AGENT_GET_COMMANDS,
-  AGENT_EVENT,
-  AGENT_OPEN_SKILLS_FOLDER,
-  AGENT_OPEN_SKILL_FILE,
-  AGENT_DELETE_SKILL_FILE,
-  AGENT_CREATE_SKILL,
-  AGENT_LIST_SKILL_FILES,
-  AGENT_STEER,
-  AGENT_SET_THINKING_LEVEL,
-  AGENT_COMPACT,
-  AGENT_SET_AUTO_COMPACTION,
-  AGENT_ABORT_RETRY,
-  AGENT_GET_SESSION_STATS,
-  AGENT_GET_STATE,
-  AGENT_FORK,
-  AGENT_GET_FORK_MESSAGES,
-  AGENT_LIST_MODELS,
-  AGENT_UI_RESPONSE,
-  AGENT_LIST_SESSIONS,
-  AGENT_LOAD_SESSION_MESSAGES,
-  AGENT_DELETE_SESSION,
-  AGENT_CUSTOM_MODELS_GET,
-  AGENT_CUSTOM_MODELS_SAVE,
+  CODING_CREATE,
+  CODING_PROMPT,
+  CODING_INTERRUPT,
+  CODING_DISPOSE,
+  CODING_SET_MODEL,
+  CODING_GET_COMMANDS,
+  CODING_EVENT,
+  CODING_STEER,
+  CODING_SET_THINKING_LEVEL,
+  CODING_COMPACT,
+  CODING_SET_AUTO_COMPACTION,
+  CODING_ABORT_RETRY,
+  CODING_GET_SESSION_STATS,
+  CODING_GET_STATE,
+  CODING_FORK,
+  CODING_GET_FORK_MESSAGES,
+  CODING_LIST_MODELS,
+  CODING_UI_RESPONSE,
+  CODING_LIST_SESSIONS,
+  CODING_LOAD_SESSION_MESSAGES,
+  CODING_DELETE_SESSION,
+  CODING_CUSTOM_MODELS_GET,
+  CODING_CUSTOM_MODELS_SAVE,
+  CODING_CUSTOM_MODELS_DELETE,
   SKILLS_GET_INDEX,
   SKILLS_REFRESH,
   SKILLS_GET_PREVIEW,
   SKILLS_INSTALL,
   SKILLS_UNINSTALL,
+  SKILLS_REINSTALL_CATE_CLI,
   SKILLS_LIST_INSTALLED,
   SKILLS_LIST_SAVED,
   SKILLS_SAVE,
@@ -388,6 +401,7 @@ const invokeForwarders = {
   gitWorktreeRemove: makeInvoker<'gitWorktreeRemove'>(GIT_WORKTREE_REMOVE),
   gitWorktreePrune: makeInvoker<'gitWorktreePrune'>(GIT_WORKTREE_PRUNE),
   gitWorktreeStatus: makeInvoker<'gitWorktreeStatus'>(GIT_WORKTREE_STATUS),
+  gitWorktreeReview: makeInvoker<'gitWorktreeReview'>(GIT_WORKTREE_REVIEW),
   gitWorktreeMergeTo: makeInvoker<'gitWorktreeMergeTo'>(GIT_WORKTREE_MERGE_TO),
   gitWorktreeUpdateFrom: makeInvoker<'gitWorktreeUpdateFrom'>(GIT_WORKTREE_UPDATE_FROM),
   gitWorktreeAddFromPr: makeInvoker<'gitWorktreeAddFromPr'>(GIT_WORKTREE_ADD_FROM_PR),
@@ -422,8 +436,6 @@ const invokeForwarders = {
   // Session
   projectStateSave: makeInvoker<'projectStateSave'>(PROJECT_STATE_SAVE),
   projectStateLoad: makeInvoker<'projectStateLoad'>(PROJECT_STATE_LOAD),
-  projectCateAgentLoad: makeInvoker<'projectCateAgentLoad'>(PROJECT_CATE_AGENT_LOAD),
-  projectCateAgentSave: makeInvoker<'projectCateAgentSave'>(PROJECT_CATE_AGENT_SAVE),
   projectChatsLoad: makeInvoker<'projectChatsLoad'>(PROJECT_CHATS_LOAD),
   projectChatsSave: makeInvoker<'projectChatsSave'>(PROJECT_CHATS_SAVE),
 
@@ -436,12 +448,17 @@ const invokeForwarders = {
   confirmCloseCanvas: makeInvoker<'confirmCloseCanvas'>(DIALOG_CONFIRM_CLOSE_CANVAS),
   confirmReloadWorkspace: makeInvoker<'confirmReloadWorkspace'>(DIALOG_CONFIRM_RELOAD_WORKSPACE),
   confirmDiscardJob: makeInvoker<'confirmDiscardJob'>(DIALOG_CONFIRM_DISCARD_JOB),
+  confirmSwitchAgentWorktree: makeInvoker<'confirmSwitchAgentWorktree'>(DIALOG_CONFIRM_SWITCH_AGENT_WORKTREE),
   confirmImportEntries: makeInvoker<'confirmImportEntries'>(DIALOG_CONFIRM_IMPORT),
 
   // Recent projects / sidebar / remote projects
   recentProjectsGet: makeInvoker<'recentProjectsGet'>(RECENT_PROJECTS_GET),
   recentProjectsAdd: makeInvoker<'recentProjectsAdd'>(RECENT_PROJECTS_ADD),
   recentProjectsRemove: makeInvoker<'recentProjectsRemove'>(RECENT_PROJECTS_REMOVE),
+
+  // Workspace trust
+  projectTrustGet: makeInvoker<'projectTrustGet'>(PROJECT_TRUST_GET),
+  projectTrustSet: makeInvoker<'projectTrustSet'>(PROJECT_TRUST_SET),
 
   // Browser history + bookmarks (global)
   browserHistoryRecord: makeInvoker<'browserHistoryRecord'>(BROWSER_HISTORY_RECORD),
@@ -467,7 +484,22 @@ const invokeForwarders = {
 
   // Capture / browser
   webviewScreenshot: makeInvoker<'webviewScreenshot'>(WEBVIEW_SCREENSHOT),
+  browserViewCreate: makeInvoker<'browserViewCreate'>(BROWSER_VIEW_CREATE),
+  browserViewCommand: makeInvoker<'browserViewCommand'>(BROWSER_VIEW_COMMAND),
+  browserViewDestroy: makeInvoker<'browserViewDestroy'>(BROWSER_VIEW_DESTROY),
+  browserViewSetBounds(panelId, webContentsId, layout) {
+    ipcRenderer.send(BROWSER_VIEW_BOUNDS, panelId, webContentsId, layout)
+  },
+  browserControl: makeInvoker<'browserControl'>(BROWSER_CONTROL),
   browserSetProxy: makeInvoker<'browserSetProxy'>(BROWSER_SET_PROXY),
+  browserCredentialProfiles: makeInvoker<'browserCredentialProfiles'>(BROWSER_CREDENTIAL_PROFILES),
+  browserCredentialList: makeInvoker<'browserCredentialList'>(BROWSER_CREDENTIAL_LIST),
+  browserCredentialImport: makeInvoker<'browserCredentialImport'>(BROWSER_CREDENTIAL_IMPORT),
+  browserCredentialImportFile: makeInvoker<'browserCredentialImportFile'>(BROWSER_CREDENTIAL_IMPORT_FILE),
+  browserCredentialRemove: makeInvoker<'browserCredentialRemove'>(BROWSER_CREDENTIAL_REMOVE),
+  browserCredentialSuggestions: makeInvoker<'browserCredentialSuggestions'>(BROWSER_CREDENTIAL_SUGGESTIONS),
+  browserCredentialFill: makeInvoker<'browserCredentialFill'>(BROWSER_CREDENTIAL_FILL),
+  browserCredentialClear: makeInvoker<'browserCredentialClear'>(BROWSER_CREDENTIAL_CLEAR),
   nativeFileDrag: makeInvoker<'nativeFileDrag'>(NATIVE_FILE_DRAG),
 
   // Shell utilities
@@ -539,32 +571,28 @@ const invokeForwarders = {
   acknowledgeTelemetryNotice: makeInvoker<'acknowledgeTelemetryNotice'>(TELEMETRY_ACKNOWLEDGE_NOTICE),
 
   // Pi agent
-  agentCreate: makeInvoker<'agentCreate'>(AGENT_CREATE),
-  agentPrompt: makeInvoker<'agentPrompt'>(AGENT_PROMPT),
-  agentSteer: makeInvoker<'agentSteer'>(AGENT_STEER),
-  agentSetThinkingLevel: makeInvoker<'agentSetThinkingLevel'>(AGENT_SET_THINKING_LEVEL),
-  agentCompact: makeInvoker<'agentCompact'>(AGENT_COMPACT),
-  agentSetAutoCompaction: makeInvoker<'agentSetAutoCompaction'>(AGENT_SET_AUTO_COMPACTION),
-  agentAbortRetry: makeInvoker<'agentAbortRetry'>(AGENT_ABORT_RETRY),
-  agentGetSessionStats: makeInvoker<'agentGetSessionStats'>(AGENT_GET_SESSION_STATS),
-  agentGetState: makeInvoker<'agentGetState'>(AGENT_GET_STATE),
-  agentFork: makeInvoker<'agentFork'>(AGENT_FORK),
-  agentGetForkMessages: makeInvoker<'agentGetForkMessages'>(AGENT_GET_FORK_MESSAGES),
-  agentListModels: makeInvoker<'agentListModels'>(AGENT_LIST_MODELS),
-  agentListSessions: makeInvoker<'agentListSessions'>(AGENT_LIST_SESSIONS),
-  agentLoadSessionMessages: makeInvoker<'agentLoadSessionMessages'>(AGENT_LOAD_SESSION_MESSAGES),
-  agentDeleteSession: makeInvoker<'agentDeleteSession'>(AGENT_DELETE_SESSION),
-  agentInterrupt: makeInvoker<'agentInterrupt'>(AGENT_INTERRUPT),
-  agentDispose: makeInvoker<'agentDispose'>(AGENT_DISPOSE),
-  agentSetModel: makeInvoker<'agentSetModel'>(AGENT_SET_MODEL),
-  agentGetCommands: makeInvoker<'agentGetCommands'>(AGENT_GET_COMMANDS),
-  agentOpenSkillsFolder: makeInvoker<'agentOpenSkillsFolder'>(AGENT_OPEN_SKILLS_FOLDER),
-  agentOpenSkillFile: makeInvoker<'agentOpenSkillFile'>(AGENT_OPEN_SKILL_FILE),
-  agentDeleteSkillFile: makeInvoker<'agentDeleteSkillFile'>(AGENT_DELETE_SKILL_FILE),
-  agentCreateSkill: makeInvoker<'agentCreateSkill'>(AGENT_CREATE_SKILL),
-  agentListSkillFiles: makeInvoker<'agentListSkillFiles'>(AGENT_LIST_SKILL_FILES),
-  agentCustomModelsGet: makeInvoker<'agentCustomModelsGet'>(AGENT_CUSTOM_MODELS_GET),
-  agentCustomModelsSave: makeInvoker<'agentCustomModelsSave'>(AGENT_CUSTOM_MODELS_SAVE),
+  agentCreate: makeInvoker<'agentCreate'>(CODING_CREATE),
+  agentPrompt: makeInvoker<'agentPrompt'>(CODING_PROMPT),
+  agentSteer: makeInvoker<'agentSteer'>(CODING_STEER),
+  agentSetThinkingLevel: makeInvoker<'agentSetThinkingLevel'>(CODING_SET_THINKING_LEVEL),
+  agentCompact: makeInvoker<'agentCompact'>(CODING_COMPACT),
+  agentSetAutoCompaction: makeInvoker<'agentSetAutoCompaction'>(CODING_SET_AUTO_COMPACTION),
+  agentAbortRetry: makeInvoker<'agentAbortRetry'>(CODING_ABORT_RETRY),
+  agentGetSessionStats: makeInvoker<'agentGetSessionStats'>(CODING_GET_SESSION_STATS),
+  agentGetState: makeInvoker<'agentGetState'>(CODING_GET_STATE),
+  agentFork: makeInvoker<'agentFork'>(CODING_FORK),
+  agentGetForkMessages: makeInvoker<'agentGetForkMessages'>(CODING_GET_FORK_MESSAGES),
+  agentListModels: makeInvoker<'agentListModels'>(CODING_LIST_MODELS),
+  agentListSessions: makeInvoker<'agentListSessions'>(CODING_LIST_SESSIONS),
+  agentLoadSessionMessages: makeInvoker<'agentLoadSessionMessages'>(CODING_LOAD_SESSION_MESSAGES),
+  agentDeleteSession: makeInvoker<'agentDeleteSession'>(CODING_DELETE_SESSION),
+  agentInterrupt: makeInvoker<'agentInterrupt'>(CODING_INTERRUPT),
+  agentDispose: makeInvoker<'agentDispose'>(CODING_DISPOSE),
+  agentSetModel: makeInvoker<'agentSetModel'>(CODING_SET_MODEL),
+  agentGetCommands: makeInvoker<'agentGetCommands'>(CODING_GET_COMMANDS),
+  agentCustomModelsGet: makeInvoker<'agentCustomModelsGet'>(CODING_CUSTOM_MODELS_GET),
+  agentCustomModelsSave: makeInvoker<'agentCustomModelsSave'>(CODING_CUSTOM_MODELS_SAVE),
+  agentCustomModelsDelete: makeInvoker<'agentCustomModelsDelete'>(CODING_CUSTOM_MODELS_DELETE),
 
   // Cross-agent skills
   skillsGetIndex: makeInvoker<'skillsGetIndex'>(SKILLS_GET_INDEX),
@@ -572,6 +600,7 @@ const invokeForwarders = {
   skillsGetPreview: makeInvoker<'skillsGetPreview'>(SKILLS_GET_PREVIEW),
   skillsInstall: makeInvoker<'skillsInstall'>(SKILLS_INSTALL),
   skillsUninstall: makeInvoker<'skillsUninstall'>(SKILLS_UNINSTALL),
+  skillsReinstallCateCli: makeInvoker<'skillsReinstallCateCli'>(SKILLS_REINSTALL_CATE_CLI),
   skillsListInstalled: makeInvoker<'skillsListInstalled'>(SKILLS_LIST_INSTALLED),
   skillsListSaved: makeInvoker<'skillsListSaved'>(SKILLS_LIST_SAVED),
   skillsSave: makeInvoker<'skillsSave'>(SKILLS_SAVE),
@@ -927,6 +956,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onBrowserShortcut(callback: (action: string) => void): () => void {
     return createIpcListener(BROWSER_SHORTCUT, callback)
   },
+  onBrowserViewEvent(callback: (payload: import('../shared/electron-api').BrowserViewEvent) => void) {
+    const listener = (_event: Electron.IpcRendererEvent, payload: unknown) => callback(payload as any)
+    ipcRenderer.on(BROWSER_VIEW_EVENT, listener)
+    return () => ipcRenderer.removeListener(BROWSER_VIEW_EVENT, listener)
+  },
 
   onBrowserHistoryChanged(callback: () => void): () => void {
     return createIpcListener(BROWSER_HISTORY_CHANGED, callback)
@@ -937,7 +971,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ---------------------------------------------------------------------------
-  // Analytics — post-update feedback prompt
+  // Post-update changelog + feedback prompt
   // ---------------------------------------------------------------------------
 
   onUpdateStatus(callback: (status: UpdateStatus) => void): () => void {
@@ -969,11 +1003,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ---------------------------------------------------------------------------
 
   agentUiResponse(panelId: string, response: unknown): void {
-    ipcRenderer.send(AGENT_UI_RESPONSE, panelId, response)
+    ipcRenderer.send(CODING_UI_RESPONSE, panelId, response)
   },
 
   onAgentEvent(callback: (envelope: unknown) => void): () => void {
-    return createIpcListener(AGENT_EVENT, callback)
+    return createIpcListener(CODING_EVENT, callback)
   },
 
   // ---------------------------------------------------------------------------

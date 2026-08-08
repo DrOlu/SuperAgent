@@ -20,6 +20,7 @@ interface FakeTerminalShape {
   options: Record<string, unknown>
   cols: number
   rows: number
+  emitData(data: string): void
 }
 const terminalInstances: FakeTerminalShape[] = []
 
@@ -32,6 +33,7 @@ vi.mock('@xterm/xterm', () => {
     public element: HTMLElement | undefined
     public cols = 80
     public rows = 24
+    private dataCallback?: (data: string) => void
     constructor(options: Record<string, unknown> = {}) {
       this.options = options
       terminalInstances.push(this as unknown as FakeTerminalShape)
@@ -42,7 +44,11 @@ vi.mock('@xterm/xterm', () => {
       container.appendChild(this.element)
     }
     write(s: string): void { this.writes.push(s) }
-    onData(): { dispose: () => void } { return { dispose: () => {} } }
+    onData(cb: (data: string) => void): { dispose: () => void } {
+      this.dataCallback = cb
+      return { dispose: () => { this.dataCallback = undefined } }
+    }
+    emitData(data: string): void { this.dataCallback?.(data) }
     onResize(): { dispose: () => void } { return { dispose: () => {} } }
     onTitleChange(): { dispose: () => void } { return { dispose: () => {} } }
     hasSelection(): boolean { return false }
@@ -75,6 +81,7 @@ vi.mock('@xterm/addon-web-links', () => ({
 
 const statusRegisterTerminal = vi.fn()
 const statusUnregisterTerminal = vi.fn()
+const setPanelAgentSession = vi.fn()
 vi.mock('../../stores/statusStore', () => ({
   useStatusStore: {
     getState: () => ({
@@ -102,7 +109,7 @@ vi.mock('../../stores/settingsStore', () => ({
 vi.mock('../../stores/appStore', () => ({
   awaitWorkspaceSync: async () => {},
   useAppStore: {
-    getState: () => ({ workspaces: [], updatePanelTitleFromAgent: vi.fn() }),
+    getState: () => ({ workspaces: [], updatePanelTitleFromAgent: vi.fn(), setPanelAgentSession }),
   },
 }))
 const replayTerminalLog = vi.fn(async () => {})
@@ -114,9 +121,11 @@ vi.mock('./terminalFileLinkProvider', () => ({
   createFileLinkProvider: () => ({ provideLinks: (_y: number, cb: (l?: unknown[]) => void) => cb(undefined) }),
   resolveLinkRoot: () => undefined,
 }))
+const noteAgentInputSubmitted = vi.fn()
 vi.mock('../agent/agentScreenDetector', () => ({
   noteAgentPresence: vi.fn(),
   forgetAgentTracker: vi.fn(),
+  noteAgentInputSubmitted,
 }))
 vi.mock('../themeManager', () => ({
   getActiveTheme: () => ({ terminal: {} }),
@@ -211,8 +220,10 @@ beforeEach(() => {
   onTerminalExit.mockImplementation(captureExitListener)
   statusRegisterTerminal.mockClear()
   statusUnregisterTerminal.mockClear()
+  setPanelAgentSession.mockClear()
   replayTerminalLog.mockClear()
   replayTerminalLog.mockImplementation(async () => {})
+  noteAgentInputSubmitted.mockClear()
 })
 
 // ===========================================================================
@@ -259,6 +270,16 @@ describe('spawn → wire → dispose happy path', () => {
     expect(dataDisposers[0]).toHaveBeenCalledTimes(1)
   })
 
+  it('reports a submitted terminal line to the agent status coordinator', async () => {
+    terminalCreate.mockResolvedValueOnce('pty-input')
+    await LC.getOrCreate('panel-input', { workspaceId: 'ws-1' })
+
+    terminalInstances[0].emitData('\r')
+
+    expect(noteAgentInputSubmitted).toHaveBeenCalledWith('pty-input')
+    expect(terminalWrite).toHaveBeenCalledWith('pty-input', '\r')
+  })
+
   it('returns the same in-flight entry for concurrent getOrCreate calls and spawns once', async () => {
     const [a, b] = await Promise.all([
       LC.getOrCreate('panel-race', { workspaceId: 'ws-1' }),
@@ -269,10 +290,55 @@ describe('spawn → wire → dispose happy path', () => {
     LC.dispose('panel-race')
   })
 
+  it('terminates the PTY without disposing the xterm kept by a stopped panel', async () => {
+    terminalCreate.mockResolvedValueOnce('pty-stopped')
+    const entry = await LC.getOrCreate('panel-stopped', { workspaceId: 'ws-1' })
+    const fake = terminalInstances[0]
+
+    LC.terminate('panel-stopped')
+
+    expect(terminalKill).toHaveBeenCalledTimes(1)
+    expect(terminalKill).toHaveBeenCalledWith('pty-stopped')
+    expect(statusUnregisterTerminal).toHaveBeenCalledWith('pty-stopped', 'ws-1')
+    expect(RS.has('panel-stopped')).toBe(true)
+    expect(RS.ptyIdForPanel('panel-stopped')).toBeNull()
+    expect(RS.panelIdForPty('pty-stopped')).toBeNull()
+    expect(entry.alive).toBe(false)
+    expect(fake.disposeCount).toBe(0)
+    expect(dataDisposers[0]).not.toHaveBeenCalled()
+
+    // Closing the panel still performs the final renderer teardown without
+    // trying to kill or unregister the already-terminated PTY again.
+    LC.dispose('panel-stopped')
+    expect(fake.disposeCount).toBe(1)
+    expect(dataDisposers[0]).toHaveBeenCalledTimes(1)
+    expect(terminalKill).toHaveBeenCalledTimes(1)
+    expect(statusUnregisterTerminal).toHaveBeenCalledTimes(1)
+  })
+
   it('writes initialInput into the terminal after spawn', async () => {
     await LC.getOrCreate('panel-input', { workspaceId: 'ws-1', initialInput: 'npm test\r' })
     expect(terminalInstances[0].writes).toContain('npm test\r')
     LC.dispose('panel-input')
+  })
+
+  it('writes a restored agent resume command once and retains its stamp until the agent reports', async () => {
+    terminalCreate.mockResolvedValueOnce('pty-agent-restore')
+
+    const first = await LC.getOrCreate('panel-agent-restore', {
+      workspaceId: 'ws-1',
+      resumeCommand: 'codex resume session-1',
+    })
+    const reused = await LC.getOrCreate('panel-agent-restore', {
+      workspaceId: 'ws-1',
+      resumeCommand: 'codex resume session-1',
+    })
+
+    expect(reused).toBe(first)
+    expect(terminalWrite).toHaveBeenCalledTimes(1)
+    expect(terminalWrite).toHaveBeenCalledWith('pty-agent-restore', 'codex resume session-1\r')
+    expect(setPanelAgentSession).not.toHaveBeenCalled()
+    LC.dispose('panel-agent-restore')
   })
 
   it('uses the session-restore cwd and replays the scrollback log for restored terminals', async () => {
@@ -561,6 +627,27 @@ describe('spawn failure', () => {
     expect(terminalKill).toHaveBeenCalledWith('pty-late')
     expect(RS.has('panel-late')).toBe(false)
     expect(RS.panelIdForPty('pty-late')).toBeNull()
+  })
+
+  it('kills a PTY that finishes spawning after its mission was stopped', async () => {
+    let resolveSpawn: (id: string) => void = () => {}
+    terminalCreate.mockImplementationOnce(
+      () => new Promise<string>((resolve) => { resolveSpawn = resolve }),
+    )
+
+    const pending = LC.getOrCreate('panel-late-stop', { workspaceId: 'ws-1' })
+    const entry = RS.registry.get('panel-late-stop')!
+    LC.terminate('panel-late-stop')
+
+    await vi.waitFor(() => expect(terminalCreate).toHaveBeenCalled())
+    resolveSpawn('pty-late-stop')
+    await pending
+
+    expect(terminalKill).toHaveBeenCalledWith('pty-late-stop')
+    expect(RS.has('panel-late-stop')).toBe(true)
+    expect(RS.panelIdForPty('pty-late-stop')).toBeNull()
+    expect(entry.alive).toBe(false)
+    expect(terminalInstances[0].disposeCount).toBe(0)
   })
 })
 

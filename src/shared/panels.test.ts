@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { resolvePanelSize, keepsMountedOffscreen, keepsMountedWhenTabHidden } from './panels'
+import {
+  SPLIT_MENU_PANEL_TYPES,
+  isNavigablePanelType,
+  isWorktreePanelType,
+  keepsMountedOffscreen,
+  keepsMountedWhenTabHidden,
+  resolvePanelSize,
+} from './panels'
 
 describe('resolvePanelSize', () => {
   it('returns the fixed per-type default', () => {
@@ -22,7 +29,7 @@ describe('keepsMountedWhenTabHidden', () => {
   it('is false for panels whose state is cheap to rehydrate or lives in main', () => {
     expect(keepsMountedWhenTabHidden('terminal')).toBe(false)
     expect(keepsMountedWhenTabHidden('editor')).toBe(false)
-    expect(keepsMountedWhenTabHidden('agent')).toBe(false)
+    expect(keepsMountedWhenTabHidden('cateAgent')).toBe(false)
     expect(keepsMountedWhenTabHidden('canvas')).toBe(false)
   })
 
@@ -37,5 +44,26 @@ describe('keepsMountedOffscreen', () => {
     expect(keepsMountedOffscreen('browser')).toBe(true)
     expect(keepsMountedOffscreen('extension')).toBe(true)
     expect(keepsMountedOffscreen('editor')).toBe(false)
+  })
+})
+
+describe('panel capabilities', () => {
+  it('owns the worktree-bearing panel policy', () => {
+    expect(isWorktreePanelType('terminal')).toBe(true)
+    expect(isWorktreePanelType('cateAgent')).toBe(true)
+    expect(isWorktreePanelType('editor')).toBe(false)
+    expect(isWorktreePanelType('unknown')).toBe(false)
+  })
+
+  it('owns command-palette navigation policy', () => {
+    expect(isNavigablePanelType('terminal')).toBe(true)
+    expect(isNavigablePanelType('document')).toBe(true)
+    expect(isNavigablePanelType('canvas')).toBe(false)
+    expect(isNavigablePanelType('extension')).toBe(false)
+    expect(isNavigablePanelType('unknown')).toBe(false)
+  })
+
+  it('owns the ordered generic split-menu catalog', () => {
+    expect(SPLIT_MENU_PANEL_TYPES).toEqual(['editor', 'terminal', 'browser', 'canvas'])
   })
 })

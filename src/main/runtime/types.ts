@@ -16,7 +16,7 @@
 
 import type { FileTreeNode, FileSearchResult, FileSearchOptions, SearchOptions, SearchFileResult, SearchStats, TerminalActivity } from '../../shared/types'
 import type { AgentHookAgentState, AgentHookConfig, AgentHookEvent } from '../../shared/agentHooks'
-import type { RuntimeId } from './locator'
+import type { RuntimeId } from '../../shared/runtimeLocator'
 
 // ---------------------------------------------------------------------------
 // Process host (terminals / node-pty)
@@ -29,9 +29,19 @@ export interface PtyCreateOptions {
   cwd: string
   /** Requested shell; the host resolves + falls back as today (resolveShell). */
   shell?: string
+  /** Optional exact process launch. Only main-process trusted code may set
+   *  this; renderer IPC accepts a closed CodingAgentLaunch instead and main
+   *  resolves it through the canonical agent registry. */
+  command?: { executable: string; args: string[] }
   /** Caller-provided id. Used over the wire so the client registers its data
    *  stream before the create round-trip resolves (no early-output race). */
   id?: string
+  /** Path scope the `cwd` belongs to — the calling workspace's id, the same
+   *  scope workspaceManager registers its root under. The daemon validates the
+   *  cwd against this scope first, falling back to its own root, so a workspace
+   *  outside the daemon root (a D:\ project vs. a home-rooted local daemon) can
+   *  still spawn terminals. Rides the same opts pass-through as `env`. */
+  scopeId?: string
   /** Extra env merged OVER the host's resolved shell env at spawn (e.g. the
    *  first-party CATE_API/CATE_TOKEN vars). Rides the existing opts pass-through
    *  (RemoteRuntime spreads opts; rpcServer forwards verbatim), so no protocol
@@ -48,6 +58,10 @@ export interface PtyCreateOptions {
    *  agentHooks; gates the workspace FILE writes, not the ambient env. Rides
    *  the same opts pass-through as `env`, so it reaches a remote host. */
   agentHookConfig?: AgentHookConfig
+  /** Runtime-absolute canonical workspace checkout for a linked-worktree cwd.
+   *  Runtime features may read it as shared workspace context, but writes stay
+   *  scoped to `cwd`. The daemon validates it against `scopeId` before spawn. */
+  workspaceBaseCwd?: string
 }
 
 export interface PtyHandle {
@@ -372,6 +386,19 @@ export interface WorktreeStatusResult {
   untracked: number
 }
 
+export interface WorktreeReviewResult {
+  branch: string
+  baseBranch: string
+  dirty: boolean
+  canApply: boolean
+  commits: Array<{ hash: string; message: string }>
+  files: Array<{ path: string; status: string }>
+  workingFiles: string[]
+  diff: string
+  truncated: boolean
+  message?: string
+}
+
 /** Lightweight poll result for the sidebar git monitor (git-monitor.ts). Mirrors
  *  exactly what the monitor needs: the current branch + dirty flag it broadcasts
  *  (GIT_BRANCH_UPDATE), plus the local branch name list it diffs to detect a
@@ -457,6 +484,7 @@ export interface VcsHost {
   worktreeRemove(repoCwd: string, worktreePath: string, options?: { force?: boolean }, access?: FileAccessContext): Promise<void>
   worktreePrune(repoCwd: string, access?: FileAccessContext): Promise<{ output: string }>
   worktreeStatus(worktreePath: string, access?: FileAccessContext): Promise<WorktreeStatusResult | null>
+  worktreeReview(worktreePath: string, baseBranch: string, access?: FileAccessContext): Promise<WorktreeReviewResult>
   worktreeMergeTo(repoCwd: string, fromBranch: string, toBranch: string, access?: FileAccessContext): Promise<MergeResult>
   worktreeUpdateFrom(worktreePath: string, fromBranch: string, access?: FileAccessContext): Promise<MergeResult>
   createPr(worktreePath: string, branch: string, access?: FileAccessContext): Promise<CreatePrResult>

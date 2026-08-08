@@ -37,7 +37,13 @@ import type {
   SshHostEntry,
 } from '../../shared/types'
 import { broadcastToAll } from '../windowRegistry'
-import { formatLocator } from '../runtime/locator'
+import { assertAbsoluteRuntimePath, formatLocator } from '../../shared/runtimeLocator'
+import {
+  isRemoteRuntimeConnection,
+  remoteConnectSpecFromConnection,
+  runtimeConnectionFromSpec,
+  runtimeConnectionPath,
+} from '../../shared/runtimeConnection'
 // settingsFile, not ../store: getSettingSync is a re-export of this getSetting,
 // and store.ts's side-effect graph (analytics, menu, auto-updater) would bloat
 // every bundle of the buildTransport graph (see buildTransport.interop.test.ts).
@@ -45,9 +51,9 @@ import { getSetting } from '../settingsFile'
 import type { RuntimeTransport } from '../runtime/transports/transport'
 import { SshTransport } from '../runtime/transports/sshTransport'
 import { WslTransport } from '../runtime/transports/wslTransport'
-import { saveSshSecret, getSshSecret } from '../runtime/sshSecretStore'
-import { removePinnedHostKey, hostKeyId } from '../runtime/sshKnownHosts'
-import { normalizeKeyPath, assertSupportedPrivateKey } from '../runtime/sshKey'
+import { saveSshSecret, getSshSecret, type SshSecret } from '../runtime/sshSecretStore'
+import { normalizeKeyPath, assertNotPuttyKey } from '../runtime/sshKey'
+import { getShellEnv } from '../shellEnv'
 
 const execFileP = promisify(execFile)
 
@@ -146,11 +152,22 @@ export function mintRuntimeId(spec: RemoteConnectSpec): string {
   return `srv_${h}`
 }
 
+/** Merge edit-form auth with the stored secret. Blank key/passphrase fields are
+ * intentionally "reuse", while the agent checkbox is always authoritative. */
+export function mergedSshSecret(current: SshSecret | null, auth: NonNullable<Extract<RemoteConnectSpec, { kind: 'server' }>['auth']>): SshSecret {
+  return {
+    passphrase: auth.passphrase ?? current?.passphrase,
+    keyPath: auth.keyPath ?? current?.keyPath,
+    useAgent: auth.useAgent ?? current?.useAgent,
+  }
+}
+
 /** Build (but do not start) the transport for a connection spec. The runtime
  *  daemon is installed on first connect by the transport itself (remote-pull
- *  from the GitHub release, with a client-side SFTP/copy fallback — see
+ *  from the GitHub release, with a client-side scp/copy fallback — see
  *  runtimeArtifacts.ts), so nothing runtime-related ships with the app. */
 export async function buildTransport(runtimeId: string, spec: RemoteConnectSpec): Promise<RuntimeTransport> {
+  assertAbsoluteRuntimePath(spec.kind === 'server' ? spec.remotePath : spec.distroPath)
   if (spec.kind === 'wsl') {
     // Guard before we hand off to the transport so the failure is a clear
     // message rather than a raw wsl.exe ENOENT / "no distribution" error.
@@ -171,25 +188,26 @@ export async function buildTransport(runtimeId: string, spec: RemoteConnectSpec)
       idleSuspend: getSetting('autoSuspendIdleTerminals'),
     })
   }
-  // server (SSH): resolve stored secret + optional key file.
+  // server (SSH): resolve stored secret + optional identity path. The system
+  // OpenSSH client reads the key itself so it can also discover an adjacent
+  // `-cert.pub` certificate and apply the user's complete SSH configuration.
   const secret = await getSshSecret(runtimeId)
   const passphrase = spec.auth?.passphrase ?? secret?.passphrase
   const rawKeyPath = spec.auth?.keyPath ?? secret?.keyPath
   // Normalize before reading: strips surrounding quotes from a pasted path and
   // expands `~`, so a copy/pasted "C:\…\key.pem" doesn't ENOENT against the app
   // dir (#335). A read failure names the (cleaned) path instead of a raw errno.
-  let privateKey: Buffer | undefined
+  let keyPath: string | undefined
   if (rawKeyPath) {
-    const keyPath = normalizeKeyPath(rawKeyPath)
+    keyPath = normalizeKeyPath(rawKeyPath)
     try {
-      privateKey = await readFile(keyPath)
+      const header = await readFile(keyPath)
+      assertNotPuttyKey(header)
     } catch (err) {
+      if (err instanceof Error && /PuTTY \.ppk/.test(err.message)) throw err
       const reason = (err as NodeJS.ErrnoException)?.code === 'ENOENT' ? 'file not found' : err instanceof Error ? err.message : String(err)
       throw new Error(`Couldn't read the SSH private key at "${keyPath}": ${reason}`)
     }
-    // Reject unsupported key formats (PuTTY .ppk, etc.) up front with guidance,
-    // instead of a generic parse/auth failure deep in the connect (#333).
-    await assertSupportedPrivateKey(privateKey, passphrase)
   }
   return new SshTransport({
     host: spec.host,
@@ -197,29 +215,19 @@ export async function buildTransport(runtimeId: string, spec: RemoteConnectSpec)
     port: spec.port,
     root: spec.remotePath,
     id: runtimeId,
-    privateKey,
+    keyPath,
     passphrase,
-    agentSock: (spec.auth?.useAgent ?? secret?.useAgent) ? process.env.SSH_AUTH_SOCK : undefined,
+    useAgent: spec.auth?.useAgent ?? secret?.useAgent,
+    // GUI-launched Electron processes do not reliably inherit SSH_AUTH_SOCK or
+    // the user's PATH. Cate resolves the login-shell environment at startup;
+    // OpenSSH must receive that same authoritative environment.
+    env: getShellEnv(),
     // Same launch config the local daemon gets (main/index.ts) so an SSH host
     // honors the exclusion + idle-suspend settings identically. Later live
     // changes are forwarded to every connected runtime by the store.
     exclusions: getSetting('fileExclusions'),
     idleSuspend: getSetting('autoSuspendIdleTerminals'),
   })
-}
-
-function connectionRecord(runtimeId: string, spec: RemoteConnectSpec): RuntimeConnection {
-  return spec.kind === 'server'
-    ? { kind: 'server', runtimeId, host: spec.host, user: spec.user, port: spec.port, remotePath: spec.remotePath }
-    : { kind: 'wsl', runtimeId, distro: spec.distro, distroPath: spec.distroPath }
-}
-
-/** Inverse of connectionRecord: a stored connection back to a transport spec
- *  (auth is re-read from the encrypted secret store by buildTransport). */
-function specFromConnection(connection: Exclude<RuntimeConnection, { kind: 'local' }>): RemoteConnectSpec {
-  return connection.kind === 'server'
-    ? { kind: 'server', host: connection.host, user: connection.user, port: connection.port, remotePath: connection.remotePath }
-    : { kind: 'wsl', distro: connection.distro, distroPath: connection.distroPath }
 }
 
 export function registerRuntimeHandlers(): void {
@@ -235,21 +243,22 @@ export function registerRuntimeHandlers(): void {
   // determined there and streamed back as phases. Keeps state purely
   // probe-driven instead of inferred from this call.
   ipcMain.handle(RUNTIME_CONNECT, async (_event, spec: RemoteConnectSpec): Promise<RuntimeConnectResult> => {
-    const runtimeId = mintRuntimeId(spec)
     try {
-      if (spec.kind === 'server' && spec.auth && (spec.auth.passphrase || spec.auth.keyPath || spec.auth.useAgent)) {
-        await saveSshSecret(runtimeId, {
-          passphrase: spec.auth.passphrase,
-          keyPath: spec.auth.keyPath,
-          useAgent: spec.auth.useAgent,
-        })
-      }
       const remotePath = spec.kind === 'server' ? spec.remotePath : spec.distroPath
+      assertAbsoluteRuntimePath(remotePath)
+      const runtimeId = mintRuntimeId(spec)
+      if (spec.kind === 'server' && spec.auth) {
+        // Blank key/passphrase fields in Edit mean "reuse the stored value";
+        // useAgent is an explicit boolean and must persist false as well as true.
+        const current = await getSshSecret(runtimeId)
+        await saveSshSecret(runtimeId, mergedSshSecret(current, spec.auth))
+      }
+      const connection = runtimeConnectionFromSpec(runtimeId, spec)
       const rootPath = formatLocator({ runtimeId, path: remotePath })
-      return { ok: true, runtimeId, rootPath, connection: connectionRecord(runtimeId, spec) }
+      return { ok: true, runtimeId, rootPath, connection }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      log.warn('[runtime:connect] %s failed: %s', runtimeId, message)
+      log.warn('[runtime:connect] failed: %s', message)
       return { ok: false, error: message }
     }
   })
@@ -258,10 +267,18 @@ export function registerRuntimeHandlers(): void {
   // install=false: if the host is reachable but the daemon isn't installed the
   // probe stops at `missing` (emitted to the renderer); installing is explicit.
   ipcMain.handle(RUNTIME_ENSURE, async (_event, connection: RuntimeConnection): Promise<RuntimeConnectResult> => {
-    if (connection.kind === 'local') return { ok: false, error: 'local connection needs no runtime' }
+    if (!isRemoteRuntimeConnection(connection)) return { ok: false, error: 'local connection needs no runtime' }
     const { runtimeId } = connection
-    const remotePath = connection.kind === 'server' ? connection.remotePath : connection.distroPath
-    const rootPath = formatLocator({ runtimeId, path: remotePath })
+    const remotePath = runtimeConnectionPath(connection)
+    let rootPath: string
+    try {
+      rootPath = formatLocator({ runtimeId, path: remotePath })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      runtimes.report(runtimeId, 'unreachable', message)
+      log.warn('[runtime:ensure] %s rejected: %s', runtimeId, message)
+      return { ok: false, error: message }
+    }
     // isConnected (not has): connect() now registers a DeferredRuntime
     // synchronously while connecting, so has() would be true mid-connect too. Only
     // short-circuit when FULLY connected; an in-flight connect falls through to
@@ -276,7 +293,7 @@ export function registerRuntimeHandlers(): void {
     // so the lock overlay shows it instead of a bare "failed to connect".
     let transport: RuntimeTransport
     try {
-      transport = await buildTransport(runtimeId, specFromConnection(connection))
+      transport = await buildTransport(runtimeId, remoteConnectSpecFromConnection(connection))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       runtimes.report(runtimeId, 'unreachable', message)
@@ -303,14 +320,22 @@ export function registerRuntimeHandlers(): void {
   // a clean wipe + re-pull/push of the bundle, then connect. The only path that
   // installs anything; everything else only probes.
   ipcMain.handle(RUNTIME_INSTALL, async (_event, connection: RuntimeConnection): Promise<RuntimeConnectResult> => {
-    if (connection.kind === 'local') return { ok: false, error: 'the local runtime has nothing to install' }
+    if (!isRemoteRuntimeConnection(connection)) return { ok: false, error: 'the local runtime has nothing to install' }
     const { runtimeId } = connection
-    const remotePath = connection.kind === 'server' ? connection.remotePath : connection.distroPath
-    const rootPath = formatLocator({ runtimeId, path: remotePath })
+    const remotePath = runtimeConnectionPath(connection)
+    let rootPath: string
+    try {
+      rootPath = formatLocator({ runtimeId, path: remotePath })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      runtimes.report(runtimeId, 'unreachable', message)
+      log.warn('[runtime:install] %s rejected: %s', runtimeId, message)
+      return { ok: false, error: message }
+    }
     await runtimes.disposeConnection(runtimeId)
     let transport: RuntimeTransport
     try {
-      transport = await buildTransport(runtimeId, specFromConnection(connection))
+      transport = await buildTransport(runtimeId, remoteConnectSpecFromConnection(connection))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       runtimes.report(runtimeId, 'unreachable', message)
@@ -332,16 +357,11 @@ export function registerRuntimeHandlers(): void {
   // the workspace to `missing` (emitted by deleteInstall); the user recovers
   // through the normal Install — no special client state-setting.
   ipcMain.handle(RUNTIME_DELETE, async (_event, connection: RuntimeConnection): Promise<{ ok: boolean; error?: string }> => {
-    if (connection.kind === 'local') return { ok: false, error: 'the local runtime cannot be deleted' }
+    if (!isRemoteRuntimeConnection(connection)) return { ok: false, error: 'the local runtime cannot be deleted' }
     const { runtimeId } = connection
     try {
-      const transport = await buildTransport(runtimeId, specFromConnection(connection))
+      const transport = await buildTransport(runtimeId, remoteConnectSpecFromConnection(connection))
       await runtimes.deleteInstall(runtimeId, transport)
-      // Forget the pinned host key so a later reconnect re-accepts on first use —
-      // the user's recovery path when a server's SSH key has legitimately changed.
-      if (connection.kind === 'server') {
-        await removePinnedHostKey(hostKeyId(connection.host, connection.port)).catch(() => {})
-      }
       return { ok: true }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)

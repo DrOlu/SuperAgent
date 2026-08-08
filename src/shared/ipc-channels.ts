@@ -64,6 +64,7 @@ export const GIT_WORKTREE_ADD = 'git:worktreeAdd'
 export const GIT_WORKTREE_REMOVE = 'git:worktreeRemove'
 export const GIT_WORKTREE_PRUNE = 'git:worktreePrune'
 export const GIT_WORKTREE_STATUS = 'git:worktreeStatus'
+export const GIT_WORKTREE_REVIEW = 'git:worktreeReview'
 export const GIT_WORKTREE_MERGE_TO = 'git:worktreeMergeTo'
 export const GIT_WORKTREE_ADD_FROM_PR = 'git:worktreeAddFromPr'
 export const GIT_WORKTREE_UPDATE_FROM = 'git:worktreeUpdateFrom'
@@ -131,10 +132,6 @@ export const WORKSPACE_EXTERNAL_EDIT = 'project:externalEdit' // main -> rendere
 // the current in-app layout overwrites the external edit.
 export const WORKSPACE_EXTERNAL_EDIT_DISMISS = 'project:externalEditDismiss' // renderer -> main
 
-// Per-workspace Cate Agent enablement (.cate/cateAgent.json).
-export const PROJECT_CATE_AGENT_LOAD = 'project:cateAgentLoad' // renderer -> main
-export const PROJECT_CATE_AGENT_SAVE = 'project:cateAgentSave' // renderer -> main
-
 // Per-workspace Cate Agent chats (.cate/chats.json) — the agent's front door.
 export const PROJECT_CHATS_LOAD = 'project:chatsLoad' // renderer -> main
 export const PROJECT_CHATS_SAVE = 'project:chatsSave' // renderer -> main
@@ -161,7 +158,7 @@ export const UPDATE_QUIT_AND_INSTALL = 'update:quitAndInstall'
 // download-finished event already fired). Returns the cached UpdateStatus.
 export const UPDATE_GET_STATUS = 'update:getStatus'
 
-// Analytics — post-update feedback prompt
+// Post-update changelog + feedback prompt
 // Main -> renderer: show the modal. Payload: { fromVersion, toVersion }
 export const ANALYTICS_FEEDBACK_PROMPT = 'analytics:feedbackPrompt'
 // Renderer -> main: user submitted feedback. Payload: { rating: 1-5, comment? }
@@ -195,11 +192,29 @@ export const MENU_LOAD_LAYOUT = 'menu:loadLayout'
  *  swallows a browser key (Cmd+R/[/]/L) via before-input-event, or from the
  *  Browser menu. The focused BrowserPanel acts on it. */
 export const BROWSER_SHORTCUT = 'browser:shortcut'
+export const BROWSER_VIEW_CREATE = 'browserView:create'
+export const BROWSER_VIEW_COMMAND = 'browserView:command'
+export const BROWSER_VIEW_BOUNDS = 'browserView:bounds'
+export const BROWSER_VIEW_DESTROY = 'browserView:destroy'
+export const BROWSER_VIEW_EVENT = 'browserView:event'
+export const BROWSER_VIEW_GUEST_MESSAGE = 'browserView:guestMessage'
 
 /** Configure the proxy for a browser panel's Electron session partition
  *  (renderer -> main). Awaited before the panel mounts its <webview> so the
  *  first request already goes through the proxy. */
 export const BROWSER_SET_PROXY = 'browser:setProxy'
+
+// Browser password import/autofill. Password plaintext never crosses these
+// renderer IPC channels: profile import and suggestion lookup return metadata,
+// while fill resolves/decrypts/injects entirely in the main process.
+export const BROWSER_CREDENTIAL_PROFILES = 'browserCredentials:profiles'
+export const BROWSER_CREDENTIAL_LIST = 'browserCredentials:list'
+export const BROWSER_CREDENTIAL_IMPORT = 'browserCredentials:import'
+export const BROWSER_CREDENTIAL_IMPORT_FILE = 'browserCredentials:importFile'
+export const BROWSER_CREDENTIAL_REMOVE = 'browserCredentials:remove'
+export const BROWSER_CREDENTIAL_SUGGESTIONS = 'browserCredentials:suggestions'
+export const BROWSER_CREDENTIAL_FILL = 'browserCredentials:fill'
+export const BROWSER_CREDENTIAL_CLEAR = 'browserCredentials:clear'
 
 // Native context menu (renderer -> main)
 export const MENU_SHOW_CONTEXT = 'menu:showContext'
@@ -222,6 +237,7 @@ export const DIALOG_CONFIRM_CLOSE_CANVAS = 'dialog:confirmCloseCanvas'
 export const DIALOG_CONFIRM_IMPORT = 'dialog:confirmImport'
 export const DIALOG_CONFIRM_RELOAD_WORKSPACE = 'dialog:confirmReloadWorkspace'
 export const DIALOG_CONFIRM_DISCARD_JOB = 'dialog:confirmDiscardJob'
+export const DIALOG_CONFIRM_SWITCH_AGENT_WORKTREE = 'dialog:confirmSwitchAgentWorktree'
 export const DIALOG_TERMINAL_LINK_OPEN = 'dialog:terminalLinkOpen'
 
 // Canvas wallpaper — read an arbitrary image file as a data URL (the file is
@@ -232,6 +248,11 @@ export const CANVAS_READ_BACKGROUND_IMAGE = 'canvas:readBackgroundImage'
 export const RECENT_PROJECTS_GET = 'recent-projects:get'
 export const RECENT_PROJECTS_ADD = 'recent-projects:add'
 export const RECENT_PROJECTS_REMOVE = 'recent-projects:remove'
+
+// Workspace trust (machine-local: which projects may auto-restore process-bearing
+// panels and load project MCP config). See shared/panels.ts.
+export const PROJECT_TRUST_GET = 'project-trust:get'
+export const PROJECT_TRUST_SET = 'project-trust:set'
 
 // Sidebar session (persisted workspace order + active workspace, by root path)
 export const SIDEBAR_SESSION_GET = 'sidebar-session:get'
@@ -326,43 +347,40 @@ export const CROSS_WINDOW_DRAG_RESOLVE = 'crossDrag:resolve'   // renderer -> ma
 
 // Webview
 export const WEBVIEW_SCREENSHOT = 'webview:screenshot'
+export const BROWSER_CONTROL = 'browser:control'   // renderer -> main (agent browser ops needing a real webContents)
 export const NATIVE_FILE_DRAG = 'native:fileDrag'
 
 // Pi agent (renderer <-> main)
-export const AGENT_CREATE = 'agent:create'           // renderer -> main
-export const AGENT_PROMPT = 'agent:prompt'           // renderer -> main
-export const AGENT_INTERRUPT = 'agent:interrupt'     // renderer -> main
-export const AGENT_DISPOSE = 'agent:dispose'         // renderer -> main
-export const AGENT_SET_MODEL = 'agent:setModel'      // renderer -> main
-export const AGENT_GET_COMMANDS = 'agent:getCommands' // renderer -> main (skills + prompts + extension cmds)
-export const AGENT_EVENT = 'agent:event'             // main -> renderer (forwarded pi event)
-export const AGENT_OPEN_SKILLS_FOLDER = 'agent:openSkillsFolder' // renderer -> main
-export const AGENT_OPEN_SKILL_FILE = 'agent:openSkillFile' // renderer -> main
-export const AGENT_DELETE_SKILL_FILE = 'agent:deleteSkillFile' // renderer -> main
-export const AGENT_CREATE_SKILL = 'agent:createSkill' // renderer -> main
-export const AGENT_LIST_SKILL_FILES = 'agent:listSkillFiles' // renderer -> main
+export const CODING_CREATE = 'coding:create'           // renderer -> main
+export const CODING_PROMPT = 'coding:prompt'           // renderer -> main
+export const CODING_INTERRUPT = 'coding:interrupt'     // renderer -> main
+export const CODING_DISPOSE = 'coding:dispose'         // renderer -> main
+export const CODING_SET_MODEL = 'coding:setModel'      // renderer -> main
+export const CODING_GET_COMMANDS = 'coding:getCommands' // renderer -> main (skills + prompts + extension cmds)
+export const CODING_EVENT = 'coding:event'             // main -> renderer (forwarded pi event)
 
 // Pi agent — extended RPC surface
-export const AGENT_STEER = 'agent:steer'                       // renderer -> main
-export const AGENT_SET_THINKING_LEVEL = 'agent:setThinkingLevel' // renderer -> main
-export const AGENT_COMPACT = 'agent:compact'                   // renderer -> main
-export const AGENT_SET_AUTO_COMPACTION = 'agent:setAutoCompaction'
-export const AGENT_ABORT_RETRY = 'agent:abortRetry'
-export const AGENT_GET_SESSION_STATS = 'agent:getSessionStats'
-export const AGENT_GET_STATE = 'agent:getState'
-export const AGENT_FORK = 'agent:fork'
-export const AGENT_GET_FORK_MESSAGES = 'agent:getForkMessages'
-export const AGENT_LIST_MODELS = 'agent:listModels'
-export const AGENT_UI_RESPONSE = 'agent:uiResponse'            // renderer -> main (reply to extension_ui_request)
+export const CODING_STEER = 'coding:steer'                       // renderer -> main
+export const CODING_SET_THINKING_LEVEL = 'coding:setThinkingLevel' // renderer -> main
+export const CODING_COMPACT = 'coding:compact'                   // renderer -> main
+export const CODING_SET_AUTO_COMPACTION = 'coding:setAutoCompaction'
+export const CODING_ABORT_RETRY = 'coding:abortRetry'
+export const CODING_GET_SESSION_STATS = 'coding:getSessionStats'
+export const CODING_GET_STATE = 'coding:getState'
+export const CODING_FORK = 'coding:fork'
+export const CODING_GET_FORK_MESSAGES = 'coding:getForkMessages'
+export const CODING_LIST_MODELS = 'coding:listModels'
+export const CODING_UI_RESPONSE = 'coding:uiResponse'            // renderer -> main (reply to extension_ui_request)
 
 // Disk-backed pi sessions (~/.pi/agent/sessions/<encoded-cwd>/*.jsonl)
-export const AGENT_LIST_SESSIONS = 'agent:listSessions'         // renderer -> main
-export const AGENT_LOAD_SESSION_MESSAGES = 'agent:loadSessionMessages' // renderer -> main
-export const AGENT_DELETE_SESSION = 'agent:deleteSession'       // renderer -> main
+export const CODING_LIST_SESSIONS = 'coding:listSessions'         // renderer -> main
+export const CODING_LOAD_SESSION_MESSAGES = 'coding:loadSessionMessages' // renderer -> main
+export const CODING_DELETE_SESSION = 'coding:deleteSession'       // renderer -> main
 
 // Custom OpenAI-compatible provider (pi models.json)
-export const AGENT_CUSTOM_MODELS_GET = 'agent:customModelsGet'   // renderer -> main
-export const AGENT_CUSTOM_MODELS_SAVE = 'agent:customModelsSave' // renderer -> main
+export const CODING_CUSTOM_MODELS_GET = 'coding:customModelsGet'   // renderer -> main
+export const CODING_CUSTOM_MODELS_SAVE = 'coding:customModelsSave' // renderer -> main
+export const CODING_CUSTOM_MODELS_DELETE = 'coding:customModelsDelete' // renderer -> main
 
 // Skills (cross-agent skill manager)
 export const SKILLS_GET_INDEX = 'skills:getIndex'             // renderer -> main (merged catalog)
@@ -370,6 +388,7 @@ export const SKILLS_REFRESH = 'skills:refresh'               // renderer -> main
 export const SKILLS_GET_PREVIEW = 'skills:getPreview'         // renderer -> main (fetch SKILL.md body)
 export const SKILLS_INSTALL = 'skills:install'               // renderer -> main
 export const SKILLS_UNINSTALL = 'skills:uninstall'           // renderer -> main
+export const SKILLS_REINSTALL_CATE_CLI = 'skills:reinstallCateCli' // renderer -> main
 export const SKILLS_LIST_INSTALLED = 'skills:listInstalled'   // renderer -> main (workspace manifest)
 export const SKILLS_LIST_SAVED = 'skills:listSaved'           // renderer -> main (userData library)
 export const SKILLS_SAVE = 'skills:save'                     // renderer -> main (fetch + cache to library)

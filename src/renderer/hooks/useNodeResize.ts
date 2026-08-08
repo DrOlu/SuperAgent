@@ -4,7 +4,7 @@
 // resizes both simultaneously.
 // =============================================================================
 
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { StoreApi } from 'zustand'
 import type { CanvasStore } from '../stores/canvasStore'
 import { useAppStore } from '../stores/appStore'
@@ -72,6 +72,11 @@ export function useNodeResize(
   const currentEdgeRef = useRef<ResizeEdge | null>(null)
   const rafId = useRef<number>(0)
   const pendingResize = useRef<PendingResize | null>(null)
+  const cancelResizeRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => cancelResizeRef.current?.()
+  }, [])
 
   // Shared border state
   const sharedBordersRef = useRef<SharedBorder[]>([])
@@ -87,6 +92,11 @@ export function useNodeResize(
       const state = canvasStoreApi.getState()
       const node = state.nodes[nodeId]
       if (!node || node.isPinned) return
+
+      // A press landing while a previous resize is still live would pin the
+      // cursor a second time; cancel the old gesture first so its reference on
+      // `canvas-interacting` is released rather than orphaned.
+      cancelResizeRef.current?.()
 
       // Snapshot canvas state so this resize can be undone (Cmd+Z).
       state.pushHistory()
@@ -110,7 +120,7 @@ export function useNodeResize(
       const previousBodyCursor = document.body.style.cursor
       const resizeCursor = getCursorForEdge(edge)
       document.body.style.cursor = resizeCursor
-      const unpinCursor = pinDocumentCursor(resizeCursor)
+      const unpinCursor = pinDocumentCursor(resizeCursor, 'node-edge-resize')
 
       // Detect shared borders for cardinal edges
       if (isCardinalEdge(edge)) {
@@ -408,6 +418,9 @@ export function useNodeResize(
         window.removeEventListener('mousemove', handleMouseMove)
         window.removeEventListener('mouseup', handleMouseUp)
         window.removeEventListener('blur', handleBlur)
+        if (cancelResizeRef.current === handleBlur) {
+          cancelResizeRef.current = null
+        }
         document.body.style.cursor = previousBodyCursor
         unpinCursor()
       }
@@ -471,6 +484,7 @@ export function useNodeResize(
         pendingResize.current = null
       }
 
+      cancelResizeRef.current = handleBlur
       window.addEventListener('mousemove', handleMouseMove)
       window.addEventListener('mouseup', handleMouseUp)
       window.addEventListener('blur', handleBlur)

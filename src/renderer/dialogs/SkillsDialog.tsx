@@ -232,6 +232,7 @@ export function SkillsDialog() {
       installed={installedRow}
       saved={savedIds.has(entry.id)}
       rootPath={rootPath}
+      workspaceId={currentWs?.id}
       installedKeys={installedKeys}
       onChanged={onChanged}
       onError={setError}
@@ -345,6 +346,7 @@ function SkillRow({
   installed,
   saved,
   rootPath,
+  workspaceId,
   installedKeys,
   onChanged,
   onError,
@@ -353,6 +355,7 @@ function SkillRow({
   installed: boolean
   saved: boolean
   rootPath: string
+  workspaceId?: string
   installedKeys: Set<string>
   onChanged: () => void
   onError: (m: string | null) => void
@@ -360,6 +363,7 @@ function SkillRow({
   const installRef = useRef<HTMLButtonElement>(null)
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; left: number } | null>(null)
   const [saveBusy, setSaveBusy] = useState(false)
+  const [updateBusy, setUpdateBusy] = useState(false)
   const link = sourceUrl(entry)
 
   const openMenu = () => {
@@ -382,6 +386,29 @@ function SkillRow({
       onError(errorMessage(err))
     } finally {
       setSaveBusy(false)
+    }
+  }
+
+  const updateInstalled = async () => {
+    const targets = SKILL_TARGETS.filter((target) => installedKeys.has(`${entry.id}:${target.id}`))
+    if (!rootPath || targets.length === 0) return
+    onError(null)
+    setUpdateBusy(true)
+    try {
+      const results = await Promise.all(
+        targets.map((target) => api().skillsInstall(entry, target.id, rootPath)),
+      )
+      const errors = results.flatMap((result) =>
+        result.ok
+          ? result.warnings ?? []
+          : [errorMessage(result.error, 'Could not update skill.')],
+      )
+      if (errors.length) onError(errors.join('\n'))
+      onChanged()
+    } catch (err) {
+      onError(errorMessage(err, 'Could not update skill.'))
+    } finally {
+      setUpdateBusy(false)
     }
   }
 
@@ -418,6 +445,19 @@ function SkillRow({
         {entry.description && <div className="text-[11px] text-muted truncate">{entry.description}</div>}
       </div>
 
+      {installed && link && (
+        <Tooltip label="Update installed copies from source">
+          <button
+            onClick={() => void updateInstalled()}
+            disabled={updateBusy}
+            aria-label="Update installed copies from source"
+            className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-muted hover:text-secondary disabled:opacity-50"
+          >
+            <ArrowsClockwise size={14} className={updateBusy ? 'animate-spin' : undefined} />
+          </button>
+        </Tooltip>
+      )}
+
       {link && (
         <Tooltip label="Open skill on GitHub">
           <button
@@ -449,6 +489,7 @@ function SkillRow({
           anchor={menuAnchor}
           triggerRef={installRef}
           rootPath={rootPath}
+          workspaceId={workspaceId}
           installedKeys={installedKeys}
           onChanged={onChanged}
           onError={onError}
@@ -469,6 +510,7 @@ function AgentMenu({
   anchor,
   triggerRef,
   rootPath,
+  workspaceId,
   installedKeys,
   onChanged,
   onError,
@@ -478,6 +520,7 @@ function AgentMenu({
   anchor: { top: number; left: number }
   triggerRef: React.RefObject<HTMLButtonElement>
   rootPath: string
+  workspaceId?: string
   installedKeys: Set<string>
   onChanged: () => void
   onError: (m: string | null) => void
@@ -504,10 +547,10 @@ function AgentMenu({
     setBusy(targetId)
     try {
       if (on) {
-        const res = await api().skillsUninstall(entry.id, entry.name, targetId, rootPath)
+        const res = await api().skillsUninstall(entry.id, entry.name, targetId, rootPath, workspaceId)
         if (!res.ok) onError(errorMessage(res.error, 'Could not remove skill.'))
       } else {
-        const res = await api().skillsInstall(entry, targetId, rootPath)
+        const res = await api().skillsInstall(entry, targetId, rootPath, workspaceId)
         if (!res.ok) onError(errorMessage(res.error, 'Could not install skill.'))
         else if (res.warnings?.length) onError(res.warnings.join('\n'))
       }

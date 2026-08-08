@@ -14,16 +14,15 @@ import { registerHandlers as registerGitMonitorHandlers } from './ipc/git-monito
 import { registerHandlers as registerStoreHandlers, loadSettingsSyncFromDisk, getSettingSync, setSettingsFromMain } from './store'
 import { registerUIStateHandlers } from './uiStateStore'
 import { registerProjectStateHandlers } from './projectWorkspaceStore'
-import { registerProjectCateAgentHandlers } from './projectCateAgentStore'
 import { registerProjectChatsHandlers } from './projectChatsStore'
 import { registerHandlers as registerMenuHandlers } from './ipc/menu'
 import { registerHandlers as registerNotificationHandlers } from './ipc/notifications'
-import { registerAgentHandlers } from '../agent/main/ipcAgent'
+import { registerCodingHandlers } from '../cateAgent/main/ipcCoding'
 import { registerSkillHandlers } from '../skills/main/ipcSkills'
-import { registerAuthHandlers } from '../agent/main/ipcAuth'
-import { authManager } from '../agent/main/authManager'
+import { registerAuthHandlers } from '../cateAgent/main/ipcAuth'
+import { authManager } from '../cateAgent/main/authManager'
 // Shared singletons for pi agent + auth (constructed at module load).
-import { agentManager } from '../agent/main/agentManager'
+import { codingManager } from '../cateAgent/main/codingManager'
 import { registerWorkspaceHandlers } from './workspaceManager'
 import { buildApplicationMenu, setNewMainWindowFn } from './menu'
 import { initShellEnv, getShellEnv } from './shellEnv'
@@ -36,12 +35,16 @@ import { PERF_GET } from '../shared/ipc-channels'
 import { TELEMETRY_NOTICE_VERSION } from '../shared/types'
 import { installWebContentsSecurity } from './webSecurity'
 import { installProxyAuthHandler } from './browserProxy'
+import { enableAgentBrowserBackend } from './browser/agentBrowser'
 import { installBundledSkill } from './installBundledSkill'
 
 import { createWindow } from './windows/windowFactory'
 import { IS_E2E } from './windows/reveal'
 import { registerDialogHandlers } from './ipc/dialogs'
 import { registerCaptureHandlers } from './ipc/capture'
+import { registerBrowserControlHandlers } from './ipc/browserControl'
+import { registerBrowserViewHandlers } from './ipc/browserViews'
+import { registerBrowserCredentialHandlers } from './ipc/browserCredentials'
 import { registerWindowControlHandlers } from './ipc/windowControls'
 import { registerDockWindowHandlers } from './ipc/dockWindows'
 import { registerWindowPanelHandlers } from './ipc/windowPanels'
@@ -88,7 +91,6 @@ function registerCriticalHandlers(): void {
   registerStoreHandlers()
   registerUIStateHandlers()
   registerProjectStateHandlers()
-  registerProjectCateAgentHandlers()
   registerProjectChatsHandlers()
   registerWorkspaceHandlers()
   registerFilesystemHandlers()
@@ -99,6 +101,9 @@ function registerCriticalHandlers(): void {
   // modules; the panel/dock/drag handlers need the window factory injected.
   registerDialogHandlers()
   registerCaptureHandlers()
+  registerBrowserControlHandlers()
+  registerBrowserViewHandlers()
+  registerBrowserCredentialHandlers()
   registerWindowControlHandlers()
   registerDockWindowHandlers({ createWindow })
   registerWindowPanelHandlers()
@@ -119,7 +124,7 @@ function registerDeferredHandlers(): void {
   registerGitMonitorHandlers()
   registerNotificationHandlers()
   registerAuthHandlers(authManager)
-  registerAgentHandlers(authManager, agentManager)
+  registerCodingHandlers(authManager, codingManager)
   registerSkillHandlers()
   registerRuntimeHandlers()
   registerExtensionHandlers()
@@ -130,13 +135,14 @@ function registerDeferredHandlers(): void {
 // =============================================================================
 
 // Set app name before menu and window creation
-app.setName('SuperAgent')
+app.setName('Cate')
+enableAgentBrowserBackend()
 
 // Windows: the toast notification system keys off the AppUserModelID, and it
 // must match the install shortcut's ID (electron-builder uses `appId`) for the
 // notification 'click' event to fire reliably. No-op on macOS/Linux.
 if (process.platform === 'win32') {
-  app.setAppUserModelId('ng.hyperspace.superagent')
+  app.setAppUserModelId('com.cate.app')
 }
 
 // In dev mode, use a separate userData directory so dev and production don't collide
@@ -164,8 +170,8 @@ if (!app.isPackaged && process.env.CATE_FRESH_USERDATA === '1') {
 // (already-onboarded) user, so the onboarding tour stays hidden — but the
 // telemetry notice still appears, because the simulated profile hasn't
 // acknowledged the current TELEMETRY_NOTICE_VERSION (exactly like a real user
-// updating into this release). On major/minor bumps the post-update feedback
-// dialog appears alongside it; a patch bump shows the notice only. See dev:update:*.
+// updating into this release). The post-update changelog/feedback dialog then
+// appears for every simulated version bump. See dev:update:*.
 if (!app.isPackaged && (process.env.CATE_SIMULATE_UPDATE === 'major' || process.env.CATE_SIMULATE_UPDATE === 'minor' || process.env.CATE_SIMULATE_UPDATE === 'patch')) {
   const level = process.env.CATE_SIMULATE_UPDATE
   const fs = require('fs') as typeof import('fs')
@@ -195,7 +201,11 @@ if (process.env.CATE_E2E === '1') {
 
   const fs = require('fs') as typeof import('fs')
   const os = require('os') as typeof import('os')
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cate-e2e-'))
+  const requestedUserData = process.env.CATE_E2E_USER_DATA
+  const tmp = requestedUserData
+    ? path.resolve(requestedUserData)
+    : fs.mkdtempSync(path.join(os.tmpdir(), 'cate-e2e-'))
+  fs.mkdirSync(tmp, { recursive: true })
   app.setPath('userData', tmp)
   // Keep the e2e app out of the macOS dock / app-switcher so launching it never
   // foregrounds the shared Electron bundle (and a running `npm run dev`).
@@ -209,7 +219,7 @@ registerOpenFileHandler()
 // Build application menu
 buildApplicationMenu()
 
-log.info('SuperAgent v%s starting (electron %s, node %s, platform %s)', app.getVersion(), process.versions.electron, process.versions.node, process.platform)
+log.info('Cate v%s starting (electron %s, node %s, platform %s)', app.getVersion(), process.versions.electron, process.versions.node, process.platform)
 
 // Load persisted settings synchronously so window-creation code paths can read
 // them before the async electron-store finishes initializing.
@@ -312,10 +322,16 @@ app.whenReady().then(async () => {
   // DeferredRuntime SYNCHRONOUSLY (resolve(LOCAL) works immediately) and connects
   // the daemon in the background, so first-run tarball provisioning never blocks
   // the window paint — early IPC ops queue behind the deferred's `ready`.
+  const runtimeEnv = getShellEnv()
+  const e2ePathPrefix = process.env.CATE_E2E === '1'
+    ? process.env.CATE_E2E_PATH_PREPEND
+    : undefined
   runtimes.ensureLocalRuntime({
     root: app.getPath('home'),
     exclusions: [...currentExclusionSet()],
-    env: getShellEnv(),
+    env: e2ePathPrefix
+      ? { ...runtimeEnv, PATH: `${e2ePathPrefix}${path.delimiter}${runtimeEnv.PATH ?? ''}` }
+      : runtimeEnv,
     idleSuspend: getSettingSync('autoSuspendIdleTerminals'),
   })
 
@@ -324,7 +340,7 @@ app.whenReady().then(async () => {
       applicationName: app.getName(),
       applicationVersion: app.getVersion(),
       version: app.getVersion(),
-      copyright: `© ${new Date().getFullYear()} Hyperspace`,
+      copyright: `© ${new Date().getFullYear()} Cate`,
     })
   }
 

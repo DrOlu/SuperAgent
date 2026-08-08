@@ -6,6 +6,9 @@
 
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
 import path from 'node:path'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { buildSync } from 'esbuild'
 
 export interface LaunchResult {
   electronApp: ElectronApplication
@@ -13,20 +16,70 @@ export interface LaunchResult {
 }
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..')
+let cateCliBin: string | null = null
 
-export async function launchApp(opts: { perf?: boolean } = {}): Promise<LaunchResult> {
+function currentCateCliBin(): string {
+  if (cateCliBin) return cateCliBin
+  const root = mkdtempSync(path.join(tmpdir(), 'cate-e2e-cli-'))
+  const cli = path.join(root, 'cli.cjs')
+  buildSync({
+    entryPoints: [path.join(REPO_ROOT, 'src', 'cli', 'cate.ts')],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node20',
+    outfile: cli,
+  })
+  const bin = path.join(root, 'bin')
+  mkdirSync(bin)
+  const launcher = path.join(bin, 'cate')
+  writeFileSync(launcher, `#!/bin/sh\nexec "${process.execPath}" "${cli}" "$@"\n`)
+  chmodSync(launcher, 0o755)
+  writeFileSync(path.join(bin, 'cate.cmd'), `@echo off\r\n"${process.execPath}" "${cli}" %*\r\n`)
+  cateCliBin = bin
+  return bin
+}
+
+function localRuntimeEnv(): Record<string, string> {
+  const version = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')).version
+  const tarballName = `cate-runtime-${version}-${process.platform}-${process.arch}.tgz`
+  const roots = [REPO_ROOT, path.resolve(REPO_ROOT, '..', '..', '..')]
+  const tarball = roots
+    .map((root) => path.join(root, 'dist-runtime', tarballName))
+    .find(existsSync)
+  const bundle = path.join(REPO_ROOT, 'dist-runtime', 'runtime.cjs')
+  return {
+    CATE_E2E_CATE_BIN: currentCateCliBin(),
+    ...(tarball ? { CATE_E2E_RUNTIME_TARBALL: tarball } : {}),
+    ...(existsSync(bundle) ? { CATE_E2E_RUNTIME_BUNDLE: bundle } : {}),
+  }
+}
+
+export async function launchApp(opts: {
+  perf?: boolean
+  env?: Record<string, string>
+  userDataDir?: string
+} = {}): Promise<LaunchResult> {
+  const env = {
+    ...process.env,
+    CATE_E2E: '1',
+    NODE_ENV: 'production',
+    ...localRuntimeEnv(),
+    // Activate the resource profiler (main getAppMetrics sampler + counters,
+    // renderer FPS/long-task/render counters, window.__catePerf) for the
+    // perf-stress spec. Harmless no-op for other specs that don't set it.
+    ...(opts.perf ? { CATE_PERF: '1' } : {}),
+    ...(opts.userDataDir ? { CATE_E2E_USER_DATA: opts.userDataDir } : {}),
+    ...opts.env,
+  }
+  // Playwright forces colored reporter output while some hosts also export
+  // NO_COLOR. Passing both into a real terminal makes every bundled Node CLI
+  // print a warning before its own stdout, which is not a Cate behavior.
+  delete env.NO_COLOR
   const electronApp = await electron.launch({
     args: ['.'],
     cwd: REPO_ROOT,
-    env: {
-      ...process.env,
-      CATE_E2E: '1',
-      NODE_ENV: 'production',
-      // Activate the resource profiler (main getAppMetrics sampler + counters,
-      // renderer FPS/long-task/render counters, window.__catePerf) for the
-      // perf-stress spec. Harmless no-op for other specs that don't set it.
-      ...(opts.perf ? { CATE_PERF: '1' } : {}),
-    },
+    env,
   })
   const mainWindow = await electronApp.firstWindow()
   await mainWindow.waitForLoadState('domcontentloaded')
@@ -41,10 +94,22 @@ export async function launchApp(opts: { perf?: boolean } = {}): Promise<LaunchRe
 }
 
 export async function closeApp(electronApp: ElectronApplication): Promise<void> {
+  const child = electronApp.process()
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    await electronApp.close()
+    await Promise.race([
+      electronApp.close(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Electron close timed out')), 10_000)
+      }),
+    ])
   } catch {
-    /* best-effort */
+    // A wedged runtime/PTY must not hold the entire Playwright worker open after
+    // the assertions have completed. This child belongs exclusively to the
+    // current isolated E2E app instance.
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+  } finally {
+    if (timer) clearTimeout(timer)
   }
 }
 

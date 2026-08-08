@@ -17,6 +17,10 @@ import { BUILT_IN_THEMES } from '../../shared/themes'
 import { terminalRegistry } from './terminal/terminalRegistry'
 import type { Point, WorktreeMeta } from '../../shared/types'
 import { activeDockPanelId } from '../../shared/collectPanelIds'
+import { useSettingsStore } from '../stores/settingsStore'
+import { parseCodingAgentId, type CodingAgentRunSnapshot } from '../../shared/codingAgentRuns'
+import { codingAgentSnapshot, handleCodingAgentMethod } from './agent/codingAgentDriver'
+import type { AgentHookMode } from '../../shared/agentHookModes'
 
 /** Serializable snapshot of the search store for e2e assertions. */
 export interface SearchSnapshot {
@@ -64,6 +68,10 @@ declare global {
       clearCanvas(): void
       addWorkspace(name?: string, rootPath?: string, id?: string): string
       selectWorkspace(id: string): Promise<void>
+      /** Panel types present in a workspace (defaults to the selected one). Used
+       *  by the workspace-trust spec to assert that a repo-supplied
+       *  process-bearing panel never materializes. */
+      panelTypes(wsId?: string): string[]
       /** Seed N worktrees on the selected workspace (index 0 = primary, keyed by
        *  the workspace root) WITHOUT a real on-disk repo: writes UI metadata
        *  (id/color/label) and injects a pinned live `git worktree list` so the
@@ -87,6 +95,17 @@ declare global {
       terminalPtyId(nodeId: string): string | null
       /** Write raw data to a terminal node's PTY (e.g. a flooding command). */
       writeTerminal(nodeId: string, data: string): boolean
+      /** Plain text currently held by a terminal's active xterm buffer. */
+      terminalText(nodeId: string): string | null
+      terminalTextForPanel(panelId: string): string | null
+      setCodingAgentHookMode(agentId: string, mode: AgentHookMode): boolean
+      codingAgentInvoke(
+        ownerPanelId: string,
+        method: 'create' | 'inspect' | 'send' | 'stop' | 'wait',
+        args: Record<string, unknown>,
+      ): Promise<{ ok: boolean; result?: unknown; error?: string }>
+      codingAgentRuns(ownerPanelId: string): CodingAgentRunSnapshot[]
+      nodeForPanel(panelId: string): string | null
       /** Point the selected workspace at a real directory (registers it as an
        *  allowed root) so content search has files to scan. */
       setWorkspaceRoot(rootPath: string): Promise<boolean>
@@ -215,6 +234,13 @@ export function installE2EHarness(): void {
     await useAppStore.getState().selectWorkspace(id)
   }
 
+  const panelTypes = (wsId?: string): string[] => {
+    const state = useAppStore.getState()
+    const id = wsId ?? state.selectedWorkspaceId
+    const ws = state.workspaces.find((w) => w.id === id)
+    return Object.values(ws?.panels ?? {}).map((p) => p.type)
+  }
+
   const seedWorktrees = (
     specs: { color: string; label?: string }[],
   ): { id: string; path: string; color: string }[] => {
@@ -291,6 +317,78 @@ export function installE2EHarness(): void {
     void window.electronAPI?.terminalWrite(ptyId, data)
     return true
   }
+
+  const terminalText = (nodeId: string): string | null => {
+    const cs = activeCanvasStore()
+    if (!cs) return null
+    const node = cs.getState().nodes[nodeId]
+    const panelId = activeDockPanelId(node?.dockLayout) ?? nodeId
+    const terminal = terminalRegistry.getEntry(panelId)?.terminal
+    if (!terminal) return null
+    const buffer = terminal.buffer.active
+    const lines: string[] = []
+    for (let i = 0; i < buffer.length; i++) {
+      const line = buffer.getLine(i)
+      const text = line?.translateToString(true) ?? ''
+      if (line?.isWrapped && lines.length > 0) lines[lines.length - 1] += text
+      else lines.push(text)
+    }
+    while (lines.at(-1) === '') lines.pop()
+    return lines.join('\n')
+  }
+
+  const terminalTextForPanel = (panelId: string): string | null => {
+    const terminal = terminalRegistry.getEntry(panelId)?.terminal
+    if (!terminal) return null
+    const buffer = terminal.buffer.active
+    const lines: string[] = []
+    for (let i = 0; i < buffer.length; i++) {
+      const line = buffer.getLine(i)
+      const text = line?.translateToString(true) ?? ''
+      if (line?.isWrapped && lines.length > 0) lines[lines.length - 1] += text
+      else lines.push(text)
+    }
+    while (lines.at(-1) === '') lines.pop()
+    return lines.join('\n')
+  }
+
+  const setCodingAgentHookMode = (agentId: string, mode: AgentHookMode): boolean => {
+    const parsed = parseCodingAgentId(agentId)
+    if (!parsed) return false
+    const workspaceId = useAppStore.getState().selectedWorkspaceId
+    const current = useSettingsStore.getState().agentHookInjection
+    useSettingsStore.getState().setSetting('agentHookInjection', {
+      ...current,
+      [workspaceId]: { ...current[workspaceId], [parsed]: mode },
+    })
+    return true
+  }
+
+  const codingAgentInvoke = (
+    ownerPanelId: string,
+    method: 'create' | 'inspect' | 'send' | 'stop' | 'wait',
+    args: Record<string, unknown>,
+  ) => {
+    const workspaceId = useAppStore.getState().selectedWorkspaceId
+    return handleCodingAgentMethod(
+      workspaceId,
+      ownerPanelId,
+      `cate.codingAgent.${method}`,
+      args,
+    )
+  }
+
+  const codingAgentRuns = (ownerPanelId: string): CodingAgentRunSnapshot[] => {
+    const state = useAppStore.getState()
+    const workspace = state.workspaces.find((candidate) => candidate.id === state.selectedWorkspaceId)
+    return Object.values(workspace?.panels ?? {})
+      .filter((panel) => panel.codingAgentRun?.ownerPanelId === ownerPanelId)
+      .map((panel) => codingAgentSnapshot(state.selectedWorkspaceId, ownerPanelId, panel.codingAgentRun!.id))
+      .filter((snapshot): snapshot is CodingAgentRunSnapshot => snapshot !== null)
+  }
+
+  const nodeForPanel = (panelId: string): string | null =>
+    activeCanvasStore()?.getState().nodeForPanel(panelId) ?? null
 
   const setWorkspaceRoot = (rootPath: string): Promise<boolean> => {
     const wsId = useAppStore.getState().selectedWorkspaceId
@@ -369,11 +467,18 @@ export function installE2EHarness(): void {
     clearCanvas,
     addWorkspace,
     selectWorkspace,
+    panelTypes,
     seedWorktrees,
     tagNodeWorktree,
     worktreeDebug,
     terminalPtyId,
     writeTerminal,
+    terminalText,
+    terminalTextForPanel,
+    setCodingAgentHookMode,
+    codingAgentInvoke,
+    codingAgentRuns,
+    nodeForPanel,
     setWorkspaceRoot,
     openSidebarView,
     setActiveLeftSidebarView,

@@ -11,6 +11,11 @@ import {
   hydrateWorkspaceFromDisk,
 } from './helpers'
 import { workspaceDisplayName } from '../../lib/fs/displayPath'
+import { ensureProjectTrusted } from '../workspaceTrustStore'
+import {
+  isRemoteRuntimeConnection,
+  runtimeConnectionLabel,
+} from '../../../shared/runtimeConnection'
 
 type RemoteSliceActions = Pick<
   AppStoreActions,
@@ -26,9 +31,9 @@ type RemoteSliceActions = Pick<
 
 export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions {
   return {
-    setWorkspaceRootPath(wsId, rootPath) {
+    async setWorkspaceRootPath(wsId, rootPath) {
       const ws = get().workspaces.find((w) => w.id === wsId)
-      if (!ws) return Promise.resolve(false)
+      if (!ws) return false
 
       // Don't open the same folder twice in this instance. Two tabs on one root
       // would share its .cate/workspace.json + session.json and clobber each
@@ -42,8 +47,15 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
         // never-rooted outgoing tab on switch, so the empty workspace we were
         // about to fill is cleaned up; an already-rooted one is left untouched.
         get().selectWorkspace(duplicate.id)
-        return Promise.resolve(false)
+        return false
       }
+
+      // The trust gate, on the one path that turns a folder into an open local
+      // workspace. Declining means the workspace stays where it was — nothing in
+      // the folder is read and no panel from its layout is restored.
+      // (Checked after the duplicate redirect: an already-open folder is one the
+      // user has already vouched for, so re-asking would be noise.)
+      if (!(await ensureProjectTrusted(rootPath))) return false
 
       const folderName = workspaceDisplayName(rootPath) || rootPath
       const desiredName = ws.name === 'Workspace' ? folderName : ws.name
@@ -128,7 +140,12 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
         return false
       }
 
-      const label = spec.kind === 'wsl' ? `${spec.distro}` : `${spec.user}@${spec.host}`
+      // Same gate as the local open. The locator only exists once the runtime
+      // has answered, so this is the earliest point we can ask — but it is still
+      // before anything is read out of the remote repo's `.cate/`.
+      if (!(await ensureProjectTrusted(res.rootPath))) return false
+
+      const label = runtimeConnectionLabel(spec)
       const desiredName = ws.name === 'Workspace' ? label : ws.name
       // Store rootPath + connection FIRST so the probe's RUNTIME_STATUS phases
       // (keyed by runtimeId) can match this workspace.
@@ -173,7 +190,7 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
 
     async ensureWorkspaceRuntime(wsId) {
       const ws = get().workspaces.find((w) => w.id === wsId)
-      if (!ws?.connection || ws.connection.kind === 'local') return true
+      if (!isRemoteRuntimeConnection(ws?.connection)) return true
       // Probe only. The phase (connecting → connected | missing | unreachable) is
       // emitted by the main process and lands via the RUNTIME_STATUS broadcast.
       // No client-side phase logic. Returns whether the runtime is now live.
@@ -192,7 +209,7 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
     // re-runs it, so without this a local failure was dead until app restart).
     async retryRuntime(wsId) {
       const ws = get().workspaces.find((w) => w.id === wsId)
-      if (ws?.connection && ws.connection.kind !== 'local') {
+      if (isRemoteRuntimeConnection(ws?.connection)) {
         return get().ensureWorkspaceRuntime(wsId)
       }
       try {
@@ -206,7 +223,7 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
 
     async installRuntime(wsId) {
       const ws = get().workspaces.find((w) => w.id === wsId)
-      if (!ws?.connection || ws.connection.kind === 'local') return false
+      if (!isRemoteRuntimeConnection(ws?.connection)) return false
       try {
         const res = await window.electronAPI.runtimeInstall(ws.connection)
         return !!res?.ok
@@ -218,7 +235,7 @@ export function createRemoteSlice(set: AppSet, get: AppGet): RemoteSliceActions 
 
     async deleteRuntime(wsId) {
       const ws = get().workspaces.find((w) => w.id === wsId)
-      if (!ws?.connection || ws.connection.kind === 'local') return false
+      if (!isRemoteRuntimeConnection(ws?.connection)) return false
       try {
         // Main rm -rf's the host install and drives the phase to 'missing'.
         const res = await window.electronAPI.runtimeDelete(ws.connection)

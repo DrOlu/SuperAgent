@@ -25,17 +25,20 @@ import {
   Warning,
   X,
   GitPullRequest,
-  ChatCircle,
   CircleNotch,
 } from '@phosphor-icons/react'
 import { Tooltip } from '../ui/Tooltip'
+import { CateLogo } from '../ui/CateLogo'
 import { CreateWorktreeForm } from '../sidebar/CreateWorktreeForm'
+import { errorMessage } from '../lib/errorMessage'
 import { useWorktrees, type JoinedWorktree } from '../stores/useWorktrees'
 import { useGitStatusSnapshot, gitStatusStore } from '../stores/gitStatusStore'
 import { useUIStore } from '../stores/uiStore'
 import { useAppStore, getWorktreeColorPalette } from '../stores/appStore'
 import { useParallelWork, runWorktreeContextMenu, type CardCallbacks } from '../stores/useParallelWork'
 import { useWorktreeStatuses, humanStatus, type PrStatus } from '../stores/useWorktreeStatuses'
+import type { WorktreePanelType } from '../../shared/panels'
+import { useActiveChatWorktreeByPanel } from '../../cateAgent/renderer/cateAgentStore'
 
 interface WorktreeToolbarMenuProps {
   canvasPanelId: string
@@ -166,16 +169,18 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
 
   // What's already open on the canvas, per worktree.
   const panels = useAppStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.panels)
+  const activeChatWorktreeByPanel = useActiveChatWorktreeByPanel()
   const panelCounts = useMemo(() => {
     const counts: Record<string, { terminals: number; agents: number }> = {}
     for (const p of Object.values(panels ?? {})) {
-      if (!p.worktreeId) continue
-      const c = counts[p.worktreeId] ?? (counts[p.worktreeId] = { terminals: 0, agents: 0 })
+      const worktreeId = p.type === 'cateAgent' ? activeChatWorktreeByPanel[p.id] : p.worktreeId
+      if (!worktreeId) continue
+      const c = counts[worktreeId] ?? (counts[worktreeId] = { terminals: 0, agents: 0 })
       if (p.type === 'terminal') c.terminals += 1
-      else if (p.type === 'agent') c.agents += 1
+      else if (p.type === 'cateAgent') c.agents += 1
     }
     return counts
-  }, [panels])
+  }, [activeChatWorktreeByPanel, panels])
 
   const { statusByPath, prByPath, refreshPr } = useWorktreeStatuses(rootPath, live)
   const { createWorktree, checkoutPr, launchInWorktree, handlePrune, makeCallbacks } = useParallelWork(
@@ -209,7 +214,7 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
   useEffect(() => () => setHoveredWorktree(null), [setHoveredWorktree])
 
   const launch = useCallback(
-    (wt: JoinedWorktree, type: 'terminal' | 'agent') => {
+    (wt: JoinedWorktree, type: WorktreePanelType) => {
       launchInWorktree(wt, type, { target: 'canvas', canvasPanelId })
       onClose()
     },
@@ -222,8 +227,8 @@ const WorktreeMenuPopover: React.FC<PopoverProps> = ({
     try {
       await window.electronAPI.gitInit(rootPath, workspaceId)
       gitStatusStore.refresh(rootPath)
-    } catch (err: any) {
-      setError(`Could not initialize git: ${err?.message || err}`)
+    } catch (err: unknown) {
+      setError(`Couldn’t initialize git: ${errorMessage(err, 'The operation failed.')}`)
     }
   }, [rootPath, workspaceId])
 
@@ -379,7 +384,7 @@ const PrPill: React.FC<{ pr: PrStatus; onClick: () => void }> = ({ pr, onClick }
 const SpawnButton: React.FC<{
   icon: React.ReactNode
   title: string
-  panelType: 'terminal' | 'agent'
+  panelType: WorktreePanelType
   cwd: string
   worktreeId: string
   onClick: () => void
@@ -417,7 +422,7 @@ const WorktreeRow: React.FC<{
   cb: CardCallbacks
   onFocus: () => void
   onHover: (on: boolean) => void
-  onLaunch: (type: 'terminal' | 'agent') => void
+  onLaunch: (type: WorktreePanelType) => void
 }> = ({ wt, primaryLabel, focused, status, pr, panels, busy, cb, onFocus, onHover, onLaunch }) => {
   const isPrimary = !!wt.isPrimary
   const label = wt.label || wt.branch || (isPrimary ? 'main' : '(detached)')
@@ -438,14 +443,14 @@ const WorktreeRow: React.FC<{
     () =>
       runWorktreeContextMenu({
         isPrimary,
-        hasPr: !!pr,
+        hasPr: !!pr || !!wt.prNumber,
         prUrl: pr?.url,
         primaryLabel,
         cb,
         beginRename: () => { setRenameValue(label); setRenaming(true) },
         beginRecolor: () => setRecoloring((v) => !v),
       }),
-    [isPrimary, pr, primaryLabel, cb, label],
+    [isPrimary, pr, primaryLabel, cb, label, wt.prNumber],
   )
 
   return (
@@ -520,12 +525,12 @@ const WorktreeRow: React.FC<{
               onClick={() => onLaunch('terminal')}
             />
             <SpawnButton
-              icon={<ChatCircle size={12} />}
-              title="Agent"
-              panelType="agent"
+              icon={<CateLogo size={12} />}
+              title="Cate Agent"
+              panelType="cateAgent"
               cwd={wt.path}
               worktreeId={wt.id}
-              onClick={() => onLaunch('agent')}
+              onClick={() => onLaunch('cateAgent')}
             />
             <Tooltip label="More actions">
               <button
@@ -556,7 +561,7 @@ const WorktreeRow: React.FC<{
               )}
               {openAgents > 0 && (
                 <span className="flex items-center gap-0.5">
-                  <ChatCircle size={10} />
+                  <CateLogo size={10} />
                   {openAgents}
                 </span>
               )}

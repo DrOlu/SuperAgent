@@ -14,6 +14,7 @@ import type {
   Point,
   DockStateSnapshot,
   RuntimeConnection,
+  CanvasNodeState,
 } from '../../../shared/types'
 import { ACCENT_COLORS } from '../../../shared/colors'
 import { BASE_DARK, BASE_LIGHT } from '../../../shared/themes'
@@ -29,6 +30,9 @@ import {
 import { useWindowPanelStore } from '../windowPanelStore'
 import { useSettingsStore } from '../settingsStore'
 import type { AppSet, AppGet, PanelPlacement } from './types'
+import { collectPanelIds } from '../../../shared/collectPanelIds'
+import { recommendPlacementFromSource } from '../../canvas/placement'
+import { isRemoteRuntimeConnection } from '../../../shared/runtimeConnection'
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -66,7 +70,7 @@ export function createDefaultWorkspace(
     rootPath: rootPath ?? '',
     // Carry remote reconnect info through restore so ensureWorkspaceRuntime
     // can reconnect the runtime before any fs/git/terminal op (Finding 2).
-    ...(connection && connection.kind !== 'local' ? { connection } : {}),
+    ...(isRemoteRuntimeConnection(connection) ? { connection } : {}),
     rootPathError: null,
     isRootPathPending: false,
     panels: {},
@@ -119,7 +123,7 @@ export function syncCreateToMain(ws: WorkspaceState): Promise<WorkspaceMutationR
       id: ws.id,
       // Pass remote reconnect info so WorkspaceInfo.connection survives on the
       // main side (Finding 2) — main skips local realpath/lock for a locator.
-      ...(ws.connection && ws.connection.kind !== 'local' ? { connection: ws.connection } : {}),
+      ...(isRemoteRuntimeConnection(ws.connection) ? { connection: ws.connection } : {}),
     }),
   )
 }
@@ -241,6 +245,7 @@ export function createCleanDockSnapshot(): DockStateSnapshot {
  *  own stores so it works for the active workspace AND for a background restore
  *  into an inactive one — never touching another workspace's layout. */
 function placePanel(
+  get: AppGet,
   workspaceId: string,
   panelId: string,
   panelType: PanelType,
@@ -289,8 +294,44 @@ function placePanel(
     dockStore.getState().dockPanel(panelId, 'center')
     return
   }
-  const canvasPosition = placement?.target === 'canvas' ? placement.position ?? position : position
-  const canvasSize = placement?.target === 'canvas' ? placement.size : undefined
+  let canvasPosition = placement?.target === 'canvas' ? placement.position ?? position : position
+  let canvasSize = placement?.target === 'canvas' ? placement.size : undefined
+  const placementGroupId = placement?.target === 'canvas' ? placement.placementGroupId : undefined
+  if (canvasPosition == null && placementGroupId && canvasSize) {
+    const ws = get().workspaces.find((candidate) => candidate.id === workspaceId)
+    const canvas = ops.storeApi.getState()
+    const nodes = canvas.nodes
+    const groupedNodes = Object.values(nodes).filter((node) =>
+      collectPanelIds(node.dockLayout).some(
+        (id) =>
+          id === placementGroupId ||
+          ws?.panels[id]?.placementGroupId === placementGroupId,
+      ),
+    )
+    const sourceNode = groupedNodes.find((node) =>
+      collectPanelIds(node.dockLayout).includes(placementGroupId),
+    ) ?? groupedNodes.reduce<CanvasNodeState | undefined>(
+      (oldest, node) => !oldest || node.creationIndex < oldest.creationIndex ? node : oldest,
+      undefined,
+    )
+    if (sourceNode) {
+      const recommendation = recommendPlacementFromSource(
+        nodes,
+        sourceNode.id,
+        panelType,
+        {
+          offset: canvas.viewportOffset,
+          zoom: canvas.zoomLevel,
+          containerSize: canvas.containerSize,
+        },
+        canvasSize,
+      )
+      if (recommendation) {
+        canvasPosition = recommendation.point
+        canvasSize = recommendation.size
+      }
+    }
+  }
   // Ambiguous create (no explicit position) on the active workspace: when the
   // recommendation picker is enabled, show ghost candidates and let the user
   // choose where the node lands (deferred until commit; onGhostCancel rolls the
@@ -341,10 +382,13 @@ export function addAndPlacePanel(
   placement: PanelPlacement | undefined,
   position: Point | undefined,
 ): string {
+  const groupedPanel = placement?.target === 'canvas' && placement.placementGroupId
+    ? { ...panel, placementGroupId: placement.placementGroupId }
+    : panel
   set((state) => ({
     workspaces: state.workspaces.map((ws) =>
       ws.id === workspaceId
-        ? { ...ws, panels: { ...ws.panels, [panel.id]: panel } }
+        ? { ...ws, panels: { ...ws.panels, [panel.id]: groupedPanel } }
         : ws,
     ),
   }))
@@ -362,7 +406,7 @@ export function addAndPlacePanel(
     }))
   }
   try {
-    placePanel(workspaceId, panel.id, panel.type, placement, position, workspaceId === get().selectedWorkspaceId, discardPanel)
+    placePanel(get, workspaceId, panel.id, panel.type, placement, position, workspaceId === get().selectedWorkspaceId, discardPanel)
   } catch (error) {
     discardPanel()
     log.error(`Failed to place ${panel.type} panel:`, error)

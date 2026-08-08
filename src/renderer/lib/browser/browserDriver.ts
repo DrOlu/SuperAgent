@@ -1,233 +1,249 @@
 // =============================================================================
-// browserDriver — renderer executor for the extension `cate.browser.*` reverse
-// API.
+// browserDriver — renderer routing for the `cate.browser.*` reverse API.
 //
-// The main process forwards a guest's `cate.browser.*` call to the window that
-// owns the target browser panel; useCateHostActionResponder hands it here. We
-// resolve WHICH browser panel the call targets, drive its live <webview> via the
-// portalRegistry, and reply with a machine-readable outcome.
-//
-// Target resolution order (see resolveTargetPanelId):
-//   1. explicit args.panelId — must be a browser panel in THIS window's store
-//   2. the focused browser (active panel is a browser of this workspace)
-//   3. the first browser panel in the workspace (matches terminalUrlOpen)
-//
-// SECURITY / FIDELITY NOTE: click/type synthesise DOM events (Event with
-// isTrusted=false). Pages that gate on trusted events (some drag/paste flows,
-// certain <input type=file> pickers) won't react. This is an accepted v1
-// limitation — documented so callers don't treat a synthetic click as a full
-// user gesture. `press` is the exception: it delivers REAL input through
-// webContents.sendInputEvent (isTrusted=true), so Enter submits forms.
+// The renderer owns browser panel selection, tab state, and visible agent
+// activity. All page observation and interaction is performed by the required
+// main-process agent-browser service. No automation JavaScript is injected into
+// the guest and there is no secondary input backend.
 // =============================================================================
 
 import { useAppStore } from '../../stores/appStore'
 import { getActivePanelId } from '../activePanel'
 import { portalRegistry, type PortalWebview } from '../portalRegistry'
-import { placementForBackgroundPanel } from '../workspace/canvasAccess'
+import {
+  getCanvasOpsById,
+  placementForBackgroundPanel,
+  resolvePanelLocation,
+} from '../workspace/canvasAccess'
+import { emitAgentCursor, emitBrowserContentChanged } from './agentCursor'
+import { isBrowserInternalPage } from './internalPages'
+import { PANEL_MINIMUM_SIZES } from '../../../shared/types'
+import {
+  agentBrowserActivityLabel,
+  agentBrowserCommandShowsActivity,
+  isReadOnlyAgentBrowserCommand,
+  validateAgentBrowserCommand,
+} from '../../../shared/agentBrowserCommand'
 
 export type BrowserOutcome = { ok: true; result?: unknown } | { ok: false; error: string }
 
-/** First browser panel in the workspace, or null. Shared with terminalUrlOpen so
- *  both the terminal link-open path and the reverse API pick the same panel. */
+const ACTING_METHODS = new Set([
+  'click',
+  'dblclick',
+  'hover',
+  'fill',
+  'type',
+  'press',
+  'select',
+  'check',
+  'uncheck',
+  'drag',
+  'scroll',
+  'mouse',
+])
+
 export function findBrowserPanelId(workspaceId: string): string | null {
-  const ws = useAppStore.getState().workspaces.find((w) => w.id === workspaceId)
-  if (!ws) return null
-  for (const panel of Object.values(ws.panels)) {
+  const workspace = useAppStore.getState().workspaces.find((item) => item.id === workspaceId)
+  if (!workspace) return null
+  for (const panel of Object.values(workspace.panels)) {
     if (panel.type === 'browser') return panel.id
   }
   return null
 }
 
-/** Resolve which browser panel a call targets. Returns the panelId or a stable
- *  error string. `no-browser` means the workspace has no browser panel at all
- *  (the `open` handler treats that as "create one"). */
 function resolveTargetPanelId(
   workspaceId: string,
   args: Record<string, unknown>,
 ): { panelId: string } | { error: string } {
-  const ws = useAppStore.getState().workspaces.find((w) => w.id === workspaceId)
+  const workspace = useAppStore.getState().workspaces.find((item) => item.id === workspaceId)
   const explicit = typeof args.panelId === 'string' ? args.panelId : undefined
   if (explicit) {
-    const panel = ws?.panels?.[explicit]
-    // Mirror panel.setTitle: a panel detached into another window is absent from
-    // this store, so we can't drive it here. Reject rather than lie.
-    if (!panel || panel.type !== 'browser') return { error: 'panel-not-in-window' }
-    return { panelId: explicit }
+    const panel = workspace?.panels?.[explicit]
+    return panel?.type === 'browser' ? { panelId: explicit } : { error: 'panel-not-in-window' }
+  }
+  const placementGroupId = typeof args.placementGroupId === 'string' ? args.placementGroupId : undefined
+  if (placementGroupId) {
+    const grouped = Object.values(workspace?.panels ?? {}).find(
+      (panel) => panel.type === 'browser' && panel.placementGroupId === placementGroupId,
+    )
+    return grouped ? { panelId: grouped.id } : { error: 'no-browser' }
   }
   const active = getActivePanelId()
-  if (active && ws?.panels?.[active]?.type === 'browser') return { panelId: active }
+  if (active && workspace?.panels?.[active]?.type === 'browser') return { panelId: active }
   const first = findBrowserPanelId(workspaceId)
-  if (first) return { panelId: first }
-  return { error: 'no-browser' }
+  return first ? { panelId: first } : { error: 'no-browser' }
 }
 
-/** Fetch the live <webview> for a resolved panelId, or a `webview-not-ready`
- *  outcome when it isn't registered yet (guest not dom-ready). */
-function getWebview(panelId: string): { webview: PortalWebview } | { error: string } {
-  const webview = portalRegistry.get(panelId)
-  if (!webview) return { error: 'webview-not-ready' }
-  return { webview }
-}
-
-/** A background-created browser mounts on the next React commit. Wait for its
- * portal registration before reporting `open` success so an autonomous caller
- * can immediately follow with `wait`/`snapshot` instead of racing the render. */
-async function waitForWebview(panelId: string, timeoutMs = 3_000): Promise<PortalWebview | null> {
+async function waitForWebview(
+  panelId: string,
+  timeoutMs = 8_000,
+  previous?: PortalWebview | null,
+): Promise<PortalWebview | null> {
   const deadline = Date.now() + timeoutMs
   for (;;) {
     const webview = portalRegistry.get(panelId)
-    if (webview) return webview
+    if (webview && (previous === undefined || webview !== previous)) return webview
     if (Date.now() >= deadline) return null
     await new Promise((resolve) => setTimeout(resolve, 50))
   }
 }
 
-// --- Injected DOM scripts ----------------------------------------------------
-// Never interpolate caller-supplied ref/text into the source string: pass them
-// as function arguments via JSON.stringify so a malicious value can't break out
-// of a string literal into executable code.
-
-const SNAPSHOT_JS = `(function () {
-  document.querySelectorAll('[data-cate-ref]').forEach(function (el) { el.removeAttribute('data-cate-ref') })
-  var sel = 'a[href],button,input,textarea,select,[role],[contenteditable],h1,h2,h3,h4,h5,h6'
-  // Two passes to avoid layout thrash: a DOM write (setAttribute) invalidates
-  // layout, so any getBoundingClientRect/getComputedStyle in the SAME loop would
-  // force a fresh synchronous reflow per element (O(n)). Pass 1 does every layout
-  // read up front; pass 2 does the writes once no more reads follow.
-  // Pass 1 — read-only: keep the visible matches in document order.
-  var visible = []
-  Array.prototype.forEach.call(document.querySelectorAll(sel), function (el) {
-    var rect = el.getBoundingClientRect()
-    var style = getComputedStyle(el)
-    if (rect.width <= 0 || rect.height <= 0 || style.visibility === 'hidden' || style.display === 'none') return
-    visible.push(el)
-  })
-  // Pass 2 — write refs + build output (no layout reads here).
-  var refs = []
-  for (var i = 0; i < visible.length; i++) {
-    var el = visible[i]
-    var ref = '@e' + (i + 1)
-    el.setAttribute('data-cate-ref', ref)
-    // Bare <input> tags all read alike, so expose the type (input:search vs
-    // input:submit) — it is what disambiguates a field from its submit button.
-    var role = el.getAttribute('role') || el.tagName.toLowerCase()
-    if (role === 'input') role = 'input:' + (el.type || 'text').toLowerCase()
-    // Accessible-name fallbacks, most explicit first. An associated <label>
-    // beats textContent (which is empty for inputs anyway), and a <select>'s
-    // textContent is skipped — it is ALL of its options concatenated.
-    var name = el.getAttribute('aria-label') || ''
-    if (!name && el.labels && el.labels.length) name = el.labels[0].textContent || ''
-    if (!name && el.tagName !== 'SELECT') name = el.textContent || ''
-    if (!name) name = el.getAttribute('placeholder') || el.getAttribute('value') || ''
-    name = name.replace(/\\s+/g, ' ').trim().slice(0, 200)
-    var value = 'value' in el ? el.value : undefined
-    refs.push({ ref: ref, role: role, name: name, value: value })
-  }
-  return { url: location.href, title: document.title, refs: refs }
-})()`
-
-/** Canonical refs are the `@e<n>` tokens SNAPSHOT_JS mints. Accept the bare
- *  `e<n>` a caller is likely to strip the sigil from, and reject anything else
- *  up front — a malformed ref would otherwise come back as `stale-ref`, telling
- *  the caller to re-snapshot when the fix is the argument itself. */
-function normalizeRef(raw: unknown): { ref: string } | { error: string } {
-  if (typeof raw !== 'string' || raw === '') return { error: 'ref-required' }
-  const ref = /^e\d+$/.test(raw) ? `@${raw}` : raw
-  if (!/^@e\d+$/.test(ref)) return { error: 'bad-ref: expected a snapshot ref like @e12' }
-  return { ref }
-}
-
-function elementByRefBody(): string {
-  // Compare via getAttribute (not a built selector) so `ref` is never spliced
-  // into a CSS query — no injection surface even though it arrives as an arg.
-  return `var el = null
-  var all = document.querySelectorAll('[data-cate-ref]')
-  for (var i = 0; i < all.length; i++) { if (all[i].getAttribute('data-cate-ref') === ref) { el = all[i]; break } }`
-}
-
-function clickJs(ref: string): string {
-  return `(function (ref) {
-  ${elementByRefBody()}
-  if (!el) return { error: 'stale-ref' }
-  el.scrollIntoView({ block: 'center' })
-  el.focus()
-  el.click()
-  return { ok: true }
-})(${JSON.stringify(ref)})`
-}
-
-function typeJs(ref: string, text: string): string {
-  return `(function (ref, text) {
-  ${elementByRefBody()}
-  if (!el) return { error: 'stale-ref' }
-  el.scrollIntoView({ block: 'center' })
-  el.focus()
-  if ('value' in el) { el.value = text } else { el.textContent = text }
-  el.dispatchEvent(new Event('input', { bubbles: true }))
-  el.dispatchEvent(new Event('change', { bubbles: true }))
-  return { ok: true }
-})(${JSON.stringify(ref)}, ${JSON.stringify(text)})`
-}
-
-function focusJs(ref: string): string {
-  return `(function (ref) {
-  ${elementByRefBody()}
-  if (!el) return { error: 'stale-ref' }
-  el.scrollIntoView({ block: 'center' })
-  el.focus()
-  return { ok: true }
-})(${JSON.stringify(ref)})`
-}
-
-// --- press key map -------------------------------------------------------------
-// Friendly key names (lowercased) → Electron accelerator key codes for
-// sendInputEvent. A closed allowlist: `press` exists to complete interaction
-// flows (submit, dismiss, scroll, move), not to be a general keyboard.
-const PRESS_KEYS: Record<string, string> = {
-  enter: 'Return',
-  return: 'Return',
-  tab: 'Tab',
-  escape: 'Escape',
-  esc: 'Escape',
-  backspace: 'Backspace',
-  delete: 'Delete',
-  space: 'Space',
-  arrowup: 'Up',
-  up: 'Up',
-  arrowdown: 'Down',
-  down: 'Down',
-  arrowleft: 'Left',
-  left: 'Left',
-  arrowright: 'Right',
-  right: 'Right',
-  pageup: 'PageUp',
-  pagedown: 'PageDown',
-  home: 'Home',
-  end: 'End',
-}
-
-/** Wait for the guest to stop loading. Polls isLoading() — the PortalWebview
- *  surface has no event hooks — and must resolve WELL inside the main process's
- *  10s forward timeout, so the caller-supplied timeout is capped at 8s. */
-const WAIT_DEFAULT_MS = 5_000
-const WAIT_MAX_MS = 8_000
-const WAIT_POLL_MS = 100
-
-async function waitForLoad(webview: PortalWebview, timeoutMs: number): Promise<BrowserOutcome> {
-  const deadline = Date.now() + Math.min(Math.max(timeoutMs, 0) || WAIT_DEFAULT_MS, WAIT_MAX_MS)
+async function waitForController(panelId: string, timeoutMs = 8_000) {
+  const deadline = Date.now() + timeoutMs
   for (;;) {
-    if (!webview.isLoading()) {
-      return { ok: true, result: { url: webview.getURL(), title: webview.getTitle(), loading: false } }
-    }
-    if (Date.now() >= deadline) return { ok: false, error: 'still-loading' }
-    await new Promise((r) => setTimeout(r, WAIT_POLL_MS))
+    const controller = portalRegistry.getController(panelId)
+    if (controller) return controller
+    if (Date.now() >= deadline) return null
+    await new Promise((resolve) => setTimeout(resolve, 50))
   }
 }
 
-// --- Entry point -------------------------------------------------------------
+async function navigateAndReadUrl(
+  webview: PortalWebview,
+  navigate: () => void,
+  timeoutMs = 8_000,
+): Promise<{ url: string } | { error: 'navigation-timeout' }> {
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const cleanup = () => {
+      clearTimeout(timer)
+      webview.removeEventListener('did-navigate', onNavigate)
+      webview.removeEventListener('did-navigate-in-page', onNavigate)
+    }
+    const onNavigate = (event: { url?: string }) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve({ url: event.url ?? webview.getURL() })
+    }
+    webview.addEventListener('did-navigate', onNavigate)
+    webview.addEventListener('did-navigate-in-page', onNavigate)
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve({ error: 'navigation-timeout' })
+    }, timeoutMs)
+    try {
+      navigate()
+    } catch (error) {
+      settled = true
+      cleanup()
+      reject(error)
+    }
+  })
+}
 
-/** Execute one `cate.browser.*` method. `method` keeps its full `cate.browser.`
- *  prefix (as it arrives at the responder). Always resolves (never throws). */
+async function waitForGuestReady(
+  webview: PortalWebview,
+  requestedUrl: string,
+  timeoutMs = 8_000,
+): Promise<{ url: string } | { error: 'navigation-timeout' }> {
+  const needsNavigation = requestedUrl !== 'about:blank'
+  return new Promise((resolve) => {
+    let settled = false
+    let navigated = !needsNavigation || webview.getURL() !== 'about:blank'
+    const cleanup = () => {
+      clearTimeout(timer)
+      webview.removeEventListener('did-navigate', onNavigate)
+      webview.removeEventListener('did-navigate-in-page', onNavigate)
+      webview.removeEventListener('did-stop-loading', onLoadStop)
+    }
+    const finishIfReady = () => {
+      if (settled || !navigated || webview.isLoading()) return
+      settled = true
+      cleanup()
+      resolve({ url: webview.getURL() })
+    }
+    const onNavigate = (event: { url?: string }) => {
+      if (!needsNavigation || (event.url ?? webview.getURL()) !== 'about:blank') navigated = true
+      finishIfReady()
+    }
+    const onLoadStop = () => finishIfReady()
+    webview.addEventListener('did-navigate', onNavigate)
+    webview.addEventListener('did-navigate-in-page', onNavigate)
+    webview.addEventListener('did-stop-loading', onLoadStop)
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve({ error: 'navigation-timeout' })
+    }, timeoutMs)
+    finishIfReady()
+  })
+}
+
+function stringArg(args: Record<string, unknown>, key: string): string | undefined {
+  return typeof args[key] === 'string' ? args[key] as string : undefined
+}
+
+function positiveNumberArg(args: Record<string, unknown>, key: string): number | null {
+  const value = args[key]
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+function resolveTabId(
+  tabs: Array<{ id: string }>,
+  requested: string,
+): { tabId: string } | { error: 'no-such-tab' | 'ambiguous-tab' } {
+  const exact = tabs.find((tab) => tab.id === requested)
+  if (exact) return { tabId: exact.id }
+  const matches = tabs.filter((tab) => tab.id.startsWith(requested))
+  if (matches.length === 1) return { tabId: matches[0].id }
+  return { error: matches.length > 1 ? 'ambiguous-tab' : 'no-such-tab' }
+}
+
+async function control(
+  webview: PortalWebview,
+  request: Omit<Parameters<typeof window.electronAPI.browserControl>[0], 'webContentsId'>,
+): Promise<Awaited<ReturnType<typeof window.electronAPI.browserControl>>> {
+  return window.electronAPI.browserControl({ ...request, webContentsId: webview.getWebContentsId() })
+}
+
+function activityLabel(method: string, args: Record<string, unknown>): string {
+  if (method === 'fill' || method === 'type') {
+    const text = typeof args.text === 'string' ? args.text.replace(/\s+/g, ' ').trim() : ''
+    const short = text.length > 28 ? `${text.slice(0, 27)}…` : text
+    return `${method} ${JSON.stringify(short)}`
+  }
+  if (method === 'press') return `press ${String(args.key ?? '')}`.trim()
+  return method
+}
+
+async function executeAgentBrowser(
+  webview: PortalWebview,
+  panelId: string,
+  method: string,
+  args: Record<string, unknown>,
+): Promise<BrowserOutcome> {
+  let commandActivity: string[] | null = null
+  if (method === 'command' || method === 'readCommand') {
+    try {
+      commandActivity = validateAgentBrowserCommand(args.command)
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'invalid-browser-command' }
+    }
+  }
+  if (ACTING_METHODS.has(method) || (commandActivity && agentBrowserCommandShowsActivity(commandActivity))) {
+    emitAgentCursor(panelId, {
+      kind: method === 'press' ? 'press' : method === 'scroll' ? 'scroll' : 'move',
+      label: commandActivity ? agentBrowserActivityLabel(commandActivity) : activityLabel(method, args),
+    })
+  }
+  const response = await control(webview, { op: 'agentBrowser', method, args })
+  if (response.error) return { ok: false, error: response.error }
+  if (response.cursor) emitAgentCursor(panelId, response.cursor)
+  if (
+    ACTING_METHODS.has(method)
+    || method === 'evaluate'
+    || method === 'dialogPolicy'
+    || (commandActivity !== null && !isReadOnlyAgentBrowserCommand(commandActivity))
+  ) {
+    emitBrowserContentChanged(panelId)
+  }
+  return response.result === undefined ? { ok: true } : { ok: true, result: response.result }
+}
+
 export async function handleBrowserMethod(
   workspaceId: string,
   method: string,
@@ -235,136 +251,201 @@ export async function handleBrowserMethod(
 ): Promise<BrowserOutcome> {
   const name = method.slice('cate.browser.'.length)
 
-  // NOTE: there is deliberately no `list` here — `cate.panel.list` (the
-  // responder) is the single enumeration surface and includes browser urls.
-
-  // `open` may create a browser when none exists; resolve/handle specially.
   if (name === 'open') {
-    const url = typeof args.url === 'string' ? args.url : undefined
+    const url = stringArg(args, 'url')
     if (!url) return { ok: false, error: 'url-required' }
-    const target = resolveTargetPanelId(workspaceId, args)
+    if (args.newTab === true && args.newPanel !== true) {
+      const target = resolveTargetPanelId(workspaceId, args)
+      if (!('error' in target)) {
+        const controller = await waitForController(target.panelId)
+        if (!controller) return { ok: false, error: 'panel-not-mounted' }
+        const previous = portalRegistry.get(target.panelId)
+        const tabId = controller.newTab(url)
+        const mounted = await waitForWebview(target.panelId, 8_000, previous)
+        if (!mounted) return { ok: false, error: 'webview-not-ready' }
+        const ready = await waitForGuestReady(mounted, url)
+        return 'error' in ready
+          ? { ok: false, error: ready.error }
+          : { ok: true, result: { panelId: target.panelId, tabId, url: ready.url } }
+      }
+      if (target.error !== 'no-browser') return { ok: false, error: target.error }
+    }
     let panelId: string
-    if ('error' in target) {
-      if (target.error === 'no-browser') {
+    if (args.newPanel === true) {
+      panelId = useAppStore.getState().createBrowser(
+        workspaceId,
+        url,
+        undefined,
+        placementForBackgroundPanel(workspaceId, stringArg(args, 'placementGroupId')),
+      )
+    } else {
+      const target = resolveTargetPanelId(workspaceId, args)
+      if ('error' in target) {
+        if (target.error !== 'no-browser') return { ok: false, error: target.error }
         panelId = useAppStore.getState().createBrowser(
           workspaceId,
           url,
           undefined,
-          placementForBackgroundPanel(workspaceId),
+          placementForBackgroundPanel(workspaceId, stringArg(args, 'placementGroupId')),
         )
       } else {
-        return { ok: false, error: target.error }
+        panelId = target.panelId
       }
-    } else {
-      panelId = target.panelId
     }
 
     useAppStore.getState().updateBrowserActiveTabUrl(workspaceId, panelId, url)
-    const webview = portalRegistry.get(panelId)
-    if (webview) {
+    const existing = portalRegistry.get(panelId)
+    if (existing) {
       try {
-        webview.loadURL(url)
-        return { ok: true, result: { panelId, url } }
+        const result = await navigateAndReadUrl(existing, () => existing.loadURL(url))
+        return 'error' in result ? { ok: false, error: result.error } : { ok: true, result: { panelId, url: result.url } }
       } catch {
         return { ok: false, error: 'webview-not-ready' }
       }
     }
-    // No live webview: the panel was just created above, is still mounting, or
-    // sits on its start page — which renders INSTEAD of a webview and would
-    // never mount one on its own. The panel's registered navigator is the same
-    // entry point the URL bar uses; navigating leaves the start page, which
-    // mounts the webview. The loadURL after the wait covers the still-mounting
-    // case, whose seeded src is the panel's OLD page (redundant but harmless
-    // for the others — they mount already loading `url`).
-    portalRegistry.getNavigator(panelId)?.(url)
+
+    portalRegistry.getController(panelId)?.navigate(url)
     const mounted = await waitForWebview(panelId)
-    if (!mounted) return { ok: false, error: 'webview-not-ready' }
+    if (!mounted) {
+      return {
+        ok: false,
+        error: portalRegistry.getController(panelId) ? 'webview-not-ready' : 'panel-not-mounted',
+      }
+    }
     try {
-      mounted.loadURL(url)
-      return { ok: true, result: { panelId, url } }
+      const result = await navigateAndReadUrl(mounted, () => mounted.loadURL(url))
+      return 'error' in result ? { ok: false, error: result.error } : { ok: true, result: { panelId, url: result.url } }
     } catch {
       return { ok: false, error: 'webview-not-ready' }
     }
   }
 
-  // Every remaining method needs an existing, dom-ready browser.
+  if (name === 'tabs' || name === 'tabNew' || name === 'tabSelect' || name === 'tabClose') {
+    const target = resolveTargetPanelId(workspaceId, args)
+    if ('error' in target) return { ok: false, error: target.error }
+    const controller = await waitForController(target.panelId)
+    if (!controller) return { ok: false, error: 'panel-not-mounted' }
+    if (name === 'tabs') return { ok: true, result: { panelId: target.panelId, tabs: controller.listTabs() } }
+    if (name === 'tabNew') {
+      const previous = portalRegistry.get(target.panelId)
+      const tabId = controller.newTab(stringArg(args, 'url'))
+      const mounted = await waitForWebview(target.panelId, 8_000, previous)
+      if (!mounted) return { ok: false, error: 'webview-not-ready' }
+      const url = stringArg(args, 'url')
+      if (url) {
+        const ready = await waitForGuestReady(mounted, url)
+        if ('error' in ready) return { ok: false, error: ready.error }
+      }
+      return { ok: true, result: { panelId: target.panelId, tabId } }
+    }
+    const requested = stringArg(args, 'tabId')
+    if (!requested) return { ok: false, error: 'tabId-required' }
+    const resolved = resolveTabId(controller.listTabs(), requested)
+    if ('error' in resolved) return { ok: false, error: resolved.error }
+    const selectedTab = controller.listTabs().find((tab) => tab.id === resolved.tabId)
+    const previous = portalRegistry.get(target.panelId)
+    const changed = name === 'tabSelect'
+      ? controller.selectTab(resolved.tabId)
+      : controller.closeTab(resolved.tabId)
+    if (
+      changed
+      && name === 'tabSelect'
+      && selectedTab?.active !== true
+      && !isBrowserInternalPage(selectedTab?.url ?? '')
+      && !(await waitForWebview(target.panelId, 8_000, previous))
+    ) {
+      return { ok: false, error: 'webview-not-ready' }
+    }
+    return changed
+      ? { ok: true, result: { tabId: resolved.tabId } }
+      : { ok: false, error: 'no-such-tab' }
+  }
+
   const target = resolveTargetPanelId(workspaceId, args)
   if ('error' in target) return { ok: false, error: target.error }
-  const found = getWebview(target.panelId)
-  if ('error' in found) return { ok: false, error: found.error }
-  const { webview } = found
+
+  if (name === 'viewport') {
+    const controller = portalRegistry.getController(target.panelId)
+    if (!controller) return { ok: false, error: 'panel-not-mounted' }
+    const preset = stringArg(args, 'preset')
+    if (preset === 'compact') {
+      controller.setViewport({ preset })
+      return { ok: true, result: { preset } }
+    }
+    const width = positiveNumberArg(args, 'width')
+    const height = positiveNumberArg(args, 'height')
+    if (
+      !width
+      || !height
+      || (preset !== 'desktop' && preset !== 'mobile' && preset !== 'custom')
+    ) {
+      return { ok: false, error: 'invalid-browser-viewport' }
+    }
+    controller.setViewport({ preset, width, height })
+    return { ok: true, result: { preset, width, height } }
+  }
+
+  if (name === 'resize') {
+    const width = positiveNumberArg(args, 'width')
+    const height = positiveNumberArg(args, 'height')
+    if (!width || !height) return { ok: false, error: 'width-and-height-required' }
+    const minimum = PANEL_MINIMUM_SIZES.browser
+    if (width < minimum.width || height < minimum.height) {
+      return {
+        ok: false,
+        error: `minimum-browser-panel-size-${minimum.width}x${minimum.height}`,
+      }
+    }
+    const location = resolvePanelLocation(workspaceId, target.panelId)
+    if (!location) return { ok: false, error: 'panel-not-mounted' }
+    if (location.kind !== 'canvas') return { ok: false, error: 'browser-panel-is-docked' }
+    const store = getCanvasOpsById(location.canvasPanelId)?.storeApi
+    const nodeId = store?.getState().nodeForPanel(target.panelId)
+    if (!store || !nodeId) return { ok: false, error: 'panel-not-mounted' }
+    store.getState().resizeNode(nodeId, { width, height })
+    return { ok: true, result: { panelId: target.panelId, width, height } }
+  }
+
+  const webview = portalRegistry.get(target.panelId) ?? await waitForWebview(target.panelId)
+  if (!webview) {
+    return {
+      ok: false,
+      error: portalRegistry.getController(target.panelId) ? 'webview-not-ready' : 'panel-not-mounted',
+    }
+  }
 
   try {
-    switch (name) {
-      // No back/forward/current: agents navigate by URL (`open`) and read
-      // "where am I / is it settled" from `wait`, which returns instantly when
-      // the page is idle.
-      case 'reload':
-        webview.reload()
-        return { ok: true }
-      case 'screenshot': {
-        const wcId = webview.getWebContentsId()
-        // The CLI/agent path returns only the file path, so opt out of the
-        // full-page base64 encode the UI button needs — and land in the temp
-        // dir, not the user's Desktop (agents screenshot constantly).
-        let result: { filePath: string } | null
-        try {
-          result = await window.electronAPI.webviewScreenshot(wcId, { wantDataUrl: false, saveTo: 'temp' })
-        } catch {
-          return { ok: false, error: 'screenshot-failed' }
-        }
-        if (!result) return { ok: false, error: 'screenshot-failed' }
-        return { ok: true, result: { path: result.filePath } }
-      }
-      case 'snapshot': {
-        const snap = await webview.executeJavaScript(SNAPSHOT_JS)
-        return { ok: true, result: snap }
-      }
-      case 'click': {
-        const ref = normalizeRef(args.ref)
-        if ('error' in ref) return { ok: false, error: ref.error }
-        const res = (await webview.executeJavaScript(clickJs(ref.ref))) as { ok?: true; error?: string }
-        if (res?.error) return { ok: false, error: res.error }
-        return { ok: true }
-      }
-      case 'type': {
-        const ref = normalizeRef(args.ref)
-        if ('error' in ref) return { ok: false, error: ref.error }
-        const text = typeof args.text === 'string' ? args.text : ''
-        const res = (await webview.executeJavaScript(typeJs(ref.ref, text))) as { ok?: true; error?: string }
-        if (res?.error) return { ok: false, error: res.error }
-        return { ok: true }
-      }
-      case 'wait': {
-        const timeoutMs = typeof args.timeoutMs === 'number' ? args.timeoutMs : WAIT_DEFAULT_MS
-        return await waitForLoad(webview, timeoutMs)
-      }
-      case 'press': {
-        const key = typeof args.key === 'string' ? PRESS_KEYS[args.key.toLowerCase()] : undefined
-        if (!key) return { ok: false, error: 'unsupported-key' }
-        // Optional ref: focus the element first (Enter into a field, Tab from a
-        // field). Without one the key goes to whatever the guest has focused —
-        // that's how page-level keys (Escape, PageDown) work.
-        if (typeof args.ref === 'string') {
-          const ref = normalizeRef(args.ref)
-          if ('error' in ref) return { ok: false, error: ref.error }
-          const res = (await webview.executeJavaScript(focusJs(ref.ref))) as { ok?: true; error?: string }
-          if (res?.error) return { ok: false, error: res.error }
-        }
-        // keyDown + char + keyUp is the full trusted key sequence; the char event
-        // is what fires keypress/beforeinput handlers and native form submit.
-        await webview.sendInputEvent({ type: 'keyDown', keyCode: key })
-        if (key === 'Return' || key === 'Space' || key === 'Tab') {
-          await webview.sendInputEvent({ type: 'char', keyCode: key })
-        }
-        await webview.sendInputEvent({ type: 'keyUp', keyCode: key })
-        return { ok: true }
-      }
-      default:
-        return { ok: false, error: 'unsupported' }
+    if (name === 'reload') {
+      webview.reload()
+      return { ok: true }
     }
+    if (name === 'back' || name === 'forward') {
+      const available = name === 'back' ? webview.canGoBack() : webview.canGoForward()
+      if (!available) return { ok: false, error: 'no-history' }
+      const result = await navigateAndReadUrl(webview, () => name === 'back' ? webview.goBack() : webview.goForward())
+      return 'error' in result ? { ok: false, error: result.error } : { ok: true, result }
+    }
+    if (name === 'current') {
+      return {
+        ok: true,
+        result: {
+          panelId: target.panelId,
+          url: webview.getURL(),
+          title: webview.getTitle(),
+          loading: webview.isLoading(),
+          canGoBack: webview.canGoBack(),
+          canGoForward: webview.canGoForward(),
+        },
+      }
+    }
+    if (name === 'downloads') {
+      const response = await control(webview, { op: 'downloads' })
+      return response.error
+        ? { ok: false, error: response.error }
+        : { ok: true, result: { downloads: response.downloads ?? [] } }
+    }
+    return executeAgentBrowser(webview, target.panelId, name, args)
   } catch {
-    // A live webview whose guest process just went away throws on any call.
-    return { ok: false, error: 'webview-not-ready' }
+    return { ok: false, error: 'agent-browser-unavailable' }
   }
 }

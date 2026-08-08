@@ -72,6 +72,7 @@ const SETTINGS_SCHEMA: Record<keyof AppSettings, string> = {
   cliNotifyEnabled: 'boolean',
   browserHomepage: 'string',
   browserSearchEngine: 'string',
+  browserProxyUrl: 'string',
   browserShowBookmarksBar: 'boolean',
   browserShowTabSidebar: 'boolean',
   browserNewTabBehavior: 'string',
@@ -89,10 +90,6 @@ const SETTINGS_SCHEMA: Record<keyof AppSettings, string> = {
   // renderer consumers, which validate hand-edited partial shapes.
   agentDefaultModel: 'object',
   agentHookInjection: 'object',
-  cateAgentModel: 'object',
-  cateAgentOrchestratorAgentId: 'string',
-  cateAgentObserveCooldownMin: 'number',
-  cateAgentMaxParallelIterations: 'number',
   sidebarLayout: 'object',
   customShortcuts: 'object',
   enabledExtensions: 'array',

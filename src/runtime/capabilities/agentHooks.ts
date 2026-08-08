@@ -45,7 +45,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import http from 'http'
 import os from 'os'
 import path from 'path'
-import { chmod, mkdir, readFile, stat, unlink, writeFile } from 'fs/promises'
+import { chmod, mkdir, open, readFile, stat, unlink, writeFile } from 'fs/promises'
 import { AGENTS, type AgentId } from '../../shared/agents'
 import {
   AGENT_HOOK_SPECS,
@@ -76,12 +76,13 @@ export interface AgentHooksCapability {
   /** Write (or, for 'off', remove) workspace-scoped hook files for the PTY's
    *  cwd and keep the ones we wrote out of git status via .git/info/exclude.
    *  `config` carries per-agent tri-state overrides: 'auto' (default) injects
-   *  only when the agent's own config folder already exists in the repo, 'on'
-   *  always injects, 'off' strips any entries Cate previously wrote.
+   *  only when the agent's own config folder exists in the cwd or optional
+   *  base-workspace `baseCwd`, 'on' always injects, and 'off' strips any
+   *  entries Cate previously wrote.
    *  Best-effort and idempotent; never touches the user's home dir (~/.codex,
    *  ~/.claude etc. are the CLIs' USER-GLOBAL config dirs — injection stays
    *  repo-local). */
-  prepareWorkspace(cwd: string, config?: AgentHookConfig): Promise<void>
+  prepareWorkspace(cwd: string, config?: AgentHookConfig, baseCwd?: string): Promise<void>
   /** Inspect a workspace's per-agent hook-file injection state (for the
    *  Settings UI): which agents write repo files, whether each one's config
    *  folder is already in the repo (the 'auto' signal), and whether Cate has
@@ -100,6 +101,15 @@ export interface AgentHooksCapability {
 export interface AgentHooksDeps {
   /** Override the stable hooks dir (tests). Default: ~/.cate/agent-hooks. */
   hooksDir?: string
+  /** The node binary the bridge wrappers exec. Default: this daemon's own
+   *  (process.execPath). Tests point it at a missing path to exercise the
+   *  wrapper's fail-soft guard. */
+  nodePath?: string
+  /** Poll cadence (ms) of the interrupt transcript tail-watch. Default 600 —
+   *  well under the "a moment after the user hit Esc" tolerance, and it only
+   *  ticks while a false-on-interrupt turn is actually in flight. Tests lower
+   *  it for speed. */
+  interruptPollMs?: number
   /** Called on every AUTHENTICATED post for a known agent — including ones
    *  whose payload normalizes to null — with the poster's lineage claim
    *  (`pid`: the bridge's parent / the in-process agent itself; undefined
@@ -146,6 +156,12 @@ async function dirExists(dir: string): Promise<boolean> {
 }
 
 const shQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`
+
+/** Hook runners may pass command strings through Bash even on Windows. Route
+ *  .cmd wrappers through cmd.exe so Bash does not consume path backslashes. */
+export function bridgeHookCommand(wrapper: string, platform: NodeJS.Platform): string {
+  return platform === 'win32' ? `cmd.exe /d /c "${wrapper}"` : wrapper
+}
 
 /** The generic stdin→HTTP bridge all stdin-JSON CLIs share (claude, codex).
  *  No stdout on purpose: every CLI accepts silent exit-0. Always exits 0 — a
@@ -197,6 +213,121 @@ export function createAgentHooksCapability(deps: AgentHooksDeps = {}): AgentHook
   const emit = (event: AgentHookEvent): void => {
     for (const cb of listeners) {
       try { cb(event) } catch { /* a subscriber must not break ingestion */ }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Interrupt recovery — the compensating channel for the CLIs that push NO
+  // hook on a user interrupt (claude, codex; see AgentHookSpec.interruptRecovery
+  // in shared/agentHooks.ts). While such an agent's turn is in flight we tail
+  // its transcript; the instant its interrupt MARKER lands we synthesize the
+  // turn-end the CLI never pushed, so the FSM idles just like it does for the
+  // self-healing agents. Deterministic and file-based on purpose: no keystroke
+  // sniffing, no screen scraping, no settle timer that GUESSES idle from
+  // silence — this fires only on a definite marker in the transcript.
+  // -------------------------------------------------------------------------
+  interface InterruptWatch {
+    agentId: AgentId
+    sessionId: string | null
+    cwd?: string
+    transcriptPath: string
+    marker: RegExp
+    /** Transcript size at turn-start. Only bytes appended after it belong to
+     *  the aborted turn, so a marker from an EARLIER turn in the same file is
+     *  never re-detected. */
+    baseline: number
+  }
+  const interruptWatches = new Map<string, InterruptWatch>()
+  let interruptTimer: ReturnType<typeof setInterval> | null = null
+  const INTERRUPT_TAIL_BYTES = 64 * 1024
+
+  const fileSize = async (file: string): Promise<number> => {
+    try { return (await stat(file)).size } catch { return 0 }
+  }
+
+  /** Read at most the last INTERRUPT_TAIL_BYTES of `file`, never before `from`.
+   *  The marker is the last thing the CLI writes on abort, so a bounded tail
+   *  read catches it however large the turn's output was. */
+  const readTail = async (file: string, from: number): Promise<string> => {
+    let fh: Awaited<ReturnType<typeof open>>
+    try { fh = await open(file, 'r') } catch { return '' }
+    try {
+      const { size } = await fh.stat()
+      const start = Math.max(from, size - INTERRUPT_TAIL_BYTES, 0)
+      const len = size - start
+      if (len <= 0) return ''
+      const buf = Buffer.allocUnsafe(len)
+      await fh.read(buf, 0, len, start)
+      return buf.toString('utf8')
+    } catch {
+      return ''
+    } finally {
+      try { await fh.close() } catch { /* already gone */ }
+    }
+  }
+
+  const stopInterruptTimerIfIdle = (): void => {
+    if (interruptWatches.size === 0 && interruptTimer) {
+      clearInterval(interruptTimer)
+      interruptTimer = null
+    }
+  }
+
+  const scanInterruptWatches = async (): Promise<void> => {
+    for (const [terminalId, w] of [...interruptWatches]) {
+      const tail = await readTail(w.transcriptPath, w.baseline)
+      if (!tail || !w.marker.test(tail)) continue
+      // Interrupted: the CLI pushed no hook, so emit the turn-end its
+      // transcript now proves. sessionId/cwd carry through from turn-start so
+      // the session-stamp tracker re-stamps the same (correct) session; the
+      // raw marker lets a consumer tell this apart from a real hook turn-end.
+      interruptWatches.delete(terminalId)
+      emit({
+        terminalId,
+        agentId: w.agentId,
+        kind: 'turn-end',
+        sessionId: w.sessionId,
+        cwd: w.cwd,
+        transcriptPath: w.transcriptPath,
+        raw: { __cateInterruptRecovery: true },
+      })
+    }
+    stopInterruptTimerIfIdle()
+  }
+
+  const ensureInterruptTimer = (): void => {
+    if (interruptTimer || disposed) return
+    interruptTimer = setInterval(() => { void scanInterruptWatches() }, deps.interruptPollMs ?? 600)
+    interruptTimer.unref?.()
+  }
+
+  /** Arm/disarm the transcript watch off the normalized event stream. A
+   *  turn-start for a false-on-interrupt agent arms it (baselined at the
+   *  current transcript size); a real turn-end/session-end disarms it (the
+   *  turn ended through a hook — no recovery needed). turn-resume and
+   *  permission-wait leave it armed: the turn is still in flight and still
+   *  interruptible. */
+  const updateInterruptWatch = async (event: AgentHookEvent): Promise<void> => {
+    const rec = AGENT_HOOK_SPECS[event.agentId]?.interruptRecovery
+    if (!rec) return
+    switch (event.kind) {
+      case 'turn-start':
+        if (!event.transcriptPath) return
+        interruptWatches.set(event.terminalId, {
+          agentId: event.agentId,
+          sessionId: event.sessionId,
+          cwd: event.cwd,
+          transcriptPath: event.transcriptPath,
+          marker: rec.marker,
+          baseline: await fileSize(event.transcriptPath),
+        })
+        ensureInterruptTimer()
+        break
+      case 'turn-end':
+      case 'session-end':
+        interruptWatches.delete(event.terminalId)
+        stopInterruptTimerIfIdle()
+        break
     }
   }
 
@@ -258,7 +389,13 @@ export function createAgentHooksCapability(deps: AgentHooksDeps = {}): AgentHook
               } catch { /* presence tracking must never fail the hook */ }
             }
             const event = normalizeAgentHookPayload(body.agentId, body.terminalId, body.payload as Record<string, unknown>)
-            if (event) emit(event)
+            if (event) {
+              emit(event)
+              // Awaited (a cheap local stat) so the watch is armed by the time
+              // the bridge's post resolves — no window where the interrupt
+              // marker could land before the baseline is taken.
+              await updateInterruptWatch(event)
+            }
           }
           res.statusCode = 204
           res.end()
@@ -296,6 +433,7 @@ export function createAgentHooksCapability(deps: AgentHooksDeps = {}): AgentHook
 
     const secret = randomBytes(32).toString('hex')
     const contexts = new Map<AgentId, HookInjectionContext>()
+    const nodePath = deps.nodePath ?? process.execPath
 
     for (const agent of AGENTS) {
       // Per-agent bridge wrapper: hook configs get ONE command path with no
@@ -306,15 +444,23 @@ export function createAgentHooksCapability(deps: AgentHooksDeps = {}): AgentHook
       // + packaged app) flip-flop it between their node paths. Benign: both
       // are working node binaries, and codex's hook trust keys on the wrapper
       // PATH (via hooks.json), which never changes.
+      //
+      // The exec is GUARDED on the binary still being there. That path lives
+      // in a provisioned runtime install, and an install can be replaced under
+      // a running daemon; without the guard, sh reports "cannot execute: No
+      // such file or directory" straight into the user's agent transcript. A
+      // hook that cannot run must degrade to a silent no-op, like BRIDGE_JS's
+      // always-exit-0 contract.
       const wrapper = path.join(dir, `cate-hook-bridge-${agent.id}${process.platform === 'win32' ? '.cmd' : ''}`)
       if (process.platform === 'win32') {
-        await writeFile(wrapper, `@echo off\r\n"${process.execPath}" "${bridgeJs}" "${agent.id}" %*\r\n`)
+        await writeFile(wrapper, `@echo off\r\nif not exist "${nodePath}" exit /b 0\r\n"${nodePath}" "${bridgeJs}" "${agent.id}" %*\r\n`)
       } else {
-        await writeFile(wrapper, `#!/bin/sh\nexec ${shQuote(process.execPath)} ${shQuote(bridgeJs)} ${shQuote(agent.id)} "$@"\n`)
+        const q = shQuote(nodePath)
+        await writeFile(wrapper, `#!/bin/sh\n[ -x ${q} ] || exit 0\nexec ${q} ${shQuote(bridgeJs)} ${shQuote(agent.id)} "$@"\n`)
         await chmod(wrapper, 0o755)
       }
 
-      contexts.set(agent.id, { bridgeCommand: wrapper })
+      contexts.set(agent.id, { bridgeCommand: bridgeHookCommand(wrapper, process.platform) })
     }
 
     const server = http.createServer((req, res) => handleRequest(req, res, secret))
@@ -342,11 +488,14 @@ export function createAgentHooksCapability(deps: AgentHooksDeps = {}): AgentHook
       return out
     },
 
-    async prepareWorkspace(cwd, config) {
+    async prepareWorkspace(cwd, config, baseCwd) {
       if (disposed) return
       // Never plant (or strip) agent files in the user's home dir or against a
       // non-absolute cwd — see isRepoLocalCwd.
       if (!isRepoLocalCwd(cwd, os.homedir())) return
+      const autoBaseCwd = baseCwd && isRepoLocalCwd(baseCwd, os.homedir())
+        ? baseCwd
+        : undefined
       let state: HookState
       try {
         state = await ensureReady()
@@ -374,11 +523,18 @@ export function createAgentHooksCapability(deps: AgentHooksDeps = {}): AgentHook
           }
           continue
         }
-        // 'auto': inject only when the agent's config folder is already in the
-        // repo (a "used here" signal). 'on': always inject.
+        // 'auto': inject when the agent's config folder exists in this checkout
+        // or the base workspace checkout (a "used here" signal shared by linked
+        // worktrees). 'on': always inject.
         if (mode === 'auto') {
           const folder = agentHookFolder(agent.id)
-          if (folder && !(await dirExists(path.join(cwd, folder)))) continue
+          if (folder) {
+            const presentHere = await dirExists(path.join(cwd, folder))
+            const presentAtBase = !presentHere && autoBaseCwd
+              ? await dirExists(path.join(autoBaseCwd, folder))
+              : false
+            if (!presentHere && !presentAtBase) continue
+          }
         }
         const ctx = state.contexts.get(agent.id)!
         for (const pf of spec.projectFiles) {
@@ -448,6 +604,11 @@ export function createAgentHooksCapability(deps: AgentHooksDeps = {}): AgentHook
     dispose() {
       disposed = true
       listeners.clear()
+      interruptWatches.clear()
+      if (interruptTimer) {
+        clearInterval(interruptTimer)
+        interruptTimer = null
+      }
       const pending = ready
       ready = null
       // The stable hooks dir is deliberately NOT removed: repo hook files

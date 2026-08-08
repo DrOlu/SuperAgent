@@ -14,8 +14,10 @@ import {
 import { captureAndSaveScrollback } from '../terminal/captureAndSaveScrollback'
 import { deferredSnapshots } from './deferredRestore'
 import { terminalRegistry } from '../terminal/terminalRegistry'
-import { isLocalLocator } from '../../../main/runtime/locator'
+import { isLocalLocator } from '../../../shared/runtimeLocator'
+import { isRemoteRuntimeConnection } from '../../../shared/runtimeConnection'
 import { deriveSidebarSession } from './sidebarSession'
+import { isProjectTrusted } from '../../stores/workspaceTrustStore'
 import { buildWorkspaceFile, buildSessionFile, collectPanelIdsFromDockState } from './sessionSerialize'
 import type {
   SessionSnapshot,
@@ -175,7 +177,7 @@ export async function saveSession(): Promise<void> {
   const remoteEntries: RemoteProjectEntry[] = []
   for (const snapshot of snapshots) {
     if (!snapshot.rootPath || isLocalLocator(snapshot.rootPath)) continue
-    if (!snapshot.connection || snapshot.connection.kind === 'local') continue
+    if (!isRemoteRuntimeConnection(snapshot.connection)) continue
     if (workspacesByRoot.get(snapshot.rootPath)?.id !== snapshot.workspaceId) continue
     remoteEntries.push({
       locator: snapshot.rootPath,
@@ -206,6 +208,13 @@ export async function saveSession(): Promise<void> {
     // flip-flops, and one layout is lost on restart. Skip the non-owner snapshot;
     // the owner (the selected one, else the first in order) wins.
     if (ws && ws.id !== snapshot.workspaceId) continue
+
+    // NEVER write into an untrusted project. An open workspace is a trusted one
+    // (the gate is on the open path), so this is an invariant check rather than
+    // a filter — but it is what keeps a revoked-trust project from having its
+    // `.cate/` files rewritten by a workspace that is still on screen.
+    if (!isProjectTrusted(snapshot.rootPath)) continue
+
     const wsFile = buildWorkspaceFile(snapshot, snapshot.rootPath, ws?.color)
 
     // Filter detached dock windows belonging to this workspace

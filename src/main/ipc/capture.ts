@@ -4,10 +4,12 @@ import path from 'path'
 import log from '../logger'
 import { wrapHandler } from './handlerError'
 import { grantFileAccess, validatePath } from './pathValidation'
-import { isLocalLocator } from '../runtime/locator'
+import { isLocalLocator } from '../../shared/runtimeLocator'
 import { configureBrowserProxy } from '../browserProxy'
+import { flattenScreenshotPng } from '../browser/screenshotPng'
 import { windowFromEvent } from '../windowRegistry'
 import { WEBVIEW_SCREENSHOT, BROWSER_SET_PROXY, NATIVE_FILE_DRAG } from '../../shared/ipc-channels'
+import { browserViewOwner } from '../browser/browserViewOwnership'
 
 export function registerCaptureHandlers(): void {
   // Capture a webview's visible content, save to disk, return dataUrl + path.
@@ -23,7 +25,8 @@ export function registerCaptureHandlers(): void {
     if (!wc || wc.isDestroyed()) return null
     // Ensure the target webContents belongs to the caller's window
     const targetWin = BrowserWindow.fromWebContents(wc)
-    if (!callerWin || !targetWin || targetWin.id !== callerWin.id) {
+    const nativeOwner = browserViewOwner(webContentsId)
+    if (!callerWin || ((!targetWin || targetWin.id !== callerWin.id) && nativeOwner?.id !== callerWin.id)) {
       // For webview guests, the host window should match the caller
       const hostWc = wc.hostWebContents
       if (!hostWc || hostWc.id !== event.sender.id) {
@@ -41,15 +44,16 @@ export function registerCaptureHandlers(): void {
       : app.getPath('desktop')
     if (options?.saveTo === 'temp') await fs.promises.mkdir(dir, { recursive: true })
     const filePath = path.join(dir, fileName)
-    await fs.promises.writeFile(filePath, image.toPNG())
+    const png = await flattenScreenshotPng(image.toPNG())
+    await fs.promises.writeFile(filePath, png)
     if (callerWin) await grantFileAccess(callerWin.id, filePath)
 
     if (options?.wantDataUrl === false) return { filePath }
-    return { filePath, dataUrl: image.toDataURL() }
+    return { filePath, dataUrl: `data:image/png;base64,${png.toString('base64')}` }
   }))
 
-  // Configure a browser panel's per-partition proxy (issue #241). Awaited by the
-  // renderer before it mounts the <webview> so the first request is proxied.
+  // Configure a browser session partition's proxy. Awaited by the renderer
+  // before it mounts the <webview> so the first request is proxied.
   ipcMain.handle(BROWSER_SET_PROXY, wrapHandler(`[${BROWSER_SET_PROXY}]`, async (_event, partition: string, proxyUrl?: string) => {
     await configureBrowserProxy(partition, proxyUrl)
   }))

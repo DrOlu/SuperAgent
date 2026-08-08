@@ -1,10 +1,9 @@
 // =============================================================================
 // CommandPalette — Unified searchable command launcher + workspace navigator.
-// A single Cmd+K overlay listing all commands, all open panels, and workspace
-// files. Files and panels are matched by NAME ONLY (no content search — that's
-// the separate ripgrep-backed Search view). With no query typed, it lists all
-// commands, all open panels, and recently-opened files — so it's obvious the
-// palette reaches panels and files too, not just commands.
+// A single Cmd+K overlay listing all commands, workspaces, open panels, and
+// workspace files. Files and panels are matched by NAME ONLY (no content search
+// — that's the separate ripgrep-backed Search view). With no query typed, it
+// lists all commands, workspaces, open panels, and recently-opened files.
 // =============================================================================
 
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
@@ -28,12 +27,13 @@ import {
   Selection,
   ArrowUUpLeft,
   ArrowUUpRight,
-  ChatCircle,
-  Eye,
   CaretLeft,
   CaretRight,
 } from '@phosphor-icons/react'
+import { CateLogo } from './CateLogo'
 import { browserPanelUrl, SHORTCUT_DISPLAY_NAMES, type PanelType, type MenuActionId, type ShortcutAction } from '../../shared/types'
+import { isNavigablePanelType } from '../../shared/panels'
+import { isRemoteRuntimeConnection } from '../../shared/runtimeConnection'
 import { PaletteDialogShell } from './Modal'
 import { useUIStore } from '../stores/uiStore'
 import { useAppStore } from '../stores/appStore'
@@ -47,7 +47,6 @@ import { revealPanel } from '../lib/workspace/panelReveal'
 import { openFileAsPanel } from '../lib/fs/fileRouting'
 import { getRecentFiles } from '../lib/fs/recentFiles'
 import { pathDisplayName, relativeDisplayPath } from '../lib/fs/displayPath'
-import { cateAgentController } from '../cateAgent/cateAgentController'
 
 // -----------------------------------------------------------------------------
 // Command definitions
@@ -78,8 +77,7 @@ const ReloadIcon = () => <ArrowsClockwise size={ICON_SIZE} />
 const DeleteRuntimeIcon = () => <Trash size={ICON_SIZE} />
 const TutorialIcon = () => <GraduationCap size={ICON_SIZE} />
 const SkillsIcon = () => <PuzzlePiece size={ICON_SIZE} />
-const AgentIcon = () => <ChatCircle size={ICON_SIZE} />
-const ObserveIcon = () => <Eye size={ICON_SIZE} />
+const AgentIcon = () => <CateLogo size={ICON_SIZE} />
 const CloseIcon = () => <X size={ICON_SIZE} />
 const UndoIcon = () => <ArrowUUpLeft size={ICON_SIZE} />
 const RedoIcon = () => <ArrowUUpRight size={ICON_SIZE} />
@@ -106,14 +104,20 @@ interface PanelResult {
   inOtherWindow?: boolean
 }
 
+interface WorkspaceResult {
+  id: string
+  name: string
+  rootPath?: string
+  color: string
+  isCurrent: boolean
+}
+
 // A single navigable entry in the flat list, used for keyboard selection.
 type FlatItem =
   | { kind: 'command'; command: CommandItem }
+  | { kind: 'workspace'; workspace: WorkspaceResult }
   | { kind: 'panel'; panel: PanelResult }
   | { kind: 'file'; file: FileResult }
-
-// Panel types worth surfacing as navigable destinations.
-const NAVIGABLE_PANEL_TYPES: PanelType[] = ['terminal', 'editor', 'browser', 'agent', 'document']
 
 // -----------------------------------------------------------------------------
 // Component
@@ -123,6 +127,7 @@ export const CommandPalette: React.FC = () => {
   const showCommandPalette = useUIStore((s) => s.showCommandPalette)
   const setShowCommandPalette = useUIStore((s) => s.setShowCommandPalette)
   const selectedWorkspaceId = useAppStore((s) => s.selectedWorkspaceId)
+  const workspaces = useAppStore((s) => s.workspaces)
   const canvasApi = useOptionalCanvasStoreApi()
   // Detached windows have no sidebar, so sidebar toggles are hidden there.
   const isMainWindow = useContext(WindowTypeContext) === 'main'
@@ -130,7 +135,7 @@ export const CommandPalette: React.FC = () => {
   // The reinstall command is only meaningful for a remote (ssh/wsl) workspace.
   const isRemoteWorkspace = useAppStore((s) => {
     const ws = s.workspaces.find((w) => w.id === s.selectedWorkspaceId)
-    return !!ws?.connection && ws.connection.kind !== 'local'
+    return isRemoteRuntimeConnection(ws?.connection)
   })
   const deleteRuntime = useAppStore((s) => s.deleteRuntime)
 
@@ -165,20 +170,6 @@ export const CommandPalette: React.FC = () => {
       { id: 'newBrowser', title: shortcutTitle('newBrowser'), icon: <GlobeIcon />, action: run('newBrowser') },
       { id: 'newEditor', title: shortcutTitle('newEditor'), icon: <FileTextIcon />, action: run('newEditor') },
       { id: 'newAgent', title: shortcutTitle('newAgent'), icon: <AgentIcon />, action: run('newAgent') },
-      {
-        id: 'observeNow',
-        title: 'Run Cate Agent Observer',
-        icon: <ObserveIcon />,
-        // Ensure the observer session is running (summon is idempotent — starts it
-        // if needed, returns early otherwise) then force one observe turn now.
-        action: () => {
-          const app = useAppStore.getState()
-          const wsId = app.selectedWorkspaceId
-          const ws = app.workspaces.find((w) => w.id === wsId)
-          if (!ws?.rootPath) return
-          void cateAgentController.summon(wsId, ws.rootPath).then(() => cateAgentController.observeNow(wsId))
-        },
-      },
       { id: 'newCanvas', title: shortcutTitle('newCanvas'), icon: <LayoutIcon />, action: run('newCanvas') },
       { id: 'closePanel', title: shortcutTitle('closePanel'), icon: <CloseIcon />, action: run('closePanel') },
       { id: 'saveFile', title: shortcutTitle('saveFile'), icon: <SaveIcon />, action: run('saveFile') },
@@ -253,12 +244,28 @@ export const CommandPalette: React.FC = () => {
     return allCommands.filter((cmd) => cmd.title.toLowerCase().includes(query))
   }, [allCommands, query])
 
+  const filteredWorkspaces = useMemo<WorkspaceResult[]>(() => (
+    workspaces
+      .filter((workspace) => (
+        !query ||
+        workspace.name.toLowerCase().includes(query) ||
+        workspace.rootPath?.toLowerCase().includes(query)
+      ))
+      .map((workspace) => ({
+        id: workspace.id,
+        name: workspace.name,
+        rootPath: workspace.rootPath,
+        color: workspace.color,
+        isCurrent: workspace.id === selectedWorkspaceId,
+      }))
+  ), [workspaces, selectedWorkspaceId, query])
+
   // Navigable panels in overview order, matched by title. Local panels first,
   // then panels living in other windows (labelled "Other window").
   const filteredPanels = useMemo<PanelResult[]>(() => {
     const results: PanelResult[] = []
     for (const panel of orderedPanels) {
-      if (!NAVIGABLE_PANEL_TYPES.includes(panel.type)) continue
+      if (!isNavigablePanelType(panel.type)) continue
       const title = panel.title ?? panel.type
       if (query && !title.toLowerCase().includes(query)) continue
       results.push({
@@ -269,7 +276,7 @@ export const CommandPalette: React.FC = () => {
       })
     }
     for (const panel of otherWindowPanels) {
-      if (!NAVIGABLE_PANEL_TYPES.includes(panel.type)) continue
+      if (!isNavigablePanelType(panel.type)) continue
       if (query && !panel.title.toLowerCase().includes(query)) continue
       results.push({
         panelId: panel.panelId,
@@ -328,9 +335,10 @@ export const CommandPalette: React.FC = () => {
   // Flat list of every navigable item, in render order. Drives keyboard nav.
   const flatItems = useMemo<FlatItem[]>(() => [
     ...filteredCommands.map((command) => ({ kind: 'command', command }) as FlatItem),
+    ...filteredWorkspaces.map((workspace) => ({ kind: 'workspace', workspace }) as FlatItem),
     ...filteredPanels.map((panel) => ({ kind: 'panel', panel }) as FlatItem),
     ...displayedFiles.map((file) => ({ kind: 'file', file }) as FlatItem),
-  ], [filteredCommands, filteredPanels, displayedFiles])
+  ], [filteredCommands, filteredWorkspaces, filteredPanels, displayedFiles])
 
   const totalItems = flatItems.length
 
@@ -389,6 +397,8 @@ export const CommandPalette: React.FC = () => {
       close()
       if (item.kind === 'command') {
         item.command.action()
+      } else if (item.kind === 'workspace') {
+        void useAppStore.getState().selectWorkspace(item.workspace.id)
       } else if (item.kind === 'panel') {
         // A panel in another window: ask main to focus that window and reveal it.
         if (item.panel.inOtherWindow) void window.electronAPI.focusWindowPanel(item.panel.panelId)
@@ -409,7 +419,8 @@ export const CommandPalette: React.FC = () => {
   if (!showCommandPalette) return null
 
   // Section boundaries within the flat list.
-  const panelStart = filteredCommands.length
+  const workspaceStart = filteredCommands.length
+  const panelStart = workspaceStart + filteredWorkspaces.length
   const fileStart = panelStart + filteredPanels.length
   const filesLabel = query ? 'Files' : 'Recent Files'
 
@@ -451,7 +462,7 @@ export const CommandPalette: React.FC = () => {
                     break
                 }
               }}
-              placeholder="Search commands, panels and files by name"
+              placeholder="Search commands, workspaces, panels and files"
               className="flex-1 bg-transparent text-primary text-[13px] outline-none placeholder:text-muted"
             />
           </div>
@@ -487,10 +498,43 @@ export const CommandPalette: React.FC = () => {
                 </>
               )}
 
+              {/* Workspaces */}
+              {filteredWorkspaces.length > 0 && (
+                <>
+                  {filteredCommands.length > 0 && <Separator />}
+                  <SectionHeader>Workspaces</SectionHeader>
+                  {filteredWorkspaces.map((workspace, i) => {
+                    const itemIndex = workspaceStart + i
+                    const isSelected = itemIndex === selectedIndex
+                    return (
+                      <Row
+                        key={workspace.id}
+                        ref={isSelected ? selectedRowRef : undefined}
+                        selected={isSelected}
+                        onClick={() => activate({ kind: 'workspace', workspace })}
+                        onMouseEnter={() => setSelectedIndex(itemIndex)}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: workspace.color || 'var(--text-muted)' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-primary text-[13px] truncate">{workspace.name}</div>
+                          {workspace.rootPath && (
+                            <div className="text-muted text-[11px] truncate">{workspace.rootPath}</div>
+                          )}
+                        </div>
+                        {workspace.isCurrent && <span className="text-[11px] text-muted">Current</span>}
+                      </Row>
+                    )
+                  })}
+                </>
+              )}
+
               {/* Panels */}
               {filteredPanels.length > 0 && (
                 <>
-                  {filteredCommands.length > 0 && <Separator />}
+                  {(filteredCommands.length > 0 || filteredWorkspaces.length > 0) && <Separator />}
                   <SectionHeader>Panels</SectionHeader>
                   {filteredPanels.map((panel, i) => {
                     const itemIndex = panelStart + i
@@ -515,7 +559,7 @@ export const CommandPalette: React.FC = () => {
               {/* Files */}
               {displayedFiles.length > 0 && (
                 <>
-                  {(filteredCommands.length > 0 || filteredPanels.length > 0) && <Separator />}
+                  {(filteredCommands.length > 0 || filteredWorkspaces.length > 0 || filteredPanels.length > 0) && <Separator />}
                   <SectionHeader>{filesLabel}</SectionHeader>
                   {displayedFiles.map((file, i) => {
                     const itemIndex = fileStart + i
@@ -585,6 +629,6 @@ function PanelIcon({ type }: { type: PanelType }) {
   if (type === 'terminal') return <span className={`${cls} text-emerald-400`}><Terminal size={ICON_SIZE} /></span>
   if (type === 'browser')  return <span className={`${cls} text-sky-400`}><Globe size={ICON_SIZE} /></span>
   if (type === 'editor' || type === 'document') return <span className={`${cls} text-orange-400`}><FileText size={ICON_SIZE} /></span>
-  if (type === 'agent')    return <span className={`${cls} text-[rgb(var(--agent-rgb))]`}><ChatCircle size={ICON_SIZE} /></span>
+  if (type === 'cateAgent') return <span className={`${cls} text-[rgb(var(--agent-rgb))]`}><CateLogo size={ICON_SIZE} /></span>
   return <span className={`${cls} text-violet-400`}><Square size={ICON_SIZE} /></span>
 }

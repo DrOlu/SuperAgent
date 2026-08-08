@@ -1,20 +1,20 @@
 {
-  "name": "superagent",
-  "version": "1.5.3",
-  "productName": "SuperAgent",
+  "name": "cate",
+  "version": "1.6.0",
+  "productName": "Cate",
   "description": "An infinite zoomable canvas IDE",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DrOlu/SuperAgent.git"
+    "url": "https://github.com/0-AI-UG/cate.git"
   },
-  "homepage": "https://github.com/DrOlu/SuperAgent",
+  "homepage": "https://github.com/0-AI-UG/cate",
   "bugs": {
-    "url": "https://github.com/DrOlu/SuperAgent/issues"
+    "url": "https://github.com/0-AI-UG/cate/issues"
   },
   "author": {
-    "name": "Hyperspace",
-    "email": "superagent@hyperspace.ng"
+    "name": "0-AI UG",
+    "email": "hello@0-ai.org"
   },
   "main": "dist/main/index.js",
   "engines": {
@@ -37,6 +37,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:ssh:loopback": "CATE_LOCAL_SSH_E2E=1 vitest run --config vitest.live.config.ts sshLoopback",
     "test:agent-contracts": "CATE_LIVE_AGENT_CLIS=1 vitest run --config vitest.live.config.ts agentHookContracts",
     "test:e2e": "playwright test",
     "test:e2e:ci": "E2E_SKIP_PERF=1 playwright test",
@@ -59,6 +60,7 @@
   },
   "trustedDependencies": [
     "@google/genai",
+    "agent-browser",
     "electron",
     "esbuild",
     "koffi",
@@ -70,18 +72,18 @@
     "node-gyp": "^12.4.0"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.80.7",
-    "@earendil-works/pi-ai": "0.80.7",
+    "@earendil-works/pi-agent-core": "0.80.6",
+    "@earendil-works/pi-ai": "0.80.6",
     "@parcel/watcher": "^2.5.1",
     "@phosphor-icons/react": "^2.1.10",
-    "@sentry/electron": "^5.11.0",
-    "@types/ssh2": "^1.15.5",
+    "@sentry/electron": "^7.15.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-serialize": "^0.13.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
+    "agent-browser": "0.33.0",
     "chokidar": "^4.0.0",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
@@ -93,12 +95,11 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "simple-git": "^3.27.0",
-    "ssh2": "^1.17.0",
     "use-sync-external-store": "^1.6.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.80.7",
+    "@earendil-works/pi-coding-agent": "0.80.6",
     "@electron/rebuild": "^4.0.3",
     "@eslint/js": "^9.39.0",
     "@playwright/test": "^1.60.0",
@@ -117,8 +118,8 @@
     "node-pty": "^1.0.0",
     "playwright": "^1.60.0",
     "png-to-ico": "^3.0.1",
-    "postcss": "^8.4.0",
-    "sharp": "^0.33.0",
+    "postcss": "^8.5.25",
+    "sharp": "^0.35.3",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.60.0",

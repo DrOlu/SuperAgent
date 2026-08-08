@@ -8,7 +8,7 @@ const store = vi.hoisted(() => ({
   cache: vi.fn(),
   remove: vi.fn(),
 }))
-const saved = vi.hoisted(() => ({ addSaved: vi.fn(), removeSaved: vi.fn() }))
+const saved = vi.hoisted(() => ({ addSaved: vi.fn(), removeSaved: vi.fn(), isSaved: vi.fn() }))
 const fetchSkillFiles = vi.hoisted(() => vi.fn())
 
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp' } }))
@@ -19,7 +19,7 @@ vi.mock('./savedSkills', () => saved)
 vi.mock('./skillSources', () => ({ getToken: () => 'token' }))
 vi.mock('./githubCrawl', () => ({ fetchSkillFiles }))
 
-import { install, uninstall, writeSkillToWorkspace } from './skillsInstaller'
+import { install, saveSkill, uninstall, writeSkillToWorkspace } from './skillsInstaller'
 
 const WS = '/workspace'
 const MANIFEST = `${WS}/.cate/skills.json`
@@ -85,10 +85,33 @@ beforeEach(() => {
   store.remove.mockReset().mockResolvedValue(undefined)
   saved.addSaved.mockReset()
   saved.removeSaved.mockReset()
+  saved.isSaved.mockReset().mockReturnValue(false)
   fetchSkillFiles.mockReset().mockResolvedValue([])
 })
 
 describe('skillsInstaller workspace manifest', () => {
+  it('materializes and removes the target root', async () => {
+    await writeSkillToWorkspace({
+      skillId: entry().id,
+      name: entry().name,
+      targetId: 'cate-agent',
+      cwd: WS,
+      origin: 'local',
+      files: [{ relPath: 'SKILL.md', text: 'body' }],
+    })
+
+    expect(files.get(`${WS}/.cate/cate-agent/skills/demo-skill/SKILL.md`)).toContain('body')
+    expect(manifest().skills).toHaveLength(1)
+    expect(norm(manifest().skills[0].path)).toBe(
+      `${WS}/.cate/cate-agent/skills/demo-skill/SKILL.md`,
+    )
+
+    await uninstall(entry().id, entry().name, 'cate-agent', WS)
+    expect(removed).toEqual([
+      `${WS}/.cate/cate-agent/skills/demo-skill`,
+    ])
+  })
+
   it('replaces only the matching target entry and preserves seed markers', async () => {
     files.set(MANIFEST, JSON.stringify({
       skills: [
@@ -186,22 +209,71 @@ describe('skillsInstaller workspace manifest', () => {
 })
 
 describe('skillsInstaller resolution cache', () => {
-  it('uses saved bytes without fetching from GitHub', async () => {
+  it('falls back to saved bytes when the latest source is unavailable', async () => {
     store.read.mockResolvedValue([{ relPath: 'SKILL.md', text: 'cached' }])
 
-    await install(entry(), 'codex', WS)
+    const result = await install(entry(), 'codex', WS)
 
     expect(store.read).toHaveBeenCalledWith(entry().id)
-    expect(fetchSkillFiles).not.toHaveBeenCalled()
+    expect(fetchSkillFiles).toHaveBeenCalledWith(entry().source, 'token')
     expect(files.get(`${WS}/.codex/skills/demo-skill/SKILL.md`)).toContain('cached')
+    expect(result.warnings).toContain('Latest source unavailable; installed the existing offline copy.')
   })
 
-  it('fetches only when the saved cache is empty', async () => {
+  it('prefers fresh source bytes over a stale saved cache', async () => {
+    store.read.mockResolvedValue([{ relPath: 'SKILL.md', text: 'stale cached' }])
     fetchSkillFiles.mockResolvedValue([{ relPath: 'SKILL.md', text: 'remote' }])
 
     await install(entry(), 'codex', WS)
 
     expect(fetchSkillFiles).toHaveBeenCalledWith(entry().source, 'token')
+    expect(store.read).not.toHaveBeenCalled()
     expect(files.get(`${WS}/.codex/skills/demo-skill/SKILL.md`)).toContain('remote')
+  })
+
+  it('prefers fresh source bytes over another agent install', async () => {
+    files.set(MANIFEST, JSON.stringify({
+      skills: [{ skillId: entry().id, name: entry().name, targetId: 'claude-code', path: '/claude', origin: 'local' }],
+    }))
+    files.set(`${WS}/.claude/skills/demo-skill/SKILL.md`, 'stale agent copy')
+    fetchSkillFiles.mockResolvedValue([{ relPath: 'SKILL.md', text: 'fresh source' }])
+
+    await install(entry(), 'codex', WS)
+
+    expect(files.get(`${WS}/.codex/skills/demo-skill/SKILL.md`)).toContain('fresh source')
+  })
+
+  it('refreshes a saved cache after a successful source fetch', async () => {
+    const fresh = [{ relPath: 'SKILL.md', text: 'fresh source' }]
+    saved.isSaved.mockReturnValue(true)
+    fetchSkillFiles.mockResolvedValue(fresh)
+
+    await install(entry(), 'codex', WS)
+
+    expect(store.cache).toHaveBeenCalledWith(entry().id, fresh)
+  })
+})
+
+describe('saveSkill freshness', () => {
+  it('replaces an existing cache with current source bytes', async () => {
+    const fresh = [{ relPath: 'SKILL.md', text: 'fresh source' }]
+    store.has.mockResolvedValue(true)
+    fetchSkillFiles.mockResolvedValue(fresh)
+
+    await saveSkill(entry())
+
+    expect(fetchSkillFiles).toHaveBeenCalledWith(entry().source, 'token')
+    expect(store.cache).toHaveBeenCalledWith(entry().id, fresh)
+    expect(saved.addSaved).toHaveBeenCalled()
+  })
+
+  it('keeps a usable cached copy when saving offline', async () => {
+    store.has.mockResolvedValue(true)
+    fetchSkillFiles.mockRejectedValue(new Error('offline'))
+
+    await expect(saveSkill(entry())).resolves.toBeUndefined()
+
+    expect(store.cache).not.toHaveBeenCalled()
+    expect(saved.addSaved).toHaveBeenCalled()
   })
 })

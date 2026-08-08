@@ -39,9 +39,9 @@ import path from 'path'
 import { app } from 'electron'
 import log from '../../main/logger'
 import { getSetting } from '../../main/settingsFile'
-import { parseLocator } from '../../main/runtime/locator'
+import { parseLocator } from '../../shared/runtimeLocator'
 import { runtimes } from '../../main/runtime/runtimeManager'
-import { hostJoin } from '../../agent/main/agentDir'
+import { hostJoin } from '../../cateAgent/main/codingDir'
 import type { Runtime } from '../../main/runtime/types'
 import { SKILL_TARGETS, slugifySkillName, type SkillTargetId } from '../../shared/skills'
 import { targetInfo, toolDirSegment } from './targets'
@@ -129,6 +129,45 @@ export async function seedCateCliSkill(cwd: string): Promise<void> {
   } catch (err) {
     log.warn('[skills-seed] seeding %s failed for %s: %O', SKILL_NAME, cwd, err)
   }
+}
+
+/** Explicit settings action: replace Cate-managed copies with the current
+ * bundled skill. Unlike automatic seeding, this intentionally overwrites edits. */
+export async function reinstallCateCliSkill(cwd: string): Promise<number> {
+  const { runtimeId, path: hostCwd } = parseLocator(cwd)
+  if (!hostCwd) throw new Error('Open a workspace before reinstalling the cate CLI skill.')
+  const runtime = runtimes.resolve(runtimeId)
+  const srcDir = bundledSkillDir()
+  if (!srcDir) throw new Error('Bundled cate-cli skill not found.')
+
+  const bundled = await readBundledFiles(srcDir)
+  const installed = await readManifest(runtime, runtimeId, hostCwd)
+  let installedTargets = 0
+
+  for (const target of SKILL_TARGETS) {
+    const targetId = target.id
+    const existing = installed.some((entry) => entry.skillId === SKILL_ID && entry.targetId === targetId)
+    if (
+      targetId !== 'cate-agent'
+      && !existing
+      && !(await dirExists(runtime, hostJoin(runtimeId, hostCwd, toolDirSegment(targetId))))
+    ) {
+      continue
+    }
+    await writeSkillToWorkspace({
+      skillId: SKILL_ID,
+      name: SKILL_NAME,
+      targetId,
+      cwd,
+      files: bundled,
+      origin: 'local',
+    })
+    const hash = hashFiles(expectedInstall(bundled, targetId))
+    await setSeededMarker(runtime, runtimeId, hostCwd, `${SKILL_ID}:${targetId}@${hash}`)
+    installedTargets += 1
+  }
+
+  return installedTargets
 }
 
 async function seed(cwd: string): Promise<void> {

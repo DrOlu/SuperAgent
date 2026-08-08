@@ -12,13 +12,13 @@ import { getOrCreateWorkspaceDockStore } from './lib/workspace/dockRegistry'
 import { useStore } from 'zustand'
 import { useSettingsStore } from './stores/settingsStore'
 import { useUIStateStore } from './stores/uiStateStore'
+import { useWorkspaceTrustStore, ensureProjectTrusted } from './stores/workspaceTrustStore'
+import { WorkspaceTrustDialog } from './dialogs/WorkspaceTrustDialog'
 import { useBrowserStore } from './stores/browserStore'
 import { workspaceDisplayName } from './lib/fs/displayPath'
 import { useFileDropTracker, FileDropOverlay } from './drag/fileDropTarget'
 import { useProcessMonitor } from './hooks/useProcessMonitor'
-import { cateAgentController } from './cateAgent/cateAgentController'
 import { useCateHostActionResponder } from './hooks/useCateHostActionResponder'
-import { useCateAgentReady } from './stores/providerReadinessStore'
 import { Sidebar, RightSidebar } from './sidebar/Sidebar'
 import { PanelHost } from './panels/PanelHost'
 import { RuntimeLockOverlay } from './ui/RuntimeLockOverlay'
@@ -71,6 +71,14 @@ const BOOT_BG = new URLSearchParams(window.location.search).get('bg') ?? undefin
 
 export default function App() {
   const windowParams = getWindowParams()
+
+  // E2E test harness — every renderer window needs it so Playwright can inspect
+  // a panel after a real cross-window transfer.
+  useEffect(() => {
+    if (window.electronAPI?.isE2E) {
+      import('./lib/e2eHarness').then((m) => m.installE2EHarness())
+    }
+  }, [])
 
   // Dock windows get a full docking shell with splits/tabs
   if (windowParams.type === 'dock') {
@@ -126,13 +134,6 @@ function MainApp() {
   // guard. Every window type mounts this; main-only behavior stays below.
   useWindowRuntime(activeCanvasStore ?? undefined)
 
-  // E2E test harness — exposes window.__cateE2E only when launched by Playwright.
-  useEffect(() => {
-    if (window.electronAPI?.isE2E) {
-      import('./lib/e2eHarness').then((m) => m.installE2EHarness())
-    }
-  }, [])
-
   // Resource profiler — wires up FPS/long-task observers only under CATE_PERF=1.
   useEffect(() => {
     initPerfClient()
@@ -146,29 +147,6 @@ function MainApp() {
 
   // Main-only: terminal/agent activity → status bar + worktree sync.
   useProcessMonitor(selectedWorkspaceId)
-
-  // Tracks which workspace folders have had their Cate Agent restored this session.
-  const cateAgentRestoredRef = useRef<Set<string>>(new Set())
-
-  // Cate Agent — start the controller and restore each workspace's Cate Agent
-  // (re-summon if it was enabled in .cate/cateAgent.json) once its folder path is
-  // known. Guarded per rootPath so a re-render never re-summons. Main window only
-  // (this MainApp path is gated to the primary window, like useProcessMonitor above).
-  //
-  // Gated on provider readiness: with no usable provider (none connected, or its
-  // OAuth sign-in expired) the agent can't reach a model, so we don't bring up its
-  // observer session. When a usable provider connects (gate flips to 'ok') this
-  // effect re-runs and restore() summons it then.
-  const cateAgentReady = useCateAgentReady() === 'ok'
-  useEffect(() => {
-    cateAgentController.setEnabled(cateAgentReady)
-    const rootPath = currentWorkspace?.rootPath
-    if (!cateAgentReady || !rootPath || !selectedWorkspaceId) return
-    cateAgentController.start()
-    if (cateAgentRestoredRef.current.has(rootPath)) return
-    cateAgentRestoredRef.current.add(rootPath)
-    void cateAgentController.restore(selectedWorkspaceId, rootPath)
-  }, [cateAgentReady, currentWorkspace?.rootPath, selectedWorkspaceId])
 
   // Extension reverse-API: execute cate.* host actions forwarded from extension
   // webviews (open file / create panel / set title). Mounted once here.
@@ -228,12 +206,22 @@ function MainApp() {
       await useUIStateStore.getState().loadUIState()
       log.info('Settings loaded')
 
+      // Workspace trust must be mirrored BEFORE any project is opened: the gate
+      // in sessionLoad fails closed, so loading first would re-ask about every
+      // project the user has already trusted.
+      await useWorkspaceTrustStore.getState().hydrate()
+
       // The sidebar layout lives solely in settingsStore now; components read it
       // via useSidebarLayout, so there's no uiStore copy to re-seed here.
 
       // Try to restore previous session — only the core (active workspace).
       // Detached panel/dock windows are recreated afterwards so the main
       // window can paint without waiting on their IPC round-trips.
+      //
+      // This can block on the user: loadSession asks about any project it would
+      // reopen that isn't trusted yet, and the boot splash below is
+      // pointer-events-none so <WorkspaceTrustDialog/> is usable over it. Waiting
+      // is the point — we must not paint a workspace we haven't decided to open.
       let restoredSession: MultiWorkspaceSession | null = null
       let restored = false
       const session = await loadSession()
@@ -316,6 +304,9 @@ function MainApp() {
           app.selectWorkspace(existing.id)
           return
         }
+        // Trust gate — this path creates the workspace directly rather than
+        // going through setWorkspaceRootPath, so it asks for itself.
+        if (!(await ensureProjectTrusted(filePath))) return
         const wsId = app.addWorkspace(folderName, filePath)
         window.electronAPI.recentProjectsAdd(filePath)
         await app.selectWorkspace(wsId)
@@ -374,8 +365,15 @@ function MainApp() {
     [currentWorkspace, selectedWorkspaceId],
   )
 
+  // Pre-workspace render (boot, before any workspace exists). The trust dialog
+  // has to be mounted here too: at launch the first thing that happens is the
+  // trust question, and at that point there is no canvas store yet.
   if (!activeCanvasStore) {
-    return <div className="h-screen w-screen bg-canvas-bg" />
+    return (
+      <div className="h-screen w-screen bg-canvas-bg">
+        <WorkspaceTrustDialog />
+      </div>
+    )
   }
 
   return (
@@ -426,6 +424,7 @@ function MainApp() {
       <WindowChrome />
 
       {/* Main-only modal overlays */}
+      <WorkspaceTrustDialog />
       <WelcomeDialog />
       <OnboardingTour />
       <PostUpdateFeedbackDialog />

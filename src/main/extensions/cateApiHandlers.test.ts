@@ -33,8 +33,8 @@ const { openForExtension, sendForExtension, disposeForExtension, cancelForExtens
     disposeForExtension: vi.fn(async () => {}),
     cancelForExtension: vi.fn(async () => {}),
   }))
-vi.mock('../../agent/main/agentManager', () => ({
-  agentManager: { openForExtension, sendForExtension, disposeForExtension, cancelForExtension },
+vi.mock('../../cateAgent/main/codingManager', () => ({
+  codingManager: { openForExtension, sendForExtension, disposeForExtension, cancelForExtension },
 }))
 
 // cate.ui.notify reuses the shared OS-notification path; spy on it + the setting.
@@ -42,6 +42,7 @@ const { showOsNotification, settings } = vi.hoisted(() => ({
   showOsNotification: vi.fn(),
   settings: {
     notificationsEnabled: true,
+    cliEnabled: true,
     cliBrowserReadEnabled: true,
     cliBrowserControlEnabled: true,
     cliTerminalReadEnabled: true,
@@ -72,7 +73,7 @@ vi.mock('./ExtensionManager', () => ({
 // importing cateApiHandlers doesn't drag in the proxy/server/IPC machinery.
 vi.mock('./proxyServer', () => ({ getProxyUrlFor: vi.fn() }))
 vi.mock('./ExtensionServerManager', () => ({ extensionServerManager: {} }))
-const { activeWindow, windowsById, windowPanelList, revealWindowPanel, upsertWindowPanel, removeWindowPanel } = vi.hoisted(() => ({
+const { activeWindow, windowsById, windowPanelList, windowPanelListener, revealWindowPanel, upsertWindowPanel, removeWindowPanel } = vi.hoisted(() => ({
   activeWindow: { value: undefined as unknown },
   windowsById: new Map<number, unknown>(),
   windowPanelList: { value: [] as Array<{
@@ -84,7 +85,11 @@ const { activeWindow, windowsById, windowPanelList, revealWindowPanel, upsertWin
     filePath?: string
     url?: string
     focused?: boolean
+    codingAgentRunId?: string
+    codingAgentOwnerPanelId?: string
+    codingAgentStatus?: 'starting' | 'working' | 'waiting' | 'ready' | 'stopped' | 'failed'
   }> },
+  windowPanelListener: { value: null as (() => void) | null },
   revealWindowPanel: vi.fn(() => true),
   upsertWindowPanel: vi.fn(),
   removeWindowPanel: vi.fn(),
@@ -95,11 +100,15 @@ vi.mock('../windowRegistry', () => ({
 }))
 vi.mock('../windowPanels', () => ({
   getWindowPanels: () => windowPanelList.value,
+  subscribeWindowPanels: vi.fn((listener: () => void) => {
+    windowPanelListener.value = listener
+    return () => { windowPanelListener.value = null }
+  }),
   revealWindowPanel,
   upsertWindowPanel,
   removeWindowPanel,
 }))
-vi.mock('../runtime/locator', () => ({
+vi.mock('../../shared/runtimeLocator', () => ({
   LOCAL_RUNTIME_ID: 'local',
   parseLocator: (raw: string) => ({ runtimeId: 'local', path: raw }),
 }))
@@ -135,7 +144,9 @@ vi.mock('./storage', () => ({
 
 import {
   dispatchCateInvoke,
+  forwardTimeoutMs,
   requiredScopeFor,
+  stopCodingAgentsForMission,
   TERMINAL_INPUT_DISABLED,
   TERMINAL_READ_DISABLED,
   BROWSER_CONTROL_DISABLED,
@@ -147,7 +158,7 @@ import {
   cliPermissionDenied,
   cliPermissionForMethod,
 } from '../../shared/cliPermissions'
-import { GRANTED_SCOPES } from './workspaceCateApi'
+import { CATE_AGENT_GRANTED_SCOPES, GRANTED_SCOPES } from './workspaceCateApi'
 
 const EXT = 'cate.kitchensink'
 const WS = 'ws-1'
@@ -161,6 +172,7 @@ beforeEach(() => {
   state.enabled = true
   state.scopes = ['storage', 'editor', 'canvas', 'theme', 'ui', 'workspace.read', 'panel']
   settings.notificationsEnabled = true
+  settings.cliEnabled = true
   settings.cliBrowserReadEnabled = true
   settings.cliBrowserControlEnabled = true
   settings.cliTerminalReadEnabled = true
@@ -173,6 +185,7 @@ beforeEach(() => {
   activeWindow.value = undefined
   windowsById.clear()
   windowPanelList.value = []
+  windowPanelListener.value = null
   revealWindowPanel.mockClear()
   revealWindowPanel.mockReturnValue(true)
   removeWindowPanel.mockClear()
@@ -192,7 +205,7 @@ beforeEach(() => {
 
 describe('dispatchCateInvoke — Kitchen Sink reverse API', () => {
   it('reports the API version for feature detection', async () => {
-    expect(await dispatchCateInvoke(scope(), 'cate.version', undefined)).toBe(3)
+    expect(await dispatchCateInvoke(scope(), 'cate.version', undefined)).toBe(6)
   })
 
   it('resolves the workspace root from the locator', async () => {
@@ -258,6 +271,26 @@ describe('dispatchCateInvoke — Kitchen Sink reverse API', () => {
     expect(res).toEqual({ panelId: 'new' })
   })
 
+  it('registers a created panel immediately for a follow-up targeted command', async () => {
+    activeWindow.value = { id: 9, isDestroyed: () => false, webContents: { send: vi.fn() } }
+    const forward = vi.fn(async () => ({ panelId: 'fresh-browser' }))
+
+    expect(await dispatchCateInvoke(
+      scope(forward),
+      'cate.canvas.createPanel',
+      { type: 'browser', url: 'https://example.test' },
+    )).toEqual({ panelId: 'fresh-browser' })
+
+    expect(upsertWindowPanel).toHaveBeenCalledWith(9, {
+      panelId: 'fresh-browser',
+      type: 'browser',
+      title: 'https://example.test',
+      workspaceId: WS,
+      url: 'https://example.test',
+      focused: false,
+    })
+  })
+
   it('rejects unknown methods as unsupported', async () => {
     expect(await dispatchCateInvoke(scope(), 'cate.bogus.method', undefined)).toEqual({ error: 'unsupported', method: 'cate.bogus.method' })
   })
@@ -308,7 +341,7 @@ describe('dispatchCateInvoke — Kitchen Sink reverse API', () => {
     // panel.* stay allowed (feature detection + panel self-control).
     state.scopes = undefined
     const forward = vi.fn()
-    expect(await dispatchCateInvoke(scope(forward), 'cate.version', undefined)).toBe(3)
+    expect(await dispatchCateInvoke(scope(forward), 'cate.version', undefined)).toBe(6)
     expect(await dispatchCateInvoke(scope(forward), 'cate.storage.get', { key: 'k' })).toEqual({ error: 'scope-denied', method: 'cate.storage.get' })
     expect(await dispatchCateInvoke(scope(forward), 'cate.editor.openFile', { path: 'x' })).toEqual({ error: 'scope-denied', method: 'cate.editor.openFile' })
     expect(await dispatchCateInvoke(scope(forward), 'cate.theme.get', undefined)).toEqual({ error: 'scope-denied', method: 'cate.theme.get' })
@@ -329,6 +362,270 @@ describe('dispatchCateInvoke — Kitchen Sink reverse API', () => {
     expect(await dispatchCateInvoke(scope(forward), 'cate.editor.openFile', { path: 'x' })).toEqual({ error: 'not-enabled', method: 'cate.editor.openFile' })
     // The security gate fires before any forward to a renderer.
     expect(forward).not.toHaveBeenCalled()
+  })
+})
+
+describe('dispatchCateInvoke — Cate Agent orchestration boundary', () => {
+  it('stops mission workers in the supervisor and every detached owner window', async () => {
+    const supervisorSend = vi.fn(() => { throw new Error('closed for test') })
+    const detachedSend = vi.fn(() => { throw new Error('closed for test') })
+    const unrelatedSend = vi.fn(() => { throw new Error('closed for test') })
+    const supervisor = { id: 1, isDestroyed: () => false, send: supervisorSend }
+    windowsById.set(7, {
+      isDestroyed: () => false,
+      webContents: { id: 7, send: detachedSend },
+    })
+    windowsById.set(8, {
+      isDestroyed: () => false,
+      webContents: { id: 8, send: unrelatedSend },
+    })
+    windowPanelList.value = [
+      {
+        panelId: 'worker-panel',
+        type: 'terminal',
+        workspaceId: WS,
+        ownerWindowId: 7,
+        codingAgentOwnerPanelId: 'supervisor-1',
+      },
+      {
+        panelId: 'other-worker',
+        type: 'terminal',
+        workspaceId: 'other-workspace',
+        ownerWindowId: 8,
+        codingAgentOwnerPanelId: 'supervisor-1',
+      },
+    ]
+
+    await stopCodingAgentsForMission(WS, 'supervisor-1', supervisor as never)
+
+    for (const send of [supervisorSend, detachedSend]) {
+      expect(send).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+        workspaceId: WS,
+        panelId: 'supervisor-1',
+        method: 'cate.codingAgent.stopAll',
+        args: {},
+      }))
+    }
+    expect(unrelatedSend).not.toHaveBeenCalled()
+  })
+
+  it('allows a long monitor call without extending unrelated host actions', () => {
+    expect(forwardTimeoutMs('cate.codingAgent.wait')).toBe(65_000)
+    expect(forwardTimeoutMs('cate.editor.openFile')).toBe(10_000)
+  })
+
+  it('maps every native coding-agent method to its dedicated scope', () => {
+    for (const verb of ['create', 'send', 'wait', 'inspect', 'review', 'stop']) {
+      expect(requiredScopeFor(`cate.codingAgent.${verb}`)).toBe('coding-agent')
+    }
+  })
+
+  it('forwards orchestration only for the embedded Cate Agent and carries its cwd', async () => {
+    const forward = vi.fn(async () => ({ id: 'run-1' }))
+    const result = await dispatchCateInvoke({
+      extensionId: 'cate-agent',
+      workspaceId: WS,
+      panelId: 'cate-direct:chat-1',
+      caller: 'cate-agent',
+      originCwd: '/ws/worktrees/feature',
+      grantedScopes: [...CATE_AGENT_GRANTED_SCOPES],
+      forward,
+    }, 'cate.codingAgent.create', { agentId: 'codex', prompt: 'Implement it' })
+
+    expect(result).toEqual({ id: 'run-1' })
+    expect(forward).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'cate.codingAgent.create',
+      panelId: 'cate-direct:chat-1',
+      args: {
+        agentId: 'codex',
+        prompt: 'Implement it',
+        _cateOriginCwd: '/ws/worktrees/feature',
+      },
+    }))
+  })
+
+  it('keeps native orchestration available when command-line control is off', async () => {
+    settings.cliEnabled = false
+    const forward = vi.fn(async () => ({ id: 'run-cli-off' }))
+
+    expect(await dispatchCateInvoke({
+      extensionId: 'cate-agent',
+      workspaceId: WS,
+      panelId: 'supervisor-cli-off',
+      caller: 'cate-agent',
+      grantedScopes: [...CATE_AGENT_GRANTED_SCOPES],
+      forward,
+    }, 'cate.codingAgent.create', { agentId: 'codex', prompt: 'Implement it' })).toEqual({
+      id: 'run-cli-off',
+    })
+    expect(forward).toHaveBeenCalledOnce()
+  })
+
+  it('applies the CLI master switch to Cate Agent host capabilities', async () => {
+    settings.cliEnabled = false
+    const forward = vi.fn()
+
+    expect(await dispatchCateInvoke({
+      extensionId: 'cate-agent',
+      workspaceId: WS,
+      panelId: 'supervisor-cli-gate',
+      caller: 'cate-agent',
+      grantedScopes: [...CATE_AGENT_GRANTED_SCOPES],
+      forward,
+    }, 'cate.terminal.press', { key: 'enter' })).toEqual({
+      error: 'cli-disabled: enable Command-line control (cate CLI) in Cate Settings → CLI',
+      method: 'cate.terminal.press',
+    })
+    expect(forward).not.toHaveBeenCalled()
+  })
+
+  it('applies per-capability CLI permissions to Cate Agent host capabilities', async () => {
+    settings.cliTerminalInputEnabled = false
+    const forward = vi.fn()
+
+    expect(await dispatchCateInvoke({
+      extensionId: 'cate-agent',
+      workspaceId: WS,
+      panelId: 'supervisor-cell-gate',
+      caller: 'cate-agent',
+      grantedScopes: [...CATE_AGENT_GRANTED_SCOPES],
+      forward,
+    }, 'cate.terminal.press', { key: 'enter' })).toEqual({
+      error: TERMINAL_INPUT_DISABLED,
+      method: 'cate.terminal.press',
+    })
+    expect(forward).not.toHaveBeenCalled()
+  })
+
+  it('denies ordinary first-party terminals and extensions even with the scope', async () => {
+    const forward = vi.fn()
+    for (const caller of ['first-party', 'extension'] as const) {
+      expect(await dispatchCateInvoke({
+        extensionId: caller === 'extension' ? EXT : 'terminal',
+        workspaceId: WS,
+        panelId: undefined,
+        caller,
+        grantedScopes: ['coding-agent'],
+        forward,
+      }, 'cate.codingAgent.create', { agentId: 'codex', prompt: 'No' })).toEqual({
+        error: 'cate-agent-only',
+        method: 'cate.codingAgent.create',
+      })
+    }
+    expect(forward).not.toHaveBeenCalled()
+  })
+
+  it('routes a transferred worker to its exact owner window', async () => {
+    const send = vi.fn(() => { throw new Error('closed for test') })
+    windowsById.set(7, { isDestroyed: () => false, webContents: { send } })
+    windowPanelList.value = [{
+      panelId: 'worker-panel',
+      type: 'terminal',
+      ownerWindowId: 7,
+      codingAgentRunId: 'run-1',
+      codingAgentOwnerPanelId: 'supervisor-1',
+    }]
+    const fallback = vi.fn()
+
+    const result = await dispatchCateInvoke({
+      extensionId: 'cate-agent',
+      workspaceId: WS,
+      panelId: 'supervisor-1',
+      caller: 'cate-agent',
+      grantedScopes: [...CATE_AGENT_GRANTED_SCOPES],
+      forward: fallback,
+    }, 'cate.codingAgent.inspect', { runId: 'run-1' })
+
+    expect(result).toEqual({ error: 'no-owner', method: 'cate.codingAgent.inspect' })
+    expect(send).toHaveBeenCalledOnce()
+    expect(fallback).not.toHaveBeenCalled()
+  })
+
+  it('coordinates one event-driven wait across workers in different windows', async () => {
+    const sendA = vi.fn(() => { throw new Error('closed for test') })
+    const sendB = vi.fn(() => { throw new Error('closed for test') })
+    windowsById.set(7, { isDestroyed: () => false, webContents: { send: sendA } })
+    windowsById.set(8, { isDestroyed: () => false, webContents: { send: sendB } })
+    windowPanelList.value = [
+      {
+        panelId: 'worker-a',
+        type: 'terminal',
+        ownerWindowId: 7,
+        codingAgentRunId: 'run-a',
+        codingAgentOwnerPanelId: 'supervisor-1',
+        codingAgentStatus: 'ready',
+      },
+      {
+        panelId: 'worker-b',
+        type: 'terminal',
+        ownerWindowId: 8,
+        codingAgentRunId: 'run-b',
+        codingAgentOwnerPanelId: 'supervisor-1',
+        codingAgentStatus: 'waiting',
+      },
+    ]
+
+    const result = await dispatchCateInvoke({
+      extensionId: 'cate-agent',
+      workspaceId: WS,
+      panelId: 'supervisor-1',
+      caller: 'cate-agent',
+      grantedScopes: [...CATE_AGENT_GRANTED_SCOPES],
+      forward: vi.fn(),
+    }, 'cate.codingAgent.wait', { runIds: ['run-a', 'run-b'] })
+
+    expect(result).toEqual({
+      timedOut: false,
+      changedRunIds: ['run-a', 'run-b'],
+      runs: [
+        { id: 'run-a', panelId: 'worker-a', status: 'ready' },
+        { id: 'run-b', panelId: 'worker-b', status: 'waiting' },
+      ],
+    })
+    expect(sendA).toHaveBeenCalledOnce()
+    expect(sendB).toHaveBeenCalledOnce()
+  })
+
+  it('wakes a cross-window wait from the shared window-panel event stream', async () => {
+    const send = vi.fn(() => { throw new Error('closed for test') })
+    windowsById.set(7, { isDestroyed: () => false, webContents: { send } })
+    windowsById.set(8, { isDestroyed: () => false, webContents: { send } })
+    windowPanelList.value = [
+      {
+        panelId: 'worker-a',
+        type: 'terminal',
+        ownerWindowId: 7,
+        codingAgentRunId: 'run-a',
+        codingAgentOwnerPanelId: 'supervisor-1',
+        codingAgentStatus: 'working',
+      },
+      {
+        panelId: 'worker-b',
+        type: 'terminal',
+        ownerWindowId: 8,
+        codingAgentRunId: 'run-b',
+        codingAgentOwnerPanelId: 'supervisor-1',
+        codingAgentStatus: 'working',
+      },
+    ]
+    const waiting = dispatchCateInvoke({
+      extensionId: 'cate-agent',
+      workspaceId: WS,
+      panelId: 'supervisor-1',
+      caller: 'cate-agent',
+      grantedScopes: [...CATE_AGENT_GRANTED_SCOPES],
+      forward: vi.fn(),
+    }, 'cate.codingAgent.wait', { runIds: ['run-a', 'run-b'] })
+
+    expect(windowPanelListener.value).toBeTypeOf('function')
+    windowPanelList.value[1].codingAgentStatus = 'ready'
+    windowPanelListener.value!()
+
+    await expect(waiting).resolves.toMatchObject({
+      timedOut: false,
+      changedRunIds: ['run-b'],
+    })
+    expect(windowPanelListener.value).toBeNull()
   })
 })
 
@@ -416,8 +713,8 @@ describe('dispatchCateInvoke — cate.agent.* (open/send/dispose; run is gone)',
     activeWindow.value = fakeWin
     const s = agentScope()
     // A valid resume handle is a session-jsonl path inside this workspace's
-    // .cate/pi-agent dir (getWorkspaceInfo → rootPath '/ws/root').
-    const validResume = '/ws/root/.cate/pi-agent/sessions/-ws-root--/abc.jsonl'
+    // .cate/cate-agent dir (getWorkspaceInfo → rootPath '/ws/root').
+    const validResume = '/ws/root/.cate/cate-agent/sessions/-ws-root--/abc.jsonl'
     const res = await dispatchCateInvoke(s, 'cate.agent.open', { resume: validResume })
     expect(res).toEqual({ sessionId: 'sess-1' })
     expect(showMessageBox).toHaveBeenCalledTimes(1) // first-use consent
@@ -444,12 +741,12 @@ describe('dispatchCateInvoke — cate.agent.* (open/send/dispose; run is gone)',
   })
 
   it.each([
-    ['a parent-traversal resume', '/ws/root/.cate/pi-agent/../../../etc/passwd'],
+    ['a parent-traversal resume', '/ws/root/.cate/cate-agent/../../../etc/passwd'],
     ['an absolute resume outside the workspace', '/etc/x'],
-    ['another workspace\'s session', '/other/project/.cate/pi-agent/sessions/s/x.jsonl'],
+    ['another workspace\'s session', '/other/project/.cate/cate-agent/sessions/s/x.jsonl'],
     ['a relative resume (not an absolute session path)', '../../other/session.jsonl'],
-    ['a bare basename (agentManager needs a full path)', 'abc.jsonl'],
-  ])('rejects %s before reaching agentManager', async (_label, resume) => {
+    ['a bare basename (codingManager needs a full path)', 'abc.jsonl'],
+  ])('rejects %s before reaching codingManager', async (_label, resume) => {
     state.scopes = ['agent']
     activeWindow.value = fakeWin
     const res = await dispatchCateInvoke(agentScope(), 'cate.agent.open', { resume })
@@ -876,17 +1173,26 @@ describe('dispatchCateInvoke — first-party trust boundary (characterization)',
       extensionId: 'cate.terminal', workspaceId: WS, panelId: '', forward: vi.fn(),
       caller: 'first-party', grantedScopes: ['browser'],
     }
-    expect(await dispatchCateInvoke(s, 'cate.browser.click', { ref: 'e1' })).toEqual({
+    expect(await dispatchCateInvoke(s, 'cate.browser.command', {
+      command: ['click', '@s1e1'],
+    })).toEqual({
       error: BROWSER_CONTROL_DISABLED,
-      method: 'cate.browser.click',
+      method: 'cate.browser.command',
     })
     // Refused by the permission, not a prompt — and the browser was never touched.
     expect(showMessageBox).not.toHaveBeenCalled()
     expect(send).not.toHaveBeenCalled()
     expect(BROWSER_CONTROL_DISABLED).toMatch(/Settings → CLI/)
     // Read stays allowed: the two halves are independent.
-    await dispatchCateInvoke(s, 'cate.browser.snapshot', {})
+    await dispatchCateInvoke(s, 'cate.browser.readCommand', { command: ['snapshot', '-i'] })
     expect(send).toHaveBeenCalledTimes(1)
+    // The request-aware gate cannot be bypassed by using the read envelope.
+    expect(await dispatchCateInvoke(s, 'cate.browser.readCommand', {
+      command: ['click', '@s1e1'],
+    })).toEqual({
+      error: BROWSER_CONTROL_DISABLED,
+      method: 'cate.browser.readCommand',
+    })
   })
 
   it('the Browser → Read permission gates snapshot/screenshot while Control stays on', async () => {
@@ -897,14 +1203,22 @@ describe('dispatchCateInvoke — first-party trust boundary (characterization)',
       extensionId: 'cate.terminal', workspaceId: WS, panelId: '', forward: vi.fn(),
       caller: 'first-party', grantedScopes: ['browser'],
     }
-    expect(await dispatchCateInvoke(s, 'cate.browser.snapshot', {})).toEqual({
+    expect(await dispatchCateInvoke(s, 'cate.browser.readCommand', {
+      command: ['snapshot'],
+    })).toEqual({
       error: BROWSER_READ_DISABLED,
-      method: 'cate.browser.snapshot',
+      method: 'cate.browser.readCommand',
+    })
+    expect(await dispatchCateInvoke(s, 'cate.browser.readCommand', {
+      command: ['get', 'text', '@s1e1'],
+    })).toEqual({
+      error: BROWSER_READ_DISABLED,
+      method: 'cate.browser.readCommand',
     })
     expect(send).not.toHaveBeenCalled()
     expect(BROWSER_READ_DISABLED).toMatch(/Settings → CLI/)
     // Control is a separate grant and still goes through.
-    await dispatchCateInvoke(s, 'cate.browser.click', { ref: 'e1' })
+    await dispatchCateInvoke(s, 'cate.browser.command', { command: ['click', '@s1e1'] })
     expect(send).toHaveBeenCalledTimes(1)
   })
 
@@ -941,6 +1255,22 @@ describe('dispatchCateInvoke — first-party trust boundary (characterization)',
       method: 'cate.ui.notify',
     })
     expect(showOsNotification).not.toHaveBeenCalled()
+  })
+
+  it('does not let first-party callers change the user view with panel.focus', async () => {
+    const forward = vi.fn()
+    windowPanelList.value = [{ panelId: 'p1', type: 'editor', ownerWindowId: 1 }]
+    const s: InvokeScope = {
+      extensionId: 'cate.terminal', workspaceId: WS, panelId: '', forward,
+      caller: 'first-party', grantedScopes: [...GRANTED_SCOPES],
+    }
+
+    expect(await dispatchCateInvoke(s, 'cate.panel.focus', { panelId: 'p1' })).toEqual({
+      error: 'unsupported',
+      method: 'cate.panel.focus',
+    })
+    expect(revealWindowPanel).not.toHaveBeenCalled()
+    expect(forward).not.toHaveBeenCalled()
   })
 
   it('an unlisted verb in a covered namespace falls into that surface\'s Control cell', () => {

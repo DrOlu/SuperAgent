@@ -17,13 +17,14 @@ import './terminalSettings'
 
 import {
   getOrCreate,
+  terminate,
   dispose,
   disposeWorkspace,
   release,
   setPendingTransfer,
   setPendingRestore,
 } from './terminalLifecycle'
-import { attach, detach, fit, restoreScroll } from './terminalDom'
+import { attach, detach, fit, resetRendering, restoreScroll, syncScrollBarWidth } from './terminalDom'
 import { findNext, findPrevious, clearSearch } from './terminalSearch'
 import { serializeTerminalState } from './scrollbackCapture'
 import type { RegistryEntry } from './registryState'
@@ -62,13 +63,16 @@ function captureScrollback(
 
 export const terminalRegistry = {
   getOrCreate,
+  terminate,
   attach,
   detach,
   dispose,
   disposeWorkspace,
   release,
   fit,
+  resetRendering,
   restoreScroll,
+  syncScrollBarWidth,
   setPendingTransfer,
   setPendingRestore,
   getEntry,

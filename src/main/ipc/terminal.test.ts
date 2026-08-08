@@ -76,16 +76,29 @@ const cateApi = vi.hoisted(() => ({ ensureEndpoint: vi.fn() }))
 vi.mock('../extensions/workspaceCateApi', () => ({
   workspaceCateApi: { ensureEndpoint: cateApi.ensureEndpoint },
 }))
+const workspaceInfo = vi.hoisted(() => ({
+  get: vi.fn<(id: string) => { rootPath: string } | undefined>(() => undefined),
+}))
+vi.mock('../workspaceManager', () => ({ getWorkspaceInfo: workspaceInfo.get }))
+const skillsSync = vi.hoisted(() => ({ run: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../../skills/main/skillsMirror', () => ({ syncWorkspaceSkills: skillsSync.run }))
 
 // A fake runtime whose process.create is the hoisted spy, so the instant-exit
 // tests can drive onData/onExit deterministically through the real spawnTerminal.
 vi.mock('../runtime/runtimeManager', () => ({
   runtimes: {
-    resolve: () => ({ validateCwd: (p: string) => p, process: { create: diag.ptyCreate } }),
+    resolve: () => ({
+      validateCwd: (p: string) => p,
+      validatePathStrict: (p: string) => Promise.resolve(p),
+      process: { create: diag.ptyCreate },
+    }),
     disposeAll: () => Promise.resolve(),
   },
 }))
-vi.mock('../runtime/locator', () => ({ parseLocator: (cwd: string) => ({ runtimeId: 'local', path: cwd }) }))
+vi.mock('../../shared/runtimeLocator', () => ({
+  parseLocator: (cwd: string) => ({ runtimeId: 'local', path: cwd }),
+  formatLocator: ({ path }: { path: string }) => path,
+}))
 
 // --- terminalLifecycle (renderer) deps, stubbed so getOrCreate/dispose run
 //     without a real xterm/DOM/store stack. registryState is left REAL so the
@@ -457,7 +470,15 @@ describe('CATE_API env injection into spawned terminals', () => {
   // Spawn through the real TERMINAL_CREATE handler and return the env object
   // that spawnTerminal passed down to runtime.process.create (the PTY env).
   async function spawnAndGetEnv(
-    options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string; panelId?: string },
+    options: {
+      cols: number
+      rows: number
+      cwd?: string
+      shell?: string
+      workspaceId?: string
+      panelId?: string
+      placementGroupId?: string
+    },
   ): Promise<Record<string, string> | undefined> {
     diag.ptyCreate.mockResolvedValue({ id: 'pty-env', pid: 123, shell: '/bin/zsh' })
     const mod = await import('./terminal')
@@ -473,7 +494,32 @@ describe('CATE_API env injection into spawned terminals', () => {
     const env = await spawnAndGetEnv({ cols: 80, rows: 24, workspaceId: 'ws-1' })
 
     expect(cateApi.ensureEndpoint).toHaveBeenCalledWith('ws-1')
-    expect(env).toEqual({ CATE_API: 'http://127.0.0.1:9876', CATE_TOKEN: 'tok-abc' })
+    expect(env).toEqual({
+      CATE_API: 'http://127.0.0.1:9876',
+      CATE_TOKEN: 'tok-abc',
+      CATE_CLI_SESSION_ID: expect.any(String),
+    })
+  })
+
+  it('passes the base workspace cwd as the agent hook auto reference', async () => {
+    cateApi.ensureEndpoint.mockResolvedValue(null)
+    workspaceInfo.get.mockReturnValueOnce({ rootPath: '/repo/base' })
+    diag.ptyCreate.mockResolvedValue({ id: 'pty-hooks', pid: 123, shell: '/bin/zsh' })
+    const mod = await import('./terminal')
+    mod.registerHandlers()
+
+    await handlers.get('terminal:create')!(
+      {},
+      { cols: 80, rows: 24, cwd: '/repo/worktree', workspaceId: 'ws-1' },
+    )
+
+    expect(workspaceInfo.get).toHaveBeenCalledWith('ws-1')
+    expect(skillsSync.run).toHaveBeenCalledWith('/repo/base', '/repo/worktree')
+    expect(diag.ptyCreate.mock.calls[0][0]).toMatchObject({
+      cwd: '/repo/worktree',
+      scopeId: 'ws-1',
+      workspaceBaseCwd: '/repo/base',
+    })
   })
 
   it('injects CATE_PANEL_ID when the PTY belongs to a Cate terminal panel', async () => {
@@ -484,7 +530,26 @@ describe('CATE_API env injection into spawned terminals', () => {
     expect(env).toEqual({
       CATE_API: 'http://127.0.0.1:9876',
       CATE_TOKEN: 'tok-abc',
+      CATE_CLI_SESSION_ID: expect.any(String),
       CATE_PANEL_ID: 'panel-123',
+    })
+  })
+
+  it('passes an opaque panel placement group into the spawned shell', async () => {
+    cateApi.ensureEndpoint.mockResolvedValue({ port: 9876, token: 'tok-abc' })
+
+    const env = await spawnAndGetEnv({
+      cols: 80,
+      rows: 24,
+      workspaceId: 'ws-1',
+      placementGroupId: 'group-1',
+    })
+
+    expect(env).toEqual({
+      CATE_API: 'http://127.0.0.1:9876',
+      CATE_TOKEN: 'tok-abc',
+      CATE_CLI_SESSION_ID: expect.any(String),
+      CATE_PLACEMENT_GROUP: 'group-1',
     })
   })
 
@@ -502,5 +567,54 @@ describe('CATE_API env injection into spawned terminals', () => {
 
     expect(cateApi.ensureEndpoint).toHaveBeenCalledWith('ws-1')
     expect(env).toBeUndefined()
+  })
+})
+
+describe('Cate-owned coding-agent process launch', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    handlers.clear()
+    diag.ptyCreate.mockReset()
+    cateApi.ensureEndpoint.mockReset().mockResolvedValue(null)
+    workspaceInfo.get.mockReset()
+  })
+
+  async function spawn(options: Record<string, unknown>): Promise<Record<string, unknown>> {
+    diag.ptyCreate.mockResolvedValue({ id: 'pty-worker', pid: 123, shell: 'codex' })
+    const mod = await import('./terminal')
+    mod.registerHandlers()
+    await handlers.get('terminal:create')!({}, { cols: 80, rows: 24, ...options })
+    return diag.ptyCreate.mock.calls[0][0] as Record<string, unknown>
+  }
+
+  it('turns a one-shot launch into an exact shell-free registered command', async () => {
+    const options = await spawn({
+      workspaceId: 'ws-1',
+      panelId: 'worker-panel',
+      cwd: '/repo',
+      codingAgentLaunch: {
+        runId: 'run-1',
+        agentId: 'codex',
+        ownerPanelId: 'supervisor-1',
+        prompt: '--dangerously-looking task; touch /tmp/nope',
+      },
+    })
+
+    expect(options.command).toEqual({
+      executable: 'codex',
+      args: ['Complete this coding task:\n\n--dangerously-looking task; touch /tmp/nope'],
+    })
+  })
+
+  it('starts a restored run as a normal shell when no one-shot launch is present', async () => {
+    const options = await spawn({
+      workspaceId: 'ws-1',
+      panelId: 'restored-worker-panel',
+      cwd: '/repo',
+      // Persisted codingAgentRun metadata deliberately is not a terminal-create
+      // option. Its absence here is the restart guarantee: no task is replayed.
+    })
+
+    expect(options.command).toBeUndefined()
   })
 })

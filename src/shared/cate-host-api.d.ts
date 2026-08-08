@@ -1,9 +1,9 @@
 // =============================================================================
 // Ambient typings for the `cate` global injected into extension webview guests
-// by src/preload/cateHost.ts. Mirrors the reverse-API surface in
-// docs/extensions.md. Methods not yet supported in Phase 1 still exist and
-// resolve/reject with a clear "unsupported" result so feature detection via
-// `cate.version` works.
+// by src/preload/cateHost.ts. Mirrors the reverse-API surface implemented by the
+// main-process extension handlers. Methods not yet supported in Phase 1 still
+// exist and resolve/reject with a clear "unsupported" result so feature
+// detection via `cate.version` works.
 // =============================================================================
 
 /** Theme tokens handed to a guest by `cate.theme.get()`. */
@@ -19,7 +19,7 @@ export interface CateHostTheme {
 /** Result of one agent turn (`cate.agent.send`): the flattened
  *  `text` for convenience plus the raw final assistant `message` from pi (its role
  *  and content blocks — text, tool calls, etc.), or null if the turn produced none. */
-export interface AgentTurnResult {
+export interface CodingTurnResult {
   text: string
   message: Record<string, unknown> | null
 }
@@ -91,18 +91,24 @@ export interface CateDroppedFile {
   truncated?: boolean
 }
 
-/** One interactable element in an accessibility `snapshot()`. `ref` is an opaque
- *  handle to pass back to `click`/`type`; it is only valid for the snapshot it
- *  came from (re-snapshot after a navigation or mutation). */
+/** One interactable element in an accessibility `snapshot()`. `ref` is an opaque,
+ *  generation-scoped handle to pass back to browser actions. */
 export interface CateBrowserRef {
   ref: string
   role: string
   name: string
   value?: string
+  disabled?: boolean
+  checked?: boolean
+  expanded?: boolean
+  selected?: boolean
+  focused?: boolean
 }
 
 /** Accessibility snapshot of a browser panel, from `cate.browser.snapshot()`. */
 export interface CateBrowserSnapshot {
+  /** Generation id embedded into every ref; a ref from an older generation is stale. */
+  snapshotId: string
   url: string
   title: string
   refs: CateBrowserRef[]
@@ -160,7 +166,7 @@ export interface CateHost {
     /** Open (or `resume` a previous) session; returns its handle. */
     open(opts?: { resume?: string }): Promise<{ sessionId: string } | { error: string }>
     /** Run one turn on an open session; returns the final assistant message. */
-    send(sessionId: string, prompt: string): Promise<AgentTurnResult | { error: string }>
+    send(sessionId: string, prompt: string): Promise<CodingTurnResult | { error: string }>
     /** Tear down the live session (pi's jsonl stays; reopen via `resume`). */
     dispose(sessionId: string): Promise<unknown>
     /** Abort the in-flight turn of this extension's session. */
@@ -174,8 +180,8 @@ export interface CateHost {
    *  point an existing panel at a URL or spawn one. `snapshot` returns opaque
    *  element `ref`s to feed back to `click`/`type`; re-snapshot after any
    *  navigation because refs don't survive it. `screenshot` returns a host
-   *  filesystem `path` (see the note in docs/extensions.md — a webview guest can't
-   *  read it directly; a server-backed extension can). */
+   *  filesystem `path`; a webview guest can't read it directly, but a
+   *  server-backed extension can. */
   browser: {
     /** Point a panel at `url` (or auto-place a new background panel); resolves
      *  after the webview is mounted and returns the target panel + url.
@@ -187,19 +193,25 @@ export interface CateHost {
     screenshot(opts?: { panelId?: string }): Promise<{ path: string }>
     /** Accessibility snapshot with interactable element refs. */
     snapshot(opts?: { panelId?: string }): Promise<CateBrowserSnapshot>
-    /** Click the element identified by `ref` (from a recent `snapshot`). */
-    click(opts: { ref: string; panelId?: string }): Promise<{ ok: true }>
-    /** Type `text` into the element identified by `ref`. */
-    type(opts: { ref: string; text: string; panelId?: string }): Promise<{ ok: true }>
-    /** Resolve once the panel stops loading (poll-based; `timeoutMs` defaults to
-     *  5000 and is capped at 8000). Rejects in-band with `still-loading`. */
-    wait(opts?: { panelId?: string; timeoutMs?: number }): Promise<{ url: string; title: string; loading: false }>
+    /** Auto-wait for actionability, then click with trusted pointer input. */
+    click(opts: { ref: string; panelId?: string; includeSnapshot?: boolean }): Promise<{ ok: true; snapshot?: CateBrowserSnapshot }>
+    /** Fill with trusted keyboard input. `type` is retained as an alias. */
+    fill(opts: { ref: string; text: string; panelId?: string; includeSnapshot?: boolean }): Promise<{ ok: true; snapshot?: CateBrowserSnapshot }>
+    type(opts: { ref: string; text: string; panelId?: string; includeSnapshot?: boolean }): Promise<{ ok: true; snapshot?: CateBrowserSnapshot }>
+    /** Wait for load, text, text disappearance, URL glob, or ref state. */
+    wait(opts?: {
+      panelId?: string
+      timeoutMs?: number
+      includeSnapshot?: boolean
+      condition?:
+        | { kind: 'load' }
+        | { kind: 'text' | 'textGone' | 'url'; value: string }
+        | { kind: 'ref'; ref: string; state: 'visible' | 'hidden' | 'attached' | 'detached' }
+    }): Promise<{ url: string; title: string; loading: boolean; snapshot?: CateBrowserSnapshot }>
     /** Press a named key (Enter, Tab, Escape, Backspace, Delete, Space, arrows,
-     *  PageUp/PageDown, Home, End) as TRUSTED input — unlike `click`/`type`,
-     *  which synthesise untrusted DOM events — so Enter submits forms. With
-     *  `ref` the element is focused first; without it the key goes to the
-     *  guest's current focus. */
-    press(opts: { key: string; ref?: string; panelId?: string }): Promise<{ ok: true }>
+     *  PageUp/PageDown, Home, End) as trusted input. With `ref` the element is
+     *  focused first; without it the key goes to the guest's current focus. */
+    press(opts: { key: string; ref?: string; panelId?: string; includeSnapshot?: boolean }): Promise<{ ok: true; snapshot?: CateBrowserSnapshot }>
   }
   storage: CateHostStorage
 }

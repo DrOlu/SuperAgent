@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { clipboard, ipcMain } from 'electron'
+import { randomUUID } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'
 import {
@@ -40,11 +41,15 @@ import log from '../logger'
 import { sendToWindow, windowFromEvent, onWindowClosed } from '../windowRegistry'
 import { countTerminalData } from '../perf/perfMonitor'
 import { getSetting } from '../settingsFile'
-import { parseLocator, type RuntimeId } from '../runtime/locator'
+import { parseLocator, type RuntimeId } from '../../shared/runtimeLocator'
 import { runtimes } from '../runtime/runtimeManager'
 import type { Runtime } from '../runtime/types'
 import { createStringDispatcher } from './batchedDispatcher'
 import { workspaceCateApi } from '../extensions/workspaceCateApi'
+import { getWorkspaceInfo } from '../workspaceManager'
+import { syncWorkspaceSkills } from '../../skills/main/skillsMirror'
+import { resolveWorktreeContext, validateWorktreeContext } from '../worktreeContext'
+import { codingAgentCommand, type CodingAgentLaunch } from '../../shared/codingAgentRuns'
 
 // Set true during app shutdown so PTY data/exit callbacks no-op instead of
 // calling into a torn-down JS environment.
@@ -227,7 +232,16 @@ function cleanupTerminal(id: string): void {
 }
 
 async function spawnTerminal(
-  options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string; panelId?: string },
+  options: {
+    cols: number
+    rows: number
+    cwd?: string
+    shell?: string
+    workspaceId?: string
+    panelId?: string
+    placementGroupId?: string
+    codingAgentLaunch?: CodingAgentLaunch
+  },
   ownerWindowId: number,
 ): Promise<string> {
   const { runtimeId, path: cwdPath } = parseLocator(options.cwd ?? '')
@@ -250,7 +264,9 @@ async function spawnTerminal(
       cateApiEnv = {
         CATE_API: `http://127.0.0.1:${endpoint.port}`,
         CATE_TOKEN: endpoint.token,
+        CATE_CLI_SESSION_ID: randomUUID(),
         ...(options.panelId ? { CATE_PANEL_ID: options.panelId } : {}),
+        ...(options.placementGroupId ? { CATE_PLACEMENT_GROUP: options.placementGroupId } : {}),
       }
     }
   }
@@ -323,8 +339,42 @@ async function spawnTerminal(
   const agentHookConfig = options.workspaceId
     ? getSetting('agentHookInjection')[options.workspaceId]
     : undefined
+  const workspaceRoot = options.workspaceId
+    ? getWorkspaceInfo(options.workspaceId)?.rootPath
+    : undefined
+  const unresolvedWorktree = workspaceRoot && options.cwd
+    ? resolveWorktreeContext(workspaceRoot, options.cwd)
+    : undefined
+  const worktree = unresolvedWorktree && options.workspaceId
+    ? await validateWorktreeContext(unresolvedWorktree, runtime, ownerWindowId, options.workspaceId)
+    : undefined
+  // Existing or externally-created worktrees may predate Cate's eager mirror
+  // triggers. Hydrate managed skills before the shell can launch an agent.
+  if (worktree) {
+    try {
+      await syncWorkspaceSkills(worktree.base.locator, worktree.checkout.locator)
+    } catch (err) {
+      log.warn('[terminal] worktree skill sync failed: %O', err)
+    }
+  }
   const handle = await runtime.process.create(
-    { cols: options.cols, rows: options.rows, cwd, shell: options.shell, env: cateApiEnv, agentHooks: true, agentHookConfig },
+    {
+      cols: options.cols,
+      rows: options.rows,
+      cwd,
+      shell: options.shell,
+      ...(options.codingAgentLaunch
+        ? { command: codingAgentCommand(options.codingAgentLaunch) }
+        : {}),
+      env: cateApiEnv,
+      agentHooks: true,
+      agentHookConfig,
+      workspaceBaseCwd: worktree?.base.path,
+      // The workspace whose root this cwd lives under — the daemon validates
+      // against this scope, so a project outside the daemon's own root still
+      // gets a terminal.
+      scopeId: options.workspaceId,
+    },
     onData,
     onExit,
   )
@@ -382,7 +432,16 @@ export function registerHandlers(): void {
 
   ipcMain.handle(
     TERMINAL_CREATE,
-    async (event, options: { cols: number; rows: number; cwd?: string; shell?: string; workspaceId?: string }): Promise<string> => {
+    async (event, options: {
+      cols: number
+      rows: number
+      cwd?: string
+      shell?: string
+      workspaceId?: string
+      panelId?: string
+      placementGroupId?: string
+      codingAgentLaunch?: CodingAgentLaunch
+    }): Promise<string> => {
       const win = windowFromEvent(event)
       const windowId = win?.id ?? -1
       return spawnTerminal(options, windowId)

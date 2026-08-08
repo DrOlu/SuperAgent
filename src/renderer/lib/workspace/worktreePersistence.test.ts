@@ -1,6 +1,6 @@
 // =============================================================================
 // Worktree session-persistence regression tests. Worktree colors/labels and each
-// terminal/agent panel's worktree tag are machine-local (gitignored checkouts),
+// terminal panel's worktree tag are machine-local (gitignored checkouts),
 // so they live in session.json. These tests pin that they survive a save/restore
 // round-trip — previously both were dropped, so colors got re-rolled from the
 // palette on restart and terminals came back tagged to the primary worktree even
@@ -53,10 +53,10 @@ function reset() {
 }
 
 const ROOT = '/tmp/wt'
-// worktrees persist only UI metadata (id/path/color/label); branch/isPrimary are
+// worktrees persist only managed metadata (id/path/color/label/PR identity); branch/isPrimary are
 // live git facts joined in at read time (see useWorktrees), never persisted.
 const WT_X: WorktreeMeta = {
-  id: 'wt-x', path: `${ROOT}/.cate/worktrees/x`, color: '#11aa55', label: 'X work',
+  id: 'wt-x', path: `${ROOT}/.cate/worktrees/x`, color: '#11aa55', label: 'X work', prNumber: 42,
 }
 const WT_PRIMARY: WorktreeMeta = {
   id: 'wt-primary-ws', path: ROOT, color: '#3366ff',
@@ -89,6 +89,23 @@ function snapshotWithWorktrees(): SessionSnapshot {
 describe('worktree session persistence', () => {
   beforeEach(reset)
 
+  it('allows terminal tags but strips Cate Agent panel residue', () => {
+    const ws = useAppStore.getState().addWorkspace('WT', ROOT, 'ws')
+    useAppStore.getState().addPanel(ws, {
+      id: 'terminal-1', type: 'terminal', title: 'Terminal', isDirty: false,
+    })
+    useAppStore.getState().addPanel(ws, {
+      id: 'agent-1', type: 'cateAgent', title: 'Agent', isDirty: false, worktreeId: 'legacy',
+    })
+
+    useAppStore.getState().setPanelWorktreeId(ws, 'terminal-1', 'wt-x')
+    useAppStore.getState().setPanelWorktreeId(ws, 'agent-1', 'wt-x')
+
+    const panels = useAppStore.getState().getWorkspace(ws)!.panels
+    expect(panels['terminal-1'].worktreeId).toBe('wt-x')
+    expect(panels['agent-1'].worktreeId).toBeUndefined()
+  })
+
   it('restoreSession hydrates the worktree registry (colors/labels) into the workspace', async () => {
     const ws = useAppStore.getState().addWorkspace('WT', ROOT, 'ws')
     await restoreSession(snapshotWithWorktrees(), ws)
@@ -97,6 +114,7 @@ describe('worktree session persistence', () => {
     const x = worktrees.find((w) => w.path === WT_X.path)
     expect(x?.color).toBe('#11aa55')
     expect(x?.label).toBe('X work')
+    expect(x?.prNumber).toBe(42)
     // The primary worktree is the one keyed by the workspace root path.
     expect(worktrees.find((w) => w.path === ROOT)?.color).toBe('#3366ff')
   })

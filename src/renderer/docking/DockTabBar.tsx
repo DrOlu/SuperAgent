@@ -15,32 +15,39 @@ import { useAppStore } from '../stores/appStore'
 import { useAgentInfoByPanel } from '../hooks/useAgentPanelInfo'
 import { worktreeTitleStyle } from '../lib/worktreeTitleStyle'
 import { isMiddleClick } from '../lib/mouse'
+import { isWorktreePanelType } from '../../shared/panels'
+import { useActiveChatWorktreeByPanel } from '../../cateAgent/renderer/cateAgentStore'
 
 const AWAIT_COLOR = '#c08a5a'
 
 // Lookup: panelId → worktree color. Only returns a color when the panel's
-// workspace has 2+ worktrees (matches WorktreePill's visibility rule, so the
-// tab title tint and the title-bar pill appear together or not at all). The
-// color is applied to the tab's title text, not its icon — the icon may be an
-// agent logo (an <img>, which ignores `color`), and tinting it would clash
+// workspace has 2+ worktrees. Both terminal and Agent tabs retain this light
+// association tint; the interactive title-bar worktree chip is terminal-only.
+// The color is applied to the tab's title text, not its icon — the icon may be
+// an agent logo (an <img>, which ignores `color`), and tinting it would clash
 // with the per-agent icon swap.
 function useWorktreeColorByPanel(): Record<string, string> {
-  return useAppStore(useShallow((s) => {
+  const workspaces = useAppStore(useShallow((s) => s.workspaces))
+  const activeChatWorktreeByPanel = useActiveChatWorktreeByPanel()
+  return React.useMemo(() => {
     const out: Record<string, string> = {}
-    for (const ws of s.workspaces) {
+    for (const ws of workspaces) {
       const worktrees = ws.worktrees ?? []
       if (worktrees.length < 2) continue
       // isPrimary is a live-git fact, no longer persisted; the primary record is
       // the one keyed by the workspace's own rootPath.
       const primary = worktrees.find((w) => w.path === ws.rootPath)
       for (const panel of Object.values(ws.panels)) {
-        if (panel.type !== 'terminal' && panel.type !== 'agent') continue
-        const wt = worktrees.find((w) => w.id === panel.worktreeId) ?? primary
+        if (!isWorktreePanelType(panel.type)) continue
+        const worktreeId = panel.type === 'cateAgent'
+          ? activeChatWorktreeByPanel[panel.id]
+          : panel.worktreeId
+        const wt = worktrees.find((w) => w.id === worktreeId) ?? primary
         if (wt?.color) out[panel.id] = wt.color
       }
     }
     return out
-  }))
+  }, [activeChatWorktreeByPanel, workspaces])
 }
 
 // Type → icon/tint mirrors the Spotlight overlay so tabs, search results, and

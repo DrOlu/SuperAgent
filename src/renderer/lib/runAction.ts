@@ -22,11 +22,12 @@ import { provideAppStoreForHistory } from '../stores/canvas/historySlice'
 import { inheritedWorktreeFromSelection } from './inheritWorktree'
 import { closePanelWithConfirm } from './closePanelWithConfirm'
 import { activeDockPanelId } from '../../shared/collectPanelIds'
+import { seedAgentPanelWithWorktreeChat } from '../../cateAgent/renderer/seedWorktreeChat'
 
 /**
  * Ensures the workspace has a rootPath before proceeding.
  * If no rootPath is set, opens the folder dialog first.
- * Returns the workspaceId if ready, or null if the user cancelled.
+ * Returns the workspaceId if ready, or null if the folder didn't open.
  */
 export async function ensureWorkspaceFolder(workspaceId: string): Promise<string | null> {
   const ws = useAppStore.getState().getWorkspace(workspaceId)
@@ -35,8 +36,11 @@ export async function ensureWorkspaceFolder(workspaceId: string): Promise<string
   const folderPath = await window.electronAPI.openFolderDialog()
   if (!folderPath) return null
 
-  useAppStore.getState().setWorkspaceRootPath(workspaceId, folderPath)
-  return workspaceId
+  // Awaited, and its answer respected: the user can still decline to trust the
+  // folder they just picked. The caller must not then create a panel in a
+  // workspace that never got a root — it would land in $HOME.
+  const opened = await useAppStore.getState().setWorkspaceRootPath(workspaceId, folderPath)
+  return opened ? workspaceId : null
 }
 
 /**
@@ -116,12 +120,15 @@ export async function runAction(
       const placement = placementForActivePanel()
       const wsId = await ensureWorkspaceFolder(selectedWorkspaceId)
       if (wsId) {
-        // Same worktree inheritance as newTerminal — an agent carries only a
-        // worktreeId (no cwd), so bind it when the selection has one.
+        // Same worktree inheritance as newTerminal, but the target belongs to
+        // the new agent's first chat rather than its panel record.
         const canvas = canvasStore()
         const wt = canvas ? inheritedWorktreeFromSelection(canvas, appStore().getWorkspace(wsId)?.panels) : {}
-        const panelId = appStore().createAgent(wsId, undefined, placement)
-        if (panelId && wt.worktreeId) appStore().setPanelWorktreeId(wsId, panelId, wt.worktreeId)
+        const panelId = appStore().createCateAgent(wsId, undefined, placement)
+        const rootPath = appStore().getWorkspace(wsId)?.rootPath
+        if (panelId && rootPath && wt.worktreeId) {
+          await seedAgentPanelWithWorktreeChat(wsId, rootPath, panelId, wt.worktreeId)
+        }
       }
       break
     }

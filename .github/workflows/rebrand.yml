@@ -165,7 +165,9 @@ jobs:
           MAIN_VITE_MINERU_API_KEY: ${{ secrets.MAIN_VITE_MINERU_API_KEY || 'placeholder' }}
           RENDERER_VITE_AIHUBMIX_SECRET: ${{ secrets.RENDERER_VITE_AIHUBMIX_SECRET || 'placeholder' }}
           RENDERER_VITE_PPIO_APP_SECRET: ${{ secrets.RENDERER_VITE_PPIO_APP_SECRET || 'placeholder' }}
-        run: pnpm ${{ matrix.cmd }}
+        # --publish never: electron-builder must NOT auto-create a release during
+        # the build; a separate release.yml workflow publishes the installers.
+        run: pnpm ${{ matrix.cmd }} -- --publish never
         shell: bash
 
       - name: Upload artifacts

@@ -19,6 +19,10 @@ done
 rsvg-convert -w 1024 -h 1024 "$SVG" -o "$BUILD/icon.png"
 rsvg-convert -w 512  -h 512  "$SVG" -o "$BUILD/logo.png"
 
+# in-app logo asset used by the About page + onboarding/landing page
+mkdir -p src/renderer/assets/images
+rsvg-convert -w 1024 -h 1024 "$SVG" -o src/renderer/assets/images/logo.png
+
 # tray icons (small; electron tray uses ~16-22px, retina 32-44)
 rsvg-convert -w 22 -h 22 "$SVG" -o "$BUILD/tray_icon.png"
 rsvg-convert -w 22 -h 22 "$SVG" -o "$BUILD/tray_icon_dark.png"

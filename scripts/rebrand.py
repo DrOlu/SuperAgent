@@ -33,6 +33,10 @@ ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 TOKEN_REPLACEMENTS = [
     ("Cherry Studio", "SuperAgent"),
     ("CherryStudio", "SuperAgent"),
+    # Specific FIRST: source-repo GitHub paths -> the new home.
+    # Must precede the generic CherryHQ token so these become a valid
+    # owner/repo pair (DrOlu/SuperAgent) instead of "Hyperspace Technologies/...".
+    ("CherryHQ/cherry-studio", "DrOlu/SuperAgent"),
     ("CherryHQ", "Hyperspace Technologies"),
     ("kangfenmao", "hyperspace"),
     ("cherry-studio", "superagent"),
@@ -75,6 +79,10 @@ SKIP_PATHS = {
     "scripts/rebrand.py",
     "scripts/generate_icons.sh",
     "superagent_logo.svg",
+    # Functional: pin to the real better-sqlite3 binary release repo + its
+    # test. The Linux build downloads a prebuilt native addon from here.
+    "scripts/linux-native/release.json",
+    "scripts/__tests__/linux-native.test.ts",
 }
 
 

@@ -58,7 +58,7 @@ describe('SuperAgentSeeder', () => {
     const [agent] = builtinAgents(dbh.db)
     expect(agent).toMatchObject({
       type: 'claude-code',
-      name: 'Cherry Assistant',
+      name: 'SuperAgent Assistant',
       description: '',
       instructions: '',
       model: null
@@ -98,7 +98,7 @@ describe('SuperAgentSeeder', () => {
     expect(() => new SuperAgentSeeder().run(dbh.db)).not.toThrow()
 
     const [agent] = builtinAgents(dbh.db)
-    expect(agent.name).toBe('Cherry Assistant')
+    expect(agent.name).toBe('SuperAgent Assistant')
   })
 
   it('preserves an existing permission mode when the seeder reruns', () => {
@@ -123,7 +123,7 @@ describe('SuperAgentSeeder', () => {
     expect(journal?.value).toMatchObject({ version: '2' })
   })
 
-  it('adds Cherry Assistant after a version 1 skip in an existing library and journals the rollout', () => {
+  it('adds SuperAgent Assistant after a version 1 skip in an existing library and journals the rollout', () => {
     insertOrdinaryAgent()
     dbh.db
       .insert(appStateTable)
@@ -138,7 +138,7 @@ describe('SuperAgentSeeder', () => {
     expect(journal?.value).toMatchObject({ version: new SuperAgentSeeder().version })
   })
 
-  it('adds Cherry Assistant when only soft-deleted ordinary agents exist', () => {
+  it('adds SuperAgent Assistant when only soft-deleted ordinary agents exist', () => {
     const ordinaryAgentId = insertOrdinaryAgent()
     dbh.db
       .update(agentTable)
@@ -152,7 +152,7 @@ describe('SuperAgentSeeder', () => {
     expect(builtinAgents(dbh.db)).toHaveLength(1)
   })
 
-  it('adds Cherry Assistant when orphan sessions record prior library history', () => {
+  it('adds SuperAgent Assistant when orphan sessions record prior library history', () => {
     const agentId = 'historical-agent'
     const sessionId = 'historical-session'
 
@@ -202,7 +202,7 @@ describe('SuperAgentSeeder', () => {
     expect(journal?.value).toMatchObject({ version: new SuperAgentSeeder().version })
   })
 
-  it('does not recreate a soft-deleted Cherry Assistant during the library-wide rollout', () => {
+  it('does not recreate a soft-deleted SuperAgent Assistant during the library-wide rollout', () => {
     const runner = new SeedRunner(dbh.db)
     new SuperAgentSeeder().run(dbh.db)
     const [assistant] = builtinAgents(dbh.db)

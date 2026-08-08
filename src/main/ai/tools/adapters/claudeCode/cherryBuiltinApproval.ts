@@ -73,7 +73,7 @@ export const CHERRY_BUILTIN_AUTO_APPROVED_TOOL_NAMES: readonly string[] = [
 ]
 
 /**
- * Assistant MCP tools safe to auto-approve for local Cherry Assistant sessions: `navigate`, which
+ * Assistant MCP tools safe to auto-approve for local SuperAgent Assistant sessions: `navigate`, which
  * emits a clickable link the user must click themselves, and `product_info`, which only reads the
  * bundled public product manifest. Never widen this to a `mcp__assistant__` prefix or wildcard; a
  * future assistant tool must opt in here explicitly.
@@ -94,7 +94,7 @@ export const ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES: readonly string[] = [
   'mcp__assistant__create_agent'
 ]
 
-/** Cherry Assistant-only file tools live on their own session-scoped MCP server. */
+/** SuperAgent Assistant-only file tools live on their own session-scoped MCP server. */
 export const ASSISTANT_FILE_MCP_SERVER = 'assistant-files'
 export const toAssistantFileRuntimeName = (toolName: string): string => `mcp__${ASSISTANT_FILE_MCP_SERVER}__${toolName}`
 

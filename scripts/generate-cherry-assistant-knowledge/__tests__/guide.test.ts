@@ -33,7 +33,7 @@ const SUPPORTING_PROMPT_PATHS = [
   'resources/builtin-agents/cherry-assistant/memory/FACT.md'
 ]
 
-describe('Cherry Assistant guide', () => {
+describe('SuperAgent Assistant guide', () => {
   const guide = fs.readFileSync(TEMPLATE_PATH, 'utf-8')
 
   it('uses current-package lookups instead of versioned product prose', () => {
@@ -102,11 +102,11 @@ describe('Cherry Assistant guide', () => {
     }
     const soul = fs.readFileSync(SOUL_PATH, 'utf-8')
 
-    expect(agent.instructions['en-US']).toContain('introduce yourself as Cherry Assistant')
-    expect(agent.instructions['zh-CN']).toContain('自我介绍为 Cherry Assistant')
-    expect(agent.instructions['en-US']).toContain('serve as Cherry Assistant')
+    expect(agent.instructions['en-US']).toContain('introduce yourself as SuperAgent Assistant')
+    expect(agent.instructions['zh-CN']).toContain('自我介绍为 SuperAgent Assistant')
+    expect(agent.instructions['en-US']).toContain('serve as SuperAgent Assistant')
     expect(agent.instructions['en-US']).not.toContain("You are SuperAgent's built-in onboarding Agent")
-    expect(soul).not.toContain('Cherry Assistant')
+    expect(soul).not.toContain('SuperAgent Assistant')
     expect(soul).not.toContain('general-purpose Agent')
     expect(soul).not.toContain('same tools and capabilities')
     expect(soul).not.toContain('Claude Code')
@@ -185,7 +185,7 @@ describe('Cherry Assistant guide', () => {
     expect(issueReporter).toContain('不得运行 `gh auth status`')
   })
 
-  it('declares only skills that are bundled with Cherry Assistant', () => {
+  it('declares only skills that are bundled with SuperAgent Assistant', () => {
     const agent = JSON.parse(fs.readFileSync(AGENT_TEMPLATE_PATH, 'utf-8')) as { skills: string[] }
     const skillsDir = path.join(ROOT_DIR, 'resources/builtin-agents/cherry-assistant/.claude/skills')
 

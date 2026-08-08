@@ -89,5 +89,5 @@ approval**, stop and report — never re-attempt the mutation through a differen
 Not covered here: SDK-native `Read`/`Edit`/`Bash` and orchestration tools; third-party
 (user-configured) MCP servers; the AI-SDK chat `read_file` attachment reader (a
 chat-path tool, not exposed on this MCP surface); and the role-specific
-`mcp__assistant__*` navigation/diagnosis tools, which belong to the Cherry Assistant and
+`mcp__assistant__*` navigation/diagnosis tools, which belong to the SuperAgent Assistant and
 its own guide.

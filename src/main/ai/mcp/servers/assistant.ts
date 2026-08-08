@@ -139,7 +139,7 @@ const PRODUCT_INFO_TOOL: Tool = {
   }
 }
 
-// Whitelist of settings Cherry Assistant can write directly. Each entry binds
+// Whitelist of settings SuperAgent Assistant can write directly. Each entry binds
 // a `setting` key to a value validator and an `apply` function that performs
 // the write. Settings not in this map are rejected — adding a new one
 // requires explicit code change so a destructive or sensitive setting can
@@ -193,7 +193,7 @@ The tool returns the new agent id. After creation, query product_info and naviga
       model: {
         type: 'string',
         description:
-          'Optional model id in the form "providerId::modelId" (e.g. "cherryin::agent/glm-5.1", "anthropic::claude-sonnet"). When omitted, the new agent uses Cherry Assistant\'s current model.'
+          'Optional model id in the form "providerId::modelId" (e.g. "cherryin::agent/glm-5.1", "anthropic::claude-sonnet"). When omitted, the new agent uses SuperAgent Assistant\'s current model.'
       }
     },
     required: ['name', 'instructions']

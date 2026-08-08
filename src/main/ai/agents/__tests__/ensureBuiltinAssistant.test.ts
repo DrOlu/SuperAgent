@@ -23,7 +23,7 @@ describe('ensureBuiltinAssistant command', () => {
     mocks.appGet.mockReturnValue({ get: mocks.preferenceGet })
     mocks.preferenceGet.mockReturnValue('anthropic::claude-sonnet-4-5')
     mocks.loadDefaults.mockReturnValue({
-      name: 'Cherry Assistant',
+      name: 'SuperAgent Assistant',
       configuration: {
         avatar: '🍒',
         permission_mode: 'default',
@@ -42,7 +42,7 @@ describe('ensureBuiltinAssistant command', () => {
     expect(mocks.appGet).toHaveBeenCalledWith('PreferenceService')
     expect(mocks.preferenceGet).toHaveBeenCalledWith('chat.default_model_id')
     expect(mocks.ensure).toHaveBeenCalledWith({
-      name: 'Cherry Assistant',
+      name: 'SuperAgent Assistant',
       builtinRole: 'assistant',
       preferredModelId: 'anthropic::claude-sonnet-4-5',
       type: 'claude-code',
@@ -60,19 +60,19 @@ describe('ensureBuiltinAssistant command', () => {
 
   it('refuses to create a system Agent from an invalid package definition', () => {
     mocks.loadDefaults.mockImplementation(() => {
-      throw new Error('Cherry Assistant package configuration is invalid: max_turns')
+      throw new Error('SuperAgent Assistant package configuration is invalid: max_turns')
     })
 
-    expect(() => ensureBuiltinAssistant()).toThrow('Cherry Assistant package configuration is invalid')
+    expect(() => ensureBuiltinAssistant()).toThrow('SuperAgent Assistant package configuration is invalid')
     expect(mocks.ensure).not.toHaveBeenCalled()
   })
 
   it('fails when the package definition is unavailable', () => {
     mocks.loadDefaults.mockImplementation(() => {
-      throw new Error('Cherry Assistant package definition is unavailable')
+      throw new Error('SuperAgent Assistant package definition is unavailable')
     })
 
-    expect(() => ensureBuiltinAssistant()).toThrow('Cherry Assistant package definition is unavailable')
+    expect(() => ensureBuiltinAssistant()).toThrow('SuperAgent Assistant package definition is unavailable')
     expect(mocks.ensure).not.toHaveBeenCalled()
   })
 })

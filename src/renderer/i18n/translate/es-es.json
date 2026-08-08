@@ -5936,10 +5936,10 @@
       },
       "feedback": {
         "agent": {
-          "description": "Chatea con Cherry Assistant para compartir tus comentarios.",
+          "description": "Chatea con SuperAgent Assistant para compartir tus comentarios.",
           "title": "Usar Agente"
         },
-        "agent_error": "No se puede abrir Cherry Assistant para enviar comentarios. Inténtalo de nuevo.",
+        "agent_error": "No se puede abrir SuperAgent Assistant para enviar comentarios. Inténtalo de nuevo.",
         "button": "Enviar feedback",
         "dialog": {
           "description": "Elige cómo compartir comentarios y ayúdanos a mejorar SuperAgent.",

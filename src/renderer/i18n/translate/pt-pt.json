@@ -5939,7 +5939,7 @@
           "description": "Converse com o Assistente Cherry para partilhar comentários.",
           "title": "Utilizar agente"
         },
-        "agent_error": "Não foi possível abrir o Cherry Assistant para feedback. Por favor, tente novamente.",
+        "agent_error": "Não foi possível abrir o SuperAgent Assistant para feedback. Por favor, tente novamente.",
         "button": "Comentários",
         "dialog": {
           "description": "Escolha como partilhar feedback e ajude-nos a melhorar o SuperAgent.",

@@ -8,7 +8,7 @@ sub-skill of it), authored by Anthropic and originally published at:
 - License: Apache License 2.0 (see `LICENSE` in this directory)
 - Author: Isabella He <isabella@anthropic.com>, Anthropic
 
-It is bundled into Cherry Assistant under the terms of the Apache 2.0 license.
+It is bundled into SuperAgent Assistant under the terms of the Apache 2.0 license.
 The original `plugin.json` wrapper has been omitted — only the skill itself is
 shipped, since SuperAgent's runtime loads `.claude/skills/*` directly.
 
@@ -21,7 +21,7 @@ made to the upstream `SKILL.md`:
   original Phase 1. The upstream skill starts scanning immediately on trigger;
   the SuperAgent addition requires the agent to first announce the token
   budget (~20–40K) and obtain explicit user confirmation before any filesystem
-  read or Bash call. Rationale: Cherry Assistant runs in interactive chat
+  read or Bash call. Rationale: SuperAgent Assistant runs in interactive chat
   sessions where unexpected long scans degrade the UX. The confirmation gate
   lets the user opt for a narrower scope, a verbal-only consultation, or
   deferral. No other behavior is changed.

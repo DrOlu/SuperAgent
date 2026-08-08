@@ -56,7 +56,7 @@ jobs:
 
             SuperAgent — a rebranded AI assistant, maintained by **Hyperspace Technologies** (`agent@superagent.ng`).
 
-            Built from the open-source Cherry Studio codebase under its original (AGPLv3) license. Only visible branding, strings, and the app icon/logo were changed; functional code is unmodified.
+            Built from the open-source SuperAgent codebase under its original (AGPLv3) license. Only visible branding, strings, and the app icon/logo were changed; functional code is unmodified.
 
             ## Installers
             - **macOS**: `.dmg` (arm64 / x64) and `.zip`

@@ -5939,7 +5939,7 @@
           "description": "Discută cu Asistentul Cherry pentru a împărtăși feedback-ul tău.",
           "title": "Folosește agentul"
         },
-        "agent_error": "Nu se poate deschide Cherry Assistant pentru feedback. Încearcă din nou.",
+        "agent_error": "Nu se poate deschide SuperAgent Assistant pentru feedback. Încearcă din nou.",
         "button": "Feedback",
         "dialog": {
           "description": "Alege cum să partajezi feedback-ul și ajută-ne să facem SuperAgent mai bun.",

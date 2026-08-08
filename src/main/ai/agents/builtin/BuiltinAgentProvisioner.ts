@@ -21,7 +21,7 @@ import {
 const logger = loggerService.withContext('BuiltinAgentProvisioner')
 
 /**
- * SHA-256 hashes of Cherry Assistant SOUL.md revisions that must be upgraded.
+ * SHA-256 hashes of SuperAgent Assistant SOUL.md revisions that must be upgraded.
  * These earlier revisions baked identity/role text into the persona file; the
  * current bundle keeps SOUL.md to personality/tone only. Because provisioning
  * never overwrites a non-empty SOUL.md, installs made against these revisions

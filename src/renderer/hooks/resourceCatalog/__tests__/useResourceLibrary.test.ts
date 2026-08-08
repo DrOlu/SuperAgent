@@ -171,7 +171,7 @@ describe('useResourceLibrary', () => {
       listResult([
         {
           ...agentListItem,
-          name: 'Cherry Assistant',
+          name: 'SuperAgent Assistant',
           configuration: { builtin_role: 'assistant' },
           model: null
         }
@@ -189,7 +189,7 @@ describe('useResourceLibrary', () => {
       listResult([
         {
           ...agentListItem,
-          name: 'Cherry Assistant',
+          name: 'SuperAgent Assistant',
           configuration: { builtin_role: 'assistant' },
           model: null
         }

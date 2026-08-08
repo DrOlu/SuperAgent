@@ -24,7 +24,7 @@ import {
 } from '../BuiltinAgentProvisioner'
 
 const TEMPLATE_AGENT_JSON = JSON.stringify({
-  name: { 'en-US': 'Cherry Assistant', 'zh-CN': 'Cherry Assistant CN' },
+  name: { 'en-US': 'SuperAgent Assistant', 'zh-CN': 'SuperAgent Assistant CN' },
   instructions: { 'en-US': 'English instructions', 'zh-CN': 'Chinese instructions' },
   configuration: { permission_mode: 'default' },
   skills: ['cherry-assistant-guide']
@@ -72,7 +72,7 @@ describe('BuiltinAgentProvisioner', () => {
     vi.mocked(app.getLocale).mockReturnValue('zh-CN')
 
     expect(loadBuiltinAgentDefinition('assistant')).toMatchObject({
-      name: 'Cherry Assistant CN',
+      name: 'SuperAgent Assistant CN',
       instructions: 'Chinese instructions'
     })
   })
@@ -82,7 +82,7 @@ describe('BuiltinAgentProvisioner', () => {
     vi.mocked(app.getLocale).mockReturnValue('zh-CN')
 
     expect(loadBuiltinAgentDefinition('assistant')).toMatchObject({
-      name: 'Cherry Assistant',
+      name: 'SuperAgent Assistant',
       instructions: 'English instructions'
     })
   })
@@ -95,7 +95,7 @@ describe('BuiltinAgentProvisioner', () => {
 
   it('builds creation defaults from the bundled Agent definition', () => {
     expect(loadBuiltinAssistantDefaults()).toEqual({
-      name: 'Cherry Assistant',
+      name: 'SuperAgent Assistant',
       configuration: { permission_mode: 'default', builtin_role: 'assistant' }
     })
   })
@@ -103,10 +103,10 @@ describe('BuiltinAgentProvisioner', () => {
   it('rejects invalid bundled creation defaults', () => {
     writeFile(
       path.join(templateDir, 'agent.json'),
-      JSON.stringify({ name: 'Cherry Assistant', configuration: { max_turns: 'invalid' } })
+      JSON.stringify({ name: 'SuperAgent Assistant', configuration: { max_turns: 'invalid' } })
     )
 
-    expect(() => loadBuiltinAssistantDefaults()).toThrow('Cherry Assistant package configuration is invalid')
+    expect(() => loadBuiltinAssistantDefaults()).toThrow('SuperAgent Assistant package configuration is invalid')
   })
 
   it('copies persona and memory templates into agent data without copying product files', async () => {
@@ -117,7 +117,7 @@ describe('BuiltinAgentProvisioner', () => {
     expect(fs.readFileSync(path.join(agentDataPath, 'USER.md'), 'utf-8')).toBe('TEMPLATE_USER')
     expect(fs.readFileSync(path.join(agentDataPath, 'memory', 'FACT.md'), 'utf-8')).toBe('TEMPLATE_FACT')
     expect(result).toEqual({
-      name: 'Cherry Assistant',
+      name: 'SuperAgent Assistant',
       instructions: 'English instructions',
       configuration: { permission_mode: 'default' },
       skills: ['cherry-assistant-guide']

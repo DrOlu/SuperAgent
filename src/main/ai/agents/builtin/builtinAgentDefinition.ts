@@ -88,16 +88,16 @@ export function loadBuiltinAgentDefinition(
 export function loadBuiltinAssistantDefaults(language?: string): BuiltinAssistantDefaults {
   const definition = loadBuiltinAgentDefinition('assistant', language)
   if (!definition) {
-    throw new Error('Cherry Assistant package definition is unavailable')
+    throw new Error('SuperAgent Assistant package definition is unavailable')
   }
 
   const { data: configuration, invalidKeys } = sanitizeAgentConfiguration(definition.configuration)
   if (!configuration || invalidKeys.length > 0) {
-    throw new Error(`Cherry Assistant package configuration is invalid: ${invalidKeys.join(', ') || '<root>'}`)
+    throw new Error(`SuperAgent Assistant package configuration is invalid: ${invalidKeys.join(', ') || '<root>'}`)
   }
 
   return {
-    name: definition.name?.trim() || 'Cherry Assistant',
+    name: definition.name?.trim() || 'SuperAgent Assistant',
     configuration: { ...configuration, builtin_role: 'assistant' }
   }
 }

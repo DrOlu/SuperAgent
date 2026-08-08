@@ -382,7 +382,7 @@ describe('buildMcpServers', () => {
     expect(await cherryToolNames(servers)).not.toContain('kb_read')
   })
 
-  it('injects assistant file tools only for Cherry Assistant sessions', () => {
+  it('injects assistant file tools only for SuperAgent Assistant sessions', () => {
     const plain = buildMcpServers(session, agent, false)
     const assistant = buildMcpServers(session, agent, true)
 

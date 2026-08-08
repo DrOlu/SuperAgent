@@ -761,7 +761,7 @@ describe('buildClaudeCodeSessionSettings', () => {
     ).toBe(true)
   })
 
-  it('blocks permanent deletion and destructive Bash only for Cherry Assistant', async () => {
+  it('blocks permanent deletion and destructive Bash only for SuperAgent Assistant', async () => {
     mocks.getAgent.mockReturnValue({
       id: 'agent-1',
       type: 'claude-code',
@@ -846,7 +846,7 @@ describe('buildClaudeCodeSessionSettings', () => {
     ).resolves.toEqual({})
   })
 
-  it('requires a live approval for Cherry Assistant Feishu feedback submission under bypassPermissions', async () => {
+  it('requires a live approval for SuperAgent Assistant Feishu feedback submission under bypassPermissions', async () => {
     let interactionState = { currentTurn: 'interactive', userResponse: 'stream' }
     mocks.applicationGet.mockImplementation((name: string) => {
       if (name === 'PreferenceService') return { get: vi.fn(() => undefined) }
@@ -1820,7 +1820,7 @@ describe('buildClaudeCodeSessionSettings', () => {
     expect(snapshotOptions.autoAllowRuntimeNames).not.toContain('mcp__assistant__navigate')
   })
 
-  it('does not inject a Cherry Assistant-only contract on every submitted prompt', async () => {
+  it('does not inject a SuperAgent Assistant-only contract on every submitted prompt', async () => {
     mocks.getAgent.mockReturnValue({
       id: 'agent-1',
       type: 'claude-code',

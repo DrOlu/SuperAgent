@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { loadBuiltinAssistantEnsureInput } from './ensureBuiltinAssistant'
 
 /**
- * Create the isolated system task used by the Cherry Assistant feedback entry.
+ * Create the isolated system task used by the SuperAgent Assistant feedback entry.
  *
  * The command owns the complete main-process outcome: restore the protected
  * built-in Agent when needed, then create a fresh session. Renderer callers

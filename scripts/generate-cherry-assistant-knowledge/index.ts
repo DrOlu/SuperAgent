@@ -1,5 +1,5 @@
 /**
- * Generate Cherry Assistant's package-owned runtime artifacts. Product facts
+ * Generate SuperAgent Assistant's package-owned runtime artifacts. Product facts
  * come from current V2 source registries; stable prompts are copied from their
  * source templates.
  *

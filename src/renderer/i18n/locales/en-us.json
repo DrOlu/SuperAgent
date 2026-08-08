@@ -1450,8 +1450,8 @@
     },
     "deeply_thought": "Deeply thought ({{seconds}} seconds)",
     "default": {
-      "description": "Hello, I'm Cherry Assistant. You can start chatting with me right away",
-      "name": "Cherry Assistant",
+      "description": "Hello, I'm SuperAgent Assistant. You can start chatting with me right away",
+      "name": "SuperAgent Assistant",
       "topic": {
         "name": "Default Conversation"
       }
@@ -4096,6 +4096,9 @@
       "failed": "Restore failed",
       "success": "Restored successfully"
     },
+    "retry": {
+      "status": "Retrying with {{model}} · attempt {{attempt}}"
+    },
     "save": {
       "success": {
         "title": "Saved successfully"
@@ -5936,10 +5939,10 @@
       },
       "feedback": {
         "agent": {
-          "description": "Chat with Cherry Assistant to share feedback.",
+          "description": "Chat with SuperAgent Assistant to share feedback.",
           "title": "Use Agent"
         },
-        "agent_error": "Unable to open Cherry Assistant for feedback. Please try again.",
+        "agent_error": "Unable to open SuperAgent Assistant for feedback. Please try again.",
         "button": "Feedback",
         "dialog": {
           "description": "Choose how to share feedback and help us make SuperAgent better.",
@@ -7525,6 +7528,16 @@
         "setting_title": "Quick model setup",
         "tooltip": "Choose a lightweight model and avoid reasoning models."
       },
+      "retry": {
+        "backoff": "Exponential backoff",
+        "description": "Retry chat, embedding, and rerank calls; chat can fall back to other models",
+        "fallback_models": "Fallback models",
+        "fallback_models_count": "{{count}} models selected",
+        "fallback_models_description": "Models tried in order when the primary model fails",
+        "label": "Model Call Retry",
+        "max_attempts": "Max retry attempts",
+        "tooltip": "Retries and fallbacks only apply before the model starts streaming content"
+      },
       "toolbar": {
         "custom_add": "Custom",
         "filter_close": "Close filter",
@@ -7922,10 +7935,10 @@
           "logged_in": "Logged in via OAuth",
           "login_button": "Obtain API Key",
           "logout_button": "Logout",
-          "not_logged_in": "Not logged in",
+          "not_logged_in": "Obtain Key",
           "register_account": "Create account",
           "service_attribution": "This service is provided by <link>superagent.ng</link>",
-          "tagline": "After you sign in, you can use all model services",
+          "tagline": "Obtain Key and access model services",
           "title": "OAuth Login",
           "use_api_key": "Use API key instead"
         },

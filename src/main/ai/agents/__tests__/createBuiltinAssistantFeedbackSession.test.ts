@@ -29,7 +29,7 @@ describe('createBuiltinAssistantFeedbackSession', () => {
         max_turns: 100,
         env_vars: {}
       },
-      name: 'Cherry Assistant',
+      name: 'SuperAgent Assistant',
       preferredModelId: null,
       type: 'claude-code'
     })

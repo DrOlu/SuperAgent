@@ -5936,10 +5936,10 @@
       },
       "feedback": {
         "agent": {
-          "description": "Trò chuyện với Cherry Assistant để chia sẻ phản hồi.",
+          "description": "Trò chuyện với SuperAgent Assistant để chia sẻ phản hồi.",
           "title": "Sử dụng Agent"
         },
-        "agent_error": "Không thể mở Cherry Assistant để gửi phản hồi. Vui lòng thử lại.",
+        "agent_error": "Không thể mở SuperAgent Assistant để gửi phản hồi. Vui lòng thử lại.",
         "button": "Phản hồi",
         "dialog": {
           "description": "Chọn cách chia sẻ phản hồi và giúp chúng tôi cải thiện SuperAgent tốt hơn.",

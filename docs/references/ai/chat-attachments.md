@@ -79,7 +79,7 @@ Default cap ≈ 8k chars/file (tunable).
 - Exposed to tool-capable models whenever the request carries first-party file
   attachments (`applies: scope.hasFileAttachments`). It pages over-cap text; when
   everything inlines within the cap the model simply never needs to call it.
-- Claude Code exposes the same read operation through the Cherry Assistant-only
+- Claude Code exposes the same read operation through the SuperAgent Assistant-only
   `assistant-files` MCP server. Its model-facing handles are stable, opaque
   hashes of FileEntry ids. The server rebuilds its allow-list from the current
   session transcript when each tool call runs, so deleting a message revokes
@@ -89,7 +89,7 @@ Default cap ≈ 8k chars/file (tunable).
   `read_file` carries no media result — no `toModelOutput` base64 re-read, no
   resend re-materialization.
 
-Cherry Assistant also gets approval-gated `save_attachment` from the same
+SuperAgent Assistant also gets approval-gated `save_attachment` from the same
 session-scoped server. It writes only new paths inside the session workspace and
 never overwrites an existing file. No attachment state or write tools are added
 to the shared chat runtime or to ordinary Agents.

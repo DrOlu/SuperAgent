@@ -108,7 +108,7 @@ const logger = loggerService.withContext('ClaudeCodeSettingsBuilder')
 const MIN_AUTO_COMPACT_WINDOW = 100_000
 const MAX_AUTO_COMPACT_WINDOW = 1_000_000
 const MINIMAL_CHERRY_ASSISTANT_INSTRUCTIONS =
-  'Within SuperAgent, serve as Cherry Assistant, its built-in general-purpose Agent and onboarding guide. Help the user complete any request using the available tools.'
+  'Within SuperAgent, serve as SuperAgent Assistant, its built-in general-purpose Agent and onboarding guide. Help the user complete any request using the available tools.'
 const AGENT_INSTRUCTION_PRECEDENCE_PROMPT = `## Instruction Precedence
 
 When instructions conflict, apply them in this order:
@@ -402,7 +402,7 @@ export async function buildClaudeCodeSessionSettings(
       ? channelService.findBySessionId(session.id)
       : options.linkedChannelSnapshot
   // External channel turns are untrusted and have no local approval UI; never expose
-  // Assistant diagnostics there. Local Cherry Assistant sessions keep the full MCP.
+  // Assistant diagnostics there. Local SuperAgent Assistant sessions keep the full MCP.
   const assistantMcpEnabled = isAssistant && linkedChannelSnapshot === null
 
   // Validate before opening MCP connections, then overlap the independent setup work.
@@ -1142,7 +1142,7 @@ async function buildToolPermissions(
     }
   }
 
-  // Cherry Assistant may edit automatically, but it must never turn that convenience into
+  // SuperAgent Assistant may edit automatically, but it must never turn that convenience into
   // irreversible deletion. Block permanent deletion tools and common destructive Bash operations
   // under every permission mode; confirmed workspace deletion goes through the dedicated
   // move-to-trash tool, which independently protects critical paths.
@@ -1160,13 +1160,13 @@ async function buildToolPermissions(
     }
 
     if (!reason) return {}
-    logger.info('Blocked destructive Cherry Assistant operation', { sessionId: session.id, toolName, reason })
+    logger.info('Blocked destructive SuperAgent Assistant operation', { sessionId: session.id, toolName, reason })
     return {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
         permissionDecisionReason:
-          `Cherry Assistant blocked ${reason}. It must never permanently delete data or bypass this safeguard. ` +
+          `SuperAgent Assistant blocked ${reason}. It must never permanently delete data or bypass this safeguard. ` +
           'For a confirmed file or directory inside the session workspace, use mcp__assistant-files__move_to_trash; protected paths cannot be deleted.'
       }
     }
@@ -1373,7 +1373,7 @@ export async function buildSystemPrompt(
     if (definition?.instructions) {
       instructions = definition.instructions
     } else if (isAssistant) {
-      logger.error('Builtin Cherry Assistant definition missing; using minimal fallback instructions')
+      logger.error('Builtin SuperAgent Assistant definition missing; using minimal fallback instructions')
       instructions = MINIMAL_CHERRY_ASSISTANT_INSTRUCTIONS
     }
   }
@@ -1512,7 +1512,7 @@ export function buildMcpServers(
     totalMcpServers: Object.keys(mcpList).length
   })
 
-  // 5. Assistant — navigate + diagnose tools (local Cherry Assistant sessions only)
+  // 5. Assistant — navigate + diagnose tools (local SuperAgent Assistant sessions only)
   if (assistantMcpEnabled) {
     const assistantServer = new AssistantServer(agent.model ?? undefined)
     mcpList.assistant = { type: 'sdk', name: 'assistant', instance: assistantServer.mcpServer }
@@ -1525,7 +1525,7 @@ export function buildMcpServers(
       name: 'assistant-files',
       instance: fileToolsServer.mcpServer
     }
-    logger.debug('Cherry Assistant: injected assistant MCP server', {
+    logger.debug('SuperAgent Assistant: injected assistant MCP server', {
       agentId: session.agentId,
       totalMcpServers: Object.keys(mcpList).length
     })

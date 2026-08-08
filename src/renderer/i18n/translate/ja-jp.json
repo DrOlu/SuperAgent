@@ -5939,7 +5939,7 @@
           "description": "チェリーアシスタントとチャットしてフィードバックを共有してください。",
           "title": "エージェントを使用する"
         },
-        "agent_error": "フィードバック用のCherry Assistantを開けません。もう一度お試しください。",
+        "agent_error": "フィードバック用のSuperAgent Assistantを開けません。もう一度お試しください。",
         "button": "フィードバック",
         "dialog": {
           "description": "フィードバックの共有方法を選択して、SuperAgentの改善にご協力ください。",

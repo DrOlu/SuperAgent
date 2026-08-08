@@ -5936,10 +5936,10 @@
       },
       "feedback": {
         "agent": {
-          "description": "Chatte mit dem Cherry Assistant, um Feedback zu teilen.",
+          "description": "Chatte mit dem SuperAgent Assistant, um Feedback zu teilen.",
           "title": "Verwenden Sie Agent"
         },
-        "agent_error": "Cherry Assistant für Feedback kann nicht geöffnet werden. Bitte versuchen Sie es erneut.",
+        "agent_error": "SuperAgent Assistant für Feedback kann nicht geöffnet werden. Bitte versuchen Sie es erneut.",
         "button": "Feedback",
         "dialog": {
           "description": "Wählen Sie, wie Sie Feedback geben möchten, und helfen Sie uns, SuperAgent zu verbessern.",

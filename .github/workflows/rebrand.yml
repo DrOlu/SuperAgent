@@ -1,0 +1,180 @@
+name: SuperAgent Rebrand & Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: "Skip the multi-platform compile step (rebrand only)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: superagent-rebrand
+  cancel-in-progress: false
+
+jobs:
+  rebrand:
+    name: Clone, rebrand & push
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      skipped_build: ${{ github.event.inputs.skip_build }}
+    steps:
+      - name: Checkout SuperAgent (seed)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configure git identity
+        run: |
+          git config user.name "Hyperspace Technologies"
+          git config user.email "agent@superagent.ng"
+
+      - name: Install icon tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin imagemagick icnsutils rsync
+
+      - name: Save seed files
+        run: |
+          mkdir -p /tmp/seed
+          cp -a .github /tmp/seed/.github
+          cp -a scripts /tmp/seed/scripts
+          cp superagent_logo.svg /tmp/seed/superagent_logo.svg
+
+      - name: Clone Cherry Studio
+        run: |
+          git clone --depth=1 https://github.com/CherryHQ/cherry-studio /tmp/cs
+
+      - name: Replace repo contents with Cherry Studio
+        run: |
+          # Remove everything currently tracked (old SuperAgent project + seed)
+          git rm -rf . >/dev/null 2>&1 || true
+          # Copy cherry-studio tree in (exclude its .git)
+          rsync -a --delete --exclude='.git' /tmp/cs/ ./
+          # Drop cherry-studio's own workflows (we keep only ours)
+          rm -rf .github/workflows
+          mkdir -p .github/workflows
+          # Restore our seed files
+          cp /tmp/seed/.github/workflows/rebrand.yml .github/workflows/rebrand.yml
+          cp /tmp/seed/superagent_logo.svg ./superagent_logo.svg
+          # Merge our scripts into cherry-studio's scripts/ (keep cherry's build scripts)
+          cp /tmp/seed/scripts/rebrand.py scripts/rebrand.py
+          cp /tmp/seed/scripts/generate_icons.sh scripts/generate_icons.sh
+          chmod +x scripts/generate_icons.sh
+
+      - name: Run rebrand script
+        run: python3 scripts/rebrand.py .
+
+      - name: Generate icons from logo
+        run: bash scripts/generate_icons.sh superagent_logo.svg
+
+      - name: Verify key branding
+        run: |
+          echo "--- package.json ---"
+          python3 -c "import json;d=json.load(open('package.json'));print('name',d['name']);print('author',d['author']);print('productName',d.get('productName'))"
+          echo "--- electron-builder.yml head ---"
+          sed -n '1,6p' electron-builder.yml
+          echo "--- remaining 'Cherry Studio' occurrences (should be ~0) ---"
+          grep -rIl "Cherry Studio" src packages build resources 2>/dev/null | wc -l || true
+          echo "--- remaining @cherrystudio scope (should be preserved) ---"
+          grep -rIl "@cherrystudio" src packages 2>/dev/null | wc -l
+          echo "--- CJK remaining in src (should be ~0) ---"
+          grep -rIlP '[\x{4e00}-\x{9fff}]' src 2>/dev/null | grep -v "ja-jp\|zh-" | wc -l || true
+          echo "--- icons ---"
+          ls -la build/icon.png build/icon.ico build/icon.icns 2>/dev/null
+
+      - name: Commit and push
+        id: commit
+        run: |
+          git add -A
+          git commit -m "Rebrand Cherry Studio -> SuperAgent (Hyperspace Technologies)" || echo "nothing to commit"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Compile ${{ matrix.os }}
+    needs: rebrand
+    if: github.event.inputs.skip_build != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            cmd: build:linux
+          - os: macos-latest
+            target: mac
+            cmd: build:mac
+          - os: windows-2022
+            target: win
+            cmd: build:win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout SuperAgent (rebranded)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.rebrand.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Get pnpm store
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Create .env
+        run: cp .env.example .env
+        shell: bash
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+        shell: bash
+
+      - name: Compile ${{ matrix.target }}
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Placeholder values for optional feature secrets so vite does not fail
+          MAIN_VITE_CHERRYAI_CLIENT_SECRET: ${{ secrets.MAIN_VITE_CHERRYAI_CLIENT_SECRET || 'placeholder' }}
+          MAIN_VITE_MINERU_API_KEY: ${{ secrets.MAIN_VITE_MINERU_API_KEY || 'placeholder' }}
+          RENDERER_VITE_AIHUBMIX_SECRET: ${{ secrets.RENDERER_VITE_AIHUBMIX_SECRET || 'placeholder' }}
+          RENDERER_VITE_PPIO_APP_SECRET: ${{ secrets.RENDERER_VITE_PPIO_APP_SECRET || 'placeholder' }}
+        run: pnpm ${{ matrix.cmd }}
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: superagent-${{ matrix.target }}-${{ github.run_id }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            dist/*.appimage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.yml
+            dist/latest*.yml
+            dist/**/*.dmg
+            dist/**/*.exe
+          if-no-files-found: warn
+          retention-days: 14

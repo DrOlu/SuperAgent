@@ -434,8 +434,8 @@ def edit_electron_builder_release_notes():
     head = text[:idx]
     new_tail = (
         "releaseNotes: |\n"
-        "  SuperAgent — rebranded and maintained by Hyperspace Technologies.\n"
-        "  Built from an open-source AI assistant codebase under its original license.\n"
+        "    SuperAgent — rebranded and maintained by Hyperspace Technologies.\n"
+        "    Built from an open-source AI assistant codebase under its original license.\n"
     )
     with open(yml, "w", encoding="utf-8") as f:
         f.write(head + new_tail)

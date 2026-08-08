@@ -130,7 +130,7 @@ export const PANEL_DEFINITIONS = {
   },
   cateAgent: {
     type: 'cateAgent',
-    label: 'Cate Agent',
+    label: 'SuperAgent Agent',
     brandColor: '#4A9EFF',
     mutedColor: '#3a7acc',
     tintClass: 'text-blue-400',

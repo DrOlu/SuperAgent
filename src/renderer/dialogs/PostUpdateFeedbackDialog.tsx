@@ -9,9 +9,9 @@ import changelogMarkdown from '../../../CHANGELOG.md?raw'
 
 type Payload = { fromVersion: string; toVersion: string }
 
-const GITHUB_REPO = 'https://github.com/0-AI-UG/cate'
+const GITHUB_REPO = 'https://github.com/DrOlu/SuperAgent'
 const CHANGELOG_URL = `${GITHUB_REPO}/blob/main/CHANGELOG.md`
-const NEWSLETTER_URL = 'https://cate.cero-ai.com'
+const NEWSLETTER_URL = 'https://hyperspace.ng'
 const changelogReleases = parseChangelog(changelogMarkdown)
 
 function openLink(url: string, linkName: string) {
@@ -118,7 +118,7 @@ export function PostUpdateFeedbackDialog() {
                   {isFirstInstall ? 'Welcome' : `v${payload.toVersion}`}
                 </span>
                 <h2 className="text-white text-lg font-bold leading-tight drop-shadow-lg">
-                  {isFirstInstall ? 'Welcome to Cate' : "What's New"}
+                  {isFirstInstall ? 'Welcome to SuperAgent' : "What's New"}
                 </h2>
               </div>
             </div>

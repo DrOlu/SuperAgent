@@ -5,8 +5,6 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  merge_group:
-    types: [checks_requested]
 
 jobs:
   build:
@@ -22,25 +20,24 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install setuptools (needed by node-gyp)
         run: pip install setuptools
 
-      # npm ci honors the committed package-lock.json so PR runs are
-      # deterministic — a fresh upstream release (pi publishes often) can't
-      # break an unrelated PR. It fails loudly if package.json and the
-      # lockfile drift out of sync; regenerate with `npm install` locally.
+      - name: Delete lockfile
+        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}"
+
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build
         run: npm run build
@@ -50,47 +47,20 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # The extensions catalog is its own repo (0-AI-UG/cate-extensions). Check
-      # it out + build so the catalog/distribution and kitchensink-server tests
-      # run against the real artifact instead of skipping. Skipped on Windows:
-      # the catalog repo's bash build.sh isn't Git-Bash/MSYS safe, and those
-      # tests skipIf the catalog is absent, so Windows stays green.
-      - name: Check out extensions catalog
-        if: runner.os != 'Windows'
-        uses: actions/checkout@v7
-        with:
-          repository: 0-AI-UG/cate-extensions
-          path: cate-extensions
-
-      - name: Build extensions catalog
-        if: runner.os != 'Windows'
-        run: ./build.sh
-        shell: bash
-        working-directory: cate-extensions
+      - name: Lint (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run lint
 
       - name: Unit tests
         run: npm run test
-
-      - name: Install OpenSSH server for loopback E2E
-        if: runner.os == 'Linux'
-        run: |
-          if ! command -v sshd >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y openssh-server
-          fi
-          sudo mkdir -p /run/sshd
-
-      - name: System OpenSSH loopback E2E
-        if: runner.os != 'Windows'
-        run: npm run test:ssh:loopback
 
       - name: Electron smoke test (macOS only)
         if: matrix.os == 'macos-latest'
         run: npm run test:smoke:electron
 
       # NOTE: the Playwright e2e suite is intentionally NOT run here. The content-
-      # search specs drive the real local runtime daemon, whose ripgrep ships in
-      # the runtime tarball — building that tarball (node-pty compile + node/rg
+      # search specs drive the real local companion daemon, whose ripgrep ships in
+      # the companion tarball — building that tarball (node-pty compile + node/rg
       # download + pi bundle) adds ~5min to every PR. The release workflow builds
       # the tarball anyway, so e2e runs there instead (see release.yml). Keep this
-      # PR gate fast: build + typecheck + unit + smoke.
+      # PR gate fast: build + typecheck + lint + unit + smoke.

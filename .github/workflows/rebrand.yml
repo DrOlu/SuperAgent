@@ -59,9 +59,8 @@ jobs:
           # Drop cherry-studio's own workflows (we keep only ours)
           rm -rf .github/workflows
           mkdir -p .github/workflows
-          # Restore our seed files
-          cp /tmp/seed/.github/workflows/rebrand.yml .github/workflows/rebrand.yml
-          cp /tmp/seed/.github/workflows/release.yml .github/workflows/release.yml 2>/dev/null || true
+          # Restore our seed files (all SuperAgent workflows + scripts + logo)
+          cp /tmp/seed/.github/workflows/*.yml .github/workflows/
           cp /tmp/seed/superagent_logo.svg ./superagent_logo.svg
           # Merge our scripts into cherry-studio's scripts/ (keep cherry's build scripts)
           cp /tmp/seed/scripts/rebrand.py scripts/rebrand.py

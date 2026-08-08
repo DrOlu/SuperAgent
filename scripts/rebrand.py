@@ -33,6 +33,8 @@ ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
 TOKEN_REPLACEMENTS = [
     ("Cherry Studio", "SuperAgent"),
     ("CherryStudio", "SuperAgent"),
+    # Built-in default assistant display name (ships in agent.json + presets).
+    ("Cherry Assistant", "SuperAgent Assistant"),
     # Specific FIRST: source-repo GitHub paths -> the new home.
     # Must precede the generic CherryHQ token so these become a valid
     # owner/repo pair (DrOlu/SuperAgent) instead of "Hyperspace Technologies/...".
@@ -503,6 +505,74 @@ def fix_distinct_exe_test():
 # ---------------------------------------------------------------------------
 # SuperAgent provider / feature customizations (after generic rebrand)
 # ---------------------------------------------------------------------------
+def patch_provider_logo(logo_svg, patches):
+    """Replace the CherryIN provider logo with the SuperAgent logo.
+
+    The raw SVG at packages/ui/icons/providers/light/cherryin.svg is the
+    codegen source, but the *generated* light.tsx embeds the path data inline
+    and is what actually renders. We overwrite BOTH so the change takes effect
+    without running `pnpm icons:generate` (which isn't available in the rebrand
+    job). Also updates colorPrimary in index.tsx to match the logo's brand red.
+    """
+    import re as _re
+
+    # Parse paths out of the logo SVG: <path d="..." fill="..."/>
+    paths = []
+    for m in _re.finditer(r'<path\s+([^/]*?)/>', logo_svg):
+        attrs = m.group(1)
+        d = (_re.search(r'd="([^"]*)"', attrs) or [None, ""])[1] if 'd="' in attrs else ""
+        fill = (_re.search(r'fill="([^"]*)"', attrs) or [None, ""])[1] if 'fill="' in attrs else "#000"
+        d = d.strip()
+        if d:
+            paths.append((fill, d))
+    # viewBox
+    vb = (_re.search(r'viewBox="([^"]*)"', logo_svg) or [None, "0 0 512 512"])[1] if 'viewBox="' in logo_svg else "0 0 512 512"
+
+    if not paths:
+        patches.append("provider logo: WARN no paths found in SVG, skipping")
+        return
+
+    # 1. raw cherryin.svg (codegen source) — write the SuperAgent SVG, sized 120x120
+    raw_svg = os.path.join(ROOT, "packages/ui/icons/providers/light/cherryin.svg")
+    raw_content = (
+        '<svg width="120" height="120" viewBox="' + vb + '" fill="none" '
+        'xmlns="http://www.w3.org/2000/svg">\n'
+        + "".join(f'<path d="{d}" fill="{fill}"/>\n' for fill, d in paths)
+        + '</svg>\n'
+    )
+    with open(raw_svg, "w", encoding="utf-8") as f:
+        f.write(raw_content)
+    patches.append("light/cherryin.svg → SuperAgent logo (raw)")
+
+    # 2. generated light.tsx — embed the SuperAgent path data inline (this renders)
+    light_tsx = os.path.join(ROOT, "packages/ui/src/components/icons/providers/cherryin/light.tsx")
+    path_jsx = "".join(f'    <path fill="{fill}" d="{d}" />\n' for fill, d in paths)
+    tsx_content = (
+        "import type { SVGProps } from 'react'\n\n"
+        "import type { IconComponent } from '../../types'\n"
+        "const CherryinLight: IconComponent = (props: SVGProps<SVGSVGElement>) => (\n"
+        '  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" '
+        'viewBox="' + vb + '" {...props}>\n'
+        + path_jsx +
+        "  </svg>\n)\n"
+        "export { CherryinLight }\n"
+        "export default CherryinLight\n"
+    )
+    with open(light_tsx, "w", encoding="utf-8") as f:
+        f.write(tsx_content)
+    patches.append("cherryin/light.tsx → SuperAgent logo (generated, renders)")
+
+    # 3. index.tsx — colorPrimary #FF5F5F → #CC1100 (SuperAgent brand red)
+    idx_tsx = os.path.join(ROOT, "packages/ui/src/components/icons/providers/cherryin/index.tsx")
+    if os.path.exists(idx_tsx):
+        with open(idx_tsx, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace("colorPrimary: '#FF5F5F'", "colorPrimary: '#CC1100'")
+        with open(idx_tsx, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("cherryin/index.tsx → colorPrimary #CC1100")
+
+
 def apply_superagent_patches():
     """Targeted SuperAgent-specific changes beyond the generic Cherry→SuperAgent
     token rebrand: provider rename, API host, OAuth→Paystack button, update feed,
@@ -619,15 +689,51 @@ def apply_superagent_patches():
             f.write(t)
         patches.append("AboutSettings.tsx → downloads.html visible")
 
-    # 6. Version bump 2.0.3 → 2.0.4
+    # 5b. Replace the CherryIN provider logo with the SuperAgent logo
+    #     (overwrites the generated light.tsx that renders, not just the raw .svg)
+    if logo_svg:
+        patch_provider_logo(logo_svg, patches)
+
+    # 5c. Login text changes on the CherryIN OAuth card
+    i18n_files = [
+        os.path.join(ROOT, "src/renderer/i18n/locales/en-us.json"),
+        os.path.join(ROOT, "src/renderer/i18n/locales/zh-cn.json"),
+    ]
+    for dp in ["translate", "locales"]:
+        d = os.path.join(ROOT, "src/renderer/i18n", dp)
+        if os.path.isdir(d):
+            for fn in os.listdir(d):
+                if fn.endswith(".json"):
+                    i18n_files.append(os.path.join(d, fn))
+    for ip in i18n_files:
+        if not os.path.exists(ip):
+            continue
+        with open(ip, "r", encoding="utf-8") as f:
+            t = f.read()
+        orig = t
+        t = t.replace("After you sign in, you can use all model services",
+                      "Obtain Key and access model services")
+        # "Not logged in" only in the cherryIn oauth block — use the key-anchored
+        # form to avoid touching unrelated "Not logged in" strings elsewhere.
+        t = t.replace('"not_logged_in": "Not logged in"',
+                      '"not_logged_in": "Obtain Key"')
+        if t != orig:
+            with open(ip, "w", encoding="utf-8") as f:
+                f.write(t)
+    patches.append("i18n: not_logged_in → 'Obtain Key'; tagline → 'Obtain Key and access model services'")
+
+    # 6. Version bump 2.0.4 → 2.0.5
     pkg = os.path.join(ROOT, "package.json")
     if os.path.exists(pkg):
         with open(pkg, "r", encoding="utf-8") as f:
             t = f.read()
-        t = t.replace('"version": "2.0.3"', '"version": "2.0.4"')
+        t = t.replace('"version": "2.0.4"', '"version": "2.0.5"')
+        # fall back to 2.0.3 if upstream reset it
+        if '"version": "2.0.4"' not in t and '"version": "2.0.5"' not in t:
+            t = t.replace('"version": "2.0.3"', '"version": "2.0.5"')
         with open(pkg, "w", encoding="utf-8") as f:
             f.write(t)
-        patches.append("package.json version → 2.0.4")
+        patches.append("package.json version → 2.0.5")
 
     print(f"[patches] applied {len(patches)} SuperAgent-specific patches:")
     for p in patches:

@@ -65,7 +65,10 @@ TEXT_EXT = {
     ".env", ".example", ".toml", ".ini", ".sh", ".py",
 }
 
-SKIP_DIRS = {".git", "node_modules", ".next", "dist", "out", "release"}
+SKIP_DIRS = {
+    ".git", "node_modules", ".next", "dist", "out", "release",
+    "patches",  # pnpm patches are byte-exact diffs vs upstream packages — must NOT be altered
+}
 SKIP_PATHS = {
     ".github/workflows/rebrand.yml",
     ".github/workflows/superagent-build.yml",

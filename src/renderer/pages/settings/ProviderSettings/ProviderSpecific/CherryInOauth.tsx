@@ -89,6 +89,9 @@ const CherryInOauth: FC<CherryInOauthProps> = ({ providerId }) => {
 
   const handleOAuthLogin = useCallback(async () => {
     try {
+      // Obtain an API key via Paystack instead of running OAuth.
+      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
+      return
       await oauthWithCherryIn(
         async (apiKeys: string) => {
           const keys = apiKeys
@@ -184,7 +187,7 @@ const CherryInOauth: FC<CherryInOauthProps> = ({ providerId }) => {
                 </div>
               </div>
             </div>
-            <Button variant="emphasis" onClick={() => window.open('https://paystack.com/buy/reactor-api-key', '_blank')}>
+            <Button variant="emphasis" onClick={handleOAuthLogin}>
               {t('settings.provider.oauth.cherryIn.login_button')}
             </Button>
           </div>

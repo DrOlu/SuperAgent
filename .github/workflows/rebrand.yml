@@ -99,6 +99,9 @@ jobs:
           git remote set-url origin "https://x-access-token:${SUPERAGENT_PAT}@github.com/DrOlu/SuperAgent"
           git add -A
           git commit -m "Rebrand Cherry Studio -> SuperAgent (Hyperspace Technologies)" || echo "nothing to commit"
+          # main may have advanced (e.g. the seed file was pushed after the
+          # checkout) — rebase our commit on top before pushing.
+          git pull --rebase origin main || git rebase --abort
           git push origin HEAD:main
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 

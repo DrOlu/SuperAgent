@@ -1,6 +1,6 @@
 name: Sync Upstream & Release
 
-# Pulls the latest Cherry Studio, overlays SuperAgent customizations,
+# Pulls the latest SuperAgent, overlays SuperAgent customizations,
 # rebrands, bumps SuperAgent's OWN version, builds all platforms, and
 # publishes a release — preserving every SuperAgent-specific change.
 #
@@ -61,8 +61,8 @@ jobs:
         id: upstream
         run: |
           SHA=$(curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/CherryHQ/cherry-studio/commits/main" | jq -r .sha)
-          echo "Cherry Studio main = $SHA"
+            "https://api.github.com/repos/DrOlu/SuperAgent/commits/main" | jq -r .sha)
+          echo "SuperAgent main = $SHA"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Check if upstream moved since last sync
@@ -92,9 +92,9 @@ jobs:
           cp superagent_logo.svg /tmp/keep/
           cp -a .github/workflows/*.yml /tmp/keep/.github/workflows/ 2>/dev/null || true
 
-      - name: Clone latest Cherry Studio
+      - name: Clone latest SuperAgent
         if: steps.check.outputs.do_release == 'true'
-        run: git clone --depth=1 https://github.com/CherryHQ/cherry-studio /tmp/cs
+        run: git clone --depth=1 https://github.com/DrOlu/SuperAgent /tmp/cs
 
       - name: Replace tree with upstream (preserve SuperAgent files)
         if: steps.check.outputs.do_release == 'true'
@@ -281,9 +281,9 @@ jobs:
           body: |
             # SuperAgent ${{ needs.sync.outputs.release_tag }}
 
-            Synced from Cherry Studio upstream `${{ needs.sync.outputs.upstream_sha }}`.
+            Synced from SuperAgent upstream `${{ needs.sync.outputs.upstream_sha }}`.
 
-            Maintained by **Hyperspace Technologies** (`agent@superagent.ng`). Built from the open-source Cherry Studio codebase under its original (AGPLv3) license — only visible branding, strings, logos, and the app icon were changed; functional code is unmodified.
+            Maintained by **Hyperspace Technologies** (`agent@superagent.ng`). Built from the open-source SuperAgent codebase under its original (AGPLv3) license — only visible branding, strings, logos, and the app icon were changed; functional code is unmodified.
 
             ## Installers
             - **macOS**: `.dmg` / `.zip` (arm64 + x64)

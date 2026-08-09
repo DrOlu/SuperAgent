@@ -108,7 +108,7 @@ const AboutSettings: FC = () => {
   }
 
   const showEnterprise = async () => {
-    onOpenWebsite('https://enterprise.superagent.ng')
+    onOpenWebsite('https://superagent.ng/enterprise.html')
   }
 
   const showReleases = async () => {
@@ -192,7 +192,7 @@ const AboutSettings: FC = () => {
     const isChinese = i18n.language.startsWith('zh')
     void ipcApi.request(
       'system.shell.open_website',
-      isChinese ? 'https://docs.superagent.ng/' : 'https://docs.superagent.ng/docs/en-us'
+      isChinese ? 'https://superagent.ng/documentation.html' : 'https://superagent.ng/documentation.html'
     )
   }
 
@@ -351,7 +351,7 @@ const AboutSettings: FC = () => {
           icon={<Globe className="size-4.5" />}
           title={t('settings.about.website.title')}
           actionLabel={t('settings.about.website.button')}
-          onAction={() => onOpenWebsite('https://superagent.ng/downloads.html')}
+          onAction={() => onOpenWebsite('https://superagent.ng/')}
         />
         <Divider className="my-3" />
         <AboutActionRow

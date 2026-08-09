@@ -153,14 +153,14 @@ export class AppMenuService extends BaseService {
             type: 'custom',
             label: appMenu.website,
             click: () => {
-              void shell.openExternal('https://superagent.ng')
+              void shell.openExternal('https://superagent.ng/')
             }
           },
           {
             type: 'custom',
             label: appMenu.documentation,
             click: () => {
-              void shell.openExternal('https://superagent.ng/docs')
+              void shell.openExternal('https://superagent.ng/documentation.html')
             }
           },
           {

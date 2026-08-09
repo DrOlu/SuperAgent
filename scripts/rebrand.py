@@ -679,17 +679,49 @@ def apply_superagent_patches():
             f.write(t)
         patches.append("electron-builder.yml publish → github DrOlu/SuperAgent")
 
+    # 5a. About / Feedback link overrides
+    #     The generic token replace turns cherry-ai.com -> superagent.ng and
+    #     CherryHQ/cherry-studio -> DrOlu/SuperAgent, but the About page and
+    #     app menu need to point at specific destination pages. Override here
+    #     AFTER the generic rebrand so these win.
     about = os.path.join(ROOT, "src/renderer/pages/settings/AboutSettings/AboutSettings.tsx")
     if os.path.exists(about):
         with open(about, "r", encoding="utf-8") as f:
             t = f.read()
-        t = t.replace(
-            "onOpenWebsite('https://superagent.ng')",
-            "onOpenWebsite('https://superagent.ng/downloads.html')",
-        )
+        # Official Website -> https://superagent.ng/
+        t = t.replace("onOpenWebsite('https://superagent.ng/downloads.html')", "onOpenWebsite('https://superagent.ng/')")
+        # ensure bare https://superagent.ng has trailing slash
+        t = t.replace("onOpenWebsite('https://superagent.ng')", "onOpenWebsite('https://superagent.ng/')")
+        # Documentation -> https://superagent.ng/documentation.html
+        t = t.replace("'https://docs.superagent.ng/'", "'https://superagent.ng/documentation.html'")
+        t = t.replace("'https://docs.superagent.ng/docs/en-us'", "'https://superagent.ng/documentation.html'")
+        # Enterprise -> https://superagent.ng/enterprise.html
+        t = t.replace("onOpenWebsite('https://enterprise.superagent.ng')", "onOpenWebsite('https://superagent.ng/enterprise.html')")
         with open(about, "w", encoding="utf-8") as f:
             f.write(t)
-        patches.append("AboutSettings.tsx → downloads.html visible")
+        patches.append("AboutSettings.tsx → website /docs /enterprise override")
+
+    # Feedback dialog + app menu: documentation & releases links
+    feedback = os.path.join(ROOT, "src/renderer/pages/settings/FeedbackDialog.tsx")
+    if os.path.exists(feedback):
+        with open(feedback, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace("'https://docs.superagent.ng/'", "'https://superagent.ng/documentation.html'")
+        with open(feedback, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("FeedbackDialog.tsx → documentation.html")
+
+    app_menu = os.path.join(ROOT, "src/main/services/AppMenuService.ts")
+    if os.path.exists(app_menu):
+        with open(app_menu, "r", encoding="utf-8") as f:
+            t = f.read()
+        # website -> https://superagent.ng/
+        t = t.replace("shell.openExternal('https://superagent.ng')", "shell.openExternal('https://superagent.ng/')")
+        # documentation -> https://superagent.ng/documentation.html
+        t = t.replace("shell.openExternal('https://superagent.ng/docs')", "shell.openExternal('https://superagent.ng/documentation.html')")
+        with open(app_menu, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("AppMenuService.ts → website /docs override")
 
     # 5b. Replace the CherryIN provider logo with the SuperAgent logo
     #     (overwrites the generated light.tsx that renders, not just the raw .svg)
@@ -724,18 +756,20 @@ def apply_superagent_patches():
                 f.write(t)
     patches.append("i18n: not_logged_in → 'Obtain Key'; tagline → 'Obtain Key and access model services'")
 
-    # 6. Version bump 2.0.4 → 2.0.5
+    # 6. Version bump → 2.0.6
     pkg = os.path.join(ROOT, "package.json")
     if os.path.exists(pkg):
         with open(pkg, "r", encoding="utf-8") as f:
             t = f.read()
-        t = t.replace('"version": "2.0.4"', '"version": "2.0.5"')
-        # fall back to 2.0.3 if upstream reset it
-        if '"version": "2.0.4"' not in t and '"version": "2.0.5"' not in t:
-            t = t.replace('"version": "2.0.3"', '"version": "2.0.5"')
+        # bump from any prior SuperAgent version to 2.0.6
+        t = t.replace('"version": "2.0.5"', '"version": "2.0.6"')
+        t = t.replace('"version": "2.0.4"', '"version": "2.0.6"')
+        # fall back if upstream reset it
+        if not any(v in t for v in ('"version": "2.0.6"', '"version": "2.0.5"', '"version": "2.0.4"')):
+            t = t.replace('"version": "2.0.3"', '"version": "2.0.6"')
         with open(pkg, "w", encoding="utf-8") as f:
             f.write(t)
-        patches.append("package.json version → 2.0.5")
+        patches.append("package.json version → 2.0.6")
 
     print(f"[patches] applied {len(patches)} SuperAgent-specific patches:")
     for p in patches:

@@ -95,6 +95,9 @@ const CherryInOauth: FC<CherryInOauthProps> = ({ providerId }) => {
       // Obtain an API key via Paystack instead of running OAuth.
       window.open('https://paystack.com/buy/reactor-api-key', '_blank')
       return
+      // Obtain an API key via Paystack instead of running OAuth.
+      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
+      return
       await oauthWithCherryIn(
         async (apiKeys: string) => {
           const keys = apiKeys

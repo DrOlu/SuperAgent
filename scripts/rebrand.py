@@ -758,6 +758,32 @@ def apply_superagent_patches():
                 f.write(t)
     patches.append("i18n: not_logged_in → 'Obtain Key'; tagline → 'Obtain Key and access model services'")
 
+    # 5d. Rename physical resource directories.
+    #     The generic `cherry-studio` -> `superagent` token replacement renames
+    #     the PATH in code (e.g. `resources/superagent/release-history.json`) but
+    #     not the physical directory on disk. The vite build reads these at
+    #     config-load time and crashes with ENOENT if the dir name doesn't match.
+    for old, new in [
+        ("resources/cherry-studio", "resources/superagent"),
+    ]:
+        old_path = os.path.join(ROOT, old)
+        new_path = os.path.join(ROOT, new)
+        if os.path.isdir(old_path):
+            if os.path.exists(new_path):
+                # merge — move each file into the existing target
+                for item in os.listdir(old_path):
+                    src = os.path.join(old_path, item)
+                    dst = os.path.join(new_path, item)
+                    if os.path.isdir(src):
+                        shutil.move(src, dst)
+                    else:
+                        shutil.copy2(src, dst)
+                    os.remove(src) if os.path.isfile(src) else None
+                os.rmdir(old_path)
+            else:
+                os.rename(old_path, new_path)
+            patches.append(f"renamed {old}/ -> {new}/")
+
     # 6. Version bump → 2.0.6
     pkg = os.path.join(ROOT, "package.json")
     if os.path.exists(pkg):

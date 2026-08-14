@@ -59,6 +59,23 @@
 2.  `document_to_markdown`  `knowledge_preprocess`
 3.  `providerTaskId`  provider-specific query context
 
+`document_to_markdown` capability  `maxInputBytes?: number`  `maxInputPages?: number`
+ preset override `maxInputBytes` 
+`maxInputPages` PDF  file-processing 
+ provider  handler 
+
+| Processor | `maxInputBytes` | `maxInputPages` |
+| --- | ---: | ---: |
+| `paddleocr` | 50 MB | 100 |
+| `mineru` | 200 MB | 600 |
+| `doc2x` | 1 GB | 1000 |
+| `mistral` |  | 1000 |
+| `local-document` |  |  handler  300  |
+| `open-mineru` | 200 MB |  |
+
+PaddleOCR preset  hosted model `image_to_text`  `PP-OCRv6`
+`document_to_markdown`  `PaddleOCR-VL-1.6` capability override  `modelId`
+
 ---
 
 ## 4. Public Main-side Contract
@@ -487,6 +504,7 @@ file-processing job  JobManager
 2. background handler  `recovery: 'retry'` attempt
 3. remote-poll handler  `recovery: 'retry'` job metadata  provider task id  query state
 4. API keytokenabort controllerin-flight querybackground execution  metadata
+5.  `remoteState.providerTaskId`  provider capability 
 
  artifact  job artifact  feature 
 
@@ -506,11 +524,14 @@ file-processing job  JobManager
 6. `file.type`  capability `inputs`
    - `image_to_text`  `image`
    - `document_to_markdown`  `document`
+7. `document_to_markdown` capability  `maxInputBytes`job execution  provider `prepare`  live `FileInfo.size` `size >= maxInputBytes` 
+8. PDF capability  `maxInputPages` URL  `pageCount > maxInputPages` 
+9. PDF  job  provider Main i18n
 
  facade 
 
 1. PDFDOCXPNGJPG 
-2. provider 
+2.  capability `maxInputBytes` / `maxInputPages`  provider 
 3. provider  API key / api host / path 
 4. 
 
@@ -751,6 +772,8 @@ Job service
 10. file type  capability inputs  fail fast
 11. background handler  capability
 12. remote-poll handler  metadata  provider task state
+13. PDF  PDF
+14.  remote-poll task  PDF  task 
 
 Registry 
 

@@ -1,5 +1,5 @@
 import { Button, Skeleton } from '@cherrystudio/ui'
-import { Cherryin } from '@cherrystudio/ui/icons'
+import { Cherryin } from '@cherrystudio/ui/icons/providers'
 import { loggerService } from '@logger'
 import { useProvider } from '@renderer/hooks/useProvider'
 import { ipcApi } from '@renderer/ipc'
@@ -89,24 +89,6 @@ const CherryInOauth: FC<CherryInOauthProps> = ({ providerId }) => {
 
   const handleOAuthLogin = useCallback(async () => {
     try {
-      // Obtain an API key via Paystack instead of running OAuth.
-      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
-      return
-      // Obtain an API key via Paystack instead of running OAuth.
-      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
-      return
-      // Obtain an API key via Paystack instead of running OAuth.
-      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
-      return
-      // Obtain an API key via Paystack instead of running OAuth.
-      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
-      return
-      // Obtain an API key via Paystack instead of running OAuth.
-      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
-      return
-      // Obtain an API key via Paystack instead of running OAuth.
-      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
-      return
       // Obtain an API key via Paystack instead of running OAuth.
       window.open('https://paystack.com/buy/reactor-api-key', '_blank')
       return

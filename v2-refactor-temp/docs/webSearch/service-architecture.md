@@ -78,7 +78,8 @@ Capability provider driver endpoint
  provider
 
 1. Fetch
-2. Jina
+2. Querit
+3. Jina
 
  `searchUrls`  URL 
 

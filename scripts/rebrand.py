@@ -80,6 +80,8 @@ SKIP_DIRS = {
 SKIP_PATHS = {
     ".github/workflows/rebrand.yml",
     ".github/workflows/superagent-build.yml",
+    ".github/workflows/sync-and-release.yml",
+    ".github/workflows/release.yml",
     "scripts/rebrand.py",
     "scripts/generate_icons.sh",
     "superagent_logo.svg",

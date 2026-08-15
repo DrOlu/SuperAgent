@@ -136,6 +136,12 @@ jobs:
           echo "SuperAgent version = $VER"
           # set in package.json
           jq --arg v "$VER" '.version = $v' package.json > /tmp/pkg.json && mv /tmp/pkg.json package.json
+          # inject the new version into release-history.json (vite validates it exists)
+          HIST="resources/superagent/release-history.json"
+          if [ -f "$HIST" ]; then
+            ENTRY=$(jq -n --arg v "$VER" --arg n "SuperAgent $VER — synced from cherry-studio upstream. Rebranded by Hyperspace Technologies." '{version: $v, releaseNotes: $n}')
+            jq --argjson e "$ENTRY" 'if any(.version == $e.version) then . else [$e] + . end' "$HIST" > /tmp/hist.json && mv /tmp/hist.json "$HIST"
+          fi
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "tag=v$VER" >> "$GITHUB_OUTPUT"
         env:

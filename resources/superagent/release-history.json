@@ -1,11 +1,11 @@
 [
   {
     "version": "2.0.13",
-    "releaseNotes": "SuperAgent 2.0.13 — synced from cherry-studio upstream. Rebranded by Hyperspace Technologies."
+    "releaseNotes": "<!--LANG:en-->\\nSuperAgent 2.0.13 — synced from the open-source Cherry Studio codebase. Rebranded and maintained by Hyperspace Technologies.\\n\\n<!--LANG:zh-CN-->\\nSuperAgent 2.0.13 — synced from the open-source Cherry Studio codebase. Rebranded and maintained by Hyperspace Technologies.\\n\\n<!--LANG:END-->"
   },
   {
     "version": "2.0.6",
-    "releaseNotes": "SuperAgent 2.0.6 — synced from the open-source Cherry Studio codebase. Rebranded by Hyperspace Technologies."
+    "releaseNotes": "<!--LANG:en-->\nSuperAgent 2.0.6 — synced from the open-source Cherry Studio codebase.\nRebranded and maintained by Hyperspace Technologies.\n\n<!--LANG:zh-CN-->\nSuperAgent 2.0.6 — synced from the open-source Cherry Studio codebase.\nRebranded and maintained by Hyperspace Technologies.\n\n<!--LANG:END-->"
   },
   {
     "version": "2.0.5",

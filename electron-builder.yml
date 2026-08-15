@@ -153,5 +153,12 @@ afterSign: scripts/notarize.js
 artifactBuildCompleted: scripts/artifact-build-completed.js
 releaseInfo:
   releaseNotes: |
+    <!--LANG:en-->
     SuperAgent — rebranded and maintained by Hyperspace Technologies.
     Built from an open-source AI assistant codebase under its original license.
+
+    <!--LANG:zh-CN-->
+    SuperAgent — rebranded and maintained by Hyperspace Technologies.
+    Built from an open-source AI assistant codebase under its original license.
+
+    <!--LANG:END-->

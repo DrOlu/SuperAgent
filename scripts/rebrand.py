@@ -815,10 +815,16 @@ def apply_superagent_patches():
                 cur_ver = _json.load(f).get("version", "2.0.6")
             if isinstance(hist, list):
                 if not any(e.get("version") == cur_ver for e in hist if isinstance(e, dict)):
-                    hist.insert(0, {
-                        "version": cur_ver,
-                        "releaseNotes": "SuperAgent " + cur_ver + " — synced from the open-source Cherry Studio codebase. Rebranded by Hyperspace Technologies."
-                    })
+                    notes = (
+                        "<!--LANG:en-->\n"
+                        "SuperAgent " + cur_ver + " — synced from the open-source Cherry Studio codebase.\n"
+                        "Rebranded and maintained by Hyperspace Technologies.\n\n"
+                        "<!--LANG:zh-CN-->\n"
+                        "SuperAgent " + cur_ver + " — synced from the open-source Cherry Studio codebase.\n"
+                        "Rebranded and maintained by Hyperspace Technologies.\n\n"
+                        "<!--LANG:END-->"
+                    )
+                    hist.insert(0, {"version": cur_ver, "releaseNotes": notes})
                     with open(hist_path, "w", encoding="utf-8") as f:
                         _json.dump(hist, f, ensure_ascii=False, indent=2)
                     patches.append("release-history.json: injected " + cur_ver)

@@ -446,10 +446,21 @@ def edit_electron_builder_release_notes():
     if idx == -1:
         return
     head = text[:idx]
+    # NOTE: this exact text MUST also appear as the releaseNotes for the
+    # current version in resources/superagent/release-history.json — vite's
+    # validateCurrentReleaseHistory() asserts they match (strict ===).
+    # YAML `|` adds a trailing \n, so the JSON string must also end with \n.
     new_tail = (
         "releaseNotes: |\n"
+        "    <!--LANG:en-->\n"
         "    SuperAgent — rebranded and maintained by Hyperspace Technologies.\n"
         "    Built from an open-source AI assistant codebase under its original license.\n"
+        "\n"
+        "    <!--LANG:zh-CN-->\n"
+        "    SuperAgent — rebranded and maintained by Hyperspace Technologies.\n"
+        "    Built from an open-source AI assistant codebase under its original license.\n"
+        "\n"
+        "    <!--LANG:END-->\n"
     )
     with open(yml, "w", encoding="utf-8") as f:
         f.write(head + new_tail)
@@ -815,14 +826,17 @@ def apply_superagent_patches():
                 cur_ver = _json.load(f).get("version", "2.0.6")
             if isinstance(hist, list):
                 if not any(e.get("version") == cur_ver for e in hist if isinstance(e, dict)):
+                    # This text MUST match electron-builder.yml's releaseInfo.releaseNotes
+                    # EXACTLY (vite's validateCurrentReleaseHistory uses strict ===).
+                    # YAML `|` adds a trailing \n, so we include one here too.
+                    rn_text = (
+                        "SuperAgent — rebranded and maintained by Hyperspace Technologies.\n"
+                        "Built from an open-source AI assistant codebase under its original license."
+                    )
                     notes = (
-                        "<!--LANG:en-->\n"
-                        "SuperAgent " + cur_ver + " — synced from the open-source Cherry Studio codebase.\n"
-                        "Rebranded and maintained by Hyperspace Technologies.\n\n"
-                        "<!--LANG:zh-CN-->\n"
-                        "SuperAgent " + cur_ver + " — synced from the open-source Cherry Studio codebase.\n"
-                        "Rebranded and maintained by Hyperspace Technologies.\n\n"
-                        "<!--LANG:END-->"
+                        "<!--LANG:en-->\n" + rn_text + "\n\n"
+                        "<!--LANG:zh-CN-->\n" + rn_text + "\n\n"
+                        "<!--LANG:END-->\n"
                     )
                     hist.insert(0, {"version": cur_ver, "releaseNotes": notes})
                     with open(hist_path, "w", encoding="utf-8") as f:

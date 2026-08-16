@@ -247,6 +247,7 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/*.exe
+            dist/*.AppImage
             dist/*.appimage
             dist/*.deb
             dist/*.rpm
@@ -254,6 +255,8 @@ jobs:
             dist/latest*.yml
             dist/**/*.dmg
             dist/**/*.exe
+            dist/**/*.AppImage
+            dist/**/*.appimage
           if-no-files-found: warn
           retention-days: 14
 
@@ -277,7 +280,7 @@ jobs:
           find artifacts -type f \( \
             -name "SuperAgent-*.dmg" -o -name "SuperAgent-*.zip" \
             -o -name "SuperAgent-*-setup.exe" -o -name "SuperAgent-*-portable.exe" \
-            -o -name "SuperAgent-*.AppImage" -o -name "SuperAgent-*.deb" \
+            -o -iname "SuperAgent-*.AppImage" -o -name "SuperAgent-*.deb" \
             -o -name "SuperAgent-*.rpm" -o -name "SuperAgent-*.blockmap" \
             -o -name "latest*.yml" \) \
             -exec cp {} release/ \;

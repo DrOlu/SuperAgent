@@ -25,7 +25,7 @@ jobs:
       skipped_build: ${{ github.event.inputs.skip_build }}
     steps:
       - name: Checkout SuperAgent (seed)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -125,7 +125,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout SuperAgent (rebranded)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.rebrand.outputs.sha }}
           fetch-depth: 1

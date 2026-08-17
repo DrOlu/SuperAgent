@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "SuperAgent",
-    "version": "2.0.5",
+    "version": "2.0.6",
     "description": "A powerful AI assistant for producer.",
     "homepage": "https://github.com/DrOlu/SuperAgent"
   },

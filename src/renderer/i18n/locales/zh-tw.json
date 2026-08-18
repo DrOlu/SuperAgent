@@ -1,0 +1,7282 @@
+{
+  "agent": {
+    "add": {
+      "error": {
+        "failed": " Agent "
+      },
+      "title": " Agent"
+    },
+    "askUserQuestion": {
+      "answered": "",
+      "close": "",
+      "customPlaceholder": "...",
+      "next": "",
+      "previous": "",
+      "progress": "{{current}}{{total}}",
+      "skip": "",
+      "submit": "",
+      "title": " Agent "
+    },
+    "builtin": {
+      "cherry_assistant": {
+        "description": "SuperAgent  FAQ Skill"
+      },
+      "cherry_support": {
+        "description": "SuperAgent  AgentFAQ "
+      }
+    },
+    "channels": {
+      "add": "",
+      "bindAgent": " Agent",
+      "chatIdsAutoTrackHint": " ID",
+      "comingSoon": "",
+      "connected": "",
+      "createError": "",
+      "deleteConfirm": "{{name}}",
+      "deleteError": "",
+      "discord": {
+        "botToken": "Bot Token",
+        "botTokenPlaceholder": " Discord  Token",
+        "channelIds": " ID",
+        "channelIdsHint": "channel:id  dm:id",
+        "channelIdsPlaceholder": "channel:123456789, dm:987654321",
+        "description": " Discord  WebSocket ",
+        "title": "Discord",
+        "whoamiTip": "💡  /whoami  ID"
+      },
+      "error": "",
+      "feishu": {
+        "appId": " ID",
+        "appIdPlaceholder": " ID",
+        "appSecret": "",
+        "appSecretPlaceholder": "",
+        "chatIds": " ID",
+        "chatIdsHint": " ID",
+        "chatIdsPlaceholder": "oc_xxxxx, oc_yyyyy",
+        "connected": "",
+        "description": " WebSocket /Lark ",
+        "domain": "",
+        "domainFeishu": "",
+        "domainLark": "Lark",
+        "encryptKey": "",
+        "encryptKeyPlaceholder": "",
+        "loginHint": " QR  ID ",
+        "qrExpired": "QR ",
+        "qrHint": " QR ...",
+        "qrScanHint": " QR Code ",
+        "qrTitle": " QR ",
+        "title": "",
+        "verificationToken": " Token",
+        "verificationTokenPlaceholder": " Token"
+      },
+      "logs": "",
+      "noInstances": " {{type}} + ",
+      "noLogs": "",
+      "qq": {
+        "appId": "App ID",
+        "appIdPlaceholder": " QQ  App ID",
+        "chatIds": " ID",
+        "chatIdsHint": "c2c:openid, group:groupid, channel:channelid",
+        "chatIdsPlaceholder": "c2c:abc123, group:xyz789",
+        "clientSecret": "Client Secret",
+        "clientSecretPlaceholder": " QQ  Client Secret",
+        "description": " QQ  API ",
+        "mentionOnlyHint": " @ QQ ",
+        "mentionOnlyLabel": " @",
+        "title": "QQ",
+        "whoamiTip": "💡  /whoami  ID"
+      },
+      "security": {
+        "inheritFromAgent": " Agent ",
+        "permissionMode": ""
+      },
+      "selectAgent": " Agent",
+      "slack": {
+        "appToken": " Token",
+        "appTokenPlaceholder": "xapp-...",
+        "botToken": "Bot Token",
+        "botTokenPlaceholder": "xoxb-...",
+        "channelIds": " ID",
+        "channelIdsHint": "Slack  ID",
+        "channelIdsPlaceholder": "C01234567, D89012345",
+        "description": " Slack  Socket Mode ",
+        "title": "Slack",
+        "whoamiTip": "💡  /whoami  ID"
+      },
+      "telegram": {
+        "botToken": "Bot Token",
+        "botTokenPlaceholder": " Telegram  Token",
+        "chatIds": " ID",
+        "chatIdsHint": "",
+        "chatIdsPlaceholder": "123456789, 987654321",
+        "description": " Telegram ",
+        "title": "Telegram"
+      },
+      "updateError": "",
+      "wechat": {
+        "connected": "",
+        "description": " iLink Bot API ",
+        "disconnected": "",
+        "loginHint": " QR  QR ",
+        "qrExpired": "QR ",
+        "qrHint": " QR ",
+        "qrTitle": " QR ",
+        "title": ""
+      }
+    },
+    "composer": {
+      "background_running_one": "{{count}} ",
+      "background_running_other": "{{count}} "
+    },
+    "delete": {
+      "content": " Agent  Agent ",
+      "error": {
+        "failed": " Agent "
+      },
+      "title": " Agent"
+    },
+    "edit": {
+      "title": " Agent"
+    },
+    "home": {
+      "welcome_title": ""
+    },
+    "icon": {
+      "type": "Agent "
+    },
+    "input": {
+      "placeholder": " {{key}}  /  @ ",
+      "placeholder_streaming": " — {{sendKey}} {{steerKey}} "
+    },
+    "manage": {
+      "title": " Agent"
+    },
+    "pin": {
+      "title": " Agent"
+    },
+    "preview_pane": {
+      "close": "",
+      "code": "",
+      "default_app": "",
+      "edit": {
+        "conflict": {
+          "description": "",
+          "keep_draft": "",
+          "reload": "",
+          "title": ""
+        },
+        "discard": "",
+        "leave": {
+          "description": "",
+          "discard_and_continue": "",
+          "title": ""
+        },
+        "metadata_pending": "",
+        "refresh_failed": "",
+        "save_failed": "",
+        "unsaved": "",
+        "unsupported": " LF  CRLF  UTF-8 "
+      },
+      "empty": {
+        "description": " Agent ",
+        "title": ""
+      },
+      "items_one": "{{count}} ",
+      "items_other": "{{count}} ",
+      "no_search_results": "",
+      "office": {
+        "title": " {{extension}} "
+      },
+      "preview": "",
+      "refresh": "",
+      "search_placeholder": "...",
+      "too_large": {
+        "description": " {{limit}} "
+      },
+      "tree_error": {
+        "invalid_path": {
+          "description": "",
+          "title": ""
+        },
+        "load_error": {
+          "description": "",
+          "title": ""
+        }
+      }
+    },
+    "right_pane": {
+      "flow": {
+        "no_messages": {
+          "description": "",
+          "title": ""
+        }
+      },
+      "info": {
+        "artifacts": "",
+        "context_categories": {
+          "autocompact_buffer": "",
+          "custom_agents": " Agent",
+          "free_space": "",
+          "mcp_tools": "MCP ",
+          "memory_files": "",
+          "messages": "",
+          "plugins": "",
+          "skills": "",
+          "system_prompt": "",
+          "system_tools": ""
+        },
+        "context_usage": "",
+        "shell_tasks": "",
+        "subagents": " Agent",
+        "workflows": ""
+      },
+      "status": {
+        "stop_run_task": "",
+        "stop_run_task_failed": "",
+        "task_count": "{{completed}} / {{total}} ",
+        "task_progress_compact": " {{current}}/{{total}}",
+        "tool_uses_one": "{{count}} ",
+        "tool_uses_other": "{{count}} "
+      },
+      "tabs": {
+        "files": "",
+        "status": ""
+      }
+    },
+    "session": {
+      "add": {
+        "title": ""
+      },
+      "agent": {
+        "delete": {
+          "content": " Agent  Agent Agent ",
+          "title": " Agent ",
+          "trigger": " Agent "
+        }
+      },
+      "api_retry": {
+        "reason": "{{error}}HTTP {{status}}— ",
+        "retrying": " {{attempt}}/{{max}}…",
+        "retrying_in": " {{attempt}}/{{max}}{{seconds}} "
+      },
+      "auto_rename": "",
+      "create": {
+        "error": {
+          "failed": ""
+        }
+      },
+      "delete": {
+        "content": "",
+        "error": {
+          "failed": ""
+        },
+        "title": ""
+      },
+      "display": {
+        "agent": "Agent",
+        "time": "",
+        "title": "",
+        "workdir": ""
+      },
+      "edit": {
+        "title": ""
+      },
+      "empty": {
+        "description": "",
+        "title": ""
+      },
+      "file_manager": {
+        "file_explorer": "",
+        "files": "",
+        "finder": "Finder"
+      },
+      "get": {
+        "error": {
+          "failed": ""
+        }
+      },
+      "group": {
+        "collapse": "",
+        "collapse_all": "",
+        "conversation": "",
+        "earlier": "",
+        "expand_all": "",
+        "no_workdir": "",
+        "show_more": "",
+        "tasks": "",
+        "this_week": "",
+        "today": "",
+        "unknown_agent": " Agent",
+        "unknown_agent_tip": " Agent  Agent",
+        "yesterday": ""
+      },
+      "list": {
+        "title": ""
+      },
+      "model_switch_confirm": {
+        "confirm": "",
+        "description": "",
+        "skip_for_app_run": "",
+        "title": "{{model}}"
+      },
+      "new": "",
+      "pin": {
+        "title": ""
+      },
+      "reorder": {
+        "error": {
+          "failed": ""
+        }
+      },
+      "search": {
+        "placeholder": "",
+        "title": ""
+      },
+      "unpin": {
+        "title": ""
+      },
+      "update": {
+        "error": {
+          "failed": ""
+        }
+      },
+      "workdir": {
+        "delete": {
+          "channels_count_one": "{{count}} ",
+          "channels_count_other": "{{count}} ",
+          "channels_empty": "",
+          "channels_title": "",
+          "content": "",
+          "disk_preserved": "",
+          "error": {
+            "failed": ""
+          },
+          "more_count_one": "… {{count}} ",
+          "more_count_other": "… {{count}} ",
+          "preview": "{{name}}",
+          "preview_failed": "",
+          "preview_loading": "…",
+          "sessions_count_one": "{{count}} ",
+          "sessions_count_other": "{{count}} ",
+          "sessions_empty": "",
+          "sessions_title": "",
+          "tasks_count_one": "{{count}} ",
+          "tasks_count_other": "{{count}} ",
+          "tasks_empty": "",
+          "tasks_title": "",
+          "title": "",
+          "trigger": ""
+        },
+        "rename": {
+          "error": {
+            "failed": ""
+          },
+          "title": "",
+          "trigger": ""
+        }
+      },
+      "workspace_selector": {
+        "create_failed": "",
+        "create_new": "",
+        "empty_text": "",
+        "no_project": "",
+        "placeholder": "",
+        "search_placeholder": "",
+        "select_failed": ""
+      },
+      "workspace_status": {
+        "inaccessible": "{{path}}"
+      }
+    },
+    "settings": {
+      "permissionMode": {
+        "title": ""
+      },
+      "skills": {
+        "addMore": ""
+      },
+      "tooling": {
+        "mcp": {
+          "toggle": " {{name}}"
+        },
+        "permissionMode": {
+          "acceptEdits": {
+            "description": "",
+            "title": ""
+          },
+          "auto": {
+            "description": "",
+            "description_pi": "",
+            "title": "",
+            "warning": "",
+            "warning_pi": ""
+          },
+          "bypassPermissions": {
+            "description": "",
+            "title": "",
+            "warning": "",
+            "warning_pi": " — "
+          },
+          "default": {
+            "description": "",
+            "title": ""
+          },
+          "plan": {
+            "description": "",
+            "title": ""
+          }
+        },
+        "preapproved": {
+          "autoBadge": "",
+          "autoDisabledTooltip": "{{mode}}"
+        }
+      },
+      "toolsMcp": {
+        "mcp": {
+          "tab": "MCP"
+        }
+      }
+    },
+    "sidebar_title": "Agent",
+    "speed": {
+      "effort": "",
+      "fast": "",
+      "faster": "",
+      "label": "",
+      "smarter": "",
+      "title": ""
+    },
+    "tasks": {
+      "cancel": "",
+      "channels": {
+        "label": "",
+        "noActiveChatIds": " ID",
+        "placeholder": ""
+      },
+      "delete": {
+        "confirm": "",
+        "label": ""
+      },
+      "error": {
+        "createFailed": "",
+        "deleteFailed": "",
+        "loadFailed": "",
+        "runFailed": "",
+        "triggerInvalid": "",
+        "updateFailed": ""
+      },
+      "frequency": {
+        "label": ""
+      },
+      "intervalPlaceholder": "1",
+      "intervalUnit": "",
+      "lastRun": "",
+      "logs": {
+        "cancelled": "",
+        "completed": "",
+        "duration": "",
+        "empty": "",
+        "failed": "",
+        "label": "",
+        "loadError": "",
+        "result": "",
+        "runAt": "",
+        "running": "...",
+        "search": "...",
+        "status": "",
+        "viewSession": ""
+      },
+      "name": {
+        "label": "",
+        "placeholder": ""
+      },
+      "nextRun": "",
+      "oncePlaceholder": "",
+      "pause": "",
+      "prompt": {
+        "label": "",
+        "placeholder": " Agent "
+      },
+      "resume": "",
+      "reuseSession": {
+        "bound": "",
+        "description": "",
+        "label": "",
+        "pending": "",
+        "warning": " Token "
+      },
+      "run": "",
+      "runTriggered": "",
+      "save": "",
+      "schedule": {
+        "custom": "",
+        "daily": "",
+        "hour": "",
+        "hourly": "",
+        "interval": "",
+        "intervalMinutes": "",
+        "invalid": "",
+        "minute": "",
+        "once": "",
+        "summary": {
+          "daily": " {{time}}",
+          "hourly": "",
+          "interval": " {{count}} ",
+          "weekdays": " {{time}}",
+          "weekly": " {{weekday}}  {{time}}"
+        },
+        "time": "",
+        "weekday": "",
+        "weekdays": {
+          "friday": "",
+          "monday": "",
+          "saturday": "",
+          "sunday": "",
+          "thursday": "",
+          "tuesday": "",
+          "wednesday": ""
+        },
+        "weekdaysOnly": "",
+        "weekly": ""
+      },
+      "status": {
+        "active": "",
+        "completed": "",
+        "paused": ""
+      },
+      "timeout": {
+        "label": "",
+        "placeholder": ""
+      }
+    },
+    "toolPermission": {
+      "button": {
+        "allow": "",
+        "deny": "",
+        "run": ""
+      },
+      "confirmation": " Claude ",
+      "defaultDenyMessage": "",
+      "error": {
+        "sendFailed": ""
+      },
+      "inputPreview": "",
+      "pendingBadge": "",
+      "waiting": "..."
+    },
+    "tools": {
+      "builtin": {
+        "AgentMemory": {
+          "description": "",
+          "label": ""
+        },
+        "Bash": {
+          "description": " Shell ",
+          "label": "Bash"
+        },
+        "CherryConfig": {
+          "description": " Agent ",
+          "label": "Agent "
+        },
+        "CherryCron": {
+          "description": "",
+          "label": ""
+        },
+        "CherryGenerateImage": {
+          "description": "",
+          "label": ""
+        },
+        "CherryKbManage": {
+          "description": "",
+          "label": ""
+        },
+        "CherryKbSearch": {
+          "description": "",
+          "label": ""
+        },
+        "CherryNotify": {
+          "description": "",
+          "label": ""
+        },
+        "CherryToMarkdown": {
+          "description": "PDFOfficeEPUBCSV Markdown",
+          "label": " Markdown"
+        },
+        "CherryWebFetch": {
+          "description": "",
+          "label": ""
+        },
+        "CherryWebSearch": {
+          "description": "",
+          "label": ""
+        },
+        "Edit": {
+          "description": "",
+          "label": ""
+        },
+        "Glob": {
+          "description": "",
+          "label": ""
+        },
+        "Grep": {
+          "description": "",
+          "label": ""
+        },
+        "MultiEdit": {
+          "description": ""
+        },
+        "NotebookEdit": {
+          "description": " Jupyter notebook "
+        },
+        "NotebookRead": {
+          "description": " Jupyter notebook "
+        },
+        "Read": {
+          "description": "",
+          "label": ""
+        },
+        "Task": {
+          "description": " Agent "
+        },
+        "TodoWrite": {
+          "description": ""
+        },
+        "ToolSearch": {
+          "description": ""
+        },
+        "WebFetch": {
+          "description": " URL "
+        },
+        "WebSearch": {
+          "description": ""
+        },
+        "Workflow": {
+          "description": " Agent ",
+          "label": ""
+        },
+        "Write": {
+          "description": "",
+          "label": ""
+        },
+        "bash": {
+          "description": " Shell ",
+          "label": " Shell "
+        },
+        "create_goal": {
+          "description": "",
+          "label": ""
+        },
+        "edit": {
+          "description": "",
+          "label": ""
+        },
+        "exit_plan_mode": {
+          "description": "",
+          "label": ""
+        },
+        "find": {
+          "description": "",
+          "label": ""
+        },
+        "get_goal": {
+          "description": "",
+          "label": ""
+        },
+        "grep": {
+          "description": "",
+          "label": ""
+        },
+        "interrupt_agent": {
+          "description": "",
+          "label": ""
+        },
+        "list_agents": {
+          "description": "",
+          "label": ""
+        },
+        "ls": {
+          "description": "",
+          "label": ""
+        },
+        "read": {
+          "description": "",
+          "label": ""
+        },
+        "read_image": {
+          "description": " PNGJPEGWebP  GIF ",
+          "label": ""
+        },
+        "send_message": {
+          "description": "",
+          "label": ""
+        },
+        "skill": {
+          "description": "",
+          "label": ""
+        },
+        "subagent": {
+          "description": "",
+          "label": ""
+        },
+        "subagent_fork": {
+          "description": "",
+          "label": ""
+        },
+        "todo_write": {
+          "description": "",
+          "label": ""
+        },
+        "update_goal": {
+          "description": "",
+          "label": ""
+        },
+        "write": {
+          "description": "",
+          "label": ""
+        }
+      }
+    },
+    "unpin": {
+      "title": " Agent"
+    },
+    "update": {
+      "error": {
+        "failed": " Agent"
+      }
+    }
+  },
+  "apiGateway": {
+    "actions": {
+      "regenerate": "",
+      "restart": {
+        "button": "",
+        "tooltip": ""
+      },
+      "start": "",
+      "stop": ""
+    },
+    "authHeader": {
+      "title": ""
+    },
+    "description": " OpenAI  Anthropic  HTTP API  SuperAgent  AI ",
+    "documentation": {
+      "title": "API "
+    },
+    "fields": {
+      "apiKey": {
+        "copyTooltip": " API ",
+        "label": "API ",
+        "placeholder": "API "
+      },
+      "port": {
+        "label": ""
+      },
+      "url": {
+        "copyTooltip": " URL",
+        "label": "URL"
+      }
+    },
+    "messages": {
+      "apiKeyRegenerated": "API ",
+      "notEnabled": "",
+      "restartError": " API ",
+      "restartFailed": "API ",
+      "restartSuccess": "API ",
+      "startError": " API ",
+      "startSuccess": "API ",
+      "stopError": " API ",
+      "stopSuccess": "API "
+    },
+    "required": {
+      "confirm": "",
+      "description": " SuperAgent  API Gateway ",
+      "title": " API Gateway"
+    },
+    "status": {
+      "running": "",
+      "stopped": ""
+    },
+    "title": "API "
+  },
+  "assistants": {
+    "abbr": "",
+    "clear": {
+      "content": "",
+      "menu_title": "",
+      "success_title": " {{count}} ",
+      "title": ""
+    },
+    "delete": {
+      "content": "",
+      "title": ""
+    },
+    "edit": {
+      "title": ""
+    },
+    "groups": {
+      "delete": "",
+      "deleteConfirm": "",
+      "group_by": "",
+      "ungroup": "",
+      "ungrouped": ""
+    },
+    "icon": {
+      "type": ""
+    },
+    "pin": {
+      "title": ""
+    },
+    "presets": {
+      "add": {
+        "prompt": {
+          "variables": {
+            "tip": {
+              "content": "{{date}}:\t\n{{time}}:\t\n{{datetime}}:\t\n{{system}}:\t\n{{arch}}:\tCPU \n{{language}}:\t\n{{model_name}}:\t\n{{username}}:\t",
+              "title": ""
+            }
+          }
+        }
+      },
+      "export": {
+        "agent": ""
+      },
+      "import": {
+        "action": "",
+        "error": {
+          "fetch_failed": " URL ",
+          "invalid_format": ""
+        },
+        "file_filter": "JSON ",
+        "title": ""
+      },
+      "manage": {
+        "title": ""
+      },
+      "sorting": {
+        "title": ""
+      },
+      "title": ""
+    },
+    "reorder": {
+      "error": {
+        "failed": ""
+      }
+    },
+    "settings": {
+      "reasoning_effort": {
+        "auto": "",
+        "default": "",
+        "high": "",
+        "label": "",
+        "low": "",
+        "max": "",
+        "medium": "",
+        "minimal": "",
+        "off": "",
+        "xhigh": ""
+      }
+    },
+    "title": "",
+    "unpin": {
+      "title": ""
+    }
+  },
+  "auth": {
+    "get_key_success": ""
+  },
+  "backup": {
+    "confirm": {
+      "button": ""
+    },
+    "content": "",
+    "error": {
+      "active_data_writers": " Agent "
+    },
+    "progress": {
+      "completed": "",
+      "compressing": "...",
+      "copying_database": "...",
+      "copying_files": "... {{progress}}%",
+      "preparing": "...",
+      "preparing_compression": "...",
+      "title": "",
+      "writing_data": "..."
+    },
+    "title": ""
+  },
+  "button": {
+    "add": "",
+    "case_sensitive": "",
+    "collapse": "",
+    "download": "",
+    "includes_user_questions": "",
+    "select_assistant": "",
+    "select_model": "",
+    "update_available": "",
+    "whole_word": ""
+  },
+  "chat": {
+    "add": {
+      "assistant": {
+        "description": "",
+        "title": ""
+      },
+      "topic": {
+        "title": ""
+      }
+    },
+    "alerts": {
+      "select_agent": " Agent"
+    },
+    "artifacts": {
+      "button": {
+        "openExternal": "",
+        "preview": ""
+      },
+      "preview": {
+        "openExternal": {
+          "error": {
+            "content": ""
+          }
+        }
+      }
+    },
+    "assistant": {
+      "search": {
+        "placeholder": ""
+      }
+    },
+    "compaction": {
+      "compacted": " {{count}} Token",
+      "compacted_plain": "",
+      "compacting": "…"
+    },
+    "conversation": {
+      "new": ""
+    },
+    "default": {
+      "name": "Cherry ",
+      "topic": {
+        "name": ""
+      }
+    },
+    "home": {
+      "welcome_title": ""
+    },
+    "input": {
+      "cancel_editing": "",
+      "clear": {
+        "content": "",
+        "title": ""
+      },
+      "collapse": "",
+      "editing": "",
+      "editing_message": "",
+      "expand": "",
+      "file_error": "",
+      "file_not_supported": "",
+      "file_not_supported_count": "{{count}} ",
+      "followup_queue": {
+        "edit": "",
+        "pause": "",
+        "remove": "",
+        "resume": "",
+        "steer": "",
+        "title": " ({{count}})"
+      },
+      "generate_image": "",
+      "generate_image_no_model": "  ›  ",
+      "image_preview_failed": "",
+      "knowledge_base": "",
+      "knowledge_base_disabled_by_files": "",
+      "knowledge_base_unavailable": "",
+      "locate_editing_message": "",
+      "new": {
+        "context": ""
+      },
+      "note_reference": {
+        "description": "",
+        "empty": "",
+        "load_failed": "",
+        "loading": "...",
+        "title": ""
+      },
+      "paste_text_file": "",
+      "pasted_text_file_name": ".txt",
+      "pause": "",
+      "placeholder": " {{key}}  / ",
+      "reference_panel": {
+        "load_failed": "",
+        "no_room": "",
+        "session": {
+          "no_results": {
+            "description": "",
+            "label": ""
+          },
+          "title": ""
+        },
+        "topic": {
+          "no_results": {
+            "description": "",
+            "label": ""
+          },
+          "title": ""
+        }
+      },
+      "resize_height": "",
+      "resource_panel": {
+        "categories": {
+          "resources": ""
+        },
+        "load_failed": "",
+        "no_resources_found": {
+          "description": "",
+          "label": ""
+        },
+        "title": ""
+      },
+      "restore": "",
+      "send": "",
+      "send_failed": "",
+      "slash_commands": {
+        "commands": {
+          "clear": "",
+          "compact": "",
+          "context": "",
+          "usage": ""
+        },
+        "title": ""
+      },
+      "toolbar": {
+        "customize": "",
+        "drag": {
+          "cancelled": " {{name}} ",
+          "dropped": " {{name}}",
+          "instructions": " Enter  Enter  Esc ",
+          "over": "{{name}}  {{over}} ",
+          "picked_up": " {{name}}"
+        },
+        "drag_handle": " {{name}}",
+        "restore_default": ""
+      },
+      "tools": {
+        "file_not_found": ": {{path}}",
+        "generate_image": {
+          "failed": "",
+          "generating": "…",
+          "title": ""
+        },
+        "open_file": "",
+        "open_file_error": ": {{path}}",
+        "open_with": "",
+        "reveal_in_finder": ""
+      },
+      "translating": "...",
+      "upload": {
+        "attachment": "",
+        "document_only": "",
+        "image_not_supported": ""
+      },
+      "web_search": {
+        "builtin": {
+          "disabled_content": ""
+        },
+        "label": "",
+        "route": {
+          "builtin": "",
+          "client": " {{provider}} "
+        }
+      }
+    },
+    "mcp": {
+      "warning": {
+        "gemini_web_search": "Gemini "
+      }
+    },
+    "message": {
+      "editing_current": "",
+      "flow": {
+        "branches": "",
+        "copy_topic": {
+          "created": "",
+          "label": ""
+        },
+        "nodes": "",
+        "status": {
+          "awaiting_input": ""
+        },
+        "title": ""
+      },
+      "more": "",
+      "new": {
+        "branch": {
+          "created": "",
+          "label": ""
+        },
+        "context": ""
+      },
+      "quote": "",
+      "token_details": {
+        "cache_read": "",
+        "cache_write": "",
+        "cost": "",
+        "cost_billed": "",
+        "cost_estimated": "",
+        "end_to_end_throughput": "",
+        "input": "",
+        "input_breakdown": "",
+        "lane_approval": "",
+        "lane_model": "",
+        "lane_other": "",
+        "lane_tool": "",
+        "model_throughput": " TPS",
+        "output": "",
+        "reasoning": "",
+        "reasoning_time": "",
+        "request_duration": "",
+        "text_generation": "",
+        "text_output": "",
+        "tokens": "{{value}} Token",
+        "tokens_per_second_value": "{{value}} Token/",
+        "total_duration": "",
+        "uncached": "",
+        "usage": "Token ",
+        "waiting_first_token": ""
+      },
+      "useful": {
+        "label": "",
+        "tip": ""
+      }
+    },
+    "multiple": {
+      "select": {
+        "empty": "",
+        "label": ""
+      }
+    },
+    "navigation": {
+      "anchor": {
+        "jump_to_turn": " {{number}} "
+      },
+      "bottom": "",
+      "close": "",
+      "next": "",
+      "prev": "",
+      "top": ""
+    },
+    "save": {
+      "file": {
+        "title": ""
+      },
+      "knowledge": {
+        "content": {
+          "citation": {
+            "description": "",
+            "title": ""
+          },
+          "code": {
+            "description": "",
+            "title": ""
+          },
+          "error": {
+            "description": "",
+            "title": ""
+          },
+          "file": {
+            "description": "",
+            "title": ""
+          },
+          "maintext": {
+            "description": "",
+            "title": ""
+          },
+          "thinking": {
+            "description": "",
+            "title": ""
+          },
+          "tool_use": {
+            "description": "",
+            "title": ""
+          },
+          "translation": {
+            "description": "",
+            "title": ""
+          }
+        },
+        "empty": {
+          "no_content": "",
+          "no_knowledge_base": ""
+        },
+        "error": {
+          "file_partial_failed": "{{count}} ",
+          "invalid_base": "",
+          "no_content_selected": "",
+          "save_failed": ""
+        },
+        "select": {
+          "base": {
+            "placeholder": "",
+            "title": ""
+          },
+          "content": {
+            "tip": " {{count}} ",
+            "title": ""
+          }
+        },
+        "title": ""
+      },
+      "label": "",
+      "topic": {
+        "knowledge": {
+          "content": {
+            "maintext": {
+              "description": ""
+            }
+          },
+          "empty": {
+            "no_content": ""
+          },
+          "error": {
+            "save_failed": ""
+          },
+          "loading": "...",
+          "menu_title": "",
+          "select": {
+            "content": {
+              "label": "",
+              "selected_tip": " {{count}}  {{messages}} "
+            }
+          },
+          "source_fallback": "",
+          "success": "{{count}} ",
+          "title": ""
+        }
+      }
+    },
+    "settings": {
+      "code": {
+        "title": ""
+      },
+      "code_collapsible": "",
+      "code_editor": {
+        "autocompletion": "",
+        "fold_gutter": "",
+        "highlight_active_line": "",
+        "keymap": "",
+        "title": ""
+      },
+      "code_execution": {
+        "timeout_minutes": {
+          "label": "",
+          "tip": ""
+        },
+        "tip": " [] ",
+        "title": ""
+      },
+      "code_fancy_block": {
+        "label": "",
+        "tip": " HTML "
+      },
+      "code_image_tools": {
+        "label": "",
+        "tip": " mermaid "
+      },
+      "code_wrappable": "",
+      "show_line_numbers": "",
+      "thought_auto_collapse": {
+        "label": "",
+        "tip": ""
+      }
+    },
+    "topics": {
+      "auto_rename": "",
+      "auto_rename_failed": "",
+      "clear": {
+        "title": ""
+      },
+      "copy": {
+        "image": "",
+        "md": " Markdown",
+        "plain_text": " Markdown",
+        "title": ""
+      },
+      "delete": {
+        "shortcut": " {{key}} "
+      },
+      "display": {
+        "assistant": "",
+        "time": "",
+        "title": ""
+      },
+      "draft": "",
+      "edit": {
+        "placeholder": "",
+        "title": "",
+        "title_tip": ""
+      },
+      "empty": {
+        "description": "",
+        "title": ""
+      },
+      "export": {
+        "failed": "",
+        "image": "",
+        "image_exporting_keep_page": "",
+        "image_saved": "",
+        "joplin": " Joplin",
+        "md": {
+          "label": " Markdown",
+          "reason": " Markdown ()"
+        },
+        "notion": " Notion",
+        "obsidian": " Obsidian",
+        "obsidian_atributes": "",
+        "obsidian_btn": "",
+        "obsidian_created": "",
+        "obsidian_created_placeholder": "",
+        "obsidian_export_failed": "",
+        "obsidian_export_success": "",
+        "obsidian_fetch_error": " Obsidian ",
+        "obsidian_fetch_folders_error": "",
+        "obsidian_loading": "...",
+        "obsidian_no_vault_selected": "",
+        "obsidian_no_vaults": " Obsidian ",
+        "obsidian_operate": "",
+        "obsidian_operate_append": "",
+        "obsidian_operate_new_or_overwrite": "",
+        "obsidian_operate_placeholder": "",
+        "obsidian_operate_prepend": "",
+        "obsidian_path": "",
+        "obsidian_path_placeholder": "",
+        "obsidian_reasoning": "",
+        "obsidian_root_directory": "",
+        "obsidian_select_vault_first": "",
+        "obsidian_source": "",
+        "obsidian_source_placeholder": "",
+        "obsidian_tags": "",
+        "obsidian_tags_placeholder": "",
+        "obsidian_title": "",
+        "obsidian_title_placeholder": "",
+        "obsidian_title_required": "",
+        "obsidian_vault": "",
+        "obsidian_vault_placeholder": "",
+        "siyuan": "",
+        "title": "",
+        "title_naming_failed": "",
+        "title_naming_success": "",
+        "wait_for_title_naming": "...",
+        "word": " Word",
+        "yuque": ""
+      },
+      "group": {
+        "collapse": "",
+        "collapse_all": "",
+        "earlier": "",
+        "expand_all": "",
+        "show_more": "",
+        "this_week": "",
+        "today": "",
+        "unknown_assistant": "",
+        "unknown_assistant_tip": "",
+        "yesterday": ""
+      },
+      "list": "",
+      "manage": {
+        "delete": {
+          "confirm": {
+            "content": " {{count}} ",
+            "title": ""
+          },
+          "error": "",
+          "success": " {{count}} "
+        },
+        "deselect_all": "",
+        "move": {
+          "success": " {{count}} "
+        }
+      },
+      "move_to": "",
+      "pin": "",
+      "search": {
+        "placeholder": "...",
+        "title": ""
+      },
+      "title": "",
+      "unpin": ""
+    },
+    "translate": "",
+    "user": "",
+    "web_search": {
+      "warning": {
+        "openai": "GPT-5 "
+      }
+    }
+  },
+  "code": {
+    "add_provider_hint": "  →  ",
+    "add_provider_hint_anthropic_messages": "  →   Anthropic Messages ",
+    "add_provider_hint_gemini": "  →   Gemini ",
+    "add_provider_hint_openai_responses": "  →   OpenAI Responses ",
+    "adv": {
+      "claude": {
+        "context_column": "1M",
+        "disable_1m_context": " 1M ",
+        "disable_attribution_header": "",
+        "disable_auto_upgrade": "",
+        "disable_bundled_skills": "",
+        "disable_compact": "",
+        "disable_extra_usage_command": "",
+        "disable_nonessential_traffic": "",
+        "disable_terminal_title": "",
+        "effort_level_hint": "",
+        "enable_teammates": " Teammates",
+        "enable_tool_search": "",
+        "fable_model": "Fable",
+        "haiku_model": "Haiku",
+        "hide_attribution": " AI ",
+        "max_context_tokens_hint": " Token",
+        "max_output_tokens_hint": " Token",
+        "model_column": "",
+        "model_roles_hint": "",
+        "opus_model": "Opus",
+        "permissions_hint": " Read(secrets-*/config.json)",
+        "role_column": "",
+        "sonnet_model": "Sonnet",
+        "subagent_model": " Agent"
+      },
+      "codex": {
+        "disable_response_storage": "",
+        "goal_mode": " Goal ",
+        "remote_compaction": ""
+      },
+      "gemini": {
+        "checkpointing": "",
+        "disable_usage_stats": "",
+        "hide_banner": "",
+        "vim_mode": " Vim "
+      },
+      "kimi": {
+        "disable_telemetry": "",
+        "keep_background_tasks": "",
+        "micro_compaction": "",
+        "plan_mode": "",
+        "thinking": " Thinking"
+      },
+      "opencode": {
+        "auto_compact": "",
+        "enable_reasoning": ""
+      },
+      "permission_mode": "",
+      "permission_modes": {
+        "accept_edits": "",
+        "ask": "",
+        "auto": "",
+        "auto_edit": "",
+        "bypass_high_risk": "",
+        "default": "",
+        "default_allow_all": "",
+        "deny": "",
+        "full_access_high_risk": "",
+        "manual": "",
+        "plan": "",
+        "read_only": "",
+        "workspace": "",
+        "yolo_high_risk": "YOLO"
+      },
+      "qwen": {
+        "classify_all_shell": " Shell ",
+        "disable_auto_update": "",
+        "disable_usage_stats": "",
+        "hide_banner": "",
+        "vim_mode": " Vim "
+      },
+      "reasoning_effort": "",
+      "reasoning_efforts": {
+        "default": "",
+        "high": "",
+        "low": "",
+        "medium": "",
+        "minimal": "",
+        "xhigh": ""
+      },
+      "select_placeholder": "…"
+    },
+    "api_gateway": {
+      "description": " CLI",
+      "requires_running": " SuperAgent  CLI ",
+      "title": ""
+    },
+    "apply_failed": " CLI ",
+    "clear_config_failed": " CLI ",
+    "cli_config": {
+      "format_failed": "",
+      "title": "CLI ",
+      "unknown_model": "",
+      "unknown_provider": ""
+    },
+    "cli_tools": {
+      "claude_code": "Claude Code",
+      "deepseek_harness": "DeepSeek Harness",
+      "gemini_cli": "Gemini CLI",
+      "github_copilot_cli": "GitHub Copilot CLI",
+      "kimi_code": "Kimi Code",
+      "openai_codex": "OpenAI Codex",
+      "openclaw": "OpenClaw",
+      "opencode": "OpenCode",
+      "pi": "Pi",
+      "qoder_cli": "Qoder CLI",
+      "qwen_code": "Qwen Code"
+    },
+    "collapse": "",
+    "configure": "",
+    "count_one": "{{count}} ",
+    "count_other": "{{count}} ",
+    "deepseek_harness": {
+      "agent_preset": "",
+      "agent_presets": {
+        "code": {
+          "description": " PTC Code Mode SDK ",
+          "label": "PTC "
+        },
+        "inherit": {
+          "description": " ~/.dsh ",
+          "label": "Harness "
+        },
+        "minimal": {
+          "description": " Shell ",
+          "label": ""
+        },
+        "standard": {
+          "description": "Shell",
+          "label": ""
+        }
+      },
+      "danger_warning": "",
+      "permission_mode": "",
+      "permission_modes": {
+        "danger-full-access": {
+          "description": "",
+          "label": ""
+        },
+        "read-only": {
+          "description": "",
+          "label": ""
+        },
+        "workspace-write": {
+          "description": " DSH ",
+          "label": ""
+        }
+      }
+    },
+    "disable": "",
+    "enable": "",
+    "endpoint_hint": " / Key ",
+    "folder_placeholder": "",
+    "format_json": "",
+    "install": "",
+    "install_success": "",
+    "installing": "…",
+    "latest": "",
+    "launch": {
+      "error": "",
+      "label": "",
+      "title": " {{tool}}",
+      "validation_error": "CLI "
+    },
+    "launching": "...",
+    "model_hint_config": "",
+    "model_mode": {
+      "common": "",
+      "detailed": ""
+    },
+    "model_placeholder": "",
+    "model_providers": "",
+    "model_required": "",
+    "model_selection": "",
+    "more": "",
+    "move_provider_to_top": "",
+    "no_matching_providers": "",
+    "no_providers_description": "  →  ",
+    "no_providers_title": "",
+    "no_tools": "",
+    "not_installed": "",
+    "open_provider_settings": "",
+    "open_web_ui": " Web UI",
+    "own_login": {
+      "title": "{{toolName}} "
+    },
+    "providerless_hint": " — ",
+    "search_provider_placeholder": "…",
+    "select_folder": "",
+    "select_provider_before_launch": " {{toolName}}",
+    "select_provider_model": "",
+    "select_tool_to_start": " CLI ",
+    "stop": "",
+    "terminal": "",
+    "title": "",
+    "tool_parameters": "",
+    "up_to_date": "",
+    "upgrade": "",
+    "upgrade_success": "",
+    "working_directory": ""
+  },
+  "code_block": {
+    "collapse": "",
+    "copy": {
+      "failed": "",
+      "source": "",
+      "success": ""
+    },
+    "download": {
+      "label": "",
+      "png": " PNG",
+      "source": "",
+      "svg": " SVG"
+    },
+    "edit": {
+      "label": "",
+      "save": {
+        "failed": {
+          "label": ""
+        },
+        "label": "",
+        "success": ""
+      }
+    },
+    "expand": "",
+    "more": "",
+    "run": "",
+    "split": {
+      "label": "",
+      "restore": ""
+    },
+    "wrap": {
+      "off": "",
+      "on": ""
+    }
+  },
+  "common": {
+    "add": "",
+    "add_success": "",
+    "advanced_settings": "",
+    "agent": "Agent",
+    "agent_one": "",
+    "agent_other": "Agent",
+    "all": "",
+    "assistant": "Agent",
+    "assistant_one": "",
+    "assistant_other": "",
+    "avatar": "",
+    "back": "",
+    "browse": "",
+    "cancel": "",
+    "chat": "",
+    "clear": "",
+    "close": "",
+    "close_sidebar": "",
+    "collapse": "",
+    "completed": "",
+    "confirm": "",
+    "copied": "",
+    "copy": "",
+    "copy_failed": "",
+    "create_success": "",
+    "current": "",
+    "decline": "",
+    "default": "",
+    "delete": "",
+    "delete_confirm": "",
+    "delete_failed": "",
+    "delete_success": "",
+    "description": "",
+    "detail": "",
+    "disabled": "",
+    "docs": "",
+    "download": "",
+    "edit": "",
+    "enabled": "",
+    "error": "",
+    "expand": "",
+    "export": {
+      "excel": " Excel"
+    },
+    "file": {
+      "not_supported": " {{type}}"
+    },
+    "footnotes": "",
+    "fullscreen": " F11 ",
+    "go_to_settings": "",
+    "group": {
+      "create": "",
+      "create_failed": "",
+      "name_placeholder": "...",
+      "name_required": ""
+    },
+    "help": "",
+    "html_preview": "HTML ",
+    "i_know": "",
+    "knowledge_base": "",
+    "language": "",
+    "loading": "...",
+    "maximize": "",
+    "minimize": "",
+    "model": "",
+    "models": "",
+    "more": "",
+    "name": "",
+    "next": "",
+    "next_match": "",
+    "no_results": "",
+    "none": "",
+    "open": "",
+    "open_in": " {{name}} ",
+    "open_in_new_tab": "",
+    "other": "",
+    "powered_by": "",
+    "preview": "",
+    "previous": "",
+    "previous_match": "",
+    "prompt": "",
+    "reasoning_content": "",
+    "refresh": "",
+    "refresh_failed": "",
+    "regenerate": "",
+    "rename": "",
+    "required_field": "",
+    "reset": "",
+    "resize_panel": "",
+    "retry": "",
+    "save": "",
+    "save_failed": "",
+    "saved": "",
+    "search": "",
+    "select": "",
+    "select_all": "",
+    "selected": "",
+    "selectedItems": " {{count}} ",
+    "selectedMessages": " {{count}} ",
+    "settings": "",
+    "stop": "",
+    "success": "",
+    "swap": "",
+    "undo": "",
+    "unknown": "",
+    "unnamed": "",
+    "update_success": "",
+    "yesterday": "",
+    "you": ""
+  },
+  "docs": {
+    "title": ""
+  },
+  "emoji_picker": {
+    "categories": {
+      "activities": "",
+      "animals_nature": "",
+      "flags": "",
+      "food_drink": "",
+      "objects": "",
+      "recent": "",
+      "smileys_emotion": "",
+      "symbols": "",
+      "travel_places": ""
+    },
+    "search": ""
+  },
+  "endpoint_type": {
+    "anthropic": "Anthropic",
+    "gemini": "Gemini",
+    "image-edit": "OpenAI",
+    "image-generation": "OpenAI",
+    "jina-rerank": "Jina Rerank",
+    "openai": "OpenAI",
+    "openai-embeddings": "OpenAI",
+    "openai-response": "OpenAI-Response"
+  },
+  "error": {
+    "api_gateway_required": " SuperAgent  API Gateway ",
+    "availableProviders": "",
+    "availableTools": "",
+    "backup": {
+      "file_format": ""
+    },
+    "base64DataTruncated": "Base64 ",
+    "boundary": {
+      "default": {
+        "devtools": "",
+        "message": "...",
+        "reload": ""
+      },
+      "details": "",
+      "mcp": {
+        "invalid": " MCP "
+      }
+    },
+    "cause": "",
+    "chat": {
+      "chunk": {
+        "non_json": ""
+      },
+      "insufficient_balance": " <provider>{{provider}}</provider> ",
+      "no_api_key": " API  <provider>{{provider}}</provider>  API ",
+      "quota_exceeded": " {{quota}}  <provider>{{provider}}</provider>  API ",
+      "response": " >  API "
+    },
+    "content": "",
+    "data": "",
+    "detail": "",
+    "details": "",
+    "diagnosis": {
+      "ai_button": "AI ",
+      "ai_done": "",
+      "ai_loading": "",
+      "ai_result": "AI ",
+      "auth": "API Key ",
+      "content": "",
+      "context_length": "",
+      "deprecated": "",
+      "free_model_unavailable": "AI",
+      "go_to_settings": "",
+      "knowledge": "",
+      "mcp": "MCP ",
+      "model": "",
+      "model_conflict": "",
+      "network": "",
+      "ocr": "OCR  OCR ",
+      "parse": "AI ",
+      "payload": "",
+      "permission": "API ",
+      "proxy": " SSL ",
+      "quota": "",
+      "rate_limit": "",
+      "region": "",
+      "server": "",
+      "stream": "",
+      "unknown": "",
+      "view_details": ""
+    },
+    "errors": "",
+    "finishReason": "",
+    "functionality": "",
+    "http": {
+      "400": "",
+      "401": " API ",
+      "402": "",
+      "403": "",
+      "404": "",
+      "429": "",
+      "500": "",
+      "502": "",
+      "503": "",
+      "504": ""
+    },
+    "image_unreadable_for_non_vision_model": " SuperAgent ",
+    "lastError": "",
+    "maxEmbeddingsPerCall": "",
+    "message": "",
+    "missing_user_message": "",
+    "model": {
+      "exists": "",
+      "not_exists": ""
+    },
+    "modelId": " ID",
+    "modelType": "",
+    "name": "",
+    "no_api_key": "API ",
+    "no_response": "",
+    "originalError": "",
+    "originalMessage": "",
+    "parameter": "",
+    "prompt": "",
+    "provider": "",
+    "providerId": " ID",
+    "provider_disabled": "",
+    "reason": "",
+    "render": {
+      "block": "",
+      "description": "",
+      "title": ""
+    },
+    "requestBody": "",
+    "requestBodyValues": "",
+    "requestUrl": "",
+    "request_timeout": "",
+    "response": "",
+    "responseBody": "",
+    "responseHeaders": "",
+    "responses": "",
+    "role": "",
+    "stack": "",
+    "status": "",
+    "statusCode": "",
+    "statusText": "",
+    "stream_paused": "",
+    "text": "",
+    "toolInput": "",
+    "toolName": "",
+    "tool_call_limit_reached": "",
+    "truncated": "",
+    "truncatedBadge": "",
+    "unknown": "",
+    "usage": "",
+    "user_message_not_found": "",
+    "value": "",
+    "values": "",
+    "web_lookup_network_error": "",
+    "web_search_api_host_invalid": " API  →  HTTP(S) ",
+    "web_search_api_host_missing": " API →",
+    "web_search_api_key_missing": " API  → ",
+    "web_search_provider_unavailable": "→"
+  },
+  "export": {
+    "assistant": "",
+    "notion": {
+      "reasoning_truncated": ""
+    },
+    "user": ""
+  },
+  "file_preview": {
+    "directory": {
+      "description": "",
+      "title": ""
+    },
+    "html": {
+      "empty": {
+        "description": " HTML ",
+        "title": ""
+      },
+      "mode": {
+        "label": "HTML ",
+        "preview": "",
+        "source": ""
+      },
+      "read_error": {
+        "title": ""
+      },
+      "too_large": {
+        "description": " {{limit}} MiB  HTML ",
+        "title": ""
+      }
+    },
+    "invalid_path": {
+      "description": "",
+      "title": ""
+    },
+    "load_error": {
+      "description": "",
+      "title": ""
+    },
+    "loading": "...",
+    "markdown": {
+      "empty": {
+        "description": " Markdown ",
+        "title": ""
+      },
+      "mode": {
+        "label": "Markdown ",
+        "preview": "",
+        "source": ""
+      },
+      "read_error": {
+        "title": ""
+      },
+      "too_large": {
+        "description": "Markdown  {{limit}} MiB ",
+        "title": ""
+      }
+    },
+    "pdf": {
+      "too_large": {
+        "action": "",
+        "description": " PDF ",
+        "open_error": "",
+        "title": " PDF"
+      }
+    },
+    "text": {
+      "empty": {
+        "description": "",
+        "title": ""
+      },
+      "read_error": {
+        "title": ""
+      },
+      "too_large": {
+        "description": " {{limit}} MiB ",
+        "title": ""
+      }
+    },
+    "unavailable": {
+      "description": "",
+      "title": ""
+    },
+    "unsupported": {
+      "action": "",
+      "description": "",
+      "open_error": "",
+      "title": ""
+    }
+  },
+  "files": {
+    "actions": "",
+    "all": "",
+    "audio": "",
+    "created_at": "",
+    "delete": {
+      "label": ""
+    },
+    "delete_or_remove": "/",
+    "document": "",
+    "drag_upload": "",
+    "empty": {
+      "no_match_description": "",
+      "no_match_title": "",
+      "title": ""
+    },
+    "empty_trash": "",
+    "error": {
+      "delete_failed": "",
+      "delete_partial_failed": "",
+      "import_failed": "",
+      "import_partial_failed": "",
+      "open_path": "{{path}}",
+      "rename_failed": "",
+      "restore_failed": "",
+      "restore_partial_failed": ""
+    },
+    "footer_selected_count": "{{count}} ",
+    "image": "",
+    "missing": "",
+    "modified_at": "",
+    "name": "",
+    "open": "",
+    "other": "",
+    "permanent_delete": "",
+    "permanent_delete_confirm": {
+      "description": " {{count}} ",
+      "title": ""
+    },
+    "preview": {
+      "error": ""
+    },
+    "remove_from_library": "",
+    "rename": "",
+    "restore": "",
+    "select_all": "",
+    "select_all_short": "",
+    "select_file": " {{name}}",
+    "show_in_folder": "",
+    "size": "",
+    "text": "",
+    "title": "",
+    "trash": "",
+    "type": "",
+    "upload": "",
+    "video": ""
+  },
+  "globalSearch": {
+    "clear": "",
+    "error": "",
+    "filters": {
+      "agent": "Agent",
+      "all": "",
+      "assistant": "",
+      "conversation": "",
+      "knowledge": "",
+      "label": "",
+      "session": "",
+      "topic": ""
+    },
+    "groups": {
+      "agent": "Agent",
+      "assistant": "",
+      "conversation": "",
+      "knowledge-base": "",
+      "message": "",
+      "recent": "",
+      "session": "",
+      "topic": ""
+    },
+    "keyboard": {
+      "select": ""
+    },
+    "messageSearch": {
+      "entry": "",
+      "hint": "",
+      "jumpToMessage": "",
+      "more": " {{count}} ",
+      "open": "",
+      "roles": {
+        "assistant": "",
+        "system": "",
+        "tool": "",
+        "user": ""
+      },
+      "sourceLabel": "",
+      "sources": {
+        "all": "",
+        "session": "",
+        "topic": ""
+      },
+      "viewMore": ""
+    },
+    "no_recent": "",
+    "open": "",
+    "open_failed": "",
+    "placeholder": "Agent ...",
+    "quickApps": {
+      "hide": " {{name}}",
+      "manage": "",
+      "manager_description": "",
+      "manager_title": "",
+      "reset": "",
+      "save_failed": "",
+      "show": " {{name}}",
+      "title": ""
+    },
+    "recent_hint": "Agent ",
+    "resultTypes": {
+      "agent": "Agent",
+      "assistant": "",
+      "session": "",
+      "topic": ""
+    },
+    "showMore": " {{count}} ",
+    "timeFilters": {
+      "any": "",
+      "label": "",
+      "messageLabel": "",
+      "month": " 1 ",
+      "quarter": " 3 ",
+      "today": "",
+      "week": " 1 "
+    }
+  },
+  "gpustack": {
+    "keep_alive_time": {
+      "description": " 5 ",
+      "placeholder": "",
+      "title": ""
+    }
+  },
+  "help": {
+    "feedback": "",
+    "guide": "",
+    "star": "GitHub ",
+    "title": "",
+    "whats_new": ""
+  },
+  "history": {
+    "error": {
+      "topic_not_found": ""
+    },
+    "records": {
+      "agentTitle": "Agent ",
+      "bulkDelete": "",
+      "bulkDeleteSessions": {
+        "description": " {{count}} ",
+        "title": ""
+      },
+      "bulkDeleteTopics": {
+        "description": " {{count}} ",
+        "title": ""
+      },
+      "bulkMove": "",
+      "bulkMoveTopics": {
+        "confirm": "",
+        "description": " {{count}} ",
+        "empty": "",
+        "error": "",
+        "partialSuccess": " {{total}}  {{moved}} {{failed}} ",
+        "placeholder": "",
+        "success": " {{count}} ",
+        "target": "",
+        "title": ""
+      },
+      "clearSearch": "",
+      "empty": {
+        "description": "",
+        "sessionsDescription": "",
+        "sessionsTitle": "",
+        "title": ""
+      },
+      "filter": {
+        "selectAgent": " Agent",
+        "selectAssistant": "",
+        "statusLabel": "",
+        "statusPlaceholder": "",
+        "unlinkedAssistant": ""
+      },
+      "loading": {
+        "description": "",
+        "sessionsDescription": "",
+        "sessionsTitle": "",
+        "title": ""
+      },
+      "searchSession": "...",
+      "searchTopic": "...",
+      "shortTitle": "",
+      "status": {
+        "completed": "",
+        "failed": "",
+        "running": ""
+      },
+      "table": {
+        "actions": "",
+        "conversation": "",
+        "emptyValue": "—",
+        "session": "",
+        "time": ""
+      },
+      "title": ""
+    }
+  },
+  "html_artifacts": {
+    "capture": {
+      "label": "",
+      "to_clipboard": "",
+      "to_file": ""
+    },
+    "code": "",
+    "empty_preview": "",
+    "generating": "",
+    "interactive_preview": {
+      "action": "",
+      "description": ""
+    },
+    "preview": "",
+    "split": "",
+    "view_mode": ""
+  },
+  "import": {
+    "chatgpt": {
+      "assistant_name": "ChatGPT ",
+      "button": "",
+      "description": "",
+      "error": {
+        "no_conversations": "",
+        "no_valid_conversations": "",
+        "unknown": ""
+      },
+      "help": {
+        "step1": "1.  ChatGPT >  > ",
+        "step2": "2. ",
+        "step3": "3.  conversations.json",
+        "title": " ChatGPT "
+      },
+      "importing": "...",
+      "selecting": "...",
+      "success": " {{topics}}  {{messages}} ",
+      "title": " ChatGPT ",
+      "untitled_conversation": ""
+    },
+    "claude": {
+      "assistant_name": "Claude ",
+      "button": "",
+      "description": "",
+      "error": {
+        "no_conversations": "",
+        "no_valid_conversations": "",
+        "unknown": ""
+      },
+      "help": {
+        "step1": "1.  Claude>>",
+        "step2": "2. ",
+        "step3": "3.  conversations.json",
+        "title": " Claude "
+      },
+      "importing": "...",
+      "selecting": "...",
+      "success": " {{topics}}  {{messages}} ",
+      "title": " Claude ",
+      "untitled_conversation": ""
+    }
+  },
+  "knowledge": {
+    "add": {
+      "group": "",
+      "submit": "",
+      "title": ""
+    },
+    "context": {
+      "delete": "",
+      "delete_confirm_description": "",
+      "delete_confirm_title": "",
+      "move_to": "",
+      "rename": ""
+    },
+    "data_source": {
+      "actions": {
+        "delete": "",
+        "preview_source": "",
+        "reindex": "",
+        "view_chunks": " Chunks"
+      },
+      "add_dialog": {
+        "conflict_dialog": {
+          "description": " {{count}} ",
+          "keep_all": "",
+          "replace": "",
+          "title": ""
+        },
+        "footer": {
+          "selected_notes": " {{count}} "
+        },
+        "note": {
+          "create": {
+            "content_label": "",
+            "content_placeholder": "…",
+            "title_label": "",
+            "title_placeholder": ""
+          },
+          "description": "",
+          "empty_description": "",
+          "empty_title": "",
+          "loading": "…",
+          "mode": {
+            "create": "",
+            "import": ""
+          }
+        },
+        "sources": {
+          "directory": "",
+          "file": "",
+          "note": "",
+          "url": ""
+        },
+        "submit": {
+          "error": ""
+        },
+        "title": "",
+        "too_many_sources": " {{count}} ",
+        "unsupported_files_skipped": " {{count}} ",
+        "url": {
+          "description": "",
+          "help": "",
+          "placeholder": "https://example.com"
+        }
+      },
+      "back_to_parent": "",
+      "bulk": {
+        "delete": "",
+        "delete_confirm_description": " {{count}} ",
+        "delete_confirm_title": "",
+        "loaded_only_hint": " {{total}} ",
+        "reindex": "",
+        "reindex_none_eligible": "",
+        "reindex_skipped": " {{count}} ",
+        "selected_count": " {{count}} "
+      },
+      "chunks_count": "{{count}} ",
+      "delete_confirm_description": "",
+      "delete_confirm_title": "",
+      "delete_failed": "",
+      "empty": {
+        "shortcuts": {
+          "directory": {
+            "title": ""
+          },
+          "file": {
+            "title": ""
+          },
+          "url": {
+            "title": ""
+          }
+        },
+        "title": ""
+      },
+      "empty_description": "",
+      "empty_folder": "",
+      "filters": {
+        "directory": "",
+        "file": "",
+        "note": "",
+        "url": ""
+      },
+      "list": {
+        "end_reached": "",
+        "loading_more": "…"
+      },
+      "preview": {
+        "failed": "",
+        "unavailable": ""
+      },
+      "reindex_failed": "",
+      "status": {
+        "chunking": "",
+        "copying": " {{percent}}%",
+        "embedding": "",
+        "error": "",
+        "pending": "",
+        "ready": ""
+      },
+      "table": {
+        "aria_label": "",
+        "columns": {
+          "actions": "",
+          "name": "",
+          "status": "",
+          "type": "",
+          "updated_at": ""
+        },
+        "open_row": "{{title}}",
+        "select_all": "",
+        "select_row": ""
+      },
+      "toolbar": {
+        "add": ""
+      }
+    },
+    "embedding_model": "",
+    "embedding_model_required": "",
+    "empty": "",
+    "empty_action": "",
+    "empty_description": "",
+    "error": {
+      "directory_not_migrated": "",
+      "failed_base_unknown": "",
+      "failed_to_create": "",
+      "failed_to_delete": "",
+      "failed_to_edit": "",
+      "failed_to_move": "",
+      "indexing_interrupted": "",
+      "missing_embedding_model": "",
+      "missing_vector_store": ""
+    },
+    "groups": {
+      "add": "",
+      "create_base_here": "",
+      "default": "",
+      "delete": "",
+      "delete_confirm_description": "",
+      "delete_confirm_title": "",
+      "error": {
+        "failed_to_create": "",
+        "failed_to_delete": "",
+        "failed_to_update": ""
+      },
+      "name_placeholder": "...",
+      "name_required": "",
+      "rename": "",
+      "rename_title": ""
+    },
+    "meta": {
+      "updated_at": " {{time}}"
+    },
+    "name_required": "",
+    "provider_not_found": "",
+    "rag": {
+      "chunk_overlap": "",
+      "chunk_overlap_invalid": " 0",
+      "chunk_overlap_must_be_smaller": "",
+      "chunk_separator": "",
+      "chunk_separator_required": "",
+      "chunk_size": "",
+      "chunk_size_change_warning": "",
+      "chunk_size_invalid": " 0",
+      "chunking": "",
+      "document_count": "Top K",
+      "download_local_embedding_failed": "",
+      "download_local_model": "",
+      "embedding_model": "",
+      "embedding_model_select": "",
+      "file_processing": "",
+      "file_processing_hint": "",
+      "file_processing_none": "",
+      "hints": {
+        "chunk_overlap": " Token ",
+        "chunk_separator": "",
+        "chunk_size": " Token ",
+        "document_count": "",
+        "embedding_model": "",
+        "processor": "",
+        "rerank_model": "",
+        "smart_chunking": " Markdown ",
+        "threshold": ""
+      },
+      "processor": "",
+      "processor_not_configured": "",
+      "processor_not_downloaded": "",
+      "processor_unreachable": "",
+      "rerank_disabled": "",
+      "rerank_model": "",
+      "reset_action": "",
+      "retrieval": "",
+      "save_action": "",
+      "saved": "",
+      "smart_chunking": "",
+      "threshold": "",
+      "tokens_unit": "Token"
+    },
+    "recall": {
+      "collapse": "",
+      "copy": "",
+      "duration": "{{duration}}ms",
+      "empty_description": "",
+      "empty_title": "",
+      "expand": "",
+      "history_clear": "",
+      "history_remove": "",
+      "history_title": "",
+      "placeholder": "…",
+      "ranking_only": "",
+      "result_count": "{{count}} ",
+      "result_rank": " #{{rank}}",
+      "result_relevance": " {{score}}",
+      "search_failed": "",
+      "searching": "…",
+      "submit": "",
+      "top_score": ": {{score}}"
+    },
+    "rename_title": "",
+    "restore": {
+      "action": "",
+      "default_name": "{{name}}_",
+      "failed_to_restore": "",
+      "skipped_missing_sources_one": " {{count}} ",
+      "skipped_missing_sources_other": " {{count}} ",
+      "submit": "",
+      "title": ""
+    },
+    "search": "",
+    "search_placeholder": "",
+    "status": {
+      "completed": "",
+      "failed": "",
+      "processing": ""
+    },
+    "tabs": {
+      "rag_config": "",
+      "recall_test": ""
+    },
+    "title": ""
+  },
+  "languages": {
+    "arabic": "",
+    "chinese": "",
+    "chinese-traditional": "",
+    "english": "",
+    "french": "",
+    "german": "",
+    "indonesian": "",
+    "italian": "",
+    "japanese": "",
+    "korean": "",
+    "malay": "",
+    "polish": "",
+    "portuguese": "",
+    "russian": "",
+    "spanish": "",
+    "thai": "",
+    "turkish": "",
+    "ukrainian": "",
+    "unknown": "",
+    "urdu": "",
+    "vietnamese": ""
+  },
+  "launchpad": {
+    "apps": "",
+    "deepseek_harness_shortcut": "DSH",
+    "manage_sidebar": "",
+    "miniApps": "",
+    "pin_to_sidebar": "",
+    "unpin_from_sidebar": ""
+  },
+  "library": {
+    "action": {
+      "duplicate": "",
+      "enable": "",
+      "manage_groups": "",
+      "uninstall": ""
+    },
+    "assistant_catalog": {
+      "add": "",
+      "add_failed": "",
+      "empty_description": "",
+      "empty_title": "",
+      "go_to_chat": "",
+      "no_match_description": "",
+      "no_match_title": "",
+      "preview_description": "",
+      "preview_prompt": "",
+      "title": ""
+    },
+    "config": {
+      "agent": {
+        "field": {
+          "description": {
+            "hint": " Agent ",
+            "label": "",
+            "placeholder": " Agent …"
+          },
+          "env_vars": {
+            "help": " KEY=VALUE",
+            "label": "",
+            "placeholder": "KEY=value\nANOTHER_KEY=another_value"
+          },
+          "heartbeat_enabled": {
+            "label": ""
+          },
+          "heartbeat_interval": {
+            "label": ""
+          },
+          "model": {
+            "hint": "",
+            "label": ""
+          },
+          "name": {
+            "hint": "",
+            "label": "Agent ",
+            "placeholder": " Agent "
+          },
+          "permission_mode": {
+            "label": ""
+          },
+          "plan_model": {
+            "hint": "",
+            "label": ""
+          },
+          "runtime": {
+            "immutable_hint": "",
+            "label": "",
+            "option": {
+              "claude_code": "Claude Agent",
+              "dsh": "DeepSeek Harness",
+              "pi": "Pi"
+            },
+            "option_description": {
+              "claude_code": " — ",
+              "dsh": "",
+              "pi": ""
+            }
+          },
+          "small_model": {
+            "hint": "",
+            "label": ""
+          }
+        },
+        "model_config": "",
+        "section": {
+          "permission": {
+            "desc": " Agent ",
+            "title": ""
+          },
+          "tools": {
+            "add": "",
+            "category": {
+              "context": "",
+              "file": "",
+              "media": "",
+              "orchestration": "",
+              "search": "",
+              "shell": ""
+            },
+            "no_builtin_enabled": "",
+            "no_mcp_bound": " MCP ",
+            "no_skills_enabled": "",
+            "search_placeholder": "…",
+            "skills_enable_all": "",
+            "skills_require_save": "",
+            "tab": {
+              "mcp": "MCP",
+              "skills": "",
+              "tools": ""
+            }
+          }
+        }
+      },
+      "basic": {
+        "context_compress_enabled": "",
+        "context_compress_model": "",
+        "context_compress_model_follow": "",
+        "context_count": "",
+        "context_count_follow_global": "{{count}} ",
+        "context_count_unlimited": "",
+        "context_globally_disabled": "",
+        "context_inherited": "{{compress}} {{threshold}} ",
+        "context_inherited_compress_off": "",
+        "context_inherited_compress_on": "",
+        "context_management": "",
+        "context_truncate_threshold": "",
+        "creative": "",
+        "custom_params": "",
+        "custom_params_add": "",
+        "custom_params_name": "",
+        "default_value": "",
+        "field": {
+          "context_compress_enabled": {
+            "hint": ""
+          },
+          "context_count": {
+            "hint": ""
+          },
+          "context_management": {
+            "hint": ""
+          },
+          "context_truncate_threshold": {
+            "hint": ""
+          },
+          "custom_params": {
+            "hint": ""
+          },
+          "description": {
+            "hint": "",
+            "placeholder": "..."
+          },
+          "max_tokens": {
+            "hint": ""
+          },
+          "max_tool_calls": {
+            "hint": " {{count}} "
+          },
+          "model": {
+            "hint": ""
+          },
+          "name": {
+            "hint": "",
+            "placeholder": ""
+          },
+          "stream_output": {
+            "hint": ""
+          },
+          "tags": {
+            "hint": ""
+          },
+          "temperature": {
+            "hint": ""
+          },
+          "top_p": {
+            "hint": " Token "
+          }
+        },
+        "group": "",
+        "group_empty": "",
+        "group_placeholder": "",
+        "json_invalid": " JSON ",
+        "max_tokens": " Token",
+        "max_tool_calls": "",
+        "max_tool_calls_default": "{{count}} ",
+        "mcp_mode": "MCP ",
+        "model_clear": "",
+        "model_not_found": "{{id}}",
+        "model_pick": "",
+        "precise": "",
+        "stream_output": "",
+        "tag_empty": "",
+        "tag_placeholder": "",
+        "tag_search": "",
+        "tags": "",
+        "temperature": "",
+        "top_p": "Top-P"
+      },
+      "dialogs": {
+        "create": {
+          "agent_title": " Agent",
+          "assistant_title": "",
+          "avatar_aria": "",
+          "back": "",
+          "capability": {
+            "builtin_badge": "",
+            "no_skills": "",
+            "search": ""
+          },
+          "description_placeholder": "...",
+          "name_placeholder": "",
+          "next": "",
+          "step": {
+            "basic": "",
+            "capability": "",
+            "knowledge": ""
+          },
+          "submit": "",
+          "submit_failed": ""
+        },
+        "edit": {
+          "advanced_tab": "",
+          "agent_description": " Agent ",
+          "agent_title": " Agent",
+          "assistant_description": "",
+          "assistant_title": "",
+          "basic_tab": "",
+          "knowledge_tab": "",
+          "permission_tab": "",
+          "prompt_tab": "",
+          "save_failed": "",
+          "tools_tab": ""
+        }
+      },
+      "knowledge": {
+        "add": "",
+        "create_first": "",
+        "doc_count": "{{count}} ",
+        "empty_desc": "",
+        "empty_title": "",
+        "invalid_suffix": "...",
+        "linked": "",
+        "linked_hint": "",
+        "no_more": "",
+        "remove_aria": "",
+        "search": "..."
+      },
+      "prompt": {
+        "copy_variable": " {{variable}}",
+        "dblclick_hint": "",
+        "generate": "",
+        "generate_failed_description": "",
+        "generate_failed_title": "",
+        "insert_variable": "",
+        "label": "",
+        "placeholder": "",
+        "polish": "",
+        "polish_failed_description": "",
+        "polish_failed_title": "",
+        "polish_variables_changed_description": "",
+        "polish_variables_changed_title": "",
+        "tokens_label": "Token",
+        "variables_description": "",
+        "variables_example": " {{variable}}",
+        "variables_title": "",
+        "vars": {
+          "arch": "CPU ",
+          "date": "",
+          "datetime": "",
+          "language": "",
+          "model_name": "",
+          "os": "",
+          "time": "",
+          "username": ""
+        }
+      },
+      "tools": {
+        "add_mcp": " MCP ",
+        "added": " MCP ",
+        "added_hint": "",
+        "empty_desc": "",
+        "empty_title": " MCP ",
+        "inactive_badge": "",
+        "info_main": "MCPModel Context Protocol",
+        "info_sub": "",
+        "mode": {
+          "auto": {
+            "desc": " MCP ",
+            "label": ""
+          },
+          "disabled": {
+            "desc": " MCP ",
+            "label": ""
+          },
+          "manual": {
+            "desc": " MCP ",
+            "label": ""
+          }
+        },
+        "no_more": "",
+        "search": "..."
+      }
+    },
+    "create_menu": {
+      "create": "{{type}}"
+    },
+    "delete": {
+      "agent": {
+        "content": " Agent ",
+        "title": " Agent"
+      },
+      "skill": {
+        "content": " Agent ",
+        "title": ""
+      }
+    },
+    "duplicate_assistant_failed": "",
+    "duplicate_name": "{{name}}",
+    "empty_state": {
+      "description": "",
+      "empty_description": " Agent ",
+      "empty_title": "",
+      "no_match_description": "",
+      "no_match_title": "",
+      "title": ""
+    },
+    "export_assistant_failed": "",
+    "group_picker": {
+      "no_groups": ""
+    },
+    "group_sync_failed": "",
+    "import_dialog": {
+      "clipboard": {
+        "button": "",
+        "placeholder": " JSON ..."
+      },
+      "error": {
+        "content_too_large": " 5 MB",
+        "file_too_large": " 5 MB",
+        "invalid_url": "",
+        "response_too_large": ">5 MB",
+        "timeout": "",
+        "unsupported_protocol": " http  https "
+      },
+      "failure": "{{error}}",
+      "file": {
+        "drop_hint": "",
+        "formats": " .json"
+      },
+      "partial_success": "{{success}} {{failed}} {{first_name}}{{first_error}}",
+      "subtitle": " JSON ",
+      "success": "{{name}}",
+      "tab": {
+        "clipboard": "",
+        "file": "",
+        "url": ""
+      },
+      "url": {
+        "button": "",
+        "hint": " GitHub GistGitHub ",
+        "supports": ""
+      }
+    },
+    "import_skill_dialog": {
+      "local": {
+        "drop_hint": " ZIP  ZIP",
+        "formats": " .zip  SKILL.md "
+      },
+      "subtitle": " ZIP ",
+      "title": ""
+    },
+    "no_match": "",
+    "skill_add": {
+      "add": " Skill",
+      "local_import": "",
+      "online_search": "",
+      "system_search": ""
+    },
+    "skill_detail": {
+      "created_at": "",
+      "description": "",
+      "file_preview": "",
+      "installed": "",
+      "no_description": "",
+      "updated_at": ""
+    },
+    "skill_marketplace": {
+      "empty_description": "",
+      "empty_title": "",
+      "github_empty_description": " SKILL.md  github.com/owner/repo/blob/main/skills/my-skill/SKILL.md",
+      "github_empty_title": " GitHub ",
+      "github_url_invalid": " SKILL.md  GitHub ",
+      "github_url_label": "GitHub SKILL.md ",
+      "github_url_placeholder": "GitHub  /SKILL.md ",
+      "no_results_description": " ZIP ",
+      "no_results_title": "",
+      "search_failed_description": "",
+      "search_label": "",
+      "search_placeholder": "...",
+      "source_label": "",
+      "title": ""
+    },
+    "system_skill": {
+      "conflict": "",
+      "description": " Skill",
+      "empty_description": " Skill",
+      "empty_title": " Skill",
+      "enable_success": " {{name}}",
+      "enabled": "",
+      "import": "",
+      "import_success": " {{name}}",
+      "imported": "",
+      "search_placeholder": " Skill...",
+      "title": " Skill"
+    },
+    "title": "",
+    "toolbar": {
+      "all_groups": "",
+      "group_button": "",
+      "search_placeholder": "..."
+    },
+    "type": {
+      "agent": "Agent",
+      "assistant": "",
+      "prompt": "",
+      "skill": ""
+    }
+  },
+  "lmstudio": {
+    "keep_alive_time": {
+      "description": " 5 ",
+      "placeholder": "",
+      "title": ""
+    }
+  },
+  "message": {
+    "agents": {
+      "import": {
+        "error": ""
+      },
+      "imported": " {{count}} "
+    },
+    "api": {
+      "check": {
+        "model": {
+          "title": ""
+        }
+      },
+      "connection": {
+        "failed": "",
+        "success": ""
+      }
+    },
+    "attachments": {
+      "pasted_image": "",
+      "pasted_text": ""
+    },
+    "backup": {
+      "cleanup_failed": "",
+      "failed": "",
+      "success": ""
+    },
+    "chat": {
+      "completion": {
+        "paused": ""
+      }
+    },
+    "citation": "{{count}} ",
+    "citation_source": " {{number}}",
+    "citations": "",
+    "conversation_reset": " — ",
+    "copied": "",
+    "copy": {
+      "failed": "",
+      "success": ""
+    },
+    "delete": {
+      "confirm": {
+        "content": " {{count}} ",
+        "title": ""
+      },
+      "failed": "",
+      "generating_unavailable": "",
+      "root_unavailable": "",
+      "success": ""
+    },
+    "dialog": {
+      "failed": ""
+    },
+    "download": {
+      "failed": "",
+      "success": ""
+    },
+    "empty_url": "",
+    "error": {
+      "avatar_image_too_large": " {{limit}}",
+      "dimension_too_large": "",
+      "dismiss_failed": "",
+      "enter": {
+        "api": {
+          "label": " API "
+        },
+        "model": ""
+      },
+      "excel": {
+        "export": " Excel "
+      },
+      "fetchTopicName": "",
+      "get_embedding_dimensions": "",
+      "image_process_failed": "",
+      "invalid": {
+        "nutstore": "",
+        "nutstore_token": " Token",
+        "proxy": {
+          "url": " URL"
+        },
+        "webdav": " WebDAV "
+      },
+      "joplin": {
+        "export": " Joplin  Joplin ",
+        "no_config": " Joplin  Token  URL"
+      },
+      "markdown": {
+        "export": {
+          "preconf": " Markdown ",
+          "specified": " Markdown "
+        }
+      },
+      "notes": {
+        "export": ""
+      },
+      "notion": {
+        "export": " Notion ",
+        "no_api_key": " Notion API Key  Notion Database ID"
+      },
+      "operation_unavailable": "",
+      "siyuan": {
+        "export": "",
+        "no_config": " API  Token"
+      },
+      "stream_admission": {
+        "execution_changed": "",
+        "execution_not_ready": "",
+        "model_already_in_live_group": "",
+        "single_model_required": "",
+        "target_not_in_live_group": "",
+        "topic_busy": ""
+      },
+      "table": {
+        "invalid": ""
+      },
+      "unknown": "",
+      "yuque": {
+        "export": "",
+        "no_config": " Token  URL"
+      }
+    },
+    "group": {
+      "delete": {
+        "content": "",
+        "title": ""
+      },
+      "retry_failed": "",
+      "retry_skipped_same_model": " {{count}} "
+    },
+    "loading": {
+      "notion": {
+        "exporting_progress": " Notion ...",
+        "preparing": " Notion..."
+      }
+    },
+    "mention": {
+      "title": ""
+    },
+    "message": {
+      "code_style": "",
+      "compact": {
+        "title": ""
+      },
+      "delete": {
+        "content": ""
+      },
+      "multi_model_style": {
+        "fold": {
+          "label": ""
+        },
+        "grid": "",
+        "horizontal": "",
+        "label": "",
+        "vertical": ""
+      },
+      "style": {
+        "bubble": "",
+        "label": "",
+        "plain": ""
+      },
+      "user_content": {
+        "collapse": "",
+        "expand": ""
+      }
+    },
+    "processing": "...",
+    "restore": {
+      "failed": "",
+      "success": ""
+    },
+    "retry": {
+      "status": " {{model}}  ·  {{attempt}} "
+    },
+    "save": {
+      "success": {
+        "title": ""
+      }
+    },
+    "searching": "...",
+    "success": {
+      "excel": {
+        "export": "Excel "
+      },
+      "joplin": {
+        "export": " Joplin"
+      },
+      "markdown": {
+        "export": {
+          "preconf": " Markdown ",
+          "specified": " Markdown "
+        }
+      },
+      "notes": {
+        "export": ""
+      },
+      "notion": {
+        "export": " Notion"
+      },
+      "siyuan": {
+        "export": ""
+      },
+      "yuque": {
+        "export": ""
+      }
+    },
+    "tools": {
+      "activity": {
+        "analyze": "",
+        "analyzing": "",
+        "archive": "",
+        "assistantTask": "",
+        "availableFeatures": "",
+        "availableResources": "",
+        "branch": "",
+        "build": "",
+        "building": "",
+        "calendar": "",
+        "check": "",
+        "checking": "",
+        "codeFiles": "",
+        "codeHostInfo": "",
+        "configFiles": "",
+        "copy": "",
+        "copying": "",
+        "create": "",
+        "creating": "",
+        "currentFolder": "",
+        "data": "",
+        "delete": "",
+        "deleting": "",
+        "documentFiles": "",
+        "download": "",
+        "downloading": "",
+        "email": "",
+        "environmentInfo": "",
+        "executeCommand": "",
+        "executingCommand": "",
+        "extensionFailed": "",
+        "extract": "",
+        "extracting": "",
+        "file": "",
+        "fileList": "",
+        "folder": "",
+        "handle": "",
+        "handling": "",
+        "imageFiles": "",
+        "install": "",
+        "installing": "",
+        "matchingFiles": "",
+        "modify": "",
+        "modifying": "",
+        "move": "",
+        "moving": "",
+        "open": "",
+        "opening": "",
+        "plan": "",
+        "projectChanges": "",
+        "projectChecks": "",
+        "projectDependencies": "",
+        "projectFiles": "",
+        "projectRootFiles": "",
+        "projectTask": "",
+        "relatedContent": "",
+        "repository": "",
+        "search": "",
+        "searching": "",
+        "send": "",
+        "sending": "",
+        "start": "",
+        "starting": "",
+        "switch": "",
+        "switching": "",
+        "sync": "",
+        "syncing": "",
+        "taskId": " {{id}}",
+        "taskList": "",
+        "translationFiles": "",
+        "upload": "",
+        "uploading": "",
+        "usedExtension": "",
+        "usingExtension": "",
+        "view": "",
+        "viewing": "",
+        "webPage": "",
+        "webSearch": "",
+        "workspace": "",
+        "write": "",
+        "writing": ""
+      },
+      "agent_background": "",
+      "autoApproveEnabled": "",
+      "cancelled": "",
+      "collapse": "",
+      "completed": "",
+      "error": "",
+      "groupHeader": "{{count}} ",
+      "invoking": "",
+      "labels": {
+        "bash": "",
+        "edit": "",
+        "exitPlanMode": "",
+        "glob": "",
+        "grep": "",
+        "mcpServerTool": "MCP ",
+        "multiEdit": "",
+        "notebookEdit": "",
+        "readFile": "",
+        "search": "",
+        "skill": "",
+        "task": "",
+        "taskCreate": "",
+        "taskGet": "",
+        "taskList": "",
+        "taskOutput": "",
+        "taskStop": "",
+        "taskUpdate": "",
+        "toMarkdown": "",
+        "toMarkdownOutput": "Markdown",
+        "todoWrite": "",
+        "tool": "",
+        "webFetch": "",
+        "webSearch": "",
+        "workflow": "",
+        "write": ""
+      },
+      "noData": "",
+      "pending": "",
+      "placeholder": {
+        "elapsed": {
+          "days": "{{days}} {{hours}} {{minutes}} {{seconds}}",
+          "hours": "{{hours}} {{minutes}} {{seconds}}",
+          "minutes": "{{minutes}} {{seconds}}",
+          "seconds": "{{seconds}}"
+        },
+        "generating": "",
+        "preparing": "",
+        "thinking": "",
+        "usingTools": ""
+      },
+      "processed": "",
+      "raw": "",
+      "sections": {
+        "args": "",
+        "command": "",
+        "exitCode": "",
+        "input": "",
+        "output": "",
+        "prompt": "",
+        "searchQuery": "",
+        "searchResults": "",
+        "stderr": "",
+        "stdout": ""
+      },
+      "status": {
+        "done": "",
+        "error": "",
+        "failed": "",
+        "running": "",
+        "success": ""
+      },
+      "streaming": "",
+      "thinkingHeader": "",
+      "truncated": "{{size}}",
+      "units": {
+        "char_one": "{{count}} ",
+        "char_other": "{{count}} ",
+        "file_one": "{{count}} ",
+        "file_other": "{{count}} ",
+        "item_one": "{{count}} ",
+        "item_other": "{{count}} ",
+        "line_one": "{{count}} ",
+        "line_other": "{{count}} ",
+        "plan_one": "{{count}} ",
+        "plan_other": "{{count}} ",
+        "result_one": "{{count}} ",
+        "result_other": "{{count}} "
+      },
+      "workflow": {
+        "orchestrating": "",
+        "run_id": " ID",
+        "script": "",
+        "script_path": "",
+        "started": "",
+        "summary": "",
+        "workflow": ""
+      }
+    },
+    "warn": {
+      "export": {
+        "exporting": ""
+      }
+    },
+    "websearch": {
+      "fetch_complete": "{{count}} ",
+      "fetch_empty": "",
+      "fetch_opaque": ""
+    }
+  },
+  "miniApp": {
+    "add_to_launchpad": "",
+    "add_to_sidebar": "",
+    "error": {
+      "load_failed": "",
+      "not_found": ""
+    },
+    "hide_failed": "",
+    "pin_failed": "",
+    "popup": {
+      "devtools": "",
+      "goBack": "",
+      "goForward": "",
+      "openExternal": "",
+      "open_link_external_off": "",
+      "open_link_external_on": "",
+      "refresh": ""
+    },
+    "remove_from_launchpad": "",
+    "remove_from_sidebar": "",
+    "reorder_failed": "",
+    "shortcut": {
+      "failed": "{{message}}",
+      "html_saved": "HTML {{path}}",
+      "pdf_saved": "PDF {{path}}"
+    },
+    "show_failed": "",
+    "sidebar": {
+      "hide": {
+        "title": ""
+      }
+    },
+    "title": "",
+    "unpin_failed": "",
+    "update_partial_failure": "{{total}}  {{failed}} "
+  },
+  "miniApps": {
+    "ant-ling": "Ant Ling",
+    "baichuan": "Baichuan",
+    "baidu-ai-search": "Baidu AI Search",
+    "chatglm": "ChatGLM",
+    "dangbei": "Dangbei",
+    "doubao": "Doubao",
+    "hailuo": "Hailuo",
+    "ima": "ima",
+    "metaso": "Metaso",
+    "minimax-agent": "Minimax Agent CN",
+    "minimax-global": "Minimax Agent",
+    "nami-ai": "Nami AI",
+    "qwen": "Qwen",
+    "sensechat": "SenseChat",
+    "stepfun": "Stepfun",
+    "tencent-yuanbao": "Yuanbao",
+    "tiangong-ai": "Skywork",
+    "update_partial_failure_generic": "",
+    "wanzhi": "Wanzhi",
+    "wenxin": "ERNIE",
+    "wps-copilot": "WPS Copilot",
+    "xiaoyi": "Xiaoyi",
+    "zhihu": "Zhihu"
+  },
+  "models": {
+    "action": {
+      "configure_custom": "",
+      "pin": "",
+      "unpin": ""
+    },
+    "all": "",
+    "detail": {
+      "context_window": "",
+      "image_modes": "",
+      "max_input_tokens": "",
+      "max_output_tokens": "",
+      "model_id": " ID",
+      "provider": ""
+    },
+    "edit": "",
+    "function_calling": "",
+    "group": {
+      "ungrouped": ""
+    },
+    "multi_select": {
+      "label": "",
+      "tooltip": ""
+    },
+    "no_matches": "",
+    "pinned": "",
+    "price": {
+      "add_tier": "",
+      "cache_fallback_help": " 0 ",
+      "cache_read": "",
+      "cache_write": "",
+      "currency": "",
+      "field_for_tier": "{{field}} {{index}}",
+      "input": "",
+      "million_tokens": " Token",
+      "min_input_tokens": " Token ",
+      "min_input_tokens_help": "",
+      "output": "",
+      "remove_tier": " {{index}}",
+      "tier": " {{index}}",
+      "tier_from": " {{boundary}}  Token ",
+      "use_input_price": "",
+      "validation_min_input_tokens": "",
+      "validation_min_input_tokens_order": "",
+      "validation_price": " 0 "
+    },
+    "search": {
+      "placeholder": "..."
+    },
+    "selection": {
+      "context_window": " {{count}}",
+      "remove_model": " {{name}}",
+      "restore_default": "",
+      "selected_models": ""
+    },
+    "type": {
+      "audio": "",
+      "embedding": "",
+      "free": "",
+      "function_calling": "",
+      "image": "",
+      "reasoning": "",
+      "rerank": "",
+      "speech": "",
+      "text": "",
+      "transcription": "",
+      "video": "",
+      "vision": "",
+      "websearch": ""
+    }
+  },
+  "navbar": {
+    "hide_sidebar": "",
+    "show_sidebar": "",
+    "window": {
+      "close": "",
+      "maximize": "",
+      "minimize": "",
+      "restore": ""
+    }
+  },
+  "navigate": {
+    "provider_settings": ""
+  },
+  "notes": {
+    "auto_rename": {
+      "empty_note": "",
+      "failed": "",
+      "label": "",
+      "success": ""
+    },
+    "characters": "",
+    "conflict": {
+      "description": "",
+      "keep_draft": "",
+      "reload": "",
+      "title": ""
+    },
+    "copyContent": "",
+    "create_folder_failed": "",
+    "create_note_failed": "",
+    "crossPlatformRestoreWarning": "{{path}}",
+    "delete": "",
+    "delete_failed": "",
+    "delete_folder_confirm": " \"{{name}}\" ",
+    "delete_note_confirm": " \"{{name}}\" ",
+    "drop_markdown_hint": " .md ",
+    "empty": "",
+    "exportToPDF": " PDF",
+    "exportToWord": " Word",
+    "export_failed": "",
+    "export_knowledge": "",
+    "export_success": "",
+    "export_to_pdf_failed": " PDF ",
+    "export_to_pdf_success": " PDF",
+    "export_to_word_failed": " Word ",
+    "file_removed_draft": "",
+    "leave": {
+      "description": "",
+      "discard_and_continue": "",
+      "title": ""
+    },
+    "load_failed": "",
+    "load_failed_description": "",
+    "metadata_sync_failed": "",
+    "metadata_update_failed": "",
+    "move_failed": "",
+    "new_folder": "",
+    "new_note": "",
+    "no_content_to_copy": "",
+    "no_content_to_export": "",
+    "no_file_selected": "",
+    "no_note_selected": "",
+    "no_valid_files": "",
+    "open_outside": "",
+    "print": "",
+    "print_failed": "",
+    "rename": "",
+    "rename_failed": "",
+    "save": "",
+    "save_blocked_load_failed": "",
+    "save_failed": "",
+    "save_failure": {
+      "description": "",
+      "metadata_pending": ""
+    },
+    "search": {
+      "both": " + ",
+      "content": "",
+      "found_results": " {{count}} {{nameCount}}{{contentCount}}",
+      "searching": "..."
+    },
+    "settings": {
+      "data": {
+        "apply": "",
+        "apply_path_failed": "",
+        "current_work_directory": "",
+        "invalid_directory": "",
+        "path_required": "",
+        "path_updated": "",
+        "reset_failed": "",
+        "reset_to_default": "",
+        "select": "",
+        "select_directory_failed": "",
+        "title": "",
+        "work_directory_description": "",
+        "work_directory_placeholder": ""
+      },
+      "display": {
+        "compress_content": "",
+        "compress_content_description": "",
+        "default_font": "",
+        "font_size": "",
+        "font_size_description": " (10-30px)",
+        "font_size_large": "",
+        "font_size_medium": "",
+        "font_size_small": "",
+        "font_title": "",
+        "line_breaks": "",
+        "line_breaks_description": "Obsidian ",
+        "serif_font": "",
+        "show_table_of_contents": "",
+        "show_table_of_contents_description": "",
+        "title": ""
+      },
+      "editor": {
+        "edit_mode": {
+          "description": "",
+          "preview_mode": "",
+          "source_mode": "",
+          "title": ""
+        },
+        "title": "",
+        "view_mode": {
+          "description": "",
+          "edit_mode": "",
+          "read_mode": "",
+          "title": ""
+        }
+      },
+      "save_failed": "",
+      "title": ""
+    },
+    "show_starred": "",
+    "sort_a2z": "A-Z",
+    "sort_created_asc": "",
+    "sort_created_desc": "",
+    "sort_updated_asc": "",
+    "sort_updated_desc": "",
+    "sort_z2a": "Z-A",
+    "spell_check_tooltip": "/",
+    "star": "",
+    "target_name_exists": "",
+    "title": "",
+    "tree_load_failed": "",
+    "unstar": "",
+    "untitled_folder": "",
+    "untitled_note": "",
+    "upload_all_failed": "{{failed}} ",
+    "upload_failed": "",
+    "upload_files": "",
+    "upload_folder": "",
+    "upload_partial_failed": " {{uploaded}} {{failed}} ",
+    "upload_success": ""
+  },
+  "notification": {
+    "assistant": "",
+    "tip": " 30 "
+  },
+  "ocr": {
+    "processing": "OCR ..."
+  },
+  "onboarding": {
+    "privacy": {
+      "accept_and_continue": "",
+      "accept_policy": "",
+      "notice": "",
+      "period": "",
+      "policy": "",
+      "update_failed": ""
+    },
+    "provider_setup": {
+      "missing_model": "",
+      "missing_provider": "",
+      "next": "",
+      "title": ""
+    },
+    "select_model": {
+      "change_later": "",
+      "start": "",
+      "title": ""
+    },
+    "skip": "",
+    "toast": {
+      "complete_failed": "",
+      "connected": " SuperAgent"
+    },
+    "welcome": {
+      "login_cherryin": " SuperAgent ",
+      "or_continue_with": "",
+      "other_provider": "",
+      "setup_hint": "",
+      "subtitle": " AI ",
+      "title": " SuperAgent"
+    }
+  },
+  "openclaw": {
+    "error": {
+      "select_provider_model": ""
+    },
+    "gateway": {
+      "open_dashboard": " OpenClaw"
+    },
+    "title": "OpenClaw"
+  },
+  "ovms": {
+    "action": {
+      "install": "",
+      "installing": "",
+      "reinstall": "",
+      "run": " OVMS",
+      "starting": "",
+      "stop": " OVMS",
+      "stopping": ""
+    },
+    "description": "<div><p>1.  OV </p><p>2. </p><p> Windows</p><p>OVMS '%USERPROFILE%\\.superagent\\ovms'</p><p> <a href=\"https://github.com/openvinotoolkit/model_server/blob/c55551763d02825829337b62c2dcef9339706f79/docs/deploying_server_baremetal.md\">Intel OVMS </a></p></div>",
+    "download": {
+      "button": "",
+      "model_id": {
+        "label": " ID",
+        "model_id_pattern": " ID  OpenVINO/ ",
+        "placeholder": " OpenVINO/Qwen3-8B-int4-ov",
+        "required": " ID"
+      },
+      "model_name": {
+        "label": "",
+        "placeholder": " Qwen3-8B-int4-ov",
+        "required": ""
+      },
+      "model_source": "",
+      "model_task": "",
+      "success_desc": "\"{{modelName}}\"-\"{{modelId}}\" OVMS ",
+      "task": {
+        "embeddings": "",
+        "image_generation": "",
+        "rerank": "",
+        "text_generation": ""
+      },
+      "tip": "...",
+      "title": " Intel OpenVINO "
+    },
+    "failed": {
+      "install": " OVMS ",
+      "install_code_100": "",
+      "install_code_101": " Intel(R) CPU",
+      "install_code_102": " Windows",
+      "install_code_103": " OVMS runtime ",
+      "install_code_104": " OVMS runtime ",
+      "install_code_105": " ovdnd.exe ",
+      "install_code_106": " run.bat ",
+      "install_code_110": " OVMS runtime ",
+      "run": " OVMS ",
+      "stop": " OVMS "
+    },
+    "guide": "Intel OVMS ",
+    "status": {
+      "not_installed": "OVMS ",
+      "not_running": "OVMS ",
+      "running": "OVMS ",
+      "unknown": "OVMS "
+    }
+  },
+  "paintings": {
+    "add_image": "",
+    "aspect_ratio": "",
+    "background": "",
+    "background_options": {
+      "auto": "",
+      "opaque": "",
+      "transparent": ""
+    },
+    "button": {
+      "delete": {
+        "image": {
+          "confirm": "",
+          "label": ""
+        }
+      },
+      "new": {
+        "image": ""
+      },
+      "select": {
+        "image": ""
+      }
+    },
+    "custom_size": "",
+    "dashscope": {
+      "bottom_scale": "",
+      "enable_interleave": "",
+      "enable_interleave_tip": " 1–4 ",
+      "function": "",
+      "function_options": {
+        "colorization": "",
+        "control_cartoon_feature": "",
+        "description_edit": "",
+        "description_edit_with_mask": "",
+        "doodle": "",
+        "expand": "",
+        "remove_watermark": "",
+        "stylization_all": "",
+        "stylization_local": "",
+        "super_resolution": ""
+      },
+      "is_sketch": "",
+      "left_scale": "",
+      "ref_mode": "",
+      "ref_mode_options": {
+        "refonly": "",
+        "repaint": ""
+      },
+      "ref_strength": "",
+      "right_scale": "",
+      "source_lang": "",
+      "strength": "",
+      "target_lang": "",
+      "top_scale": "",
+      "upscale_factor": ""
+    },
+    "dmxapi": {
+      "max_images": "",
+      "sequential_image_generation": "",
+      "sequential_image_generation_options": {
+        "auto": "",
+        "disabled": ""
+      }
+    },
+    "edit": {
+      "image_required": ""
+    },
+    "generate": {
+      "height": "",
+      "width": ""
+    },
+    "generate_failed": "",
+    "generating": "",
+    "guidance_scale": "",
+    "guidance_scale_tip": " ({{min}}-{{max}})",
+    "image": {
+      "size": ""
+    },
+    "image_file_required": "",
+    "image_file_retry": "",
+    "image_handle_required": "",
+    "image_mix_failed": "",
+    "image_placeholder": "",
+    "image_size_options": {
+      "auto": ""
+    },
+    "image_weight": "",
+    "inference_steps": "",
+    "inference_steps_tip": " ({{min}}-{{max}})",
+    "input_image_limit_exceeded": "",
+    "magic_prompt_option": "",
+    "mode": {
+      "edit": "",
+      "generate": "",
+      "merge": "",
+      "remix": "",
+      "upscale": ""
+    },
+    "model": "",
+    "moderation": "",
+    "moderation_options": {
+      "auto": "",
+      "low": ""
+    },
+    "negative_prompt": "",
+    "negative_prompt_tip": "",
+    "number_images": "",
+    "number_images_tip": " ({{min}}-{{max}})",
+    "operation_failed": "",
+    "output_compression": "",
+    "person_generation": "",
+    "person_generation_options": {
+      "allow_adult": "",
+      "allow_all": "",
+      "allow_none": ""
+    },
+    "person_generation_tip": "",
+    "ppio": {
+      "output_format": ""
+    },
+    "prompt_enhancement": "",
+    "prompt_enhancement_tip": "",
+    "prompt_placeholder": "",
+    "prompt_placeholder_upload": "",
+    "prompt_placeholder_upload_required": "",
+    "prompt_required": "",
+    "proxy_required": "TUN ",
+    "quality": "",
+    "quality_options": {
+      "auto": "",
+      "hd": "",
+      "high": "",
+      "low": "",
+      "medium": "",
+      "standard": ""
+    },
+    "rendering_speed": "",
+    "rendering_speeds": {
+      "default": "",
+      "quality": "",
+      "turbo": ""
+    },
+    "req_error_model": "",
+    "req_error_no_balance": " Token ",
+    "req_error_token": " Token ",
+    "revealing": "",
+    "safety_tolerance": "",
+    "safety_tolerance_tip": " = 0 6 ",
+    "seed": "",
+    "seed_tip": "",
+    "select_model": "",
+    "showcase": {
+      "caption": "",
+      "styles_label": "",
+      "title": ""
+    },
+    "style_options": {
+      "anime": "",
+      "auto": "",
+      "cartoon_3d": "3D ",
+      "chinese_painting": "",
+      "flat_illustration": "",
+      "natural": "",
+      "oil_painting": "",
+      "photography": "",
+      "portrait": "",
+      "sketch": "",
+      "vivid": "",
+      "watercolor": ""
+    },
+    "style_type": "",
+    "style_type_options": {
+      "anime": "",
+      "auto": "",
+      "design": "",
+      "general": "",
+      "realistic": "",
+      "render_3d": "3D "
+    },
+    "style_type_tip": "",
+    "text_desc_required": "",
+    "thinking_mode": "",
+    "thinking_mode_tip": " 10–30 ",
+    "title": "",
+    "upscale": {
+      "detail": "",
+      "resemblance": ""
+    },
+    "watermark": "",
+    "zhipu": {
+      "custom_size_divisible": " 16 ",
+      "custom_size_pixels": " 2,097,152",
+      "custom_size_range": " 512  2048 ",
+      "custom_size_required": ""
+    }
+  },
+  "plugins": {
+    "manage_skills": "",
+    "skills": ""
+  },
+  "preview": {
+    "close": "",
+    "copy": {
+      "image": "",
+      "src": ""
+    },
+    "dialog": "",
+    "flip_horizontal": "",
+    "flip_vertical": "",
+    "label": "",
+    "next": "",
+    "pan_down": "",
+    "pan_left": "",
+    "pan_right": "",
+    "pan_up": "",
+    "previous": "",
+    "reset": "",
+    "rotate_left": "",
+    "rotate_right": "",
+    "save_as": "",
+    "source": "",
+    "zoom_in": "",
+    "zoom_out": ""
+  },
+  "privacy_policy": {
+    "load_failed": "",
+    "title": ""
+  },
+  "privacy_policy_update": {
+    "acknowledge_failed": "",
+    "description_before_link": "",
+    "policy": "",
+    "title": ""
+  },
+  "prompts": {
+    "explanation": "",
+    "summarize": "",
+    "title": " {{language}}  10 "
+  },
+  "provider": {
+    "302ai": "302.AI",
+    "ai-gateway": "Vercel AI Gateway",
+    "aihubmix": "AiHubMix",
+    "aionly": "AiOnly",
+    "alayanew": "Alaya NeW",
+    "anthropic": "Anthropic",
+    "aws-bedrock": "AWS Bedrock",
+    "azure-openai": "Azure OpenAI",
+    "baichuan": "Baichuan",
+    "baidu-cloud": "Baidu Cloud",
+    "burncloud": "BurnCloud",
+    "cerebras": "Cerebras AI",
+    "cherryai": "CherryAI",
+    "cherryin": "SuperAgent",
+    "claude-code": "Claude Code",
+    "copilot": "GitHub Copilot",
+    "dashscope": "Alibaba Cloud",
+    "deepseek": "DeepSeek",
+    "dmxapi": "DMXAPI",
+    "doc2x": "Doc2X",
+    "doubao": "Volcengine",
+    "fireworks": "Fireworks",
+    "gemini": "Gemini",
+    "gitee-ai": "Gitee AI",
+    "github": "GitHub Models",
+    "gpustack": "GPUStack",
+    "grok": "Grok",
+    "grok-cli": "Grok CLI",
+    "groq": "Groq",
+    "huggingface": "Hugging Face",
+    "hunyuan": "Tencent Hunyuan",
+    "hyperbolic": "Hyperbolic",
+    "infini": "Infini",
+    "jina": "Jina",
+    "lanyun": "LANYUN",
+    "lmstudio": "LM Studio",
+    "local-embedding": "",
+    "longcat": "LongCat AI",
+    "mimo": "Xiaomi MiMo",
+    "mineru": "MinerU",
+    "minimax": "MiniMax CN",
+    "minimax-global": "MiniMax",
+    "mistral": "Mistral",
+    "modelscope": "ModelScope",
+    "moonshot": "Moonshot",
+    "new-api": "New API",
+    "nvidia": "Nvidia",
+    "o3": "O3",
+    "ocoolai": "ocoolAI",
+    "ollama": "Ollama",
+    "open-mineru": "Open MinerU",
+    "openai": "OpenAI",
+    "openai-codex": "OpenAI Codex",
+    "opencode": "OpenCode Go",
+    "openrouter": "OpenRouter",
+    "ovms": "Intel OVMS",
+    "ovocr": "Intel OV(NPU) OCR",
+    "paddleocr": "PaddleOCR",
+    "perplexity": "Perplexity",
+    "ph8": "PH8",
+    "poe": "Poe",
+    "ppio": "PPIO",
+    "qiniu": "Qiniu AI",
+    "qwenlm": "QwenLM",
+    "radeon-cloud": "AMD GPU Cloud",
+    "silicon": "SiliconFlow",
+    "sophnet": "SophNet",
+    "stepfun": "StepFun",
+    "system": " OCR",
+    "tencent-cloud-ti": "Tencent Cloud TI",
+    "tesseract": "Tesseract",
+    "together": "Together",
+    "tokenhub": "TokenHub",
+    "vertexai": "Vertex AI",
+    "voyageai": "Voyage AI",
+    "xirang": "State Cloud Xirang",
+    "yi": "Yi",
+    "zai": "Z.ai",
+    "zhinao": "360AI",
+    "zhipu": "BigModel"
+  },
+  "quickAssistant": {
+    "clipboard": {
+      "empty": ""
+    },
+    "feature": {
+      "chat": "",
+      "explanation": "",
+      "summary": "",
+      "translate": ""
+    },
+    "footer": {
+      "backspace_clear": " Backspace ",
+      "copy_last_message": " C ",
+      "esc": " ESC {{action}}",
+      "esc_back": "",
+      "esc_close": "",
+      "esc_pause": ""
+    },
+    "input": {
+      "placeholder": {
+        "empty": " {{model}} ...",
+        "title": ""
+      }
+    },
+    "tooltip": {
+      "pin": ""
+    }
+  },
+  "restore": {
+    "confirm": {
+      "button": ""
+    },
+    "content": "",
+    "messages_paused": "",
+    "progress": {
+      "completed": "",
+      "copying_files": "... {{progress}}%",
+      "extracted": "",
+      "extracting": "...",
+      "preparing": "...",
+      "reading_data": "...",
+      "restoring_data": "...",
+      "restoring_database": "...",
+      "title": "",
+      "validating": "..."
+    },
+    "title": ""
+  },
+  "richEditor": {
+    "action": {
+      "table": {
+        "deleteColumn": "",
+        "deleteRow": "",
+        "insertColumnAfter": "",
+        "insertColumnBefore": "",
+        "insertRowAfter": "",
+        "insertRowBefore": ""
+      }
+    },
+    "backToTop": "",
+    "commands": {
+      "blockMath": {
+        "description": "",
+        "title": ""
+      },
+      "blockquote": {
+        "description": "",
+        "title": ""
+      },
+      "bold": {
+        "description": "",
+        "title": ""
+      },
+      "bulletList": {
+        "description": "",
+        "title": ""
+      },
+      "calloutInfo": {
+        "description": "",
+        "title": ""
+      },
+      "calloutWarning": {
+        "description": "",
+        "title": ""
+      },
+      "code": {
+        "description": "",
+        "title": ""
+      },
+      "codeBlock": {
+        "description": "",
+        "title": ""
+      },
+      "columns": {
+        "description": "",
+        "title": ""
+      },
+      "date": {
+        "description": "",
+        "title": ""
+      },
+      "divider": {
+        "description": "",
+        "title": ""
+      },
+      "hardBreak": {
+        "description": "",
+        "title": ""
+      },
+      "heading1": {
+        "description": "",
+        "title": ""
+      },
+      "heading2": {
+        "description": "",
+        "title": ""
+      },
+      "heading3": {
+        "description": "",
+        "title": ""
+      },
+      "heading4": {
+        "description": "",
+        "title": ""
+      },
+      "heading5": {
+        "description": "",
+        "title": ""
+      },
+      "heading6": {
+        "description": "",
+        "title": ""
+      },
+      "image": {
+        "description": "",
+        "title": ""
+      },
+      "inlineCode": {
+        "description": "",
+        "title": ""
+      },
+      "inlineMath": {
+        "description": "",
+        "title": ""
+      },
+      "italic": {
+        "description": "",
+        "title": ""
+      },
+      "link": {
+        "description": "",
+        "title": ""
+      },
+      "noCommandsFound": "",
+      "orderedList": {
+        "description": "",
+        "title": ""
+      },
+      "paragraph": {
+        "description": "",
+        "title": ""
+      },
+      "redo": {
+        "description": "",
+        "title": ""
+      },
+      "strike": {
+        "description": "",
+        "title": ""
+      },
+      "table": {
+        "description": "",
+        "title": ""
+      },
+      "taskList": {
+        "description": "",
+        "title": ""
+      },
+      "underline": {
+        "description": "",
+        "title": ""
+      },
+      "undo": {
+        "description": "",
+        "title": ""
+      }
+    },
+    "dragHandle": "",
+    "frontMatter": {
+      "addProperty": "",
+      "addTag": "",
+      "changeToBoolean": "",
+      "changeToDate": "",
+      "changeToNumber": "",
+      "changeToTags": "",
+      "changeToText": "",
+      "changeType": "",
+      "deleteProperty": "",
+      "editValue": "",
+      "empty": "",
+      "moreActions": "",
+      "propertyName": ""
+    },
+    "image": {
+      "placeholder": ""
+    },
+    "imageUploader": {
+      "embedImage": "",
+      "embedLink": "",
+      "embedSuccess": "",
+      "invalidType": "",
+      "invalidUrl": "",
+      "processing": "...",
+      "title": "",
+      "tooLarge": " 10MB",
+      "upload": "",
+      "uploadError": "",
+      "uploadHint": " JPGPNGGIF  10MB",
+      "uploadSuccess": "",
+      "uploadText": "",
+      "uploading": "",
+      "urlPlaceholder": "",
+      "urlRequired": ""
+    },
+    "link": {
+      "remove": "",
+      "text": "",
+      "textPlaceholder": "",
+      "url": ""
+    },
+    "math": {
+      "placeholder": " LaTeX "
+    },
+    "placeholder": "'/'",
+    "plusButton": "",
+    "toolbar": {
+      "blockMath": "",
+      "blockquote": "",
+      "bold": "",
+      "bulletList": "",
+      "clearMarks": "",
+      "code": "",
+      "codeBlock": "",
+      "heading1": "",
+      "heading2": "",
+      "heading3": "",
+      "heading4": "",
+      "heading5": "",
+      "heading6": "",
+      "image": "",
+      "inlineMath": "",
+      "italic": "",
+      "link": "",
+      "orderedList": "",
+      "paragraph": "",
+      "redo": "",
+      "strike": "",
+      "table": "",
+      "taskList": "",
+      "underline": "",
+      "undo": ""
+    }
+  },
+  "screenshot": {
+    "action": {
+      "cancel": "",
+      "confirm": "",
+      "redo": "",
+      "save": "",
+      "undo": ""
+    },
+    "magnifier": {
+      "copied": "",
+      "hint_color_mode": "Shift",
+      "hint_copy": "C",
+      "hint_move": "↑↓←→"
+    },
+    "ocr": {
+      "copy": "",
+      "disabled_while_annotating": "",
+      "failed": "",
+      "recognize": "",
+      "recognizing": "…",
+      "unavailable": " OCR "
+    },
+    "property": {
+      "color": {
+        "black": "",
+        "blue": "",
+        "gray": "",
+        "green": "",
+        "red": "",
+        "white": "",
+        "yellow": ""
+      },
+      "font_size": " {{value}}",
+      "stroke_width": " {{value}}"
+    },
+    "tool": {
+      "arrow": "",
+      "brush": "",
+      "mosaic": "",
+      "rectangle": "",
+      "text": ""
+    }
+  },
+  "selection": {
+    "action": {
+      "builtin": {
+        "copy": "",
+        "explain": "",
+        "quote": "",
+        "refine": "",
+        "search": "",
+        "summary": "",
+        "translate": ""
+      },
+      "prompt": {
+        "explain": " {{language}} \n\n",
+        "refine": " INPUT XML  XML \n\n<INPUT>{{text}}</INPUT>",
+        "summary": " {{language}} \n\n"
+      },
+      "translate": {
+        "smart_translate_tips": ""
+      },
+      "window": {
+        "c_copy": "C ",
+        "esc_close": "Esc ",
+        "esc_stop": "Esc ",
+        "opacity": "",
+        "original_copy": "",
+        "original_hide": "",
+        "original_show": "",
+        "pin": "",
+        "pinned": "",
+        "r_regenerate": "R "
+      }
+    },
+    "name": "",
+    "settings": {
+      "actions": {
+        "add_tooltip": {
+          "disabled": " ({{max}} )",
+          "enabled": ""
+        },
+        "custom": "",
+        "delete_confirm": "",
+        "drag_hint": " ({{enabled}}/{{max}})",
+        "reset": {
+          "button": "",
+          "confirm": "",
+          "tooltip": ""
+        },
+        "title": ""
+      },
+      "advanced": {
+        "filter_list": {
+          "description": "",
+          "title": ""
+        },
+        "filter_mode": {
+          "blacklist": "",
+          "default": "",
+          "description": "",
+          "title": "",
+          "whitelist": ""
+        },
+        "title": ""
+      },
+      "enable": {
+        "description": " Windows & macOS",
+        "mac_process_trust_hint": {
+          "button": {
+            "go_to_settings": "",
+            "open_accessibility_settings": ""
+          },
+          "description": {
+            "0": "<strong></strong>",
+            "1": "<strong></strong><strong></strong><strong>SuperAgent</strong>",
+            "2": ""
+          },
+          "title": ""
+        },
+        "title": ""
+      },
+      "filter_modal": {
+        "title": "",
+        "user_tips": {
+          "mac": " Bundle IDcom.google.Chromecom.apple.mail ",
+          "windows": "chrome.exeweixin.exeSuperAgent.exe "
+        }
+      },
+      "linux": {
+        "compositor_incompatible": " X11 ",
+        "filter_warning_text": "Wayland ",
+        "input_group_fail": " `sudo usermod -aG input $USER` ",
+        "input_group_label": "input ",
+        "input_group_pass": "",
+        "wayland_checklist_subtitle": " Wayland ",
+        "wayland_description": " Wayland  X11 ",
+        "wayland_title": "Wayland ",
+        "xwayland_fail": " `--ozone-platform=x11`  SuperAgent",
+        "xwayland_label": "XWayland ",
+        "xwayland_pass": ""
+      },
+      "search_modal": {
+        "custom": {
+          "name": {
+            "hint": "",
+            "label": "",
+            "max_length": " 16 "
+          },
+          "test": "",
+          "url": {
+            "invalid_format": " http://  https://  URL",
+            "label": " URL",
+            "missing_placeholder": "URL  {{queryString}} ",
+            "required": " URL"
+          }
+        },
+        "engine": {
+          "custom": "",
+          "label": ""
+        },
+        "title": ""
+      },
+      "toolbar": {
+        "compact_mode": {
+          "description": "",
+          "title": ""
+        },
+        "title": "",
+        "trigger_mode": {
+          "ctrlkey": "Ctrl ",
+          "ctrlkey_note": "  Ctrl ",
+          "description": "",
+          "description_note": {
+            "linux": " xmodmap  xremap ",
+            "mac": " ⌘ ",
+            "windows": " Ctrl  AHK  Ctrl "
+          },
+          "selected": "",
+          "selected_note": "",
+          "shortcut": "",
+          "shortcut_link": "",
+          "shortcut_note": "",
+          "title": ""
+        }
+      },
+      "user_modal": {
+        "assistant": {
+          "default": "",
+          "label": ""
+        },
+        "icon": {
+          "error": "",
+          "label": "",
+          "placeholder": "",
+          "random": "",
+          "tooltip": "Lucide  arrow-right",
+          "view_all": ""
+        },
+        "model": {
+          "assistant": "",
+          "default": "",
+          "label": "",
+          "tooltip": ""
+        },
+        "name": {
+          "hint": "",
+          "label": ""
+        },
+        "prompt": {
+          "copy_placeholder": "",
+          "label": " (Prompt)",
+          "placeholder": " {{text}} ",
+          "placeholder_text": "",
+          "tooltip": ""
+        },
+        "title": {
+          "add": "",
+          "edit": ""
+        }
+      },
+      "window": {
+        "auto_close": {
+          "description": "",
+          "title": ""
+        },
+        "auto_pin": {
+          "description": "",
+          "title": ""
+        },
+        "follow_toolbar": {
+          "description": "",
+          "title": ""
+        },
+        "opacity": {
+          "description": "100% ",
+          "title": ""
+        },
+        "remember_size": {
+          "description": "",
+          "title": ""
+        },
+        "title": ""
+      }
+    }
+  },
+  "selector": {
+    "agent": {
+      "create_new": " Agent",
+      "empty_text": " Agent",
+      "search_placeholder": " Agent…"
+    },
+    "assistant": {
+      "create_new": "",
+      "create_tag": "",
+      "empty_text": "",
+      "filter": "",
+      "group_filter": "",
+      "multi_hint": "",
+      "multi_label": "",
+      "search_placeholder": "…"
+    },
+    "common": {
+      "edit": "",
+      "pin": "",
+      "pinned_title": "",
+      "sort": {
+        "asc": "",
+        "desc": ""
+      },
+      "sort_label": "",
+      "unpin": ""
+    },
+    "create_dialog": {
+      "refresh_failed": ""
+    },
+    "edit_dialog": {
+      "refresh_failed": ""
+    }
+  },
+  "settings": {
+    "about": {
+      "careers": {
+        "button": "",
+        "title": ""
+      },
+      "checkUpdate": {
+        "available": "",
+        "label": ""
+      },
+      "contact": {
+        "button": "",
+        "title": ""
+      },
+      "debug": {
+        "open": "",
+        "title": ""
+      },
+      "description": " AI ",
+      "diagnostics": {
+        "actions": {
+          "cancel": "",
+          "close": "",
+          "contact": "",
+          "copy_email": "",
+          "export": "",
+          "exporting": "…",
+          "reveal": ""
+        },
+        "dialog": {
+          "description": " ZIP ",
+          "title": ""
+        },
+        "entry": {
+          "button": "",
+          "title": ""
+        },
+        "errors": {
+          "busy": "",
+          "copy_failed": "",
+          "destination_conflict": "",
+          "email_client_failed": "",
+          "export_failed": "",
+          "inspect_failed": "",
+          "reveal_failed": ""
+        },
+        "inspecting": "…",
+        "limit": " ZIP  {{size}}",
+        "mail": {
+          "body": " SuperAgent \n\n ID{{bundleId}}\n{{version}}\n{{platform}}\n{{range}}\n{{fileName}}\n\n ZIP ",
+          "subject": "SuperAgent  {{bundleId}}"
+        },
+        "privacy": {
+          "consent": " ZIP ",
+          "description": "SuperAgent  ZIP  GitHub ",
+          "title": ""
+        },
+        "range_title": "",
+        "ranges": {
+          "24h": " 24 ",
+          "3d": " 3 ",
+          "7d": " 7 "
+        },
+        "sources": {
+          "inspecting": "…",
+          "logs": {
+            "title": ""
+          },
+          "summary": "{{count}}  {{size}}",
+          "summary_one": "{{count}}  {{size}}",
+          "summary_other": "{{count}}  {{size}}",
+          "system": {
+            "description": " {{crashCount}} ",
+            "title": ""
+          },
+          "traces": {
+            "title": ""
+          },
+          "unavailable": ""
+        },
+        "success": {
+          "email_copied": "",
+          "local_only": " ZIP ",
+          "summary": " {{size}} ·  {{included}}  ·  {{omitted}} ",
+          "title": ""
+        },
+        "unknown": "",
+        "upload": {
+          "actions": {
+            "consent_upload": "",
+            "open_form": "",
+            "uploading": "..."
+          },
+          "dialog": {
+            "description": " SuperAgent ",
+            "title": ""
+          },
+          "errors": {
+            "open_form_failed": "",
+            "upload_failed": ""
+          },
+          "manual": {
+            "description": "ZIP ",
+            "title": ""
+          },
+          "privacy": {
+            "description": " {{size}}",
+            "title": ""
+          },
+          "reasons": {
+            "attachment_upload_failed": "",
+            "form_changed": "",
+            "form_unavailable": "",
+            "network_failed": "",
+            "submission_rejected": ""
+          },
+          "success": {
+            "description": " {{size}} ·  {{included}}  ·  {{omitted}} ",
+            "title": ""
+          },
+          "unknown": {
+            "description": "ZIP ",
+            "title": ""
+          },
+          "unknown_without_copy": {
+            "description": "",
+            "title": ""
+          }
+        },
+        "warning": ""
+      },
+      "downloading": "...",
+      "enterprise": {
+        "title": ""
+      },
+      "feedback": {
+        "agent": {
+          "description": " Agent  SuperAgent ",
+          "title": ""
+        },
+        "agent_error": "",
+        "button": "",
+        "diagnostics": {
+          "description": "",
+          "title": ""
+        },
+        "dialog": {
+          "description": " SuperAgent ",
+          "title": ""
+        },
+        "github": {
+          "description": " GitHub ",
+          "error": " GitHub Issue",
+          "title": "GitHub "
+        },
+        "recommended": "",
+        "title": ""
+      },
+      "label": "",
+      "releases": {
+        "button": "",
+        "title": ""
+      },
+      "repository": "GitHub ",
+      "title": "",
+      "updateAvailable": " {{version}}",
+      "updateError": "",
+      "updateNotAvailable": "",
+      "website": {
+        "button": "",
+        "title": ""
+      }
+    },
+    "agent": {
+      "position": {
+        "label": "",
+        "left": "",
+        "right": ""
+      }
+    },
+    "appearance": {
+      "title": ""
+    },
+    "assistant": {
+      "icon": {
+        "type": {
+          "emoji": "Emoji ",
+          "model": "",
+          "none": ""
+        }
+      }
+    },
+    "channels": {
+      "title": ""
+    },
+    "data": {
+      "app_data": {
+        "copy_data_option": "",
+        "copy_time_notice": "",
+        "label": "",
+        "migration_title": "",
+        "new_path": "",
+        "open": "",
+        "original_path": "",
+        "path_change_failed": "",
+        "restart_notice": "",
+        "select": "",
+        "select_error": " SuperAgent  SingletonLock  SingletonSocket ",
+        "select_error_protected_path": " SuperAgent ",
+        "select_error_root_path": "",
+        "select_error_same_path": "",
+        "select_error_write_permission": "",
+        "select_not_empty_dir": "",
+        "select_title": "",
+        "switch_existing_notice": ""
+      },
+      "app_logs": {
+        "button": "",
+        "label": ""
+      },
+      "backup": {
+        "skip_file_data_help": "",
+        "skip_file_data_title": ""
+      },
+      "clear_cache": {
+        "approximately": " {{size}}",
+        "button": "",
+        "calculating": "…",
+        "error": "",
+        "legacy_warning": {
+          "confirm": "",
+          "description": " v1 ",
+          "message": "v1 ",
+          "title": " v1 "
+        },
+        "options": {
+          "legacy_v1": {
+            "description": "v1 ",
+            "title": "v1 "
+          },
+          "normal_cache": {
+            "description": "",
+            "title": ""
+          },
+          "orphaned_data": {
+            "description": "",
+            "title": ""
+          },
+          "site_data": {
+            "description": " Cookie ",
+            "title": ""
+          }
+        },
+        "partial_success": "",
+        "selected_total": "",
+        "success": "",
+        "title": "",
+        "total_partial": " {{size}}",
+        "unavailable": "",
+        "waiting_for_legacy_database": " SuperAgent "
+      },
+      "data": {
+        "title": ""
+      },
+      "data_reset": {
+        "button": "",
+        "confirm_content": "",
+        "confirm_title": "",
+        "error": "",
+        "title": ""
+      },
+      "divider": {
+        "cloud_storage": "",
+        "export_settings": "",
+        "import_settings": "",
+        "note_export": ""
+      },
+      "export_menu": {
+        "categories": {
+          "apps": "",
+          "copy": "",
+          "file": ""
+        },
+        "docx": " Word",
+        "image": "",
+        "joplin": " Joplin",
+        "markdown": " Markdown",
+        "markdown_reason": " Markdown",
+        "notion": " Notion",
+        "obsidian": " Obsidian",
+        "plain_text": "",
+        "siyuan": "",
+        "title": "",
+        "yuque": ""
+      },
+      "import_settings": {
+        "button": " JSON ",
+        "chatgpt": " ChatGPT ",
+        "claude": " Claude ",
+        "title": ""
+      },
+      "joplin": {
+        "check": {
+          "button": "",
+          "empty_token": " Joplin  Token",
+          "empty_url": " Joplin  URL",
+          "fail": "Joplin ",
+          "success": "Joplin "
+        },
+        "export_reasoning": {
+          "help": "",
+          "title": ""
+        },
+        "help": " Joplin  Token",
+        "title": "Joplin ",
+        "token": "Joplin  Token",
+        "token_placeholder": " Joplin  Token",
+        "url": "Joplin  URL",
+        "url_placeholder": "http://127.0.0.1:41184/"
+      },
+      "limit": {
+        "appDataDiskQuota": "",
+        "appDataDiskQuotaDescription": ""
+      },
+      "local": {
+        "autoSync": {
+          "label": "",
+          "off": ""
+        },
+        "backup": {
+          "button": "",
+          "manager": {
+            "columns": {
+              "actions": "",
+              "fileName": "",
+              "modifiedTime": "",
+              "size": ""
+            },
+            "delete": {
+              "confirm": {
+                "multiple": " {{count}} ",
+                "single": " \"{{fileName}}\" ",
+                "title": ""
+              },
+              "error": "",
+              "selected": "",
+              "success": {
+                "multiple": " {{count}} ",
+                "single": ""
+              },
+              "text": ""
+            },
+            "fetch": {
+              "error": ""
+            },
+            "refresh": "",
+            "restore": {
+              "error": "",
+              "success": "",
+              "text": ""
+            },
+            "select": {
+              "files": {
+                "delete": ""
+              }
+            },
+            "title": ""
+          },
+          "modal": {
+            "filename": {
+              "placeholder": ""
+            },
+            "title": ""
+          }
+        },
+        "directory": {
+          "label": "",
+          "placeholder": "",
+          "select_error_app_data_path": "",
+          "select_error_in_app_install_path": "",
+          "select_error_write_permission": "",
+          "select_title": ""
+        },
+        "hour_interval_one": "{{count}} ",
+        "hour_interval_other": "{{count}} ",
+        "lastSync": "",
+        "maxBackups": {
+          "label": "",
+          "unlimited": ""
+        },
+        "minute_interval_one": "{{count}} ",
+        "minute_interval_other": "{{count}} ",
+        "noSync": "",
+        "restore": {
+          "button": "",
+          "confirm": {
+            "content": "",
+            "title": ""
+          }
+        },
+        "syncError": "",
+        "syncStatus": "",
+        "title": ""
+      },
+      "markdown_export": {
+        "exclude_citations": {
+          "help": " Markdown ",
+          "title": ""
+        },
+        "force_dollar_math": {
+          "help": " Markdown  $$  LaTeX  Markdown  Notion",
+          "title": "LaTeX  $$"
+        },
+        "help": "",
+        "path": "",
+        "path_placeholder": "",
+        "select": "",
+        "show_model_name": {
+          "help": " Markdown  Markdown  Notion",
+          "title": ""
+        },
+        "show_model_provider": {
+          "help": " Markdown  OpenAIGemini ",
+          "title": ""
+        },
+        "standardize_citations": {
+          "help": " Markdown  [^1]",
+          "title": ""
+        },
+        "title": "Markdown "
+      },
+      "message_title": {
+        "use_topic_naming": {
+          "help": " Markdown ",
+          "title": ""
+        }
+      },
+      "notion": {
+        "api_key": "Notion ",
+        "api_key_placeholder": " Notion ",
+        "check": {
+          "button": "",
+          "empty_api_key": " API key",
+          "empty_database_id": " Database ID",
+          "error": " API key  Database ID ",
+          "fail": " API key  Database ID ",
+          "success": ""
+        },
+        "database_id": "Notion  ID",
+        "database_id_placeholder": " Notion  ID",
+        "export_reasoning": {
+          "help": " Notion ",
+          "title": ""
+        },
+        "help": "Notion ",
+        "page_name_key": "",
+        "page_name_key_placeholder": " Name",
+        "title": "Notion "
+      },
+      "nutstore": {
+        "backup": {
+          "button": "",
+          "modal": {
+            "filename": {
+              "placeholder": ""
+            },
+            "title": ""
+          }
+        },
+        "checkConnection": {
+          "fail": "",
+          "name": "",
+          "success": ""
+        },
+        "isLogin": "",
+        "login": {
+          "button": ""
+        },
+        "logout": {
+          "button": "",
+          "content": "",
+          "title": ""
+        },
+        "new_folder": {
+          "button": {
+            "cancel": "",
+            "confirm": "",
+            "label": ""
+          }
+        },
+        "notLogin": "",
+        "path": {
+          "label": "",
+          "placeholder": ""
+        },
+        "pathSelector": {
+          "currentPath": "",
+          "fetchError": " Nutstore ",
+          "return": "",
+          "title": ""
+        },
+        "restore": {
+          "button": "",
+          "confirm": {
+            "content": "",
+            "title": ""
+          }
+        },
+        "title": "",
+        "username": ""
+      },
+      "obsidian": {
+        "default_vault": " Obsidian ",
+        "default_vault_fetch_error": " Obsidian ",
+        "default_vault_no_vaults": " Obsidian ",
+        "default_vault_placeholder": " Obsidian ",
+        "title": "Obsidian "
+      },
+      "s3": {
+        "accessKeyId": {
+          "label": "Access Key ID",
+          "placeholder": "Access Key ID"
+        },
+        "autoSync": {
+          "hour": " {{count}} ",
+          "label": "",
+          "minute": " {{count}} ",
+          "off": ""
+        },
+        "backup": {
+          "button": "",
+          "manager": {
+            "button": ""
+          },
+          "modal": {
+            "filename": {
+              "placeholder": ""
+            },
+            "title": "S3 "
+          },
+          "operation": ""
+        },
+        "bucket": {
+          "label": "",
+          "placeholder": "Bucketexample"
+        },
+        "endpoint": {
+          "label": "API ",
+          "placeholder": "https://s3.example.com"
+        },
+        "manager": {
+          "columns": {
+            "actions": "",
+            "fileName": "",
+            "modifiedTime": "",
+            "size": ""
+          },
+          "config": {
+            "incomplete": " S3 "
+          },
+          "delete": {
+            "confirm": {
+              "multiple": " {{count}} ",
+              "single": " \"{{fileName}}\" ",
+              "title": ""
+            },
+            "error": "{{message}}",
+            "label": "",
+            "selected": " ({{count}})",
+            "success": {
+              "multiple": " {{count}} ",
+              "single": ""
+            }
+          },
+          "files": {
+            "fetch": {
+              "error": "{{message}}"
+            }
+          },
+          "refresh": "",
+          "restore": "",
+          "select": {
+            "warning": ""
+          },
+          "title": "S3 "
+        },
+        "maxBackups": {
+          "label": "",
+          "unlimited": ""
+        },
+        "region": {
+          "label": "",
+          "placeholder": "Regionus-east-1"
+        },
+        "restore": {
+          "config": {
+            "incomplete": " S3 "
+          },
+          "confirm": {
+            "cancel": "",
+            "content": "",
+            "ok": "",
+            "title": ""
+          },
+          "file": {
+            "required": ""
+          },
+          "modal": {
+            "select": {
+              "placeholder": ""
+            },
+            "title": "S3 "
+          },
+          "success": ""
+        },
+        "root": {
+          "label": "",
+          "placeholder": "/superagent"
+        },
+        "secretAccessKey": {
+          "label": "Secret Access Key",
+          "placeholder": "Secret Access Key"
+        },
+        "skipBackupFile": {
+          "help": "",
+          "label": ""
+        },
+        "syncStatus": {
+          "error": "{{message}}",
+          "label": "",
+          "lastSync": "{{time}}",
+          "noSync": ""
+        },
+        "title": {
+          "help": " AWS S3 API  AWS S3Cloudflare R2 OSS COS ",
+          "label": "S3 ",
+          "tooltip": "S3 "
+        }
+      },
+      "siyuan": {
+        "api_url": " API URL",
+        "api_url_placeholder": "http://127.0.0.1:6806",
+        "box_id": " ID",
+        "box_id_placeholder": " ID",
+        "check": {
+          "button": "",
+          "empty_config": " API  Token",
+          "error": "",
+          "fail": " API  Token",
+          "success": ""
+        },
+        "root_path": "",
+        "root_path_placeholder": "/SuperAgent",
+        "title": "",
+        "token": {
+          "help": " →  → ",
+          "label": " Token"
+        },
+        "token_placeholder": " Token"
+      },
+      "title": "",
+      "v1_remigration": {
+        "acknowledgement": "",
+        "back": "",
+        "backup_acknowledgement": "",
+        "backup_button": "",
+        "backup_message": " v2 ",
+        "button": "",
+        "confirm": "",
+        "confirm_countdown": "{{seconds}} ",
+        "dialog_title": " v1 ",
+        "error": " v1 ",
+        "final_confirmation": " v2  v1 ",
+        "final_message": " v2 ",
+        "final_retained": " v1 ",
+        "next": "",
+        "title": " v1 "
+      },
+      "webdav": {
+        "autoSync": {
+          "label": "",
+          "off": ""
+        },
+        "backup": {
+          "button": " WebDAV",
+          "manager": {
+            "columns": {
+              "actions": "",
+              "fileName": "",
+              "modifiedTime": "",
+              "size": ""
+            },
+            "delete": {
+              "confirm": {
+                "multiple": " {{count}} ",
+                "single": " \"{{fileName}}\" ",
+                "title": ""
+              },
+              "error": "",
+              "selected": "",
+              "success": {
+                "multiple": " {{count}} ",
+                "single": ""
+              },
+              "text": ""
+            },
+            "fetch": {
+              "error": ""
+            },
+            "refresh": "",
+            "restore": {
+              "error": "",
+              "success": "",
+              "text": ""
+            },
+            "select": {
+              "files": {
+                "delete": ""
+              }
+            },
+            "title": ""
+          },
+          "modal": {
+            "filename": {
+              "placeholder": ""
+            },
+            "title": " WebDAV"
+          }
+        },
+        "disableStream": {
+          "help": " WebDAV  chunked ",
+          "title": ""
+        },
+        "host": {
+          "label": "WebDAV ",
+          "placeholder": "http://localhost:8080"
+        },
+        "hour_interval_one": "{{count}} ",
+        "hour_interval_other": "{{count}} ",
+        "lastSync": "",
+        "maxBackups": "",
+        "minute_interval_one": "{{count}} ",
+        "minute_interval_other": "{{count}} ",
+        "noSync": "",
+        "password": "WebDAV ",
+        "path": {
+          "label": "WebDAV ",
+          "placeholder": "/backup"
+        },
+        "restore": {
+          "button": " WebDAV ",
+          "confirm": {
+            "content": " WebDAV ",
+            "title": ""
+          }
+        },
+        "syncError": "",
+        "syncStatus": "",
+        "title": "WebDAV",
+        "user": "WebDAV "
+      },
+      "yuque": {
+        "check": {
+          "button": "",
+          "empty_repo_url": " URL",
+          "empty_token": " Token",
+          "fail": "",
+          "success": ""
+        },
+        "help": " Token",
+        "repo_url": " URL",
+        "repo_url_placeholder": "https://www.yuque.com/username/xxx",
+        "title": "",
+        "token": " Token",
+        "token_placeholder": " Token"
+      }
+    },
+    "dependencies": {
+      "addTool": "",
+      "addToolDescription": " mise  github:sharkdp/fduvbun",
+      "checkUpdates": "",
+      "description": "",
+      "duplicateName": "",
+      "fieldVersion": "",
+      "installError": "",
+      "installErrorHint": "",
+      "installSettings": {
+        "description": " CLI ",
+        "githubMirror": {
+          "help": "GitHub Release  https://ghfast.topGitHub API  Token",
+          "label": "GitHub ",
+          "placeholder": "https://ghfast.top"
+        },
+        "githubToken": {
+          "help": " GitHub API  CHERRY_GITHUB_TOKEN ",
+          "hide": " Token",
+          "label": "GitHub Token",
+          "placeholder": "ghp_…",
+          "show": " Token"
+        },
+        "invalidUrl": " https://  URL",
+        "npmRegistry": {
+          "help": "npm: ",
+          "label": "npm ",
+          "placeholder": ""
+        },
+        "pipIndexUrl": {
+          "help": "pipx: ",
+          "label": "pip ",
+          "placeholder": ""
+        },
+        "presetLabels": {
+          "aliyun": "",
+          "default": "",
+          "ghfast": "ghfast.top",
+          "ghproxy": "ghproxy.net",
+          "npmOfficial": "npmjs",
+          "npmmirror": "npmmirror",
+          "pypiOfficial": "PyPI",
+          "tsinghua": ""
+        },
+        "presets": "",
+        "title": "",
+        "verifySignatures": {
+          "help": " aqua  Sigstore/SLSA ——",
+          "label": ""
+        }
+      },
+      "installing": "...",
+      "installingHint": "",
+      "invalidTool": "",
+      "localModels": {
+        "acceleration": {
+          "description": " DirectML  CoreML  OCR ",
+          "label": ""
+        },
+        "cancel": "",
+        "description": " API Key",
+        "download": "",
+        "embedding": {
+          "name": "",
+          "subtitle": "Qwen3 Embedding 0.6B ·  614 MB"
+        },
+        "notice": {
+          "downloadFailed": "",
+          "inUse": "",
+          "incompleteCache": "",
+          "removeFailed": ""
+        },
+        "ocr": {
+          "name": " OCR ",
+          "subtitle": "PaddleOCR PP-OCRv6 ·  140 MB"
+        },
+        "remove": "",
+        "status": {
+          "downloading": "…",
+          "ready": ""
+        },
+        "title": "",
+        "unsupported": ""
+      },
+      "openBinariesDir": "",
+      "remove": "",
+      "removeConfirmMessage": " SuperAgent {{name}} mise Cherry ",
+      "removeConfirmTitle": "",
+      "removeDefinitionOnlyConfirmMessage": "Cherry {{name}}{{details}} ",
+      "removeDefinitionOnlyConfirmTitle": "",
+      "removeDefinitionOnlyDependents": "{{dependents}}",
+      "removeError": "",
+      "removeErrorHint": "",
+      "removeRuntimeConfirmMessage": " SuperAgent {{name}}Cherry  mise  npm  pip ",
+      "runtimeDependency": "",
+      "runtimeDependencyHint": "npm/pip ",
+      "searchFailed": "",
+      "searchRegistry": " mise ...",
+      "source": {
+        "bundled": "",
+        "system": ""
+      },
+      "title": "",
+      "tools": {
+        "bun": "MCP  JavaScript ",
+        "claude": "Anthropic  Agent ",
+        "codex": "OpenAI  Agent",
+        "fd": "find ",
+        "gh": "GitHub CLI",
+        "hermes": "Nous Research  AI  Agent",
+        "lark-cli": " CLI 200+  AI Agent ",
+        "ntn": "Notion  CLIWorkers  Notion API",
+        "openclaw": " AI ",
+        "opencode": " AI  Agent 75+  GitHub Actions ",
+        "pi": "AI Agent  Agent CLI LLM APITUI/Web UI  Slack ",
+        "rg": "ripgrepgrep ",
+        "rtk": "CLI  LLM Token ",
+        "uv": " MCP  Python "
+      },
+      "uninstall": "",
+      "uninstallConfirmMessage": "{{name}}SuperAgent ",
+      "uninstallConfirmTitle": "",
+      "uninstallFailed": "",
+      "uninstallSuccess": "",
+      "update": "",
+      "updateCheckFailed": "",
+      "updateCheckSuccess": "",
+      "viewErrorDetails": ""
+    },
+    "developer": {
+      "client_id": " ID",
+      "enable_developer_mode": "",
+      "help": "",
+      "title": ""
+    },
+    "display": {
+      "custom": {
+        "css": {
+          "label": " CSS",
+          "migration_notice": " v1  v2",
+          "placeholder": "/*  CSS */"
+        }
+      },
+      "font": {
+        "code": "",
+        "default": "",
+        "global": "",
+        "select": "",
+        "title": ""
+      }
+    },
+    "font_size": {
+      "title": ""
+    },
+    "general": {
+      "auto_check_update": {
+        "title": ""
+      },
+      "avatar": {
+        "builtin": "",
+        "reset": ""
+      },
+      "backup": {
+        "button": "",
+        "title": ""
+      },
+      "common": {
+        "menu": {
+          "presentation_mode": {
+            "cherry": "",
+            "native": "",
+            "restart": {
+              "content": "",
+              "title": ""
+            },
+            "title": ""
+          }
+        },
+        "sections": {
+          "display_language": ""
+        }
+      },
+      "emoji_picker": "",
+      "image_upload": "",
+      "label": "",
+      "restore": {
+        "button": ""
+      },
+      "spell_check": {
+        "label": "",
+        "languages": ""
+      },
+      "test_plan": {
+        "beta_version": " (Beta)",
+        "beta_version_tooltip": "",
+        "rc_version": " (RC)",
+        "rc_version_tooltip": "",
+        "title": "",
+        "tooltip": "",
+        "version_channel_not_match": ""
+      },
+      "title": "",
+      "user_name": {
+        "label": "",
+        "placeholder": ""
+      }
+    },
+    "hardware_acceleration": {
+      "confirm": {
+        "content_disable": "",
+        "content_enable": "",
+        "title": ""
+      },
+      "title": ""
+    },
+    "input": {
+      "auto_translate_with_space": " 3 ",
+      "show_translate_confirm": "",
+      "target_language": {
+        "label": ""
+      }
+    },
+    "launch": {
+      "onboot": "",
+      "title": "",
+      "totray": ""
+    },
+    "math": {
+      "engine": {
+        "label": ""
+      },
+      "single_dollar": {
+        "label": " $...$",
+        "tip": " $...$ "
+      },
+      "title": ""
+    },
+    "mcp": {
+      "addError": "",
+      "addServer": {
+        "advanced": "",
+        "create": "",
+        "createDescription": "",
+        "importFrom": {
+          "connectionFailed": "",
+          "dxt": " DXT ",
+          "dxtFile": "DXT ",
+          "dxtHelp": " MCP  .dxt ",
+          "dxtProcessFailed": " DXT ",
+          "invalid": " JSON ",
+          "json": " JSON ",
+          "mcpb": " MCPB ",
+          "mcpbFile": "MCPB ",
+          "mcpbHelp": " MCP  .mcpb ",
+          "mcpbProcessFailed": " MCPB ",
+          "nameExists": "{{name}}",
+          "noDxtFile": " DXT ",
+          "noMcpbFile": " MCPB ",
+          "placeholder": " MCP  JSON ",
+          "selectDxtFile": " DXT ",
+          "selectMcpbFile": " MCPB ",
+          "tooltip": " MCP  JSON NPX  UVX \n"
+        }
+      },
+      "addSuccess": "",
+      "allServers": "MCP ",
+      "args": "",
+      "argsTooltip": "",
+      "baseUrlTooltip": " URL ",
+      "builtinServers": "",
+      "builtinServersDescriptions": {
+        "brave_search": " Brave  API  MCP  BRAVE_API_KEY ",
+        "browser": " Chrome DevTools Protocol  headless Electron  URL JS",
+        "didi_mcp": " MCP  DIDI_API_KEY ",
+        "dify_knowledge": "Dify  MCP  API  Dify  Dify Key",
+        "fetch": " URL  MCP ",
+        "filesystem": " MCPModel Context ProtocolNode.js ",
+        "flomo": " flomo  AI  flomo ",
+        "mcp_auto_install": " MCP ",
+        "memory": " MEMORY_FILE_PATH ",
+        "no": "",
+        "nowledge_mem": " Nowledge Mem  AI Agent  https://mem.nowledge.co/ ",
+        "python": " Python  Pyodide  Python",
+        "qveris": " QVeris AI  QVERIS_API_KEY ",
+        "sequentialthinking": " MCP "
+      },
+      "command": "",
+      "copyLogs": "",
+      "customRegistryPlaceholder": "https://npm.company.com",
+      "deleteError": "",
+      "deleteServer": "",
+      "deleteServerConfirm": "",
+      "deleteSuccess": "",
+      "description": "",
+      "discover": "",
+      "env": "",
+      "envTooltip": "KEY=value",
+      "fetch": {
+        "button": "",
+        "success": " MCP "
+      },
+      "filter": {
+        "label": ""
+      },
+      "findMore": " MCP",
+      "headers": "",
+      "headersTooltip": "HTTP ",
+      "install": "",
+      "logs": "",
+      "logsHint": "MCP ",
+      "longRunning": "",
+      "longRunningTooltip": " 10 ",
+      "marketplaces": "",
+      "more": {
+        "awesome": " MCP ",
+        "composio": "Composio MCP ",
+        "glama": "Glama MCP ",
+        "higress": "Higress MCP ",
+        "mcpso": "MCP ",
+        "mcpworld": "MCP",
+        "modelscope": " MCP ",
+        "official": " MCP ",
+        "pulsemcp": "Pulse MCP ",
+        "smithery": "Smithery MCP ",
+        "zhipu": " MCP"
+      },
+      "name": "",
+      "newServer": "MCP ",
+      "noDescriptionAvailable": "",
+      "noLogs": "",
+      "noServers": "",
+      "notInstalled": "",
+      "npx_list": {
+        "no_packages": "",
+        "npm": "NPM",
+        "scope_placeholder": " npm  ( @your-org)",
+        "scope_required": " npm ",
+        "search_error": "",
+        "usage": ""
+      },
+      "prompts": {
+        "availablePrompts": "",
+        "noPromptsAvailable": ""
+      },
+      "protocolInstall": {
+        "title": " MCP"
+      },
+      "protocolInstallWarning": {
+        "message": " MCP ",
+        "run": "",
+        "title": " MCP"
+      },
+      "providerNotFound": " MCP ",
+      "providers": "",
+      "qveris": {
+        "get_api_key": " API Key",
+        "missing_api_key": "QVeris  API Key<link> API Key</link> QVERIS_API_KEY"
+      },
+      "registry": "",
+      "registryDefault": "",
+      "registryOptions": {
+        "custom": "",
+        "npmTaobao": " NPM ",
+        "pipAliyun": "",
+        "pipHuawei": "",
+        "pipTencent": "",
+        "pipTsinghua": "",
+        "pipUstc": "USTC"
+      },
+      "registryTooltip": "",
+      "requiresConfig": "",
+      "resources": {
+        "availableResources": "",
+        "blob": "",
+        "blobInvisible": "",
+        "mimeType": "MIME ",
+        "noResourcesAvailable": "",
+        "size": "",
+        "text": ""
+      },
+      "runtimeStatus": {
+        "connected": "",
+        "connecting": "",
+        "disabled": "",
+        "error": "",
+        "unavailable": ""
+      },
+      "search": {
+        "placeholder": " MCP ...",
+        "tooltip": " MCP "
+      },
+      "searchNpx": " MCP",
+      "servers": "MCP ",
+      "shortTitle": "MCP",
+      "sse": " (sse)",
+      "startError": "",
+      "stdio": " /  (stdio)",
+      "streamableHttp": " HTTP (streamableHttp)",
+      "sync": {
+        "error": " MCP ",
+        "noServersAvailable": " MCP ",
+        "success": " MCP ",
+        "tokenPlaceholder": " API Token",
+        "tokenRequired": " API Token",
+        "unauthorized": ""
+      },
+      "system": "",
+      "tabs": {
+        "description": "",
+        "general": "",
+        "prompts": "",
+        "resources": "",
+        "tools": ""
+      },
+      "timeout": "",
+      "timeoutTooltip": " 60 ",
+      "title": "MCP ",
+      "tools": {
+        "autoApprove": {
+          "label": "",
+          "tooltip": {
+            "disabled": "",
+            "enabled": "",
+            "howToEnable": ""
+          }
+        },
+        "availableTools": "",
+        "enable": "",
+        "inputSchema": {
+          "enum": {
+            "allowedValues": ""
+          },
+          "label": ""
+        },
+        "noToolsAvailable": ""
+      },
+      "type": "",
+      "types": {
+        "inMemory": "",
+        "sse": "SSE",
+        "stdio": "STDIO",
+        "streamableHttp": "Streamable HTTP"
+      },
+      "updateError": "",
+      "updateSuccess": "",
+      "url": "URL"
+    },
+    "menuGroups": {
+      "automation": "",
+      "capabilities": "",
+      "personal": "",
+      "quickAccess": "",
+      "system": ""
+    },
+    "messages": {
+      "grid_popover_trigger": {
+        "click": "",
+        "hover": "",
+        "label": ""
+      },
+      "input": {
+        "confirm_delete_message": "",
+        "enable_quick_triggers": " / ",
+        "newline_shortcuts": "",
+        "send_shortcuts": "",
+        "show_estimated_tokens": " Token ",
+        "steer_shortcuts": "",
+        "steer_shortcuts_hint": "",
+        "title": ""
+      },
+      "layout": {
+        "conversation": "",
+        "work": ""
+      },
+      "markdown_rendering_input_message": "Markdown ",
+      "navigation": {
+        "anchor": "",
+        "buttons": "",
+        "label": "",
+        "none": ""
+      },
+      "show_message_outline": "",
+      "title": "",
+      "use_serif_font": "",
+      "wide_mode": ""
+    },
+    "miniApps": {
+      "cache_change_notice": "",
+      "cache_description": "",
+      "cache_title": "",
+      "custom": {
+        "create_title": "",
+        "edit_title": "",
+        "logo_file": " Logo ",
+        "logo_upload_error": "Logo ",
+        "logo_upload_label": " Logo",
+        "name": "",
+        "name_placeholder": "",
+        "remove_confirm_description": "{{name}}",
+        "remove_confirm_title": "",
+        "remove_error": "",
+        "remove_success": "",
+        "save_error": "",
+        "save_success": "",
+        "title": "",
+        "url": "URL",
+        "url_invalid": " httphttps  file URL",
+        "url_placeholder": " URL"
+      },
+      "disabled": "",
+      "display_title": "",
+      "empty": "",
+      "group": {
+        "display": "",
+        "preferences": ""
+      },
+      "hide_app": " {{name}}",
+      "open_link_external": {
+        "description": "",
+        "title": ""
+      },
+      "region": {
+        "auto": "",
+        "cn": "",
+        "description": "",
+        "global": "",
+        "title": ""
+      },
+      "reset_tooltip": "",
+      "show_app": " {{name}}",
+      "visible": ""
+    },
+    "model": "",
+    "models": {
+      "add": {
+        "add_model": "",
+        "capabilities": {
+          "label": ""
+        },
+        "context_window": {
+          "label": "",
+          "placeholder": " 128000"
+        },
+        "endpoint_type": {
+          "label": "",
+          "placeholder": "",
+          "required": "",
+          "tooltip": " API "
+        },
+        "group_name": {
+          "label": "",
+          "placeholder": " ChatGPT"
+        },
+        "input_modalities": {
+          "label": ""
+        },
+        "max_input_tokens": {
+          "label": " Token",
+          "placeholder": " 128000"
+        },
+        "max_output_tokens": {
+          "label": " Token",
+          "placeholder": " 4096"
+        },
+        "model_id": {
+          "label": " ID",
+          "placeholder": " gpt-5.5",
+          "required": " ID"
+        },
+        "model_name": {
+          "label": "",
+          "placeholder": " GPT-5.5"
+        },
+        "model_type": {
+          "label": ""
+        },
+        "purpose": {
+          "chat": {
+            "description": " API",
+            "label": ""
+          },
+          "chat_protocol": "",
+          "description": "",
+          "image_edit": {
+            "description": "",
+            "label": ""
+          },
+          "image_generation": {
+            "description": "",
+            "label": ""
+          },
+          "label": ""
+        },
+        "supported_text_delta": {
+          "label": "",
+          "tooltip": ""
+        }
+      },
+      "api_key": "API ",
+      "base_url": " URL",
+      "bulk_disable": "",
+      "bulk_enable": "",
+      "check": {
+        "all": "",
+        "button_caption": "",
+        "disabled": "",
+        "disclaimer": " API Key ",
+        "enable_concurrent": "",
+        "enabled": "",
+        "failed": "",
+        "failed_to_start": "",
+        "generation_output_audio": "",
+        "generation_output_image": "",
+        "generation_output_video": "",
+        "model_button_caption": "",
+        "model_status_failed": "{{count}} ",
+        "model_status_partial": " {{count}} ",
+        "model_status_passed": "{{count}} ",
+        "model_status_summary": "{{provider}}: {{summary}}",
+        "no_results": "",
+        "outcome_fail_short": "{{count}} ",
+        "outcome_skipped_short": "{{count}} ",
+        "outcome_success_short": "{{count}} ",
+        "outcome_total": " {{count}} ",
+        "passed": "",
+        "pipeline_heading": "",
+        "progress_count": "{{done}} / {{total}}",
+        "retry": "",
+        "select_api_key": " API ",
+        "single": "",
+        "skip_reason_generation_cost": "{{output}}",
+        "skip_reason_unsupported_probe": "",
+        "start": "",
+        "status_checking": "…",
+        "status_skipped": "",
+        "timeout": "",
+        "title": "",
+        "use_all_keys": ""
+      },
+      "collapse_all": "",
+      "context_management": {
+        "compress_enabled": "",
+        "compress_enabled_description": "",
+        "compress_model": "",
+        "compress_model_follow": "",
+        "enabled": "",
+        "enabled_description": "",
+        "max_messages": "",
+        "max_messages_description": "",
+        "max_messages_unlimited": "",
+        "title": "",
+        "truncate_threshold": "",
+        "truncate_threshold_description": ""
+      },
+      "default_assistant_model": "",
+      "default_assistant_model_description": "",
+      "docs": "",
+      "empty": "",
+      "empty_hint": "",
+      "enabled_models": "",
+      "expand_all": "",
+      "filter": {
+        "label": "",
+        "scroll_left": "",
+        "scroll_right": ""
+      },
+      "list_title": "",
+      "manage": {
+        "add_listed": {
+          "label": ""
+        },
+        "add_success_enable_failed": "",
+        "add_whole_group": "",
+        "clean_stale_models": "",
+        "clean_stale_success": " {{count}} ",
+        "default_model_cannot_remove": "",
+        "drawer_title": "",
+        "model_in_use_by_knowledge_base": "",
+        "operation_failed": "",
+        "remove_listed": "",
+        "remove_model": "",
+        "remove_skipped_default_in_use": " {{count}} ",
+        "remove_whole_group": "",
+        "search_models_placeholder": "…",
+        "stale_badge": "",
+        "stale_filter": "",
+        "sync_apply_default_in_use": "",
+        "sync_pull_failed": ""
+      },
+      "more_actions": "",
+      "painting_model": "",
+      "painting_model_description": "",
+      "provider_id": " ID",
+      "provider_key_add_confirm": " {{provider}}  API ",
+      "provider_key_add_failed_by_invalid_data": " API ",
+      "provider_key_added": " {{provider}}  API ",
+      "provider_key_already_exists": "{{provider}}  API ",
+      "provider_key_confirm_title": " {{provider}}  API ",
+      "provider_name": "",
+      "quick_assistant_default_tag": "",
+      "quick_assistant_model": "",
+      "quick_assistant_selection": "",
+      "quick_model": {
+        "description": "",
+        "label": "",
+        "setting_title": "",
+        "tooltip": ""
+      },
+      "retry": {
+        "backoff": "",
+        "description": "",
+        "fallback_models": "",
+        "fallback_models_count": " {{count}} ",
+        "fallback_models_description": "",
+        "label": "",
+        "max_attempts": "",
+        "tooltip": ""
+      },
+      "toolbar": {
+        "pull_short": ""
+      },
+      "topic_naming": {
+        "auto": "",
+        "label": "",
+        "prompt": ""
+      },
+      "translate_model": "",
+      "translate_model_description": "",
+      "use_assistant": "",
+      "use_model": ""
+    },
+    "moresetting": {
+      "label": ""
+    },
+    "notification": {
+      "assistant": "",
+      "backup": "",
+      "knowledge_embed": "",
+      "title": "",
+      "update": ""
+    },
+    "openai": {
+      "title": "OpenAI "
+    },
+    "power": {
+      "prevent_sleep_when_busy": ""
+    },
+    "privacy": {
+      "enable_privacy_mode": "",
+      "title": ""
+    },
+    "prompts": {
+      "add": "",
+      "contentLabel": "",
+      "contentPlaceholder": " ${variables} Tab \n ${from}  ${to}  ${email}",
+      "delete": "",
+      "deleteConfirm": "",
+      "edit": "",
+      "errors": {
+        "createFailed": "",
+        "deleteFailed": "",
+        "loadFailed": "",
+        "updateFailed": ""
+      },
+      "manage": "",
+      "title": "",
+      "titleLabel": "",
+      "titlePlaceholder": "",
+      "variablePlaceholder": "${variable}"
+    },
+    "provider": {
+      "add": {
+        "button_title": "",
+        "name": {
+          "label": "",
+          "placeholder": "OpenAI",
+          "required": ""
+        },
+        "title": "",
+        "type": ""
+      },
+      "anthropic_api_host": "Anthropic API ",
+      "anthropic_api_host_preview": "Anthropic {{url}}",
+      "anthropic_api_host_tooltip": " Claude ",
+      "api": {
+        "key": {
+          "check": {
+            "latency": ""
+          },
+          "error": {
+            "duplicate": "API ",
+            "empty": "API "
+          },
+          "list": {
+            "open": "",
+            "title": "API "
+          },
+          "new_key": {
+            "placeholder": " API "
+          }
+        },
+        "options": {
+          "anthropic_cache": {
+            "cache_last_n": " N ",
+            "cache_last_n_help": " N ",
+            "cache_system": "",
+            "cache_system_help": "",
+            "token_threshold": " Token ",
+            "token_threshold_help": " Token  0 "
+          },
+          "array_content": {
+            "help": " message  content  array ",
+            "label": " message content"
+          },
+          "developer_role": {
+            "help": " role: \"developer\" ",
+            "label": ""
+          },
+          "enable_thinking": {
+            "help": " enable_thinking  Qwen3 ",
+            "label": " enable_thinking"
+          },
+          "label": "API ",
+          "service_tier": {
+            "help": " service_tier  OpenAI ",
+            "label": " service_tier"
+          },
+          "stream_options": {
+            "help": " stream_options ",
+            "label": " stream_options"
+          },
+          "verbosity": {
+            "help": "",
+            "label": " verbosity"
+          }
+        },
+        "url": {
+          "preview": "{{url}}",
+          "reset": "",
+          "tip": " #  API "
+        }
+      },
+      "api_host": "API ",
+      "api_host_drawer_hint": " API ",
+      "api_host_no_valid": "API ",
+      "api_host_placeholder": "",
+      "api_host_preview": "{{url}}",
+      "api_host_tooltip": " OpenAI ",
+      "api_key": {
+        "copy": "",
+        "enabled_suffix": "",
+        "hide_key": "",
+        "label": "API ",
+        "label_placeholder": "",
+        "list_description": " API Key",
+        "placeholder": " API ",
+        "save_failed": "API ",
+        "show_key": "",
+        "tip": " API ",
+        "unnamed": "API Key"
+      },
+      "api_version": "API ",
+      "aws-bedrock": {
+        "access_key_id": "AWS  ID",
+        "access_key_id_help": " AWS  ID AWS Bedrock ",
+        "api_key": "Bedrock API ",
+        "api_key_help": " AWS Bedrock API ",
+        "auth_type": "",
+        "auth_type_api_key": "Bedrock API ",
+        "auth_type_help": " IAM  Bedrock API ",
+        "auth_type_iam": "IAM ",
+        "description": "AWS Bedrock ",
+        "region": "AWS ",
+        "region_help": " AWS  us-east-1",
+        "region_required": " AWS ",
+        "secret_access_key": "AWS ",
+        "secret_access_key_help": " AWS ",
+        "title": "AWS Bedrock "
+      },
+      "azure": {
+        "apiversion": {
+          "tip": "Azure OpenAI  API  Response API v1 "
+        }
+      },
+      "balance": "",
+      "base_url": {
+        "invalid": " HTTP  HTTPS URL",
+        "label": "Base URL",
+        "placeholder": "https://api.example.com",
+        "required": " Base URL"
+      },
+      "basic_auth": {
+        "label": "HTTP ",
+        "password": {
+          "label": "",
+          "tip": ""
+        },
+        "tip": " Basic RFC7617",
+        "user_name": {
+          "label": "",
+          "tip": ""
+        }
+      },
+      "bills": "",
+      "charge": "",
+      "check": "",
+      "check_all_keys": "",
+      "check_multiple_keys": " API ",
+      "cherryin": {
+        "api_host": {
+          "acceleration": "",
+          "international": ""
+        }
+      },
+      "claude_code": {
+        "agent_only_note": "Claude Code  Agent  — ",
+        "description": " Claude ",
+        "description_detail": " Claude Code CLI Claude Pro/Max Agent  `claude /login` ",
+        "launch_failed": " `claude /login` ",
+        "legal_link": "",
+        "logged_in": " Claude Code",
+        "logged_in_detail": "Agent  Claude Code CLI ",
+        "open_terminal": "",
+        "recheck": ""
+      },
+      "codex": {
+        "account": ":{{accountId}}",
+        "description": " ChatGPT ",
+        "description_detail": " ChatGPT Plus/Pro (OAuth) OpenAI Codex ",
+        "logged_in": " OpenAI Codex",
+        "sign_in_button": " ChatGPT ",
+        "sign_in_failed": "",
+        "sign_in_success": " OpenAI Codex",
+        "signing_in": "…"
+      },
+      "copilot": {
+        "add_request_header": "",
+        "auth_failed": "GitHub Copilot ",
+        "auth_success": "GitHub Copilot ",
+        "auth_success_title": "",
+        "code_copied": "",
+        "code_failed": "",
+        "code_generated_desc": "",
+        "code_generated_title": "",
+        "connect": " GitHub",
+        "custom_headers": "",
+        "description": "GitHub  Copilot",
+        "description_detail": "GitHub Copilot  AI  GitHub Copilot ",
+        "expand": "",
+        "header_field_name": "",
+        "header_field_value": "",
+        "header_name_placeholder": "",
+        "header_value_placeholder": "",
+        "headers_description": "JSON ",
+        "headers_json_placeholder": "{\n  \"X-Custom-Header\": \"value\"\n}",
+        "invalid_json": "JSON ",
+        "login": " GitHub",
+        "logout": " GitHub",
+        "logout_failed": "",
+        "logout_success": "",
+        "model_setting": "",
+        "open_verification_first": "",
+        "open_verification_page": "",
+        "rate_limit": "",
+        "start_auth": "",
+        "step_authorize": "",
+        "step_authorize_desc": " GitHub ",
+        "step_authorize_detail": " GitHub ",
+        "step_connect": "",
+        "step_connect_desc": " GitHub",
+        "step_connect_detail": " GitHub ",
+        "step_copy_code": "",
+        "step_copy_code_desc": "",
+        "step_copy_code_detail": "",
+        "step_get_code": "",
+        "step_get_code_desc": "",
+        "toggle_headers_editor_json": " JSON ",
+        "toggle_headers_editor_list": ""
+      },
+      "create_custom": {
+        "endpoint_fields": {
+          "default_chat": "",
+          "label": "",
+          "more": "",
+          "more_configured": "{{count}} ",
+          "set_default_chat": "",
+          "text_endpoint_required": "",
+          "url_help": " API  URL "
+        },
+        "preset_instance": {
+          "description": " Coding Plan  Base URL  API ",
+          "empty": "",
+          "placeholder": "…",
+          "search_placeholder": "",
+          "title": ""
+        },
+        "request_preview": "{{path}}",
+        "title": ""
+      },
+      "delete": {
+        "content": "",
+        "title": ""
+      },
+      "dmxapi": {
+        "platform_enterprise": "ssvip.DMXAPI.com",
+        "platform_international": "www.DMXAPI.com",
+        "platform_official": "www.DMXAPI.cn",
+        "select_platform": ""
+      },
+      "docs_check": "",
+      "docs_more_details": "",
+      "duplicate": {
+        "add_another": " {{name}} ",
+        "drawer_title": " {{name}} ",
+        "fill_after_create": "",
+        "menu_label": ""
+      },
+      "enable_failed_after_connection": "",
+      "filter": {
+        "agent": " Agent",
+        "all": "",
+        "disabled": "",
+        "enabled": "",
+        "label": ""
+      },
+      "filter_agent": " Agent ",
+      "get_api_key": "",
+      "grok_cli": {
+        "description": " SuperGrok ",
+        "description_detail": " provider  xAI SuperGrok OAuth Grok CLI Grok BuildComposer",
+        "logged_in": " Grok CLI",
+        "sign_in_button": " xAI ",
+        "sign_in_failed": "",
+        "sign_in_success": " Grok CLI",
+        "signing_in": "…"
+      },
+      "image_endpoints": {
+        "image_edit_base_url": {
+          "help": " /images/edits Base URL",
+          "label": ""
+        },
+        "image_generation_base_url": {
+          "help": " /images/generations Base URL",
+          "label": " URL"
+        }
+      },
+      "logo_upload_failed": "",
+      "misc": "",
+      "more_endpoints": {
+        "add": "",
+        "anthropic": "Anthropic Messages",
+        "gemini": "Google Gemini",
+        "openai_chat": "OpenAI Chat Completions",
+        "openai_responses": "OpenAI Responses",
+        "toggle": ""
+      },
+      "no_models_for_check": "",
+      "not_checked": "",
+      "notes": {
+        "markdown_editor_default_value": "",
+        "placeholder": " Markdown ...",
+        "title": ""
+      },
+      "oauth": {
+        "balance": "",
+        "balance_error": "",
+        "button": " {{provider}} ",
+        "cherryIn": {
+          "description": " OAuth 2.0  SuperAgent",
+          "logged_in": " OAuth ",
+          "login_button": "SuperAgent ",
+          "logout_button": "",
+          "not_logged_in": "",
+          "register_account": "",
+          "service_attribution": " <link>superagent.ng</link> ",
+          "tagline": "",
+          "title": "OAuth ",
+          "use_api_key": " API "
+        },
+        "connect": " {{provider}} ",
+        "description": " <website>{{provider}}</website> ",
+        "error": "",
+        "logged_in": "",
+        "logout": "",
+        "logout_confirm": "",
+        "logout_success": "",
+        "logout_warning": " Token ",
+        "official_website": "",
+        "provided_by": "",
+        "provided_by_suffix": " ",
+        "requests": "",
+        "topup": "",
+        "usage_title": "",
+        "usage_unit": "Token"
+      },
+      "radeon_cloud": {
+        "benefits": {
+          "cta": " Token Factory",
+          "description": " 10  API  1,000 –1.11 / Token Token ",
+          "title": " 10  API "
+        }
+      },
+      "remove_duplicate_keys": "",
+      "remove_invalid_keys": "",
+      "reorder_failed": "",
+      "request_configuration": "",
+      "request_configuration_tooltip": " API Host ",
+      "save_failed": "",
+      "search": "...",
+      "search_placeholder": " ID ",
+      "section": {
+        "account": "",
+        "configuration": ""
+      },
+      "title": "",
+      "vertex_ai": {
+        "api_host_help": "Vertex AI  API ",
+        "documentation": "",
+        "learn_more": "",
+        "location": "",
+        "location_help": "Vertex AI us-central1 Service Account JSON ",
+        "location_placeholder": " Vertex AI ",
+        "project_id": " ID",
+        "project_id_help": " Google Cloud  ID",
+        "project_id_placeholder": "your-google-cloud-project-id",
+        "select_location": "",
+        "service_account": {
+          "auth_success": "",
+          "client_email": "",
+          "client_email_help": " Google Cloud Console  JSON  client_email ",
+          "client_email_placeholder": " client email",
+          "description": " ADC ",
+          "incomplete_config": " Vertex AI ",
+          "json_input": " JSON",
+          "json_input_help": " JSON  project_idclient_email  private_key JSON",
+          "json_input_placeholder": " Service Account JSON ",
+          "json_parse_error": " Service Account JSON ",
+          "json_parse_success": "Service Account JSON ",
+          "private_key": "",
+          "private_key_help": " Google Cloud Console  JSON  private_key ",
+          "private_key_placeholder": "",
+          "title": "",
+          "toggle_client_email_visibility": "",
+          "toggle_private_key_visibility": "",
+          "toggle_project_id_visibility": " ID "
+        }
+      }
+    },
+    "proxy": {
+      "address": "",
+      "bypass": "",
+      "mode": {
+        "custom": "",
+        "none": "",
+        "system": "",
+        "title": ""
+      },
+      "tip": "*.test.com192.168.0.0/16"
+    },
+    "quickAssistant": {
+      "click_tray_to_show": "",
+      "enable_quick_assistant": "",
+      "read_clipboard_at_startup": "",
+      "title": "",
+      "use_shortcut_to_show": ""
+    },
+    "quickPanel": {
+      "back": "",
+      "close": "",
+      "confirm": "",
+      "mcp": {
+        "agentEmpty": " Agent  MCP ",
+        "assistantEmpty": " MCP ",
+        "autoEmpty": " MCP ",
+        "description": " MCP ",
+        "disabled": " MCP",
+        "open_config": " MCP "
+      },
+      "multiple": "",
+      "noResult": "",
+      "page": "",
+      "select": "",
+      "title": ""
+    },
+    "scheduledTasks": {
+      "agentCreate": " Agent ",
+      "allAgents": " Agent",
+      "allStatuses": "",
+      "clearFilters": "",
+      "createDescription": " Agent ",
+      "createTitle": "",
+      "editDescription": " Agent ",
+      "editTitle": "",
+      "filterAgent": " Agent ",
+      "filterStatus": "",
+      "manualCreate": "",
+      "newTask": "",
+      "noAgents": " Agent Agent",
+      "noAgentsTitle": " Agent",
+      "noMatches": "",
+      "noMatchesTitle": "",
+      "noTasks": "+  Agent ",
+      "noTasksTitle": "",
+      "notFoundDescription": "",
+      "notFoundTitle": "",
+      "paginationLabel": "",
+      "paginationStatus": " {{page}}  {{pageCount}}  · {{total}} ",
+      "search": "",
+      "searchPlaceholder": " Agent",
+      "title": "",
+      "validation": {
+        "agent": " Agent",
+        "name": "",
+        "prompt": ""
+      }
+    },
+    "screenshot": {
+      "enable": {
+        "description": "",
+        "title": ""
+      },
+      "ocr": {
+        "auto": {
+          "description": "",
+          "title": ""
+        },
+        "model": {
+          "downloading": "",
+          "link": "",
+          "ready": "",
+          "unavailable": " OCR "
+        },
+        "title": ""
+      },
+      "permission": {
+        "denied_hint": " >  >  SuperAgent",
+        "grant": "",
+        "open_settings": "",
+        "prompt_unavailable_hint": " >  >  SuperAgent",
+        "request_hint": "macOS ",
+        "restart": "",
+        "restart_hint": "",
+        "title": ""
+      },
+      "shortcut": {
+        "description": "",
+        "disabled": "",
+        "link": "",
+        "title": "",
+        "unset": ""
+      },
+      "title": ""
+    },
+    "shortcuts": {
+      "all_disable": "",
+      "all_enable": "",
+      "bind_first_to_enable": "",
+      "categories": {
+        "all": "",
+        "assistant": "AI ",
+        "chat": "",
+        "general": "",
+        "topic": ""
+      },
+      "conflict_with": "{{name}}",
+      "copy_last_message": "",
+      "edit_last_user_message": "",
+      "empty": "",
+      "exit_fullscreen": "",
+      "filter": "",
+      "new_topic": "",
+      "next_tab": "",
+      "occupied_by_other_application": "",
+      "press_shortcut": "",
+      "prev_tab": "",
+      "print": "",
+      "quick_assistant": "",
+      "rename_topic": "",
+      "reset": "",
+      "reset_defaults_confirm": "",
+      "reset_defaults_failed": "",
+      "reset_to_default": "",
+      "save_failed": "",
+      "save_failed_with_name": "{{name}}",
+      "screenshot_capture": "",
+      "search_message": "",
+      "search_message_in_chat": "",
+      "search_placeholder": "…",
+      "select_model": "",
+      "selection_assistant_select_text": "",
+      "selection_assistant_toggle": "",
+      "show_app": " / ",
+      "show_settings": "",
+      "title": "",
+      "toggle_left_sidebar": "",
+      "toggle_new_context": "",
+      "toggle_right_sidebar": "",
+      "zoom_in": "",
+      "zoom_out": "",
+      "zoom_reset": ""
+    },
+    "skills": {
+      "batchInstallComplete": " {{count}} ",
+      "batchInstallPartialFailed": " {{success}}/{{total}} {{failed}} ",
+      "batchInstallQueued": "",
+      "globalToggle": " {{name}}",
+      "install": "",
+      "installFailed": "{{name}}",
+      "installFromDirectory": "",
+      "installFromZip": " ZIP ",
+      "installSuccess": "{{name}}",
+      "installed": "",
+      "invalidFormat": " ZIP ",
+      "title": "",
+      "toggleFailed": " {{name}} ",
+      "viewSource": ""
+    },
+    "system": {
+      "title": ""
+    },
+    "theme": {
+      "color_primary": "",
+      "dark": "",
+      "light": "",
+      "system": "",
+      "title": "",
+      "window": {
+        "style": {
+          "opaque": "",
+          "title": "",
+          "transparent": ""
+        }
+      }
+    },
+    "title": "",
+    "tool": {
+      "file_processing": {
+        "actions": {
+          "set_as_default": ""
+        },
+        "errors": {
+          "invalid_api_host": "API ",
+          "load_processors_failed": "",
+          "save_failed": ""
+        },
+        "features": {
+          "document_to_markdown": {
+            "title": "",
+            "tooltip": ""
+          },
+          "image_to_text": {
+            "title": "OCR",
+            "tooltip": ""
+          }
+        },
+        "fields": {
+          "api_base_url": "API ",
+          "api_key": "API ",
+          "api_keys_placeholder": "",
+          "languages": ""
+        },
+        "processors": {
+          "doc2x": {
+            "description": "",
+            "name": "Doc2x"
+          },
+          "local_document": {
+            "description": " PDF  Markdown OCR ",
+            "name": ""
+          },
+          "local_paddleocr": {
+            "description": " PaddleOCRPP-OCRv6  API Key 140 MB",
+            "name": " PaddleOCR",
+            "status": {
+              "local": ""
+            }
+          },
+          "mineru": {
+            "description": "OpenDataLab  PDF ",
+            "name": "MinerU"
+          },
+          "mistral": {
+            "description": "",
+            "name": "Mistral"
+          },
+          "open_mineru": {
+            "description": " MinerU ",
+            "name": "Open MinerU"
+          },
+          "ovocr": {
+            "description": " Intel OpenVINO  OCR  NPU ",
+            "name": "Intel OV OCR"
+          },
+          "paddleocr": {
+            "deployment": {
+              "description": " PaddleOCR  Docker  API ",
+              "docs": " Docker "
+            },
+            "description": " OCR ",
+            "fields": {
+              "parse_model": ""
+            },
+            "name": "PaddleOCR"
+          },
+          "system": {
+            "description": " OCR ",
+            "name": " OCR",
+            "status": {
+              "available": " macOS Live Text / Windows OCR ",
+              "no_configuration": " OCR "
+            }
+          },
+          "tesseract": {
+            "description": "Google ",
+            "name": "Tesseract OCR"
+          }
+        }
+      },
+      "websearch": {
+        "blacklist": "",
+        "blacklist_invalid_entries": "{{entries}}",
+        "blacklist_tooltip": "\n*://*.example.com/*\n/example\\.(net|org)/",
+        "check": "",
+        "check_failed": "",
+        "check_success": "",
+        "client_tools_preferred": {
+          "description": "",
+          "label": ""
+        },
+        "compression": {
+          "cutoff": {
+            "limit": {
+              "label": "",
+              "placeholder": "",
+              "tooltip": " 2000 "
+            }
+          },
+          "method": {
+            "cutoff": "",
+            "label": "",
+            "none": ""
+          }
+        },
+        "errors": {
+          "save_failed": "",
+          "zhipu_sync_failed": " API  Web Search  Web Search "
+        },
+        "fetch_urls_provider": "URL ",
+        "provider_description": {
+          "bocha": " AI  API",
+          "exa": " AI  API",
+          "exa_mcp": " Exa MCP Server  Exa  Agent ",
+          "fetch": " URL  URL ",
+          "firecrawl": "Firecrawl  Markdown ",
+          "jina": "Jina Reader ",
+          "querit": " AI ",
+          "searxng": "",
+          "tavily": " LLM ",
+          "zhipu": " GLM Web Search"
+        },
+        "search_max_result": {
+          "label": "",
+          "tooltip": " Token"
+        },
+        "search_provider": "",
+        "search_provider_placeholder": "",
+        "set_as_default": "",
+        "title": ""
+      }
+    },
+    "topic": {
+      "position": {
+        "label": "",
+        "left": "",
+        "right": ""
+      }
+    },
+    "translate": {
+      "custom": {
+        "delete": {
+          "description": "",
+          "title": ""
+        },
+        "error": {
+          "add": "",
+          "delete": "",
+          "langCode": {
+            "builtin": "",
+            "empty": "",
+            "exists": "",
+            "invalid": ""
+          },
+          "update": "",
+          "value": {
+            "empty": ""
+          }
+        },
+        "langCode": {
+          "help": "[ + ] [2~3 ]-[2~3 ]",
+          "label": "",
+          "placeholder": "zh-tw"
+        },
+        "success": {
+          "add": "",
+          "delete": "",
+          "update": ""
+        },
+        "value": {
+          "label": "",
+          "placeholder": ""
+        }
+      },
+      "prompt": "",
+      "title": ""
+    },
+    "tray": {
+      "onclose": "",
+      "show": ""
+    },
+    "usage": {
+      "cards": {
+        "activeDays": "",
+        "cacheHitRate": "",
+        "cacheObservedTokens": "{{tokens}}",
+        "cacheStartsWithNewRequests": "",
+        "dailyAverage": "",
+        "explicitApiKey": "",
+        "lastPeriod": "",
+        "matchedApiKey": "",
+        "none": "N/A",
+        "peakDay": "",
+        "providerAuth": "",
+        "streak": "{{days}} ",
+        "topModel": "",
+        "totalCost": "",
+        "totalRequests": "",
+        "totalTokens": " Token ",
+        "unattributedApiKey": "",
+        "unattributedSource": ""
+      },
+      "chart": {
+        "bar": "",
+        "line": "",
+        "pie": "",
+        "stack": ""
+      },
+      "currency": "",
+      "empty": {
+        "description": " AI ",
+        "title": ""
+      },
+      "explore": {
+        "analysis": "",
+        "chart": "",
+        "clearDate": "",
+        "drilldownTitle": "{{date}} ",
+        "entries": "",
+        "groupBy": "",
+        "loadMore": "",
+        "loading": "...",
+        "metric": "",
+        "noBreakdown": "",
+        "noBreakdownDescription": "",
+        "noEntries": "",
+        "noEntriesDescription": "",
+        "rollup": "",
+        "selectedDate": "{{date}}",
+        "shareLabel": "",
+        "title": "",
+        "top": "Top",
+        "totalEntries_one": "{{count}} ",
+        "totalEntries_other": "{{count}} "
+      },
+      "groupBy": {
+        "apiKey": "API ",
+        "model": "",
+        "provider": "",
+        "source": " / Agent"
+      },
+      "heatmap": {
+        "ariaDate": "{{date}} ",
+        "title": ""
+      },
+      "metric": {
+        "cost": "",
+        "requests": "",
+        "tokens": "Token"
+      },
+      "overview": {
+        "title": ""
+      },
+      "rollup": {
+        "daily": "",
+        "monthly": "",
+        "total": "",
+        "weekly": ""
+      },
+      "summary": "{{window}} / {{tokens}} Token / {{requests}} ",
+      "table": {
+        "cost": "",
+        "date": "",
+        "model": "",
+        "source": "",
+        "tokens": "Token",
+        "tps": "TPS",
+        "tpsValue": "{{value}} tok/s",
+        "ttft": "TTFT"
+      },
+      "title": "",
+      "tooltip": {
+        "cost": " {{value}}",
+        "requests_one": "{{count}} ",
+        "requests_other": "{{count}} ",
+        "tokens": "{{value}} Token"
+      },
+      "window": {
+        "30d": " 30 ",
+        "365d": "",
+        "90d": " 90 "
+      }
+    },
+    "use_system_title_bar": {
+      "confirm": {
+        "content": "",
+        "title": ""
+      },
+      "title": "Linux"
+    },
+    "zoom": {
+      "title": ""
+    }
+  },
+  "subWindow": {
+    "back_to_main": "",
+    "pin": "",
+    "unpin": " "
+  },
+  "tab": {
+    "close": "",
+    "close_others": "",
+    "close_to_right": "",
+    "move_to_first": "",
+    "open_in_new_window": "",
+    "pin": "",
+    "unpin": ""
+  },
+  "title": {
+    "apps": "",
+    "chat": "",
+    "code": "",
+    "files": "",
+    "home": "",
+    "knowledge": "",
+    "launchpad": "",
+    "mcp-servers": "MCP ",
+    "notes": "",
+    "openclaw": "OpenClaw",
+    "paintings": "",
+    "settings": "",
+    "translate": "",
+    "work": ""
+  },
+  "trace": {
+    "agent": "Agent",
+    "backList": "",
+    "cachedTokens": " Token",
+    "endTime": "",
+    "inputs": "",
+    "label": "",
+    "model": "",
+    "name": "",
+    "noTraceList": " Trace ",
+    "operation": "",
+    "outputs": "",
+    "pollError": "",
+    "reasoningTokens": " Token",
+    "requestHeaders": "",
+    "requestMethod": "",
+    "requestUrl": " URL",
+    "responseHeaders": "",
+    "responseStatus": "",
+    "serverDescription": "",
+    "serverName": "",
+    "serverType": "",
+    "spanDetail": "Span ",
+    "spendTime": "",
+    "startTime": "",
+    "status": "",
+    "tag": "",
+    "tokenUsage": "Token ",
+    "toolCalls": ""
+  },
+  "translate": {
+    "alter_language": "",
+    "any": {
+      "language": ""
+    },
+    "button": {
+      "translate": ""
+    },
+    "close": "",
+    "closed": "",
+    "complete": "",
+    "copied": "",
+    "custom": {
+      "label": ""
+    },
+    "detect": {
+      "method": {
+        "algo": {
+          "label": "",
+          "tip": " franc "
+        },
+        "auto": {
+          "label": "",
+          "tip": ""
+        },
+        "label": "",
+        "llm": {
+          "label": "LLM",
+          "tip": " Token"
+        },
+        "tip": ""
+      }
+    },
+    "detected": {
+      "language": ""
+    },
+    "detected_source": "",
+    "detecting": "...",
+    "empty": "",
+    "error": {
+      "auto_copy_failed": "",
+      "detect": {
+        "empty": "",
+        "invalid": "",
+        "qwen_mt": "QwenMT "
+      },
+      "empty": "",
+      "failed": "",
+      "languages_load_failed": "",
+      "not_configured": ""
+    },
+    "exchange": {
+      "label": ""
+    },
+    "files": {
+      "drag_text": "",
+      "error": {
+        "check_type": "",
+        "multiple": "",
+        "ocr": "",
+        "too_large": "",
+        "unknown": ""
+      },
+      "ocr_completed": " OCR ",
+      "reading": "...",
+      "upload": "/"
+    },
+    "history": {
+      "back": "",
+      "clear": "",
+      "clear_description": "",
+      "copy_target": "",
+      "delete": "",
+      "delete_description": "",
+      "empty": "",
+      "error": {
+        "add": "",
+        "clear": "",
+        "delete": "",
+        "load": "",
+        "save": ""
+      },
+      "filter": {
+        "starred": ""
+      },
+      "reuse": "",
+      "source": "",
+      "star": "",
+      "success": {
+        "add": "",
+        "clear": "",
+        "delete": "",
+        "update": ""
+      },
+      "target": "",
+      "title": ""
+    },
+    "info": {
+      "aborted": ""
+    },
+    "input": {
+      "placeholder": "..."
+    },
+    "language": {
+      "not_pair": "",
+      "same": ""
+    },
+    "language_settings": "",
+    "output": {
+      "placeholder": ""
+    },
+    "preferred_target": "",
+    "processing": "...",
+    "settings": {
+      "autoCopy": "",
+      "bidirectional": "",
+      "bidirectional_tip": "",
+      "model_placeholder": "",
+      "preview": "Markdown ",
+      "scroll_sync": "",
+      "title": ""
+    },
+    "source_language": "",
+    "stop": "",
+    "target_language": "",
+    "title": ""
+  },
+  "update": {
+    "install": "",
+    "later": "",
+    "message": " {{version}} ",
+    "noReleaseNotes": "",
+    "saveDataError": "",
+    "title": ""
+  },
+  "xlsx_preview": {
+    "chart": "",
+    "chart_unsupported": "",
+    "error": {
+      "description": ""
+    },
+    "formula_not_evaluated": "",
+    "sheet_tabs_label": "",
+    "too_large": {
+      "description": " {{size}}  {{limit}} ",
+      "title": ""
+    }
+  }
+}

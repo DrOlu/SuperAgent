@@ -1,0 +1,159 @@
+{
+  "agent": {
+    "builtin": {
+      "cherry_assistant": {
+        "description": "SuperAgent  FAQ Skill"
+      },
+      "cherry_support": {
+        "description": "SuperAgent  AgentFAQ "
+      }
+    },
+    "session": {
+      "workspace_status": {
+        "inaccessible": "{{path}}",
+        "missing": "{{path}}",
+        "not_directory": "{{path}}"
+      }
+    }
+  },
+  "apiGateway": {
+    "docs": {
+      "description": " OpenAIAnthropic  Gemini  SuperAgent HTTP API Cherry ",
+      "language_switcher_label": "",
+      "operations": {
+        "chat_completions": " OpenAI Chat Completions  `stream: true` ",
+        "count_tokens": " Anthropic  Token ",
+        "generate_content": " Gemini  `generateContent`  Gemini API `streamGenerateContent` ",
+        "get_knowledge_base": " ID ",
+        "get_mcp_server": " MCP ",
+        "health": "",
+        "info": "API ",
+        "list_knowledge_bases": " SuperAgent ",
+        "list_mcp_servers": " SuperAgent  MCP  URL",
+        "list_models": " OpenAI models ",
+        "mcp_proxy": "MCP  Model Context Protocol  (Streamable HTTP) MCP  URL SuperAgent ",
+        "messages": " Anthropic Messages  `stream: true` ",
+        "responses": " OpenAI Responses ",
+        "search_knowledge_bases": ""
+      },
+      "tags": {
+        "anthropic": " Anthropic  Anthropic SDK  base URL ",
+        "cherry": "SuperAgent ",
+        "gemini": " Gemini  API  `/v1beta` ",
+        "openai": " OpenAI  OpenAI SDK  base URL "
+      }
+    }
+  },
+  "appMenu": {
+    "about": "",
+    "close": "",
+    "copy": "",
+    "cut": "",
+    "delete": "",
+    "documentation": "",
+    "edit": "",
+    "feedback": "",
+    "file": "",
+    "forceReload": "",
+    "front": "",
+    "help": "",
+    "hide": "",
+    "hideOthers": "",
+    "minimize": "",
+    "paste": "",
+    "quit": "",
+    "redo": "",
+    "releases": "",
+    "reload": "",
+    "resetZoom": "",
+    "selectAll": "",
+    "services": "",
+    "toggleDevTools": "",
+    "toggleFullscreen": "",
+    "undo": "",
+    "unhide": "",
+    "view": "",
+    "website": "",
+    "window": "",
+    "zoom": "",
+    "zoomIn": "",
+    "zoomOut": ""
+  },
+  "common": {
+    "copy": "",
+    "cut": "",
+    "inspect": "",
+    "paste": ""
+  },
+  "dialog": {
+    "all_files": "",
+    "data_reset": {
+      "cancel": "",
+      "confirm": "",
+      "message": "",
+      "title": ""
+    },
+    "diagnostic_bundle": {
+      "title": "",
+      "zip_filter": "ZIP "
+    },
+    "html_files": "HTML ",
+    "open_file": "",
+    "pdf_files": "PDF ",
+    "png_image": "PNG ",
+    "save_as_html": " HTML",
+    "save_as_pdf": " PDF",
+    "save_file": "",
+    "screen_capture_permission": {
+      "cancel": "",
+      "detail": " >  > {{appName}}",
+      "message": "",
+      "open_settings": "",
+      "title": ""
+    },
+    "screenshot_failed": {
+      "message": "",
+      "ok": "",
+      "title": ""
+    },
+    "select_folder": "",
+    "word_document": "Word "
+  },
+  "file_processing": {
+    "errors": {
+      "document_size_limit_exceeded": " {{maxSize}}",
+      "pdf_page_limit_exceeded": " PDF  {{maxPages}}  PDF"
+    }
+  },
+  "openclaw": {
+    "errors": {
+      "binary_incompatible": "SuperAgent  OpenClaw  OpenClaw{{details}}",
+      "external_config_invalid": "OpenClaw  SuperAgent  OpenClaw{{details}}",
+      "more_issues": " {{count}} ",
+      "preflight_failed": "SuperAgent  OpenClaw "
+    }
+  },
+  "paintings": {
+    "generate_failed": "",
+    "image_mix_failed": ""
+  },
+  "selection": {
+    "name": ""
+  },
+  "settings": {
+    "mcp": {
+      "oauth": {
+        "callback": {
+          "message": " SuperAgent",
+          "title": ""
+        }
+      }
+    },
+    "title": ""
+  },
+  "tray": {
+    "quit": "",
+    "show_quick_assistant": "",
+    "show_window": ""
+  }
+}

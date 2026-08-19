@@ -388,6 +388,15 @@
         "inaccessible": "{{path}}"
       }
     },
+    "session_delivery": {
+      "from": " {{agent}} / {{session}}",
+      "status": {
+        "accepted": "",
+        "consumed": "",
+        "delivering": "",
+        "failed": ""
+      }
+    },
     "settings": {
       "permissionMode": {
         "title": ""
@@ -726,6 +735,22 @@
           "description": "",
           "label": ""
         },
+        "tool_call": {
+          "description": "",
+          "label": ""
+        },
+        "tool_describe": {
+          "description": " TypeScript ",
+          "label": ""
+        },
+        "tool_exec": {
+          "description": " JavaScript ",
+          "label": ""
+        },
+        "tool_search": {
+          "description": " TypeScript ",
+          "label": ""
+        },
         "update_goal": {
           "description": "",
           "label": ""
@@ -784,6 +809,7 @@
       "restartSuccess": "API ",
       "startError": " API ",
       "startSuccess": "API ",
+      "stopDeferred": "API ",
       "stopError": " API ",
       "stopSuccess": "API "
     },
@@ -991,6 +1017,19 @@
       "knowledge_base_disabled_by_files": "",
       "knowledge_base_unavailable": "",
       "locate_editing_message": "",
+      "mcp_prompts": {
+        "description": " MCP ",
+        "empty": " MCP ",
+        "insert_failed": "",
+        "title": "MCP "
+      },
+      "mcp_resources": {
+        "description": " MCP ",
+        "empty": " MCP ",
+        "read_failed": "",
+        "reader_unavailable": "",
+        "title": "MCP "
+      },
       "new": {
         "context": ""
       },
@@ -3360,6 +3399,21 @@
         "stderr": "",
         "stdout": ""
       },
+      "sessionCreate": {
+        "created": "",
+        "creating": "",
+        "firstMessage": "",
+        "inheritedContext": "",
+        "open": "",
+        "sessionId": " ID",
+        "untitled": ""
+      },
+      "sessionSend": {
+        "open": "",
+        "sending": "",
+        "sent": "",
+        "to": ""
+      },
       "status": {
         "done": "",
         "error": "",
@@ -3693,7 +3747,7 @@
   },
   "notification": {
     "assistant": "",
-    "tip": " 30 "
+    "tip": ""
   },
   "ocr": {
     "processing": "OCR ..."
@@ -5543,6 +5597,7 @@
       },
       "title": "",
       "tools": {
+        "babeldoc-stream": " PDF ",
         "bun": "MCP  JavaScript ",
         "claude": "Anthropic  Agent ",
         "codex": "OpenAI  Agent",
@@ -5590,6 +5645,10 @@
         "title": ""
       }
     },
+    "fetch": {
+      "allow_private_network": "",
+      "allow_private_network_tip": " localhost "
+    },
     "font_size": {
       "title": ""
     },
@@ -5619,7 +5678,8 @@
         },
         "sections": {
           "display_language": ""
-        }
+        },
+        "title": ""
       },
       "emoji_picker": "",
       "image_upload": "",
@@ -6043,40 +6103,48 @@
       "bulk_enable": "",
       "check": {
         "all": "",
+        "all_models": "",
+        "all_models_disclaimer": " API ",
         "button_caption": "",
-        "disabled": "",
+        "checking": "…",
+        "concurrent_hint": " API ",
         "disclaimer": " API Key ",
         "enable_concurrent": "",
-        "enabled": "",
         "failed": "",
         "failed_to_start": "",
         "generation_output_audio": "",
         "generation_output_image": "",
         "generation_output_video": "",
+        "key_scope": "",
+        "keys_failed_count": "{{failed}}/{{total}} ",
+        "latency": "{{latency}} ",
+        "model": "",
         "model_button_caption": "",
-        "model_status_failed": "{{count}} ",
-        "model_status_partial": " {{count}} ",
-        "model_status_passed": "{{count}} ",
+        "model_scope": "",
+        "model_status_failed_one": "{{count}} ",
+        "model_status_failed_other": "{{count}} ",
+        "model_status_partial_one": " {{count}} ",
+        "model_status_partial_other": " {{count}} ",
+        "model_status_passed_one": "{{count}} ",
+        "model_status_passed_other": "{{count}} ",
+        "model_status_skipped_one": "{{count}} ",
+        "model_status_skipped_other": "{{count}} ",
         "model_status_summary": "{{provider}}: {{summary}}",
         "no_results": "",
-        "outcome_fail_short": "{{count}} ",
-        "outcome_skipped_short": "{{count}} ",
-        "outcome_success_short": "{{count}} ",
-        "outcome_total": " {{count}} ",
         "passed": "",
-        "pipeline_heading": "",
-        "progress_count": "{{done}} / {{total}}",
-        "retry": "",
+        "provider_auth": "",
         "select_api_key": " API ",
         "single": "",
+        "single_model": "",
         "skip_reason_generation_cost": "{{output}}",
         "skip_reason_unsupported_probe": "",
         "start": "",
         "status_checking": "…",
         "status_skipped": "",
         "timeout": "",
+        "timeout_unit": "",
         "title": "",
-        "use_all_keys": ""
+        "toggle_key": " {{name}} "
       },
       "collapse_all": "",
       "context_management": {
@@ -6089,6 +6157,7 @@
         "max_messages": "",
         "max_messages_description": "",
         "max_messages_unlimited": "",
+        "scope_description": " SuperAgent ",
         "title": "",
         "truncate_threshold": "",
         "truncate_threshold_description": ""
@@ -7213,6 +7282,17 @@
         "load": "",
         "save": ""
       },
+      "file": {
+        "action_failed": "",
+        "badge": "",
+        "export": "…",
+        "open": "",
+        "preview": "",
+        "reveal": "",
+        "source": "",
+        "target": "",
+        "unavailable": ""
+      },
       "filter": {
         "starred": ""
       },
@@ -7241,6 +7321,53 @@
     "language_settings": "",
     "output": {
       "placeholder": ""
+    },
+    "pdf": {
+      "action": {
+        "close": " PDF ",
+        "export": " PDF",
+        "install_babeldoc": " BabelDOC",
+        "update_babeldoc": " BabelDOC"
+      },
+      "dependency": {
+        "checking": " BabelDOC...",
+        "description": " BabelDOC  PDF ",
+        "installing": " BabelDOC...",
+        "outdated_description": " BabelDOC  PDF",
+        "outdated_title": " BabelDOC",
+        "title": " PDF"
+      },
+      "error": {
+        "generic": "",
+        "ocr_required": " PDF",
+        "persist_failed": "PDF ",
+        "title": "PDF "
+      },
+      "export_failed": " PDF ",
+      "pane": {
+        "translated": " PDF",
+        "translated_text": ""
+      },
+      "progress": {
+        "analyzing": "",
+        "checking_assets": " PDF ",
+        "downloading_assets": " PDF ...",
+        "extracting_terms": "",
+        "loading_model": " PDF ",
+        "parsing": " PDF ",
+        "percent": "{{progress}}%",
+        "preparing": " PDF ",
+        "preparing_hint": " 2 ",
+        "rendering": " PDF",
+        "translating": "",
+        "typesetting": " PDF",
+        "value": "{{stage}} {{stageProgress}}% {{overallProgress}}%"
+      },
+      "ready": {
+        "description": "",
+        "title": ""
+      },
+      "success": " PDF "
     },
     "preferred_target": "",
     "processing": "...",

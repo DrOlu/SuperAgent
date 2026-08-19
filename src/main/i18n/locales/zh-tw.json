@@ -9,6 +9,11 @@
       }
     },
     "session": {
+      "new": "",
+      "run_status": {
+        "busy": "Agent ",
+        "unavailable": "Agent "
+      },
       "workspace_status": {
         "inaccessible": "{{path}}",
         "missing": "{{path}}",
@@ -79,7 +84,19 @@
     "zoomIn": "",
     "zoomOut": ""
   },
+  "chat": {
+    "conversation": {
+      "new": ""
+    }
+  },
   "common": {
+    "channel_available_commands": "",
+    "channel_command_processing_error": "⚠️ ",
+    "channel_message_processing_error": "⚠️ ",
+    "channel_new_session_created": "",
+    "channel_no_active_session": "",
+    "channel_session_compacted": "",
+    "channel_session_resolution_error": "⚠️ ",
     "copy": "",
     "cut": "",
     "inspect": "",
@@ -123,6 +140,16 @@
     "errors": {
       "document_size_limit_exceeded": " {{maxSize}}",
       "pdf_page_limit_exceeded": " PDF  {{maxPages}}  PDF"
+    }
+  },
+  "notification": {
+    "action_required": {
+      "agent": "Agent ",
+      "assistant": ""
+    },
+    "completion": {
+      "agent": "Agent ",
+      "assistant": ""
     }
   },
   "openclaw": {

@@ -60,7 +60,7 @@ Electron E2E
 
 -  `fixtures/electron.fixture.ts`  `test``expect``electronApp`  `mainWindow`
 -  `utils/ui-locator.ts` 
-  [UI Semantic Contract](../../docs/references/ui-semantic-contract.md)
+  [UI Semantic Contract](../../docs/references/components/ui-semantic-contract.md)
 -  `playwright.config.ts` 
 
  E2E 

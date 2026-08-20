@@ -423,8 +423,7 @@
           "bypassPermissions": {
             "description": "",
             "title": "",
-            "warning": "",
-            "warning_pi": " — "
+            "warning": ""
           },
           "default": {
             "description": "",

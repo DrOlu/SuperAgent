@@ -3490,6 +3490,12 @@
         "title": ""
       }
     },
+    "split": {
+      "already_open": "",
+      "choose": "",
+      "close": "",
+      "open": ""
+    },
     "title": "",
     "unpin_failed": "",
     "update_partial_failure": "{{total}}  {{failed}} "
@@ -3601,6 +3607,7 @@
     }
   },
   "navigate": {
+    "model_settings": "",
     "provider_settings": ""
   },
   "notes": {
@@ -4520,6 +4527,10 @@
         "custom": "",
         "delete_confirm": "",
         "drag_hint": " ({{enabled}}/{{max}})",
+        "models": {
+          "default_description": "",
+          "translate_description": ""
+        },
         "reset": {
           "button": "",
           "confirm": "",
@@ -6207,8 +6218,9 @@
       "provider_key_confirm_title": " {{provider}}  API ",
       "provider_name": "",
       "quick_assistant_default_tag": "",
-      "quick_assistant_model": "",
+      "quick_assistant_response_settings": "",
       "quick_assistant_selection": "",
+      "quick_assistant_usage_method": "",
       "quick_model": {
         "description": "",
         "label": "",

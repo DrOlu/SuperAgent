@@ -70,7 +70,8 @@ vi.mock('@main/core/paths/constants', () => ({
   CHERRY_HOME: '/mock/home/.superagent',
   CHERRY_HOME_DIRNAME: '.superagent',
   BOOT_CONFIG_PATH: '/mock/home/.superagent/boot-config.json',
-  LOGS_DIR: '/mock/logs'
+  LOGS_DIR: '/mock/logs',
+  resolveDevUserDataPath: () => '/mock/userDataDev'
 }))
 
 vi.mock('@logger', () => ({

@@ -1,4 +1,5 @@
 import type { ISeeder } from '../types'
+import { BuiltinMcpServerSeeder } from './seeders/builtinMcpServerSeeder'
 import { CherryAiDefaultModelSeeder } from './seeders/cherryaiDefaultModelSeeder'
 import { SuperAgentSeeder } from './seeders/cherryAssistantSeeder'
 import { CherrySupportSeeder } from './seeders/cherrySupportSeeder'
@@ -27,5 +28,6 @@ export const seeders: ISeeder[] = [
   new TranslateLanguageSeeder(),
   new PresetProviderSeeder(),
   new LocalModelSeeder(),
-  new MiniAppSeeder()
+  new MiniAppSeeder(),
+  new BuiltinMcpServerSeeder()
 ]

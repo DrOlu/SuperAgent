@@ -451,7 +451,20 @@
       "fast": "",
       "faster": "",
       "label": "",
+      "service_tier": {
+        "auto": "",
+        "fast": "",
+        "flex": "",
+        "label": "",
+        "standard": ""
+      },
       "smarter": "",
+      "summary": {
+        "auto": "",
+        "concise": "",
+        "detailed": "",
+        "label": ""
+      },
       "title": ""
     },
     "tasks": {
@@ -1019,6 +1032,9 @@
       "mcp_prompts": {
         "description": " MCP ",
         "empty": " MCP ",
+        "fill_arguments": "",
+        "fill_arguments_description": "",
+        "insert": "",
         "insert_failed": "",
         "title": "MCP "
       },
@@ -6329,10 +6345,6 @@
             "token_threshold": " Token ",
             "token_threshold_help": " Token  0 "
           },
-          "array_content": {
-            "help": " message  content  array ",
-            "label": " message content"
-          },
           "developer_role": {
             "help": " role: \"developer\" ",
             "label": ""
@@ -6342,17 +6354,13 @@
             "label": " enable_thinking"
           },
           "label": "API ",
-          "service_tier": {
-            "help": " service_tier  OpenAI ",
-            "label": " service_tier"
+          "reasoning_summary": {
+            "help": " Responses  reasoning.summary OpenAI ",
+            "label": ""
           },
           "stream_options": {
             "help": " stream_options ",
             "label": " stream_options"
-          },
-          "verbosity": {
-            "help": "",
-            "label": " verbosity"
           }
         },
         "url": {
@@ -7073,9 +7081,8 @@
       "explore": {
         "analysis": "",
         "chart": "",
-        "clearDate": "",
-        "drilldownTitle": "{{date}} ",
         "entries": "",
+        "granularity": "",
         "groupBy": "",
         "loadMore": "",
         "loading": "...",
@@ -7085,7 +7092,6 @@
         "noEntries": "",
         "noEntriesDescription": "",
         "rollup": "",
-        "selectedDate": "{{date}}",
         "shareLabel": "",
         "title": "",
         "top": "Top",
@@ -7099,7 +7105,6 @@
         "source": " / Agent"
       },
       "heatmap": {
-        "ariaDate": "{{date}} ",
         "title": ""
       },
       "metric": {

@@ -1,6 +1,6 @@
 {
   "name": "SuperAgent",
-  "version": "2.0.21",
+  "version": "2.0.22",
   "private": true,
   "description": "SuperAgent — a powerful AI assistant. Rebranded by Hyperspace Technologies.",
   "desktopName": "SuperAgent.desktop",
@@ -157,6 +157,7 @@
     "@ai-sdk/groq": "^3.0.35",
     "@ai-sdk/huggingface": "^1.0.43",
     "@ai-sdk/mistral": "^3.0.30",
+    "@ai-sdk/open-responses": "1.0.34",
     "@ai-sdk/openai": "^3.0.53",
     "@ai-sdk/openai-compatible": "2.0.62",
     "@ai-sdk/perplexity": "^3.0.29",

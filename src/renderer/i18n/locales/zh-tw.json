@@ -157,6 +157,8 @@
     "preview_pane": {
       "close": "",
       "code": "",
+      "copy_path": "",
+      "copy_relative_path": "",
       "default_app": "",
       "edit": {
         "conflict": {
@@ -6288,22 +6290,57 @@
     },
     "prompts": {
       "add": "",
+      "binding": {
+        "bind": "",
+        "manageTargets": "{{title}}",
+        "noLinked": "",
+        "noMore": "",
+        "noTargets": "",
+        "remove": "{{title}}",
+        "search": "",
+        "searchTargets": "",
+        "tabTitle": "",
+        "targetCount": "{{count}} ",
+        "targets": "",
+        "unassigned": ""
+      },
       "contentLabel": "",
-      "contentPlaceholder": " ${variables} Tab \n ${from}  ${to}  ${email}",
+      "contentPlaceholder": "",
       "delete": "",
       "deleteConfirm": "",
+      "deleteGlobalConfirm": "",
+      "deleteRestrictedConfirm": "",
+      "deleteSharedConfirm": " {{count}} ",
       "edit": "",
       "errors": {
+        "bindFailed": "",
         "createFailed": "",
         "deleteFailed": "",
+        "loadBindingsFailed": "",
         "loadFailed": "",
+        "reorderFailed": "",
+        "unbindFailed": "",
         "updateFailed": ""
       },
       "manage": "",
+      "noPrompts": "",
+      "reorder": "{{title}}",
+      "searchPlaceholder": "",
       "title": "",
       "titleLabel": "",
       "titlePlaceholder": "",
-      "variablePlaceholder": "${variable}"
+      "variablePlaceholder": "${variable}",
+      "visibility": {
+        "global": {
+          "badge": "",
+          "label": ""
+        },
+        "makeGlobalConfirmDescription": " {{count}} ",
+        "makeGlobalConfirmTitle": "",
+        "restricted": {
+          "badge": ""
+        }
+      }
     },
     "provider": {
       "add": {

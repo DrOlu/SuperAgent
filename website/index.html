@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SuperAgent — the all-capable AI agent for IT Operations and AI Operations. Transform enterprise IT management through conversational AI." />
+  <meta name="theme-color" content="#CC1100" />
+  <title>SuperAgent — The All-Capable AI Agent for IT &amp; AI Operations</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link rel="icon" type="image/svg+xml" href="assets/superagent_logo.svg" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="assets/site.webmanifest" />
+  <meta name="theme-color" content="#CC1100" />
+  <meta name="msapplication-TileColor" content="#CC1100" />
+  <meta name="msapplication-config" content="assets/browserconfig.xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="canonical" href="https://superagent.ng/" />
+  <meta name="keywords" content="AI agent, natural language operations, IT automation, AIOps, agentic AI, IT operations, business operations, AI operations, runbook automation, incident response, autonomous agent, enterprise AI agent, SuperAgent" />
+  <meta property="og:url" content="https://superagent.ng/" />
+  <meta property="og:image" content="https://superagent.ng/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SuperAgent — The All-Capable AI Agent for IT, Business & AI Operations" />
+  <meta name="twitter:description" content="SuperAgent executes IT, business and AI operations from natural language: one AI agent that runs commands across your fleet, automates runbooks, triages incidents and completes multi-step tasks — with human approval at every gate." />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SuperAgent", "url": "https://superagent.ng/", "description": "All-capable AI agent for IT, business and AI operations. Executes real work from natural language across SSH/WinRM fleets under policy, with approvals and audit evidence.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Windows, macOS, Linux", "publisher": {"@type": "Organization", "name": "Hyperspace Technologies"}}</script>
+</head>
+<body>
+  <!-- ===================== NAV ===================== -->
+  <header class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#top" class="brand" aria-label="SuperAgent home">
+        <img src="assets/superagent_logo.svg" alt="SuperAgent logo" class="brand-logo" width="36" height="36" />
+        <span class="brand-name">SuperAgent</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#products">Products</a>
+        <a href="#enterprise">Enterprise</a>
+        <a href="#resources">Resources</a>
+        <a href="#docs">Docs</a>
+        <a href="#gallery">Gallery</a>
+        <a href="https://superagent.ng/downloads.html" class="nav-ghost">Downloads</a>
+      </nav>
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark theme" title="Toggle theme">
+          <span class="theme-icon-dark" aria-hidden="true">☀️</span>
+          <span class="theme-icon-light" aria-hidden="true">🌙</span>
+        </button>
+        <a href="https://paystack.com/buy/reactor-api-key" class="btn btn-primary btn-sm">Get API Key</a>
+        <button class="nav-burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" id="top">
+    <div class="hero-bg" aria-hidden="true">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="grid-overlay"></div>
+    </div>
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <span class="pill">🚀 Enterprise AIOps Platform</span>
+        <h1>The All-Capable AI Agent for <span class="grad">IT &amp; AI Operations</span></h1>
+        <p class="lead">
+          SuperAgent revolutionizes enterprise IT management through conversational AI.
+          Automate complex operations, enhance cybersecurity, and optimize DevOps workflows
+          with simple natural language commands.
+        </p>
+        <div class="hero-cta">
+          <a href="https://superagent.ng/downloads.html" class="btn btn-primary">Download Free</a>
+          <a href="https://paystack.com/buy/reactor-api-key" class="btn btn-ghost">🔑 Get API Key</a>
+          <a href="#docs" class="btn btn-text">View Documentation →</a>
+        </div>
+        <div class="hero-trust">
+          <span>✅ 99.9% Uptime Guaranteed</span>
+          <span>🔒 Enterprise-Grade Security</span>
+          <span>⚡ 24/7 AI Monitoring</span>
+        </div>
+      </div>
+
+      <!-- Terminal demo -->
+      <div class="hero-terminal">
+        <div class="terminal-chrome">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+          <span class="terminal-title">SuperAgent Terminal</span>
+        </div>
+        <div class="terminal-body" id="terminal">
+          <div class="term-line term-prompt">SuperAgent Terminal <span class="term-cursor">_</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== STATS ===================== -->
+  <section class="stats-band">
+    <div class="container stats-grid">
+      <div class="stat"><div class="stat-num">99.9%</div><div class="stat-label">Uptime Guaranteed</div></div>
+      <div class="stat"><div class="stat-num">10K+</div><div class="stat-label">Operations Automated</div></div>
+      <div class="stat"><div class="stat-num">85%</div><div class="stat-label">Faster Incident Resolution</div></div>
+      <div class="stat"><div class="stat-num">24/7</div><div class="stat-label">AI Monitoring</div></div>
+    </div>
+  </section>
+
+  <!-- ===================== FEATURES / CAPABILITIES ===================== -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Capabilities</span>
+        <h2>Enterprise-Grade AIOps Capabilities</h2>
+        <p>Harness the power of conversational AI to manage your entire IT infrastructure with unprecedented efficiency and intelligence.</p>
+      </div>
+      <div class="card-grid">
+        <article class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3>Natural Language Operations</h3>
+          <p>Execute complex IT operations using simple English commands. No scripting required — just describe what you need and let AI handle the technical implementation.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3>AI-Powered Cybersecurity</h3>
+          <p>Proactively detect threats, analyze security incidents, and implement protective measures through intelligent automation and real-time monitoring.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">🔧</div>
+          <h3>Intelligent DevOps Automation</h3>
+          <p>Streamline CI/CD pipelines, automate deployments, and optimize development workflows with AI-driven insights and recommendations.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Infrastructure Monitoring</h3>
+          <p>Comprehensive monitoring of servers, networks, and applications with predictive analytics and automated incident response capabilities.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Incident Response</h3>
+          <p>Rapid incident detection, analysis, and resolution with AI-guided troubleshooting and automated remediation workflows.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>Multi-Cloud Management</h3>
+          <p>Unified management across AWS, Azure, GCP, and on-premises infrastructure with consistent policies and governance.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== AI WORKSTATION FEATURES ===================== -->
+  <section class="section section-alt" id="workstation">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">AI Workstation</span>
+        <h2>The All-in-One AI Workstation</h2>
+        <p>Beyond IT operations — SuperAgent is a complete AI workstation: multi-model chat, knowledge bases, agents, MCP integrations, and developer tools in one desktop app.</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-row">
+          <div class="feature-row-icon">💬</div>
+          <div>
+            <h3>Multi-Model Conversations</h3>
+            <p>Chat with Claude, GPT, Gemini, DeepSeek, GLM, Kimi, MiniMax and 100+ models side by side. Switch providers mid-conversation and compare responses instantly.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-row-icon">📚</div>
+          <div>
+            <h3>Knowledge Bases</h3>
+            <p>Build private knowledge bases with local embeddings, RAG retrieval, document preprocessing, and citation-backed answers — your data never leaves your machine.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-row-icon">🧠</div>
+          <div>
+            <h3>Agents &amp; Workspaces</h3>
+            <p>Create autonomous agents with custom tools, MCP servers, and scoped workspaces. Automate research, coding, and operational tasks end-to-end.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-row-icon">🔌</div>
+          <div>
+            <h3>MCP &amp; Extensions</h3>
+            <p>Connect any Model Context Protocol server, extend with plugins, and integrate with your existing DevOps, monitoring, and security toolchain.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-row-icon">🛠️</div>
+          <div>
+            <h3>Developer Tools</h3>
+            <p>Built-in code execution, artifact rendering, Mermaid/diagram support, and a powerful API gateway for building your own AI-powered applications.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-row-icon">🎨</div>
+          <div>
+            <h3>Art &amp; Multimodal</h3>
+            <p>Generate images, transcribe audio, OCR documents, and process files — all powered by AI, all from a single unified interface.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PRODUCTS ===================== -->
+  <section class="section" id="products">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Solutions</span>
+        <h2>Built for IT &amp; AI Operations</h2>
+        <p>From real-time monitoring to autonomous incident remediation — SuperAgent covers the full AIOps lifecycle.</p>
+      </div>
+      <div class="products-grid">
+        <a href="https://superagent.ng/products.html#monitoring" class="product-card">
+          <div class="product-tag">IT Monitoring</div>
+          <h3>Infrastructure Observability</h3>
+          <p>Unified visibility across servers, networks, containers, and applications with predictive anomaly detection.</p>
+          <span class="product-link">Explore →</span>
+        </a>
+        <a href="https://superagent.ng/products.html#security" class="product-card">
+          <div class="product-tag">Cybersecurity</div>
+          <h3>Threat Intelligence &amp; Response</h3>
+          <p>AI-driven threat hunting, log correlation, and automated containment across your entire security stack.</p>
+          <span class="product-link">Explore →</span>
+        </a>
+        <a href="https://superagent.ng/products.html#devops" class="product-card">
+          <div class="product-tag">DevOps</div>
+          <h3>CI/CD &amp; Deployment Automation</h3>
+          <p>Natural-language pipeline management, drift detection, and AI-assisted rollback and remediation.</p>
+          <span class="product-link">Explore →</span>
+        </a>
+        <a href="https://superagent.ng/products.html#incident" class="product-card">
+          <div class="product-tag">Incident Response</div>
+          <h3>Autonomous Remediation</h3>
+          <p>Detect, diagnose, and resolve incidents in seconds with AI-guided runbooks and automated healing.</p>
+          <span class="product-link">Explore →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== GALLERY / SHOWCASE ===================== -->
+  <section class="section section-alt" id="gallery">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Gallery</span>
+        <h2>See SuperAgent in Action</h2>
+        <p>Explore our intuitive interface designed for enterprise-grade AIOps management and intelligent automation.</p>
+      </div>
+      <div class="gallery-grid">
+        <div class="gallery-card">
+          <div class="gallery-mock mock-workspace">
+            <div class="mock-sidebar"><span></span><span></span><span></span><span></span></div>
+            <div class="mock-main"><div class="mock-bar"></div><div class="mock-line"></div><div class="mock-line short"></div><div class="mock-chart"><i></i><i></i><i></i><i></i><i></i></div></div>
+          </div>
+          <h3>Intelligent Workspace</h3>
+          <p>Comprehensive overview of your entire IT infrastructure with AI-powered insights and real-time monitoring.</p>
+        </div>
+        <div class="gallery-card">
+          <div class="gallery-mock mock-config">
+            <div class="mock-row"></div><div class="mock-row"></div><div class="mock-row"></div><div class="mock-row half"></div>
+          </div>
+          <h3>Advanced Configuration</h3>
+          <p>Granular control over all system components with enterprise-grade security and compliance settings.</p>
+        </div>
+        <div class="gallery-card">
+          <div class="gallery-mock mock-analytics">
+            <div class="mock-big"><strong>99.9%</strong><span>Uptime</span></div>
+            <div class="mock-bars"><i style="height:40%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:90%"></i><i style="height:65%"></i></div>
+          </div>
+          <h3>Usage Analytics</h3>
+          <p>Comprehensive analytics and reporting with real-time metrics, cost optimization, and performance tracking.</p>
+        </div>
+      </div>
+      <div class="gallery-cta">
+        <a href="https://superagent.ng/gallery.html" class="btn btn-ghost">View Full Gallery →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DOCS ===================== -->
+  <section class="section" id="docs">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Documentation</span>
+        <h2>SuperAgent Documentation</h2>
+        <p>Everything you need to get started, configure providers, build knowledge bases, and deploy agents — in English.</p>
+      </div>
+      <div class="docs-grid">
+        <a href="documentation.html#doc-cherry-studio" class="doc-card">
+          <div class="doc-icon">📖</div>
+          <h3>Getting Started</h3>
+          <p>Project overview, installation, downloads, and your first conversation with SuperAgent.</p>
+          <span class="doc-link">Read docs →</span>
+        </a>
+        <a href="documentation.html#doc-pre-basic_providers" class="doc-card">
+          <div class="doc-icon">🔌</div>
+          <h3>Providers &amp; Models</h3>
+          <p>Configure OpenAI, Anthropic, Google, Ollama, and 100+ model providers. API keys, endpoints, and settings.</p>
+          <span class="doc-link">Configure →</span>
+        </a>
+        <a href="documentation.html#doc-knowledge-base_knowledge-base" class="doc-card">
+          <div class="doc-icon">📚</div>
+          <h3>Knowledge Base</h3>
+          <p>Create, embed, and query private knowledge bases. Document preprocessing, recall testing, and sources.</p>
+          <span class="doc-link">Learn more →</span>
+        </a>
+        <a href="documentation.html#doc-advanced-basic_agent-workspace" class="doc-card">
+          <div class="doc-icon">🧠</div>
+          <h3>Agents &amp; Workspaces</h3>
+          <p>Build autonomous agents, configure tools, and scope workspaces for IT and AI operations.</p>
+          <span class="doc-link">Build agents →</span>
+        </a>
+        <a href="documentation.html#doc-advanced-basic_extensions_mcp" class="doc-card">
+          <div class="doc-icon">⚙️</div>
+          <h3>MCP &amp; Extensions</h3>
+          <p>Connect Model Context Protocol servers and extend SuperAgent with plugins and integrations.</p>
+          <span class="doc-link">Extend →</span>
+        </a>
+        <a href="documentation.html#doc-advanced-basic_developer-tools" class="doc-card">
+          <div class="doc-icon">🛠️</div>
+          <h3>Developer Tools</h3>
+          <p>Code execution, artifacts, automation, workbench, and the API gateway for builders.</p>
+          <span class="doc-link">Develop →</span>
+        </a>
+        <a href="documentation.html#doc-other_models-info" class="doc-card">
+          <div class="doc-icon">📊</div>
+          <h3>Model Reference</h3>
+          <p>Compare model capabilities, pricing, and rankings to pick the right model for every task.</p>
+          <span class="doc-link">Compare →</span>
+        </a>
+        <a href="documentation.html" class="doc-card">
+          <div class="doc-icon">🔒</div>
+          <h3>Privacy &amp; License</h3>
+          <p>How SuperAgent handles your data, plus licensing and contribution guidelines.</p>
+          <span class="doc-link">Review →</span>
+        </a>
+      </div>
+      <div class="docs-cta">
+        <a href="documentation.html" class="btn btn-primary">Open Full Documentation</a>
+        <a href="https://superagent.ng/documentation.html" class="btn btn-ghost">SuperAgent Docs</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ENTERPRISE ===================== -->
+  <section class="section section-alt" id="enterprise">
+    <div class="container enterprise-grid">
+      <div>
+        <span class="eyebrow">Enterprise</span>
+        <h2>Enterprise-Ready AIOps, Built for Scale</h2>
+        <p class="lead">
+          Deploy SuperAgent across your organization with SSO, role-based access, audit trails,
+          and on-premise options. Built for teams managing thousands of servers and mission-critical workloads.
+        </p>
+        <ul class="check-list">
+          <li>Single Sign-On (SSO) &amp; RBAC</li>
+          <li>Full audit logging &amp; compliance reporting</li>
+          <li>On-premise &amp; air-gapped deployment</li>
+          <li>Custom model routing &amp; cost controls</li>
+          <li>Dedicated support &amp; SLAs</li>
+        </ul>
+        <div class="hero-cta">
+          <a href="https://superagent.ng/enterprise.html" class="btn btn-primary">Enterprise Solutions</a>
+          <a href="https://superagent.ng/resources.html#support" class="btn btn-ghost">Talk to Sales</a>
+        </div>
+      </div>
+      <div class="enterprise-panel">
+        <div class="ep-header">
+          <img src="assets/superagent_logo.svg" alt="SuperAgent" width="40" height="40" />
+          <div><strong>SuperAgent Enterprise</strong><span>AIOps Control Plane</span></div>
+        </div>
+        <div class="ep-metrics">
+          <div class="ep-metric"><strong>247</strong><span>Servers</span></div>
+          <div class="ep-metric"><strong>3</strong><span>Data Centers</span></div>
+          <div class="ep-metric"><strong>99.9%</strong><span>Uptime</span></div>
+        </div>
+        <div class="ep-log">
+          <div class="ep-log-line ok">✅ web-prod-01 — healthy</div>
+          <div class="ep-log-line ok">✅ db-replica-02 — healthy</div>
+          <div class="ep-log-line warn">⚠️ web-prod-03 — memory 85%</div>
+          <div class="ep-log-line ok">✅ Auto-remediation triggered</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== RESOURCES ===================== -->
+  <section class="section" id="resources">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Resources</span>
+        <h2>Learn, Connect, and Get Support</h2>
+      </div>
+      <div class="resources-grid">
+        <a href="https://superagent.ng/resources.html#blog" class="resource-card"><div class="r-icon">📝</div><h3>Blog</h3><p>Product updates, AIOps best practices, and engineering deep-dives.</p></a>
+        <a href="https://superagent.ng/resources.html#webinars" class="resource-card"><div class="r-icon">🎥</div><h3>Webinars</h3><p>Live and on-demand sessions on IT and AI operations.</p></a>
+        <a href="https://superagent.ng/resources.html#support" class="resource-card"><div class="r-icon">💬</div><h3>Support</h3><p>Documentation, community, and enterprise-grade support channels.</p></a>
+        <a href="https://github.com/DrOlu/SuperAgent" class="resource-card"><div class="r-icon">🐙</div><h3>GitHub</h3><p>Source, issues, releases, and contribution guidelines.</p></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CTA ===================== -->
+  <section class="cta-band">
+    <div class="container cta-inner">
+      <h2>Ready to Transform Your IT Operations?</h2>
+      <p>Join thousands of enterprises already using SuperAgent to revolutionize their IT infrastructure management.</p>
+      <div class="hero-cta">
+        <a href="https://superagent.ng/downloads.html" class="btn btn-primary btn-lg">📥 Download Free</a>
+        <a href="https://paystack.com/buy/reactor-api-key" class="btn btn-ghost btn-lg">🔑 Get API Key</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a href="#top" class="brand">
+          <img src="assets/superagent_logo.svg" alt="SuperAgent" width="32" height="32" />
+          <span class="brand-name">SuperAgent</span>
+        </a>
+        <p>The all-capable AI agent for IT Operations and AI Operations. Rebranded and maintained by Hyperspace Technologies.</p>
+        <div class="footer-social">
+          <a href="https://github.com/DrOlu/SuperAgent" aria-label="GitHub">GitHub</a>
+          <a href="https://superagent.ng/resources.html#support" aria-label="Support">Support</a>
+          <a href="https://superagent.ng/gallery.html" aria-label="Gallery">Gallery</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#products">Solutions</a>
+        <a href="https://superagent.ng/enterprise.html">Enterprise</a>
+        <a href="https://superagent.ng/gallery.html">Gallery</a>
+        <a href="https://superagent.ng/downloads.html">Downloads</a>
+      </div>
+      <div class="footer-col">
+        <h4>Solutions</h4>
+        <a href="https://superagent.ng/products.html#monitoring">IT Monitoring</a>
+        <a href="https://superagent.ng/products.html#security">Cybersecurity</a>
+        <a href="https://superagent.ng/products.html#devops">DevOps Automation</a>
+        <a href="https://superagent.ng/products.html#incident">Incident Response</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="documentation.html">Documentation</a>
+        <a href="https://superagent.ng/documentation.html">Web Docs</a>
+        <a href="https://superagent.ng/resources.html#blog">Blog</a>
+        <a href="https://superagent.ng/resources.html#webinars">Webinars</a>
+        <a href="https://superagent.ng/resources.html#support">Support</a>
+      </div>
+      <div class="footer-col">
+        <h4>Get Started</h4>
+        <a href="https://paystack.com/buy/reactor-api-key">🔑 Get API Key</a>
+        <a href="https://superagent.ng/downloads.html">Download</a>
+        <a href="https://github.com/DrOlu/SuperAgent/releases">Releases</a>
+        <a href="documentation.html">Privacy</a>
+        <a href="documentation.html">License</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="container">
+        <span>© <span id="year"></span> Hyperspace Technologies. All rights reserved.</span>
+        <span>Built from the open-source Cherry Studio codebase under AGPLv3.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

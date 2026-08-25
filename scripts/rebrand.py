@@ -653,6 +653,12 @@ def apply_superagent_patches():
                     r'\1Obtain API Key"',
                     t,
                 )
+                # Secondary onboarding button label → "Setup Provider and Model"
+                t = re.sub(
+                    r'("onboarding\.welcome\.other_provider"\s*:\s*")[^"]*"',
+                    r'\1Setup Provider and Model"',
+                    t,
+                )
                 # Remaining CherryIN → SuperAgent (display name, descriptions, etc.)
                 t = t.replace("CherryIN", "SuperAgent")
                 # service_attribution + any residual cherryin.ai → superagent.ng

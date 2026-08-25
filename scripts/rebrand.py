@@ -646,6 +646,13 @@ def apply_superagent_patches():
                 orig = t
                 # English login_button → "Obtain API Key" (before blanket replace)
                 t = t.replace('"Authorize with CherryIN"', '"Obtain API Key"')
+                # Onboarding welcome button label → "Obtain API Key" in every
+                # locale (values differ per language, so match by key).
+                t = re.sub(
+                    r'("onboarding\.welcome\.login_cherryin"\s*:\s*")[^"]*"',
+                    r'\1Obtain API Key"',
+                    t,
+                )
                 # Remaining CherryIN → SuperAgent (display name, descriptions, etc.)
                 t = t.replace("CherryIN", "SuperAgent")
                 # service_attribution + any residual cherryin.ai → superagent.ng
@@ -678,6 +685,30 @@ def apply_superagent_patches():
         with open(oauth_cmp, "w", encoding="utf-8") as f:
             f.write(t)
         patches.append("CherryInOauth.tsx → Paystack redirect")
+
+    # 4a. Onboarding welcome screen: the "Connect SuperAgent" button runs the
+    #     CherryIN OAuth flow, which dies on the provider's redirect_uri error
+    #     page. Redirect it to Paystack too — same destination as 4 above.
+    onboarding_cmp = os.path.join(
+        ROOT,
+        "src/renderer/windows/main/onboarding/OnboardingPage.tsx",
+    )
+    if os.path.exists(onboarding_cmp):
+        with open(onboarding_cmp, "r", encoding="utf-8") as f:
+            t = f.read()
+        # Open Paystack as the first statement of the login handler, so the
+        # OAuth flow below never runs (handler + imports stay referenced, no
+        # noUnusedLocals breakage).
+        t = t.replace(
+            "  const handleCherryInLogin = useCallback(async () => {\n",
+            "  const handleCherryInLogin = useCallback(async () => {\n"
+            "    // Obtain an API key via Paystack instead of running OAuth.\n"
+            "    window.open('https://paystack.com/buy/reactor-api-key', '_blank')\n"
+            "    return\n",
+        )
+        with open(onboarding_cmp, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("OnboardingPage.tsx → Paystack redirect")
 
     # 5. Update feed: GitHub behind the scenes, visible → superagent.ng/downloads.html
     yml = os.path.join(ROOT, "electron-builder.yml")

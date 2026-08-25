@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": " SuperAgent",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "",
-  "onboarding.welcome.other_provider": "",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "",
   "onboarding.welcome.subtitle": " AI ",
   "onboarding.welcome.title": " SuperAgent",

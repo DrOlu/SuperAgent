@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "Conectado com sucesso ao SuperAgent",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "OU CONTINUAR COM",
-  "onboarding.welcome.other_provider": "Escolher Outros Fornecedores",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "Por favor, configure pelo menos um fornecedor para a melhor experiência",
   "onboarding.welcome.subtitle": "Ligue um fornecedor para ativar a sua estação de trabalho de IA tudo-em-um",
   "onboarding.welcome.title": "Bem-vindo ao SuperAgent",

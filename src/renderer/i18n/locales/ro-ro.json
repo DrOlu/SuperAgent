@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "Conectat cu succes la SuperAgent",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "SAU CONTINUAȚI CU",
-  "onboarding.welcome.other_provider": "Configurează un alt furnizor",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "Poți schimba furnizorii oricând în Setări",
   "onboarding.welcome.subtitle": "Conectează un furnizor pentru a debloca stația de lucru AI multifuncțională",
   "onboarding.welcome.title": "Bun venit la SuperAgent",

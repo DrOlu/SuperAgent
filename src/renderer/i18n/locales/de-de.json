@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "Erfolgreich mit SuperAgent verbunden",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "ODER WEITER MIT",
-  "onboarding.welcome.other_provider": "Andere Anbieter auswählen",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "Bitte konfigurieren Sie mindestens einen Anbieter für die beste Erfahrung.",
   "onboarding.welcome.subtitle": "Verbinden Sie einen Anbieter, um Ihre All-in-One-KI-Workstation zu aktivieren",
   "onboarding.welcome.title": "Willkommen bei SuperAgent",

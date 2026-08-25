@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "Успешно подключено к SuperAgent",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "ИЛИ ПРОДОЛЖИТЬ С",
-  "onboarding.welcome.other_provider": "Настроить другого провайдера",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "Провайдера можно изменить в настройках в любое время",
   "onboarding.welcome.subtitle": "Подключите провайдера, чтобы активировать универсальную рабочую станцию с ИИ",
   "onboarding.welcome.title": "Добро пожаловать в SuperAgent",

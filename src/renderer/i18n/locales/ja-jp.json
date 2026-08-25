@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "SuperAgentに正常に接続されました",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "または続行",
-  "onboarding.welcome.other_provider": "他のプロバイダーを選択",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "ベストな体験のために、少なくとも1つのプロバイダーを設定してください",
   "onboarding.welcome.subtitle": "プロバイダーに接続して、オールインワンAIワークステーションを始めましょう",
   "onboarding.welcome.title": "SuperAgentへようこそ",

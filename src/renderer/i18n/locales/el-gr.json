@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "Συνδέθηκε επιτυχώς με το SuperAgent",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "Ή ΣΥΝΕΧΕΙΑ ΜΕ",
-  "onboarding.welcome.other_provider": "Επιλέξτε Άλλους Παρόχους",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "Παρακαλούμε ρυθμίστε τουλάχιστον έναν πάροχο για την καλύτερη εμπειρία",
   "onboarding.welcome.subtitle": "Συνδέστε έναν πάροχο για να ενεργοποιήσετε τον ολοκληρωμένο σταθμό εργασίας AI σας",
   "onboarding.welcome.title": "Καλώς ήρθατε στο SuperAgent",

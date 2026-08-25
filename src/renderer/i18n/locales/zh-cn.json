@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "Successfully connected to SuperAgent",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "or",
-  "onboarding.welcome.other_provider": "Set up another provider",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "You can change providers anytime in Settings",
   "onboarding.welcome.subtitle": "Connect a provider to unlock your All-in-One AI Workstation",
   "onboarding.welcome.title": "Welcome to SuperAgent",

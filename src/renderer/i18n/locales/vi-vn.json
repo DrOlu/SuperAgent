@@ -2527,7 +2527,7 @@
   "onboarding.toast.connected": "Đã kết nối thành công với SuperAgent",
   "onboarding.welcome.login_cherryin": "Obtain API Key",
   "onboarding.welcome.or_continue_with": "HOẶC TIẾP TỤC VỚI",
-  "onboarding.welcome.other_provider": "Chọn Nhà Cung Cấp Khác",
+  "onboarding.welcome.other_provider": "Setup Provider and Model",
   "onboarding.welcome.setup_hint": "Vui lòng cấu hình ít nhất một nhà cung cấp để có trải nghiệm tốt nhất",
   "onboarding.welcome.subtitle": "Kết nối nhà cung cấp để khởi động trạm làm việc AI tất cả trong một",
   "onboarding.welcome.title": "Chào mừng bạn đến với SuperAgent",

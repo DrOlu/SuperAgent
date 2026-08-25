@@ -535,7 +535,7 @@ export class AgentService {
 
     // AND-compose deletedAt-null + optional server-side search. The localized builtin
     // fallback is part of the predicate, so pagination and full-library search stay authoritative.
-    const conditions: SQL[] = [isNull(agentsTable.deletedAt)]
+    const conditions: SQL[] = [isNull(agentsTable.deletedAt), ne(agentsTable.id, CHERRY_SUPPORT_AGENT_ID)]
     if (options.search) {
       conditions.push(buildAgentSearchPredicate(options.search))
     }
@@ -612,7 +612,7 @@ export class AgentService {
 
   search(options: { q: string; limit: number; updatedAtFrom?: number }): AgentEntitySearchItem[] {
     const database = application.get('DbService').getDb()
-    const conditions: SQL[] = [isNull(agentsTable.deletedAt), buildAgentSearchPredicate(options.q)]
+    const conditions: SQL[] = [isNull(agentsTable.deletedAt), buildAgentSearchPredicate(options.q), ne(agentsTable.id, CHERRY_SUPPORT_AGENT_ID)]
     if (options.updatedAtFrom !== undefined) {
       conditions.push(gte(agentsTable.updatedAt, options.updatedAtFrom))
     }

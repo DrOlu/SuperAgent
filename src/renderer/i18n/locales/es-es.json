@@ -4410,7 +4410,7 @@
   "settings.provider.oauth.cherryIn.logged_in": "Conectado a través de OAuth",
   "settings.provider.oauth.cherryIn.login_button": "Autorizar con SuperAgent",
   "settings.provider.oauth.cherryIn.logout_button": "Cerrar sesión",
-  "settings.provider.oauth.cherryIn.not_logged_in": "No has iniciado sesión",
+  "settings.provider.oauth.cherryIn.not_logged_in": "Connect to Provider",
   "settings.provider.oauth.cherryIn.register_account": "Crear una cuenta",
   "settings.provider.oauth.cherryIn.service_attribution": "Este servicio lo proporciona <link>superagent.ng</link>",
   "settings.provider.oauth.cherryIn.tagline": "Tras iniciar sesión, podrás usar todos los servicios de modelos",

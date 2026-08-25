@@ -4410,7 +4410,7 @@
   "settings.provider.oauth.cherryIn.logged_in": "Σύνδεση μέσω OAuth",
   "settings.provider.oauth.cherryIn.login_button": "Εξουσιοδότηση με SuperAgent",
   "settings.provider.oauth.cherryIn.logout_button": "Αποσύνδεση",
-  "settings.provider.oauth.cherryIn.not_logged_in": "Δεν έχετε συνδεθεί",
+  "settings.provider.oauth.cherryIn.not_logged_in": "Connect to Provider",
   "settings.provider.oauth.cherryIn.register_account": "Δημιουργία λογαριασμού",
   "settings.provider.oauth.cherryIn.service_attribution": "Αυτή η υπηρεσία παρέχεται από το <link>superagent.ng</link>",
   "settings.provider.oauth.cherryIn.tagline": "Μετά τη σύνδεση μπορείτε να χρησιμοποιήσετε όλες τις υπηρεσίες μοντέλων",

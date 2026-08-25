@@ -783,7 +783,10 @@ export class CherrySupportSeeder implements ISeeder {
             t = f.read()
         t = t.replace(
             "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID",
-            "return provider.id === 'cherryin' && !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID",
+            # cherryin check LAST: a leading `id === 'cherryin'` narrows the
+            # literal-union type, making the later `!== local-embedding`
+            # comparison a TS2367 no-overlap error.
+            "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID && provider.id === 'cherryin'",
         )
         with open(prov_vis, "w", encoding="utf-8") as f:
             f.write(t)

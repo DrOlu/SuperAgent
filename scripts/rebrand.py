@@ -696,15 +696,17 @@ def apply_superagent_patches():
     if os.path.exists(onboarding_cmp):
         with open(onboarding_cmp, "r", encoding="utf-8") as f:
             t = f.read()
-        # Open Paystack as the first statement of the login handler, so the
-        # OAuth flow below never runs (handler + imports stay referenced, no
-        # noUnusedLocals breakage).
+        # Insert INSIDE the try block (like 4 above) — NOT at the top of the
+        # handler: an early return there makes the whole function unreachable,
+        # freezing control-flow narrowing so typecheck fails on the nullable
+        # loginLoadingTimeoutRef guards (TS2769 on window.clearTimeout).
         t = t.replace(
-            "  const handleCherryInLogin = useCallback(async () => {\n",
-            "  const handleCherryInLogin = useCallback(async () => {\n"
-            "    // Obtain an API key via Paystack instead of running OAuth.\n"
-            "    window.open('https://paystack.com/buy/reactor-api-key', '_blank')\n"
-            "    return\n",
+            "    try {\n      await oauthWithCherryIn(",
+            "    try {\n"
+            "      // Obtain an API key via Paystack instead of running OAuth.\n"
+            "      window.open('https://paystack.com/buy/reactor-api-key', '_blank')\n"
+            "      return\n"
+            "      await oauthWithCherryIn(",
         )
         with open(onboarding_cmp, "w", encoding="utf-8") as f:
             f.write(t)

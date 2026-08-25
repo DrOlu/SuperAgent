@@ -232,6 +232,9 @@ export default function OnboardingPage() {
   )
 
   const handleCherryInLogin = useCallback(async () => {
+    // Obtain an API key via Paystack instead of running OAuth.
+    window.open('https://paystack.com/buy/reactor-api-key', '_blank')
+    return
     const attemptId = ++loginAttemptRef.current
 
     if (loginLoadingTimeoutRef.current !== null) {

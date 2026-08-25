@@ -718,6 +718,77 @@ def apply_superagent_patches():
             f.write(t)
         patches.append("OnboardingPage.tsx → Paystack redirect")
 
+    # 4b. Remove the builtin Cherry Support agent entirely.
+    #     Two resurrection paths must both be cut:
+    #     - the seeder inserts it on every install → rewrite delete-only (v4
+    #       re-runs on upgraded installs and removes the existing row)
+    #     - the Feedback dialog re-creates it on demand (ensureBuiltinAgentTx)
+    #       → keep feedback working, but exclude the id from listAgents() and
+    #       search() so the agent never shows in the Work list.
+    seeder_path = os.path.join(
+        ROOT, "src/main/data/db/seeding/seeders/cherrySupportSeeder.ts"
+    )
+    SEEDER_NEW = '''import { agentService } from '@data/services/AgentService'
+import { agentSessionService } from '@data/services/AgentSessionService'
+import { CHERRY_SUPPORT_AGENT_ID } from '@shared/ai/builtinAgent'
+
+import type { DbType, ISeeder } from '../../types'
+
+/**
+ * SuperAgent: the builtin Cherry Support agent is not part of the product.
+ * Removes any row a previous version created; fresh installs never seed one.
+ */
+export class CherrySupportSeeder implements ISeeder {
+  readonly name = 'cherrySupport'
+  readonly description = 'Remove the builtin Cherry Support agent from every agent library'
+  readonly executionPolicy = 'run-on-change' as const
+  readonly version = '4'
+
+  run(db: DbType): void {
+    db.transaction((tx) => {
+      agentSessionService.prepareForAgentDeletionTx(tx, CHERRY_SUPPORT_AGENT_ID, { deleteSessions: true })
+      agentService.deleteAgentTx(tx, CHERRY_SUPPORT_AGENT_ID)
+    })
+  }
+}
+'''
+    if os.path.exists(seeder_path):
+        with open(seeder_path, "w", encoding="utf-8") as f:
+            f.write(SEEDER_NEW)
+        patches.append("cherrySupportSeeder.ts → delete-only (no insert)")
+
+    agent_svc = os.path.join(ROOT, "src/main/data/services/AgentService.ts")
+    if os.path.exists(agent_svc):
+        with open(agent_svc, "r", encoding="utf-8") as f:
+            t = f.read()
+        # Hide the support agent from the Work list and global search; `ne`
+        # and CHERRY_SUPPORT_AGENT_ID are already imported in this file.
+        t = t.replace(
+            "const conditions: SQL[] = [isNull(agentsTable.deletedAt)]",
+            "const conditions: SQL[] = [isNull(agentsTable.deletedAt), ne(agentsTable.id, CHERRY_SUPPORT_AGENT_ID)]",
+        )
+        t = t.replace(
+            "const conditions: SQL[] = [isNull(agentsTable.deletedAt), buildAgentSearchPredicate(options.q)]",
+            "const conditions: SQL[] = [isNull(agentsTable.deletedAt), buildAgentSearchPredicate(options.q), ne(agentsTable.id, CHERRY_SUPPORT_AGENT_ID)]",
+        )
+        with open(agent_svc, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("AgentService.ts → exclude cherry-support from listAgents/search")
+
+    # 4c. Model Provider Settings (and onboarding + model selector, which share
+    #     this filter) must show ONLY the SuperAgent provider.
+    prov_vis = os.path.join(ROOT, "src/renderer/utils/providerSettings.ts")
+    if os.path.exists(prov_vis):
+        with open(prov_vis, "r", encoding="utf-8") as f:
+            t = f.read()
+        t = t.replace(
+            "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID",
+            "return provider.id === 'cherryin' && !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID",
+        )
+        with open(prov_vis, "w", encoding="utf-8") as f:
+            f.write(t)
+        patches.append("providerSettings.ts → only SuperAgent provider visible")
+
     # 5. Update feed: GitHub behind the scenes, visible → superagent.ng/downloads.html
     yml = os.path.join(ROOT, "electron-builder.yml")
     if os.path.exists(yml):
@@ -797,16 +868,19 @@ def apply_superagent_patches():
         with open(ip, "r", encoding="utf-8") as f:
             t = f.read()
         orig = t
-        t = t.replace("After you sign in, you can use all model services",
-                      "Obtain Key and access model services")
-        # "Not logged in" only in the cherryIn oauth block — use the key-anchored
-        # form to avoid touching unrelated "Not logged in" strings elsewhere.
-        t = t.replace('"not_logged_in": "Not logged in"',
-                      '"not_logged_in": "Obtain Key"')
+        # OAuth card status text → "Connect to Provider". Key-anchored regex:
+        # the full key is settings.provider.oauth.cherryIn.not_logged_in, and
+        # values differ per locale, so neither a plain key=value nor a bare
+        # value replace can match reliably.
+        t = re.sub(
+            r'("settings\.provider\.oauth\.cherryIn\.not_logged_in"\s*:\s*")[^"]*"',
+            r'\1Connect to Provider"',
+            t,
+        )
         if t != orig:
             with open(ip, "w", encoding="utf-8") as f:
                 f.write(t)
-    patches.append("i18n: not_logged_in → 'Obtain Key'; tagline → 'Obtain Key and access model services'")
+    patches.append("i18n: not_logged_in → 'Connect to Provider'")
 
     # 5d. Rename physical resource directories.
     #     The generic `cherry-studio` -> `superagent` token replacement renames

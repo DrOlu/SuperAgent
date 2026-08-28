@@ -1,0 +1,20 @@
+{
+  "description": {
+    "en": "Exercises every window.cherry capability against its documented contract. Every permission is optional, so revoking one tests that refusal path.",
+    "zh": " window.cherry "
+  },
+  "entry": "index.html",
+  "icon": {
+    "path": "icon.png",
+    "sha256": "c6db1876f673b8d256e41d77c1da164b5081ff76d01f054ff426ba9649cf6aee"
+  },
+  "id": "com.example.capability-tests",
+  "name": {
+    "en": "Capability Tests",
+    "zh": ""
+  },
+  "network": ["postman-echo.com", "nodejs.org", "localtest.me"],
+  "optionalPermissions": ["ai.chat", "storage.*", "file.*", "notification.show", "network.fetch", "clipboard.*"],
+  "permissions": [],
+  "version": "1.1.0"
+}

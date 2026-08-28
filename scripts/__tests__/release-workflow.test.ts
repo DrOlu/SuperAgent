@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -13,7 +13,12 @@ import {
   updateHotfixReleaseMetadata
 } from '../release/hotfix-release-notes'
 import { validatePreparedRelease } from '../release/validate-prepared-release'
-import { validateBuildCompletion, validateBuildStart, validatePublishState } from '../release/validate-release-state'
+import {
+  validateBuildCompletion,
+  validateBuildStart,
+  validatePreparationState,
+  validatePublishState
+} from '../release/validate-release-state'
 
 interface GitFixture {
   patchFile: string
@@ -492,7 +497,7 @@ describe('prepared release validation', () => {
     )
   })
 
-  it('rejects missing language markers and mismatched release-note headings', () => {
+  it('rejects missing or duplicate language markers', () => {
     const missingMarkerFixture = createPreparedReleaseFixture()
     const missingMarkerBuilder = path.join(missingMarkerFixture.repo, 'electron-builder.yml')
     fs.writeFileSync(
@@ -500,45 +505,41 @@ describe('prepared release validation', () => {
       fs.readFileSync(missingMarkerBuilder, 'utf8').replace('<!--LANG:zh-CN-->', '<!--LANG:missing-->')
     )
     expect(() => validatePreparedRelease({ cwd: missingMarkerFixture.repo, targetVersion: '1.1.0' })).toThrow(
-      'exactly one bilingual marker span'
+      'one ordered set of bilingual markers'
     )
 
-    const wrongHeadingFixture = createPreparedReleaseFixture()
-    const wrongHeadingBuilder = path.join(wrongHeadingFixture.repo, 'electron-builder.yml')
+    const duplicateMarkerFixture = createPreparedReleaseFixture()
+    const duplicateMarkerBuilder = path.join(duplicateMarkerFixture.repo, 'electron-builder.yml')
     fs.writeFileSync(
-      wrongHeadingBuilder,
+      duplicateMarkerBuilder,
       fs
-        .readFileSync(wrongHeadingBuilder, 'utf8')
-        .replace('SuperAgent 1.1.0 - 测试版本', 'SuperAgent 1.0.0 - 测试版本')
+        .readFileSync(duplicateMarkerBuilder, 'utf8')
+        .replace('<!--LANG:zh-CN-->', '<!--LANG:en-->\n    <!--LANG:zh-CN-->')
     )
-    expect(() => validatePreparedRelease({ cwd: wrongHeadingFixture.repo, targetVersion: '1.1.0' })).toThrow(
-      'Chinese release notes do not identify SuperAgent 1.1.0'
+    expect(() => validatePreparedRelease({ cwd: duplicateMarkerFixture.repo, targetVersion: '1.1.0' })).toThrow(
+      'one ordered set of bilingual markers'
     )
   })
 
-  it('rejects release-note content outside the bilingual marker span', () => {
-    const prefixedFixture = createPreparedReleaseFixture()
-    const prefixedBuilder = path.join(prefixedFixture.repo, 'electron-builder.yml')
-    fs.writeFileSync(
-      prefixedBuilder,
-      fs
-        .readFileSync(prefixedBuilder, 'utf8')
-        .replace('    <!--LANG:en-->', '    Unexpected preface\n    <!--LANG:en-->')
-    )
-    expect(() => validatePreparedRelease({ cwd: prefixedFixture.repo, targetVersion: '1.1.0' })).toThrow(
-      'exactly one bilingual marker span'
-    )
+  it('accepts release-note presentation variations while requiring both language sections', () => {
+    const flexibleFixture = createPreparedReleaseFixture()
+    const flexibleNotes = `Release announcement\n${releaseNotes('1.0.0', 'New fix.')}\nRead more on the website.`
+    write(flexibleFixture.repo, 'electron-builder.yml', builderYaml(flexibleNotes))
+    const historyPath = path.join(flexibleFixture.repo, 'resources/superagent/release-history.json')
+    const history = JSON.parse(fs.readFileSync(historyPath, 'utf8'))
+    history[0].releaseNotes = flexibleNotes
+    write(flexibleFixture.repo, 'resources/superagent/release-history.json', `${JSON.stringify(history, null, 2)}\n`)
 
-    const suffixedFixture = createPreparedReleaseFixture()
-    const suffixedBuilder = path.join(suffixedFixture.repo, 'electron-builder.yml')
-    fs.writeFileSync(
-      suffixedBuilder,
-      fs
-        .readFileSync(suffixedBuilder, 'utf8')
-        .replace('    <!--LANG:END-->', '    <!--LANG:END-->\n    Unexpected suffix')
+    expect(() => validatePreparedRelease({ cwd: flexibleFixture.repo, targetVersion: '1.1.0' })).not.toThrow()
+
+    const emptySectionFixture = createPreparedReleaseFixture()
+    write(
+      emptySectionFixture.repo,
+      'electron-builder.yml',
+      builderYaml('<!--LANG:en-->\n\n<!--LANG:zh-CN-->\n中文说明\n<!--LANG:END-->')
     )
-    expect(() => validatePreparedRelease({ cwd: suffixedFixture.repo, targetVersion: '1.1.0' })).toThrow(
-      'exactly one bilingual marker span'
+    expect(() => validatePreparedRelease({ cwd: emptySectionFixture.repo, targetVersion: '1.1.0' })).toThrow(
+      'non-empty English and Chinese sections'
     )
   })
 
@@ -585,6 +586,29 @@ describe('prepared release validation', () => {
     expect(() =>
       validatePreparedRelease({ cwd: fixture.repo, includeGeneratedManifest: true, targetVersion: '1.1.0' })
     ).not.toThrow()
+  })
+})
+
+describe('release preparation state', () => {
+  it('rejects an existing target release without blocking unrelated drafts', () => {
+    const unrelatedDraft = { draft: true, tag_name: 'v1.1.0' }
+
+    expect(() => validatePreparationState({ releasePages: [[unrelatedDraft]], tag: 'v1.2.0' })).not.toThrow()
+    expect(() =>
+      validatePreparationState({ releasePages: [[unrelatedDraft, { draft: true, tag_name: 'v1.2.0' }]], tag: 'v1.2.0' })
+    ).toThrow('Release v1.2.0 already exists')
+  })
+
+  it('reads the release list from stdin instead of the process environment', () => {
+    const validatorPath = path.resolve(import.meta.dirname, '../release/validate-release-state.js')
+    const result = spawnSync(process.execPath, [validatorPath, 'prepare'], {
+      encoding: 'utf8',
+      env: { ...process.env, RELEASE_PAGES_JSON: '', TAG: 'v1.2.0' },
+      input: JSON.stringify([[{ draft: true, tag_name: 'v1.1.0' }]])
+    })
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe('')
   })
 })
 
@@ -879,20 +903,25 @@ describe('release workflow gates', () => {
     expect(tagStep.run).toContain('node scripts/release/validate-release-state.js build-completion')
   })
 
-  it('runs the shared publish validator with pending hotfixes immediately before publication', () => {
+  it('validates publication once at the release mutation boundary', () => {
     const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'release.yml'), 'utf8'))
-    const publishStep = workflow.jobs['publish-release'].steps.find(
-      (step: { name?: string }) => step.name === 'Publish current draft'
+    const prepareStateStep = workflow.jobs.prepare.steps.find(
+      (step: { name?: string }) => step.name === 'Validate and update release state'
+    )
+    const publishSteps = workflow.jobs['publish-release'].steps
+    const publishStep = publishSteps.find(
+      (step: { name?: string }) => step.name === 'Validate and publish current draft'
     )
 
-    expect(publishStep.run).toContain('PENDING_HOTFIXES="$(collect_pending_hotfixes)"')
-    expect(publishStep.run).toContain('PENDING_HOTFIXES="$PENDING_HOTFIXES"')
-    expect(publishStep.run).toContain('node scripts/release/validate-release-state.js publish')
-    const validatorIndex = publishStep.run.indexOf('node scripts/release/validate-release-state.js publish')
-    const publicationIndex = publishStep.run.indexOf('gh release edit "$TAG"')
-    expect(publishStep.run.lastIndexOf('git fetch origin')).toBeGreaterThan(validatorIndex)
-    expect(publishStep.run.lastIndexOf('git fetch origin')).toBeLessThan(publicationIndex)
-    expect(validatorIndex).toBeLessThan(publicationIndex)
+    expect(prepareStateStep.run).not.toContain('validate-release-state.js publish')
+    expect(publishSteps.some((step: { name?: string }) => step.name === 'Revalidate current draft')).toBe(false)
+    expect(publishStep.run.match(/validate-release-state\.js publish/g)).toHaveLength(1)
+    expect(publishStep.run.indexOf('HOTFIX_CUTOFF_SHA=')).toBeLessThan(
+      publishStep.run.indexOf('validate-release-state.js publish')
+    )
+    expect(publishStep.run.indexOf('validate-release-state.js publish')).toBeLessThan(
+      publishStep.run.indexOf('gh release edit')
+    )
   })
 
   it('reports a merged hotfix contract failure before release resolution', () => {
@@ -928,12 +957,16 @@ describe('release workflow gates', () => {
 
   it('builds preview source commits without repository or service credentials', () => {
     const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'preview-release.yml'), 'utf8'))
+    const sourceStep = workflow.jobs.resolve.steps.find(
+      (step: { name?: string }) => step.name === 'Resolve source branch'
+    )
     const checkoutStep = workflow.jobs.build.steps.find(
       (step: { name?: string }) => step.name === 'Check out preview commit'
     )
     const sourceSteps = workflow.jobs.build.steps.filter((step: { name?: string }) => step.name?.startsWith('Build '))
 
     expect(checkoutStep.with['persist-credentials']).toBe(false)
+    expect(sourceStep.run).toContain('BRANCH_SLUG="sha-${SOURCE_SHA:0:12}"')
     for (const step of sourceSteps) {
       expect(Object.keys(step.env ?? {})).not.toContain('GH_TOKEN')
       expect(Object.keys(step.env ?? {}).every((key) => !key.includes('SECRET') && !key.startsWith('APPLE_'))).toBe(
@@ -942,7 +975,23 @@ describe('release workflow gates', () => {
     }
   })
 
-  it('revalidates the downloaded preparation artifact before creating the release branch', () => {
+  it('syncs post-release metadata from the published tag without depending on the release branch head', () => {
+    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'post-release.yml'), 'utf8'))
+    const metadataStep = workflow.jobs['sync-release-metadata'].steps.find(
+      (step: { name?: string }) => step.name === 'Prepare published metadata changes'
+    )
+    const payloadStep = workflow.jobs['sync-release-metadata'].steps.find(
+      (step: { name?: string }) => step.name === 'Create signed metadata commit payload'
+    )
+
+    expect(metadataStep.run).toContain('refs/tags/$TAG:refs/tags/$TAG')
+    expect(metadataStep.run).not.toContain('refs/heads/$RELEASE_BRANCH')
+    expect(metadataStep.run).not.toContain('BRANCH_SHA')
+    expect(payloadStep.run).not.toContain('Unexpected release metadata change')
+    expect(payloadStep.run).not.toContain('must not change file mode')
+  })
+
+  it('copies only known preparation files and revalidates them before creating the release branch', () => {
     const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'prepare-release.yml'), 'utf8'))
     const validationStep = workflow.jobs.publish.steps.find(
       (step: { name?: string }) => step.name === 'Validate prepared release artifact'
@@ -952,6 +1001,58 @@ describe('release workflow gates', () => {
       validationStep.run.indexOf('validate-prepared-release.js')
     )
     expect(validationStep.run).toContain('--include-generated-manifest')
+    expect(validationStep.run).not.toContain('function walk')
+    expect(validationStep.run).not.toContain('unexpected file set')
+    expect(validationStep.run).not.toContain('git status')
+  })
+
+  it('restores the frozen release head and keeps only prepared metadata changes', () => {
+    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'prepare-release.yml'), 'utf8'))
+    const prepareSteps = workflow.jobs.prepare.steps
+    const claudeStep = prepareSteps.find((step: { name?: string }) => step.name === 'Prepare Release via Claude')
+    const retainStep = prepareSteps.find((step: { name?: string }) => step.name === 'Retain prepared release metadata')
+    const validationIndex = prepareSteps.findIndex(
+      (step: { name?: string }) => step.name === 'Validate prepared release metadata'
+    )
+
+    expect(claudeStep.with.claude_args).toContain('Bash(git:*)')
+    expect(claudeStep.with.claude_args).toContain('Bash(node:*)')
+    expect(retainStep.run).toContain('git diff --binary --full-index')
+    expect(retainStep.run).toContain('git reset --hard "$RELEASE_HEAD"')
+    expect(retainStep.run).toContain('git clean -fd')
+    expect(retainStep.run).toContain('git apply "$RELEASE_PATCH"')
+    expect(prepareSteps.indexOf(retainStep)).toBeLessThan(validationIndex)
+
+    const fixture = createGitFixture()
+    write(fixture.repo, 'package.json', '{"version":"1.0.0"}\n')
+    write(fixture.repo, 'electron-builder.yml', 'releaseInfo:\n  releaseNotes: old\n')
+    write(fixture.repo, 'resources/superagent/release-history.json', '[]\n')
+    const releaseHead = commit(fixture.repo, 'release metadata')
+
+    write(fixture.repo, 'package.json', '{"version":"1.1.0"}\n')
+    write(fixture.repo, 'electron-builder.yml', 'releaseInfo:\n  releaseNotes: new\n')
+    write(fixture.repo, 'resources/superagent/release-history.json', '[{"version":"1.1.0"}]\n')
+    write(fixture.repo, 'app.txt', 'unexpected tracked change\n')
+    write(fixture.repo, '.release-prep/prepare.js', 'temporary helper\n')
+    commit(fixture.repo, 'temporary local release preparation')
+
+    const runnerTemp = path.join(fixture.root, 'runner-temp')
+    fs.mkdirSync(runnerTemp)
+    execFileSync('bash', ['-e', '-o', 'pipefail', '-c', retainStep.run], {
+      cwd: fixture.repo,
+      env: { ...process.env, RELEASE_HEAD: releaseHead, RUNNER_TEMP: runnerTemp }
+    })
+
+    expect(git(fixture.repo, 'rev-parse', 'HEAD')).toBe(releaseHead)
+    expect(fs.readFileSync(path.join(fixture.repo, 'package.json'), 'utf8')).toBe('{"version":"1.1.0"}\n')
+    expect(fs.readFileSync(path.join(fixture.repo, 'electron-builder.yml'), 'utf8')).toContain('releaseNotes: new')
+    expect(fs.readFileSync(path.join(fixture.repo, 'app.txt'), 'utf8')).toBe('base\n')
+    expect(fs.existsSync(path.join(fixture.repo, '.release-prep'))).toBe(false)
+    expect(git(fixture.repo, 'diff', '--name-only').split('\n').sort()).toEqual([
+      'electron-builder.yml',
+      'package.json',
+      'resources/superagent/release-history.json'
+    ])
   })
 
   it('runs release workflow contract tests for release-workflow-only pull requests', () => {

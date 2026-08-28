@@ -80,6 +80,7 @@
   "dialog.diagnostic_bundle.title": "",
   "dialog.diagnostic_bundle.zip_filter": "ZIP ",
   "dialog.html_files": "HTML ",
+  "dialog.mini_app_export": " {{name}} ",
   "dialog.open_file": "",
   "dialog.pdf_files": "PDF ",
   "dialog.png_image": "PNG ",

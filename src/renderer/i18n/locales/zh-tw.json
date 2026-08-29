@@ -5179,6 +5179,7 @@
   "translate.stop": "",
   "translate.target_language": "",
   "translate.title": "",
+  "translate.translate_to": "",
   "update.install": "",
   "update.later": "",
   "update.message": " {{version}} ",

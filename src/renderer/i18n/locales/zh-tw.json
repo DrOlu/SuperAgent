@@ -4128,6 +4128,8 @@
   "settings.messages.input.confirm_delete_message": "",
   "settings.messages.input.enable_quick_triggers": " / ",
   "settings.messages.input.newline_shortcuts": "",
+  "settings.messages.input.paste_long_text_as_file": "",
+  "settings.messages.input.paste_long_text_threshold": "",
   "settings.messages.input.send_shortcuts": "",
   "settings.messages.input.show_estimated_tokens": " Token ",
   "settings.messages.input.steer_shortcuts": "",

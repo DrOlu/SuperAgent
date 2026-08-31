@@ -63,6 +63,7 @@
   "chat.conversation.new": "",
   "common.channel_available_commands": "",
   "common.channel_command_processing_error": "⚠️ ",
+  "common.channel_message_dropped": "⚠️ ",
   "common.channel_message_processing_error": "⚠️ ",
   "common.channel_new_session_created": "",
   "common.channel_no_active_session": "",

@@ -1,32 +1,3 @@
-<div align="right" >
-  <details>
-    <summary >🌐 Language</summary>
-    <div>
-      <div align="right">
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=en">English</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=zh-CN"></a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=zh-TW"></a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=ja"></a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=ko">한국어</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=hi">हिन्दी</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=th">ไทย</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=fr">Français</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=de">Deutsch</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=es">Español</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=it">Italiano</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=ru">Русский</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=pt">Português</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=nl">Nederlands</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=pl">Polski</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=ar">العربية</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=fa">فارسی</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=tr">Türkçe</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=vi">Tiếng Việt</a></p>
-        <p><a href="https://openaitx.github.io/view.html?user=Hyperspace Technologies&project=superagent&lang=id">Bahasa Indonesia</a></p>
-      </div>
-    </div>
-  </details>
-</div>
 
 <h1 align="center">
   <a href="https://github.com/DrOlu/SuperAgent/releases">

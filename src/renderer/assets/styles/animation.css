@@ -309,3 +309,28 @@
     animation: none;
   }
 }
+
+/*  1.6s  */
+@keyframes search-hit-flash {
+  0%,
+  60% {
+    background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.search-hit-highlight {
+  animation: search-hit-flash 1.6s ease-out;
+  border-radius: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-hit-highlight {
+    animation: none;
+    /* No flashing under reduced motion — hold a steady tint instead so the
+       jump target stays visibly marked until the class is removed */
+    background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+}

@@ -30,6 +30,7 @@ export const USER_DATA_WIPE = [
   'superagent.sqlite-shm',
   'Data',
   'Data.restore',
+  'Credentials',
   'IndexedDB.restore',
   'Local Storage.restore',
   'cache.json',

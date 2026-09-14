@@ -1,5 +1,7 @@
 # Skills Management
 
+English | [](README.zh.md)
+
 This directory is the single source of truth for repository skills.
 
 ## Add a New Skill

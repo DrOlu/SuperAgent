@@ -1,6 +1,8 @@
 {
   "agent.builtin.cherry_assistant.description": "SuperAgent  FAQ Skill",
   "agent.builtin.cherry_support.description": "SuperAgent  AgentFAQ ",
+  "agent.session.dsh.bun_unavailable": "DSH  SuperAgent ",
+  "agent.session.dsh.bun_unavailable_dev": "DSH  pnpm download:binaries ",
   "agent.session.new": "",
   "agent.session.run_status.busy": "Agent ",
   "agent.session.run_status.unavailable": "Agent ",

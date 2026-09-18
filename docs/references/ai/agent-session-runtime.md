@@ -2,12 +2,17 @@
 description: Host/driver split for agent sessions — turn lifecycle, follow-up queue, resume tokens, and shared prompt materializer
 sources:
   - src/main/ai/agentSession/AgentSessionRuntimeService.ts
+  - src/main/data/services/AgentSessionService.ts
+  - src/main/data/db/schemas/agentSession.ts
+  - src/main/ai/agents/runAgentTask.ts
   - src/main/ai/runtime/types.ts
   - src/main/ai/runtime/claudeCode
   - src/main/ai/runtime/pi
   - src/main/ai/runtime/dsh
   - src/main/ai/runtime/agentPrompt.ts
   - src/main/ai/toolApproval/userDataSqliteGuard.ts
+  - src/main/ai/messages/readConversation.ts
+  - src/main/ai/mcp/servers/cherryAutonomyTools.ts
   - packages/dsh-bridge/src/plugin.ts
 ---
 
@@ -43,6 +48,36 @@ driver internals behind the same host contract.
 | Runtime drivers | Convert runtime-native events into the common event stream and map opaque resume tokens back into their SDK/session transport. |
 | Usage capture | Each driver exposes provider-invocation capture according to its transport; gateway-backed calls use AiService middleware rather than a runtime aggregate. |
 | Runtime timing | `AiStreamManager` owns the message clock. Drivers contribute provider/tool timing when their SDK exposes it; approval waits are captured independently from approval request to decision/abort. |
+
+## Background sessions and conversation navigation
+
+`agent_session.type` distinguishes `conversation` from `background`. Heartbeat
+runs create background sessions, including replacements after failed admission;
+ordinary scheduled tasks retain their conversation behavior. The type is internal
+to Main and is not a renderer-controlled visibility flag.
+
+Conversation lists (including pins), latest-session selection, discovery search,
+and empty-session reuse only consider conversation sessions. The public
+session-by-id and message routes (reads, mutations, and workspace changes) apply
+that scope too, so a saved tab cannot restore a background session as an
+interactive conversation and a known background id is not addressable from the
+renderer surface. Runtime lookups retain access to all sessions through the
+internal `getById` method and service methods. Background activity publishes
+detail/message changes without invalidating the conversation navigation read
+models.
+
+The appended migration classifies existing sessions only when retained job
+records identify heartbeat execution — the fire ran on a schedule whose
+template carries the heartbeat sentinel — and no retained job records identify
+a different use of the same session. Unknown history remains a conversation;
+classification never relies on a session name or workspace. Session/message
+data is retained, and subsequent job retention cannot change the
+classification.
+
+This is a bounded classification within the existing session model. Separating
+execution sessions from user-managed conversation membership is tracked in
+[issue #20635](https://github.com/DrOlu/SuperAgent/issues/20635); background-session retention and a dedicated activity UI
+also require their own lifecycle and product decisions.
 
 ## System prompt ownership
 
@@ -176,15 +211,21 @@ enters the runtime's process-local follow-up queue.
 ### Tool contract
 
 Each `cherry-tools` instance receives its trusted `agentId` and `sessionId` from `settingsBuilder`
-and exposes five tools:
+and exposes the session tools below:
 
 - `session_list` — deterministically enumerate visible Sessions and filter by Agent;
+- `session_read` — read a Chat topic, Agent Session, or live temporary conversation by its ID,
+  using the existing storage query rules. The caller does not supply a conversation type;
+  ambiguous IDs fail rather than selecting the first matching store;
+- `agent_list` — discover Agents independently of their Sessions, with public identity, runtime
+  availability, and whether a model is configured;
 - `session_search` — rank visible Sessions with BM25 over the existing trigram message FTS plus
   Session metadata, returning evidence snippets rather than adding an embedding dependency. Agent
   filters are applied before either search limit. The final limit counts distinct Sessions, each
   Session keeps its strongest message evidence, and `metadataMatches` identifies name/description
   hits instead of overloading an empty message-match list;
-- `session_create` — atomically create a same-Agent Session plus its first completion request;
+- `session_create` — atomically create a Session plus its first completion request, optionally
+  choosing another Agent with `target_agent_id`;
 - `session_send` — send one-way or request an asynchronous terminal completion;
 - `session_deliveries` — inspect incoming and outgoing request/result state.
 
@@ -203,8 +244,10 @@ Session. Every request owns one independent target turn; delivery never redirect
 turn and never enters the runtime's process-local follow-up queue. The tool returns after the
 durable request reaches `accepted`; it never waits for scheduling or target execution.
 
-`session_create` reuses the same completion-request path after creating the same-Agent Session. The
-model is not a tool argument because Sessions use their owning Agent's model.
+`session_create` reuses the same completion-request path. Omitting `target_agent_id` creates a
+same-Agent Session; providing it creates a Session owned by the selected Agent. The sender remains
+the trusted calling Agent/Session, and the current workspace policy is retained. The model is not a
+tool argument because Sessions use their owning Agent's model.
 
 ### Deliberate security ceiling
 
@@ -226,6 +269,13 @@ List, search, send, create, and delivery-query visibility share one authorizatio
 scheduled, and delivery-triggered turns are denied in code; Task sub-agents may discover Sessions
 but still require a live approval for delegation. Knowing a Session or message id never grants
 access by itself. `session_list` pages only addressable Sessions and returns an opaque cursor.
+
+`session_read` shares this caller authorization boundary. It reads current source data, without a
+cutoff or snapshot. Topic queries retain branch and sibling options; Agent Session queries
+retain their existing pagination. Temporary conversations retain their in-memory lifetime and list
+semantics. Exact message reads check conversation membership. A `tool_call_id` with `message_id`
+uses the same persisted tool-output reconstruction as the renderer, including its explicit fallback
+when an offloaded blob is missing. Reading history does not grant filesystem attachment access.
 
 ### Durable row shape
 

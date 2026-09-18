@@ -146,6 +146,28 @@ describe('AgentTaskService (read side)', () => {
     ])
   })
 
+  it.each(['membership', 'projection'] as const)(
+    'publishes task and run-log effects in one %s notification',
+    (kind) => {
+      agentTaskService.notifyRunChange(TASK_ID, 'job-1', kind)
+
+      expect(notifyDataApiDataChangeMock).toHaveBeenCalledTimes(1)
+
+      expect(notifyDataApiDataChangeMock).toHaveBeenCalledWith([
+        { endpoint: '/agent-tasks', kind: 'projection', entityIds: [TASK_ID] },
+        { endpoint: '/agents/:agentId/tasks', kind: 'projection', entityIds: [TASK_ID] },
+        { endpoint: '/agent-tasks/:taskId', entityIds: [TASK_ID] },
+        { endpoint: '/agents/:agentId/tasks/:taskId', entityIds: [TASK_ID] },
+        {
+          endpoint: '/agents/:agentId/tasks/:taskId/logs',
+          kind,
+          routeParams: { taskId: TASK_ID },
+          entityIds: ['job-1']
+        }
+      ])
+    }
+  )
+
   describe('getTask', () => {
     it('returns a task by id without requiring the owning agent id', () => {
       vi.mocked(jobScheduleService.getById).mockReturnValueOnce(makeSnapshot())
@@ -209,6 +231,19 @@ describe('AgentTaskService (read side)', () => {
       vi.mocked(jobScheduleService.getById).mockReturnValueOnce(null)
 
       expect(agentTaskService.getTask(AGENT_ID, TASK_ID)).toBeNull()
+    })
+
+    it('hides a heartbeat row from the by-id lookups, including the v1-migrated shape', () => {
+      // The list side excludes heartbeat rows; a known schedule id must not
+      // let ordinary task commands reach the row the heartbeat sync owns.
+      vi.mocked(jobScheduleService.getById).mockReturnValue(makeHeartbeatSnapshot())
+
+      try {
+        expect(agentTaskService.getTaskById(TASK_ID)).toBeNull()
+        expect(agentTaskService.getTask(AGENT_ID, TASK_ID)).toBeNull()
+      } finally {
+        vi.mocked(jobScheduleService.getById).mockReset()
+      }
     })
 
     it('derives status=paused when the schedule is disabled', () => {

@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": " — {{name}}",
   "agent.session.dsh.bun_unavailable": "DSH  SuperAgent ",
   "agent.session.dsh.bun_unavailable_dev": "DSH  pnpm download:binaries ",
+  "agent.session.fork.execution_not_inherited": "",
   "agent.session.new": "",
   "agent.session.run_status.busy": "Agent ",
   "agent.session.run_status.unavailable": "Agent ",

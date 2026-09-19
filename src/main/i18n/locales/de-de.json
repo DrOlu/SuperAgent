@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Heartbeat — {{name}}",
   "agent.session.dsh.bun_unavailable": "DSH konnte nicht gestartet werden, da die mitgelieferte Laufzeitumgebung nicht verfügbar ist. Installieren Sie SuperAgent erneut und versuchen Sie es noch einmal.",
   "agent.session.dsh.bun_unavailable_dev": "DSH konnte nicht gestartet werden, da die mitgelieferte Laufzeitumgebung nicht verfügbar ist. Führen Sie pnpm download:binaries in der lokalen Entwicklungskopie des Repositorys aus und versuchen Sie es erneut.",
+  "agent.session.fork.execution_not_inherited": "Die Ausführung wurde nicht in diesen Sitzungszweig übernommen.",
   "agent.session.new": "Neue Aufgabe",
   "agent.session.run_status.busy": "Die Agent-Sitzung ist beschäftigt. Bitte versuchen Sie es in Kürze erneut.",
   "agent.session.run_status.unavailable": "Die Agent-Sitzung ist nicht mehr verfügbar.",

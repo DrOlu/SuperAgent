@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Latido — {{name}}",
   "agent.session.dsh.bun_unavailable": "DSH no pudo iniciarse porque el entorno de ejecución incluido no está disponible. Reinstala SuperAgent e inténtalo de nuevo.",
   "agent.session.dsh.bun_unavailable_dev": "DSH no pudo iniciarse porque el entorno de ejecución incluido no está disponible. Ejecuta pnpm download:binaries en la copia local del repositorio de desarrollo e inténtalo de nuevo.",
+  "agent.session.fork.execution_not_inherited": "La ejecución no se heredó en esta bifurcación de la sesión.",
   "agent.session.new": "Nueva tarea",
   "agent.session.run_status.busy": "La sesión del Agent está ocupada. Inténtalo de nuevo en breve.",
   "agent.session.run_status.unavailable": "La sesión del Agent ya no está disponible.",

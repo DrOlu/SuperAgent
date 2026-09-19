@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Pulsação — {{name}}",
   "agent.session.dsh.bun_unavailable": "Não foi possível iniciar o DSH porque o ambiente de execução incluído não está disponível. Reinstale o SuperAgent e tente novamente.",
   "agent.session.dsh.bun_unavailable_dev": "Não foi possível iniciar o DSH porque o ambiente de execução incluído não está disponível. Execute pnpm download:binaries na cópia local do repositório de desenvolvimento e tente novamente.",
+  "agent.session.fork.execution_not_inherited": "A execução não foi herdada por esta ramificação da sessão.",
   "agent.session.new": "Nova tarefa",
   "agent.session.run_status.busy": "A sessão do Agent está ocupada. Tente novamente dentro de instantes.",
   "agent.session.run_status.unavailable": "A sessão do Agent já não está disponível.",

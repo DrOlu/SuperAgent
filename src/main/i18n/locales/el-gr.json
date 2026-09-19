@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Παλμός — {{name}}",
   "agent.session.dsh.bun_unavailable": "Δεν ήταν δυνατή η εκκίνηση του DSH, επειδή το ενσωματωμένο περιβάλλον εκτέλεσης δεν είναι διαθέσιμο. Εγκαταστήστε ξανά το SuperAgent και δοκιμάστε πάλι.",
   "agent.session.dsh.bun_unavailable_dev": "Δεν ήταν δυνατή η εκκίνηση του DSH, επειδή το ενσωματωμένο περιβάλλον εκτέλεσης δεν είναι διαθέσιμο. Εκτελέστε pnpm download:binaries στο τοπικό αντίγραφο του αποθετηρίου ανάπτυξης και δοκιμάστε ξανά.",
+  "agent.session.fork.execution_not_inherited": "Η εκτέλεση δεν μεταφέρθηκε σε αυτή τη διακλάδωση της συνεδρίας.",
   "agent.session.new": "Νέα εργασία",
   "agent.session.run_status.busy": "Η συνεδρία Agent είναι απασχολημένη. Δοκιμάστε ξανά σε λίγο.",
   "agent.session.run_status.unavailable": "Η συνεδρία Agent δεν είναι πλέον διαθέσιμη.",

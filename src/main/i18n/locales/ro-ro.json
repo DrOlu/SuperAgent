@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Bătăi inimii — {{name}}",
   "agent.session.dsh.bun_unavailable": "DSH nu a putut porni deoarece mediul de execuție inclus nu este disponibil. Reinstalați SuperAgent și încercați din nou.",
   "agent.session.dsh.bun_unavailable_dev": "DSH nu a putut porni deoarece mediul de execuție inclus nu este disponibil. Rulați pnpm download:binaries în copia locală a depozitului de dezvoltare și încercați din nou.",
+  "agent.session.fork.execution_not_inherited": "Execuția nu a fost preluată în această ramificare a sesiunii.",
   "agent.session.new": "Sarcină nouă",
   "agent.session.run_status.busy": "Sesiunea Agent este ocupată. Încercați din nou în curând.",
   "agent.session.run_status.unavailable": "Sesiunea Agent nu mai este disponibilă.",

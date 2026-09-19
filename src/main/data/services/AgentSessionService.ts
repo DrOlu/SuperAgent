@@ -276,9 +276,14 @@ export class AgentSessionService {
    * DB-only create primitive for caller-owned transaction composition.
    * The caller supplies the reserved id and owns the outer commit boundary.
    */
-  createTx(tx: DbOrTx, id: string, dto: CreateAgentSessionDto, type: AgentSessionType = 'conversation'): void {
+  createTx(
+    tx: DbOrTx,
+    id: string,
+    dto: CreateAgentSessionDto,
+    type: AgentSessionType = 'conversation',
+    createdAt = Date.now()
+  ): void {
     this.assertAgentExistsTx(tx, dto.agentId)
-    const createdAt = Date.now()
 
     let workspaceId: string
     switch (dto.workspace.type) {

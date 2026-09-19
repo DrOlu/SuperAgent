@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Пульс — {{name}}",
   "agent.session.dsh.bun_unavailable": "Не удалось запустить DSH: встроенная среда выполнения недоступна. Переустановите SuperAgent и повторите попытку.",
   "agent.session.dsh.bun_unavailable_dev": "Не удалось запустить DSH: встроенная среда выполнения недоступна. Выполните pnpm download:binaries в рабочей копии репозитория и повторите попытку.",
+  "agent.session.fork.execution_not_inherited": "Выполнение не было перенесено в эту ветку сеанса.",
   "agent.session.new": "Новая задача",
   "agent.session.run_status.busy": "Сеанс Agent занят. Повторите попытку чуть позже.",
   "agent.session.run_status.unavailable": "Сеанс Agent больше недоступен.",

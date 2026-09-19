@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Durum denetimi — {{name}}",
   "agent.session.dsh.bun_unavailable": "Birlikte gelen çalışma zamanı kullanılamadığı için DSH başlatılamadı. SuperAgent’yu yeniden yükleyip tekrar deneyin.",
   "agent.session.dsh.bun_unavailable_dev": "Birlikte gelen çalışma zamanı kullanılamadığı için DSH başlatılamadı. Geliştirme deposunun yerel kopyasında pnpm download:binaries komutunu çalıştırıp tekrar deneyin.",
+  "agent.session.fork.execution_not_inherited": "Yürütme durumu bu oturum dalına aktarılmadı.",
   "agent.session.new": "Yeni görev",
   "agent.session.run_status.busy": "Ajan Oturumu meşgul. Lütfen kısa süre sonra tekrar deneyin.",
   "agent.session.run_status.unavailable": "Ajan Oturumu artık kullanılamıyor.",

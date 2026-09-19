@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "ハートビート — {{name}}",
   "agent.session.dsh.bun_unavailable": "同梱のランタイムを利用できないため、DSH を起動できませんでした。SuperAgent を再インストールして、もう一度お試しください。",
   "agent.session.dsh.bun_unavailable_dev": "同梱のランタイムを利用できないため、DSH を起動できませんでした。開発用リポジトリで pnpm download:binaries を実行して、もう一度お試しください。",
+  "agent.session.fork.execution_not_inherited": "この分岐セッションには実行状態が引き継がれていません。",
   "agent.session.new": "新しいタスク",
   "agent.session.run_status.busy": "Agent セッションは処理中です。しばらくしてからもう一度お試しください。",
   "agent.session.run_status.unavailable": "Agent セッションは利用できなくなりました。",

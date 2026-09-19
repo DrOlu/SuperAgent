@@ -4,6 +4,7 @@
   "agent.heartbeat.workspace_name": "Pulsation — {{name}}",
   "agent.session.dsh.bun_unavailable": "DSH n’a pas pu démarrer car l’environnement d’exécution intégré est indisponible. Réinstallez SuperAgent et réessayez.",
   "agent.session.dsh.bun_unavailable_dev": "DSH n’a pas pu démarrer car l’environnement d’exécution intégré est indisponible. Exécutez pnpm download:binaries dans la copie locale du dépôt de développement et réessayez.",
+  "agent.session.fork.execution_not_inherited": "L’exécution n’a pas été héritée par cette bifurcation de session.",
   "agent.session.new": "Nouvelle tâche",
   "agent.session.run_status.busy": "La session Agent est occupée. Veuillez réessayer dans quelques instants.",
   "agent.session.run_status.unavailable": "La session Agent n’est plus disponible.",

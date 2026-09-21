@@ -1,7 +1,6 @@
 {
   "agent.builtin.cherry_assistant.description": "SuperAgent  FAQ Skill",
   "agent.builtin.cherry_support.description": "SuperAgent  AgentFAQ ",
-  "agent.heartbeat.workspace_name": " — {{name}}",
   "agent.session.dsh.bun_unavailable": "DSH  SuperAgent ",
   "agent.session.dsh.bun_unavailable_dev": "DSH  pnpm download:binaries ",
   "agent.session.fork.execution_not_inherited": "",
@@ -79,6 +78,10 @@
   "common.inspect": "",
   "common.paste": "",
   "dialog.all_files": "",
+  "dialog.architecture_mismatch.detail": " Mac  Apple  Intel  SuperAgent Rosetta  macOS Apple ARM64",
+  "dialog.architecture_mismatch.download": "",
+  "dialog.architecture_mismatch.later": "",
+  "dialog.architecture_mismatch.title": " Apple ",
   "dialog.data_reset.cancel": "",
   "dialog.data_reset.confirm": "",
   "dialog.data_reset.message": "",

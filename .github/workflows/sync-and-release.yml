@@ -313,7 +313,7 @@ jobs:
 
             Synced from Cherry Studio upstream `${{ needs.sync.outputs.upstream_sha }}`.
 
-            Maintained by **Hyperspace Technologies** (`agent@superagent.ng`). Built from the open-source Cherry Studio codebase under its original (AGPLv3) license — only visible branding, strings, logos, and the app icon were changed; functional code is unmodified.
+            Maintained by **Hyperspace Technologies** (`agent@superagent.ng`). Built from the open-source Cherry Studio codebase under its original (AGPLv3) license — only visible branding, strings, logos, and the app icon were changed from upstream, plus the SuperAgent-native neuralOS MCP server (on-device data agents over verified probe menus) as an additive built-in feature.
 
             ## Installers
             - **macOS**: `.dmg` / `.zip` (arm64 + x64)

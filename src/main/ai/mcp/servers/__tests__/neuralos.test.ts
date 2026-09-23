@@ -37,7 +37,9 @@ const MENU = JSON.stringify([
 ])
 
 function primeFs({ dirs = {}, files = {} }: { dirs?: Record<string, string[]>; files?: Record<string, string> }) {
-  readdirMock.mockImplementation(async (dir: string) => (dirs[dir] ?? []).map((n) => ({ name: n, isDirectory: () => true })))
+  readdirMock.mockImplementation(async (dir: string) =>
+    (dirs[dir] ?? []).map((n) => ({ name: n, isDirectory: () => true }))
+  )
   accessMock.mockImplementation(async (p: string) => {
     void p
   })
@@ -60,7 +62,9 @@ function makeDeps(execByKey: Record<string, { stdout: string; code?: number }>) 
   }
 }
 
-function depsWithExec(exec: (cmd: string, args: string[]) => Promise<{ stdout: string; stderr: string; code: number }>) {
+function depsWithExec(
+  exec: (cmd: string, args: string[]) => Promise<{ stdout: string; stderr: string; code: number }>
+) {
   return {
     execFile: vi.fn(exec),
     instancesRoot: '/instances',
@@ -70,11 +74,19 @@ function depsWithExec(exec: (cmd: string, args: string[]) => Promise<{ stdout: s
 
 describe('listInstances', () => {
   it('lists only directories that carry a needle_menu.json', async () => {
-    primeFs({ dirs: { '/instances': ['chinook', 'not-an-instance'] }, files: { '/instances/chinook/needle_menu.json': MENU } })
+    primeFs({
+      dirs: { '/instances': ['chinook', 'not-an-instance'] },
+      files: { '/instances/chinook/needle_menu.json': MENU }
+    })
     const deps = makeDeps({})
     const result = await listInstances(deps)
     expect(result).toEqual([
-      { name: 'chinook', path: '/instances/chinook', probeCount: 2, probes: ['cb_graph_overview', 'transactions_count'] }
+      {
+        name: 'chinook',
+        path: '/instances/chinook',
+        probeCount: 2,
+        probes: ['cb_graph_overview', 'transactions_count']
+      }
     ])
   })
 
@@ -109,7 +121,9 @@ describe('engineSelect', () => {
 
   it('parses the engine JSON into a pick with confidence', async () => {
     const deps = makeDeps({
-      [key]: { stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.98 }) }
+      [key]: {
+        stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.98 })
+      }
     })
     const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'count invoices')
     expect(result).toEqual({ pick: 'transactions_count', args: {}, confidence: 0.98 })
@@ -127,7 +141,18 @@ describe('engineSelect', () => {
 
   it('reports non-JSON engine output as data', async () => {
     const deps = makeDeps({
-      '/engine/needle --model /engine/needle3.cact --tools /i/needle_menu.json --prompt x': { stdout: 'garbage', code: 1 }
+      '/engine/needle --model /engine/needle3.cact --tools /i/needle_menu.json --prompt x': {
+        stdout: 'garbage',
+        code: 1
+      }
+    })
+    const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'x')
+    expect(result).toEqual({ error: 'engine output not JSON: garbage' })
+  })
+
+  it('reports an engine crash with empty output as data', async () => {
+    const deps = makeDeps({
+      '/engine/needle --model /engine/needle3.cact --tools /i/needle_menu.json --prompt x': { stdout: '', code: 1 }
     })
     const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'x')
     expect(result).toEqual({ error: 'engine exited 1: ' })
@@ -200,8 +225,8 @@ describe('parseJsonObject', () => {
 })
 
 describe('NeuralosServer', () => {
-  async function connectNeuralosClient() {
-    const server = new NeuralosServer()
+  async function connectNeuralosClient(deps?: ConstructorParameters<typeof NeuralosServer>[0]) {
+    const server = new NeuralosServer(deps)
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     const client = new Client({ name: 'neuralos-test-client', version: '1.0.0' }, { capabilities: {} })
     await server.mcpServer.connect(serverTransport)
@@ -221,22 +246,48 @@ describe('NeuralosServer', () => {
   })
 
   it('routes neuralos_ask through engine selection and probe execution', async () => {
-    primeFs({ files: { '/instances/cyber/needle_menu.json': MENU } })
-    accessMock.mockImplementation(async () => {})
-    const selectionKey = '/instances/engine/needle --model /instances/engine/needle3.cact --tools /instances/cyber/needle_menu.json --prompt how many'
-    const depsFor = depsWithExec(async (cmd, args) => {
+    primeFs({
+      dirs: { '/instances': ['cyber'] },
+      files: {
+        '/instances/cyber/needle_menu.json': MENU,
+        '/instances/engine/needle': '',
+        '/instances/engine/needle3.cact': ''
+      }
+    })
+    const deps = depsWithExec(async (cmd, args) => {
       if (cmd === 'python3') return { stdout: '{"count": 42}', stderr: '', code: 0 }
-      if (args.join(' ').includes('--prompt')) return { stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.9 }), stderr: '', code: 0 }
-      void selectionKey
+      if (args.join(' ').includes('--prompt')) {
+        return {
+          stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.9 }),
+          stderr: '',
+          code: 0
+        }
+      }
       return { stdout: '', stderr: 'unexpected exec', code: 1 }
     })
-    void depsFor
-    // The server builds its own default deps; drive the real child_process path
-    // through a stubbed environment instead: execFile is node, so stub via mock.
-    // For the tool-level test we only verify the wiring shape: call with a bad
-    // instance name and expect an error-as-data answer, not a thrown exception.
-    const client = await connectNeuralosClient()
-    const result = await client.callTool({ name: 'neuralos_ask', arguments: { instance: 'unknown-instance', question: 'how many' } })
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'cyber', question: 'how many' }
+    })
+    const text = (result.content as { type: string; text?: string }[])[0]?.text ?? ''
+    expect(JSON.parse(text)).toEqual({
+      instance: 'cyber',
+      question: 'how many',
+      pick: 'transactions_count',
+      confidence: 0.9,
+      result: { count: 42 }
+    })
+  })
+
+  it('answers an unknown instance as data, not an exception', async () => {
+    accessMock.mockRejectedValue(new Error('ENOENT'))
+    const deps = makeDeps({})
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'unknown-instance', question: 'how many' }
+    })
     const text = (result.content as { type: string; text?: string }[])[0]?.text ?? ''
     expect(text).toContain("no instance named 'unknown-instance'")
   })

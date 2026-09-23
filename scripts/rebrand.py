@@ -998,7 +998,7 @@ def apply_neuralos_integration():
         "src/shared/utils/mcp.ts",
         [(
             "  hub: '@cherry/hub'",
-            "  hub: '@cherry/hub'\n  neuralos: '@cherry/neuralos'",
+            "  hub: '@cherry/hub',\n  neuralos: '@cherry/neuralos'",
         )],
     )
 

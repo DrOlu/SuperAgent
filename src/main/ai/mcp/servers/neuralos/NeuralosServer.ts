@@ -4,6 +4,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import * as z from 'zod'
 
 import { loggerService } from '@logger'
+
 import {
   adminProbe,
   defaultDeps,
@@ -74,8 +75,8 @@ export class NeuralosServer {
   private readonly handlers: Record<string, NeuralosHandler>
   private readonly deps: ReturnType<typeof defaultDeps>
 
-  constructor() {
-    this.deps = defaultDeps()
+  constructor(deps?: ReturnType<typeof defaultDeps>) {
+    this.deps = deps ?? defaultDeps()
     this.handlers = {
       neuralos_list_instances: {
         description: LIST_INSTANCES_DESCRIPTION,

@@ -7,7 +7,7 @@
  */
 
 import { execFile } from 'node:child_process'
-import { promises as fs } from 'node:fs'
+import { type Dirent, promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 
@@ -29,9 +29,18 @@ export function defaultDeps(): NeuralosDeps {
   return {
     execFile: (cmd, args, env) =>
       new Promise((resolve) => {
-        execFile(cmd, args, { env: env ? { ...process.env, ...env } : process.env, timeout: 120_000 }, (err, stdout, stderr) => {
-          resolve({ stdout: String(stdout), stderr: String(stderr), code: err ? (err as NodeJS.ErrnoException & { code?: number }).code ?? 1 : 0 })
-        })
+        execFile(
+          cmd,
+          args,
+          { env: env ? { ...process.env, ...env } : process.env, timeout: 120_000 },
+          (err, stdout, stderr) => {
+            resolve({
+              stdout: String(stdout),
+              stderr: String(stderr),
+              code: err ? ((err as NodeJS.ErrnoException & { code?: number }).code ?? 1) : 0
+            })
+          }
+        )
       }),
     instancesRoot: process.env.NEURALOS_INSTANCES_DIR ?? path.join(homedir(), 'neuralos-instances'),
     engineBin: process.env.NEURALOS_ENGINE_BIN,
@@ -48,7 +57,7 @@ export interface InstanceInfo {
 }
 
 export async function listInstances(deps: NeuralosDeps): Promise<InstanceInfo[] | { error: string }> {
-  let entries: string[]
+  let entries: Dirent[]
   try {
     entries = await fs.readdir(deps.instancesRoot, { withFileTypes: true })
   } catch {
@@ -105,7 +114,11 @@ export async function resolveEngine(deps: NeuralosDeps): Promise<ResolvedEngine 
   })
   const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
   if (resources) {
-    candidates.push({ dir: '', bin: path.join(resources, 'neuralos', 'needle'), weights: path.join(resources, 'neuralos', 'needle3.cact') })
+    candidates.push({
+      dir: '',
+      bin: path.join(resources, 'neuralos', 'needle'),
+      weights: path.join(resources, 'neuralos', 'needle3.cact')
+    })
   }
   for (const c of candidates) {
     try {
@@ -157,7 +170,10 @@ export async function engineSelect(
   return {
     pick: calls[0].name,
     args: calls[0].arguments ?? {},
-    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : null
+    confidence:
+      typeof (parsed as { confidence?: number }).confidence === 'number'
+        ? (parsed as { confidence: number }).confidence
+        : null
   }
 }
 
@@ -214,10 +230,7 @@ export async function executeProbe(
   return parsed as Record<string, unknown>
 }
 
-export async function instanceDirFor(
-  deps: NeuralosDeps,
-  instance: string
-): Promise<string | { error: string }> {
+export async function instanceDirFor(deps: NeuralosDeps, instance: string): Promise<string | { error: string }> {
   if (!/^[A-Za-z0-9._-]+$/.test(instance)) return { error: `invalid instance name: ${instance}` }
   const dir = path.join(deps.instancesRoot, instance)
   try {

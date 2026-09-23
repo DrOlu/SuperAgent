@@ -113,11 +113,11 @@ jobs:
         run: |
           echo "--- neuralOS module ---"
           ls src/main/ai/mcp/servers/neuralos/ 2>/dev/null
-          echo "--- registration patches (expect 4 hits) ---"
-          grep -c "BuiltinMcpServerNames.neuralos" src/main/ai/mcp/servers/factory.ts || true
-          grep -c "neuralos: '@cherry/neuralos'" src/shared/utils/mcp.ts || true
-          grep -c "NEURALOS: 'neuralos'" src/main/ai/toolApproval/builtinToolPolicyRegistry.ts || true
-          grep -c "BuiltinMcpServerNames.neuralos" src/shared/data/presets/mcpServers.ts || true
+          echo "--- registration patches (each grep must find >=1 or the step fails) ---"
+          grep -c "BuiltinMcpServerNames.neuralos" src/main/ai/mcp/servers/factory.ts
+          grep -c "neuralos: '@cherry/neuralos'" src/shared/utils/mcp.ts
+          grep -c "NEURALOS: 'neuralos'" src/main/ai/toolApproval/builtinToolPolicyRegistry.ts
+          grep -c "BuiltinMcpServerNames.neuralos" src/shared/data/presets/mcpServers.ts
           echo "--- neuralOS unit tests present ---"
           ls src/main/ai/mcp/servers/__tests__/neuralos.test.ts
 
@@ -171,7 +171,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.node-version'
+          node-version-file: ".node-version"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v5

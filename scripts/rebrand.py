@@ -966,6 +966,122 @@ export class CherrySupportSeeder implements ISeeder {
         print("  - " + p)
 
 
+def apply_neuralos_integration():
+    """Wire the neuralOS MCP server (preserved under
+    src/main/ai/mcp/servers/neuralos/, restored by the workflows) into the
+    upstream-owned registration files. Idempotent: every patch anchors on
+    upstream text, so re-running after a sync is a no-op when already applied.
+    """
+    patches = []
+
+    def patch_file(rel, replacements):
+        fp = os.path.join(ROOT, rel)
+        if not os.path.exists(fp):
+            return
+        with open(fp, "r", encoding="utf-8") as f:
+            t = f.read()
+        orig = t
+        for old, new in replacements:
+            if new in t:
+                continue  # already applied
+            if old not in t:
+                patches.append(f"WARN {rel}: anchor missing for one patch")
+                continue
+            t = t.replace(old, new, 1)
+        if t != orig:
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write(t)
+            patches.append(rel)
+
+    # 1. builtin server name
+    patch_file(
+        "src/shared/utils/mcp.ts",
+        [(
+            "  hub: '@cherry/hub'",
+            "  hub: '@cherry/hub'\n  neuralos: '@cherry/neuralos'",
+        )],
+    )
+
+    # 2. factory loader
+    patch_file(
+        "src/main/ai/mcp/servers/factory.ts",
+        [(
+            "  [BuiltinMcpServerNames.browser]: async () => {\n"
+            "    return application.get('BrowserSessionService').createMcpServer()\n"
+            "  }\n}",
+            "  [BuiltinMcpServerNames.browser]: async () => {\n"
+            "    return application.get('BrowserSessionService').createMcpServer()\n"
+            "  },\n"
+            "  [BuiltinMcpServerNames.neuralos]: async () => {\n"
+            "    const { NeuralosServer } = await import('./neuralos/NeuralosServer')\n"
+            "    return new NeuralosServer().mcpServer\n"
+            "  }\n}",
+        )],
+    )
+
+    # 3. approval policy: server const + entries (admin asks even under Full Access)
+    patch_file(
+        "src/main/ai/toolApproval/builtinToolPolicyRegistry.ts",
+        [
+            (
+                "  ASSISTANT: 'assistant',\n  ASSISTANT_FILES: 'assistant-files'",
+                "  ASSISTANT: 'assistant',\n  ASSISTANT_FILES: 'assistant-files',\n  NEURALOS: 'neuralos'",
+            ),
+            (
+                "  assistantSaveAttachment: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, SAVE_ATTACHMENT_TOOL_NAME, 'required')",
+                "  assistantSaveAttachment: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, SAVE_ATTACHMENT_TOOL_NAME, 'required'),\n"
+                "  neuralosListInstances: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_list_instances', 'auto'),\n"
+                "  neuralosAsk: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_ask', 'auto'),\n"
+                "  neuralosGraph: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_graph', 'auto'),\n"
+                "  neuralosAdmin: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_admin', 'required', 'enforce')",
+            ),
+        ],
+    )
+
+    # 4. settings catalog preset
+    patch_file(
+        "src/shared/data/presets/mcpServers.ts",
+        [(
+            "  {\n    name: BuiltinMcpServerNames.memory,",
+            "  {\n"
+            "    name: BuiltinMcpServerNames.neuralos,\n"
+            "    reference: 'https://github.com/cactus-compute/needle',\n"
+            "    type: 'inMemory',\n"
+            "    isActive: true,\n"
+            "    shouldConfig: false,\n"
+            "    provider: 'CherryAI',\n"
+            "    installSource: 'builtin',\n"
+            "    isTrusted: true\n"
+            "  },\n"
+            "  {\n    name: BuiltinMcpServerNames.memory,",
+        )],
+    )
+
+    # 5. settings label + 6. en-US description
+    patch_file(
+        "src/renderer/i18n/label.ts",
+        [(
+            "[BuiltinMcpServerNames.hub]: 'settings.mcp.builtinServersDescriptions.hub'",
+            "[BuiltinMcpServerNames.hub]: 'settings.mcp.builtinServersDescriptions.hub',\n"
+            "  [BuiltinMcpServerNames.neuralos]: 'settings.mcp.builtinServersDescriptions.neuralos'",
+        )],
+    )
+    patch_file(
+        "src/renderer/i18n/locales/en-us.json",
+        [(
+            '"settings.mcp.builtinServersDescriptions.browser":',
+            '"settings.mcp.builtinServersDescriptions.neuralos": "neuralOS instances — on-device data '
+            'agents over verified probe menus. Ask plain-English questions about a data source; the '
+            'local engine picks the probe and the instance bridge executes it. Configure the instances '
+            'directory via NEURALOS_INSTANCES_DIR.",\n'
+            '  "settings.mcp.builtinServersDescriptions.browser":',
+        )],
+    )
+
+    if patches:
+        changed_files.extend(patches)
+
+
 def main():
     print(f"[rebrand] root = {ROOT}")
     handle_chinese_locales()
@@ -978,6 +1094,7 @@ def main():
     trim_i18next_config()
     fix_distinct_exe_test()
     apply_superagent_patches()
+    apply_neuralos_integration()
     print(f"[rebrand] modified {len(changed_files)} files / operations")
     # summary log (first 200)
     for c in changed_files[:200]:

@@ -18,6 +18,7 @@ export const BuiltinMcpServerNames = {
   browser: '@cherry/browser',
   nowledgeMem: '@cherry/nowledge-mem',
   hub: '@cherry/hub'
+  neuralos: '@cherry/neuralos'
 } as const
 
 export type BuiltinMcpServerName = (typeof BuiltinMcpServerNames)[keyof typeof BuiltinMcpServerNames]

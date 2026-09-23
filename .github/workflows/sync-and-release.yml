@@ -91,6 +91,13 @@ jobs:
           cp -a scripts/generate_icons.sh /tmp/keep/scripts/
           cp superagent_logo.svg /tmp/keep/
           cp -a .github/workflows/*.yml /tmp/keep/.github/workflows/ 2>/dev/null || true
+          mkdir -p /tmp/keep/neuralos-module /tmp/keep/neuralos-test
+          if [ -d src/main/ai/mcp/servers/neuralos ]; then
+            cp -a src/main/ai/mcp/servers/neuralos/. /tmp/keep/neuralos-module/
+          fi
+          if [ -f src/main/ai/mcp/servers/__tests__/neuralos.test.ts ]; then
+            cp src/main/ai/mcp/servers/__tests__/neuralos.test.ts /tmp/keep/neuralos-test/
+          fi
 
       - name: Clone latest Cherry Studio
         if: steps.check.outputs.do_release == 'true'
@@ -109,6 +116,15 @@ jobs:
           cp /tmp/keep/scripts/generate_icons.sh scripts/generate_icons.sh
           chmod +x scripts/generate_icons.sh
           cp /tmp/keep/superagent_logo.svg ./superagent_logo.svg
+          # Restore the neuralOS MCP server + its registration patch carrier is
+          # rebrand.py (preserved above) — plant the module back after the wipe
+          mkdir -p src/main/ai/mcp/servers/neuralos src/main/ai/mcp/servers/__tests__
+          if [ -d /tmp/keep/neuralos-module ] && [ "$(ls -A /tmp/keep/neuralos-module 2>/dev/null)" ]; then
+            cp -a /tmp/keep/neuralos-module/. src/main/ai/mcp/servers/neuralos/
+          fi
+          if [ -f /tmp/keep/neuralos-test/neuralos.test.ts ]; then
+            cp /tmp/keep/neuralos-test/neuralos.test.ts src/main/ai/mcp/servers/__tests__/
+          fi
 
       - name: Run rebrand
         if: steps.check.outputs.do_release == 'true'

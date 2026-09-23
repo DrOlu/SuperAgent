@@ -4483,6 +4483,7 @@
   "settings.mcp.baseUrlTooltip": "Remote server base URL",
   "settings.mcp.builtinServers": "Builtin Servers",
   "settings.mcp.builtinServersDescriptions.brave_search": "An MCP server implementation integrating the Brave Search API, providing both web and local search functionalities. Requires configuring the BRAVE_API_KEY environment variable",
+  "settings.mcp.builtinServersDescriptions.neuralos": "neuralOS instances — on-device data agents over verified probe menus. Ask plain-English questions about a data source; the local engine picks the probe and the instance bridge executes it. Configure the instances directory via NEURALOS_INSTANCES_DIR.",
   "settings.mcp.builtinServersDescriptions.browser": "Browse pages with snapshots, click and type into elements, navigate tabs, and handle dialogs. Runs in the background by default.",
   "settings.mcp.builtinServersDescriptions.didi_mcp": "DiDi MCP server providing ride-hailing services including map search, price estimation, order management, and driver tracking. Only available in Mainland China. Requires configuring the DIDI_API_KEY environment variable",
   "settings.mcp.builtinServersDescriptions.dify_knowledge": "Dify's MCP server implementation provides a simple API to interact with Dify. Requires configuring the Dify Key",

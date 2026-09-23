@@ -7,6 +7,10 @@ on:
         description: "Skip the multi-platform compile step (rebrand only)"
         required: false
         default: "false"
+      push_target:
+        description: "Branch to push the rebranded tree to (default main)"
+        required: false
+        default: "main"
 
 permissions:
   contents: write
@@ -46,6 +50,13 @@ jobs:
           cp -a .github /tmp/seed/.github
           cp -a scripts /tmp/seed/scripts
           cp superagent_logo.svg /tmp/seed/superagent_logo.svg
+          mkdir -p /tmp/seed/neuralos-module /tmp/seed/neuralos-test
+          if [ -d src/main/ai/mcp/servers/neuralos ]; then
+            cp -a src/main/ai/mcp/servers/neuralos/. /tmp/seed/neuralos-module/
+          fi
+          if [ -f src/main/ai/mcp/servers/__tests__/neuralos.test.ts ]; then
+            cp src/main/ai/mcp/servers/__tests__/neuralos.test.ts /tmp/seed/neuralos-test/
+          fi
 
       - name: Clone Cherry Studio
         run: |
@@ -67,6 +78,15 @@ jobs:
           cp /tmp/seed/scripts/rebrand.py scripts/rebrand.py
           cp /tmp/seed/scripts/generate_icons.sh scripts/generate_icons.sh
           chmod +x scripts/generate_icons.sh
+          # Restore the neuralOS MCP server (SuperAgent-native module; rebrand.py
+          # re-applies its registration patches into the upstream files)
+          mkdir -p src/main/ai/mcp/servers/neuralos src/main/ai/mcp/servers/__tests__
+          if [ -d /tmp/seed/neuralos-module ] && [ "$(ls -A /tmp/seed/neuralos-module 2>/dev/null)" ]; then
+            cp -a /tmp/seed/neuralos-module/. src/main/ai/mcp/servers/neuralos/
+          fi
+          if [ -f /tmp/seed/neuralos-test/neuralos.test.ts ]; then
+            cp /tmp/seed/neuralos-test/neuralos.test.ts src/main/ai/mcp/servers/__tests__/
+          fi
 
       - name: Run rebrand script
         run: python3 scripts/rebrand.py .
@@ -89,6 +109,18 @@ jobs:
           echo "--- icons ---"
           ls -la build/icon.png build/icon.ico build/icon.icns 2>/dev/null
 
+      - name: Verify neuralOS integration
+        run: |
+          echo "--- neuralOS module ---"
+          ls src/main/ai/mcp/servers/neuralos/ 2>/dev/null
+          echo "--- registration patches (expect 4 hits) ---"
+          grep -c "BuiltinMcpServerNames.neuralos" src/main/ai/mcp/servers/factory.ts || true
+          grep -c "neuralos: '@cherry/neuralos'" src/shared/utils/mcp.ts || true
+          grep -c "NEURALOS: 'neuralos'" src/main/ai/toolApproval/builtinToolPolicyRegistry.ts || true
+          grep -c "BuiltinMcpServerNames.neuralos" src/shared/data/presets/mcpServers.ts || true
+          echo "--- neuralOS unit tests present ---"
+          ls src/main/ai/mcp/servers/__tests__/neuralos.test.ts
+
       - name: Commit and push
         id: commit
         env:
@@ -102,7 +134,7 @@ jobs:
           # main may have advanced (e.g. the seed file was pushed after the
           # checkout) — rebase our commit on top before pushing.
           git pull --rebase origin main || git rebase --abort
-          git push origin HEAD:main
+          git push origin HEAD:${{ github.event.inputs.push_target || 'main' }}
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   build:
@@ -162,6 +194,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        shell: bash
+
+      - name: Run neuralOS unit tests
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm vitest run src/main/ai/mcp/servers/__tests__/neuralos.test.ts --project main
         shell: bash
 
       - name: Compile ${{ matrix.target }}

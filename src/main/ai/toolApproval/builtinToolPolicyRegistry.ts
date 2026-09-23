@@ -51,7 +51,8 @@ export const CHERRY_MCP_SERVER = {
   SKILLS: 'skills',
   MCP_MANAGER: 'mcp-manager',
   ASSISTANT: 'assistant',
-  ASSISTANT_FILES: 'assistant-files'
+  ASSISTANT_FILES: 'assistant-files',
+  NEURALOS: 'neuralos'
 } as const
 
 export interface BuiltinToolPolicyEntry {
@@ -118,7 +119,11 @@ const BUILTIN_TOOL_POLICIES = {
   assistantPrepareDiagnosticReport: tool(CHERRY_MCP_SERVER.ASSISTANT, 'prepare_diagnostic_report', 'auto'),
   assistantReadFile: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, READ_FILE_TOOL_NAME, 'auto'),
   assistantMoveToTrash: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, MOVE_TO_TRASH_TOOL_NAME, 'required'),
-  assistantSaveAttachment: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, SAVE_ATTACHMENT_TOOL_NAME, 'required')
+  assistantSaveAttachment: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, SAVE_ATTACHMENT_TOOL_NAME, 'required'),
+  neuralosListInstances: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_list_instances', 'auto'),
+  neuralosAsk: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_ask', 'auto'),
+  neuralosGraph: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_graph', 'auto'),
+  neuralosAdmin: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_admin', 'required', 'enforce')
 } as const satisfies Record<string, BuiltinToolPolicyEntry>
 
 export const BUILTIN_TOOL_POLICY_ENTRIES: readonly BuiltinToolPolicyEntry[] = Object.values(BUILTIN_TOOL_POLICIES)

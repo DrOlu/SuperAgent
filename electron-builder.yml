@@ -104,6 +104,8 @@ extraResources:
     to: "migrations/sqlite-drizzle"
   - from: "packages/provider-registry/data"
     to: "provider-registry"
+  - from: "resources/neuralos"
+    to: "neuralos"
 win:
   executableName: SuperAgent
   artifactName: ${productName}-${version}-${arch}-setup.${ext}

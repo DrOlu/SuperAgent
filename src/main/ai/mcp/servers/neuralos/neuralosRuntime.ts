@@ -102,24 +102,58 @@ export interface ResolvedEngine {
   engineWeights: string
 }
 
+/**
+ * Name of the bundled engine binary for a platform/arch pair, matching the
+ * build-time download in the release workflows (`resources/neuralos/` ->
+ * `<resourcesPath>/neuralos/` via electron-builder extraResources).
+ * macos-x64 has no published engine — Intel-mac installs fall through to the
+ * instances-dir/env candidates.
+ */
+export function bundledEngineName(platform: NodeJS.Platform, arch: string): string | null {
+  const os = platform === 'darwin' ? 'macos' : platform === 'win32' ? 'windows' : 'linux'
+  if (os === 'macos') return arch === 'arm64' ? 'engine-macos-arm64' : null
+  if (os === 'linux') return arch === 'arm64' ? 'engine-linux-arm64' : arch === 'x64' ? 'engine-linux-x86_64' : null
+  return arch === 'arm64' ? 'engine-windows-arm64.exe' : arch === 'x64' ? 'engine-windows-x86_64.exe' : null
+}
+
+export interface EngineCandidate {
+  bin: string
+  weights: string
+}
+
+/** Bundled-app candidates for a resources dir, per-arch first, flat layout second. */
+export function bundledEngineCandidates(
+  resources: string | undefined,
+  platform: NodeJS.Platform,
+  arch: string
+): EngineCandidate[] {
+  if (!resources) return []
+  const out: EngineCandidate[] = []
+  const bundled = bundledEngineName(platform, arch)
+  if (bundled)
+    out.push({
+      bin: path.join(resources, 'neuralos', bundled),
+      weights: path.join(resources, 'neuralos', 'needle3.cact')
+    })
+  const flat = platform === 'win32' ? 'needle.exe' : 'needle'
+  out.push({ bin: path.join(resources, 'neuralos', flat), weights: path.join(resources, 'neuralos', 'needle3.cact') })
+  return out
+}
+
 export async function resolveEngine(deps: NeuralosDeps): Promise<ResolvedEngine | { error: string }> {
   const candidates: { dir: string; bin: string; weights: string }[] = []
   if (deps.engineBin && deps.engineWeights) {
     candidates.push({ dir: '', bin: deps.engineBin, weights: deps.engineWeights })
+  }
+  const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  for (const c of bundledEngineCandidates(resources, process.platform, process.arch)) {
+    candidates.push({ dir: '', ...c })
   }
   candidates.push({
     dir: deps.instancesRoot,
     bin: path.join(deps.instancesRoot, 'engine', 'needle'),
     weights: path.join(deps.instancesRoot, 'engine', 'needle3.cact')
   })
-  const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
-  if (resources) {
-    candidates.push({
-      dir: '',
-      bin: path.join(resources, 'neuralos', 'needle'),
-      weights: path.join(resources, 'neuralos', 'needle3.cact')
-    })
-  }
   for (const c of candidates) {
     try {
       await fs.access(c.bin)

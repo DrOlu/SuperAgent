@@ -1057,6 +1057,17 @@ def apply_neuralos_integration():
         )],
     )
 
+    # 7. electron-builder: bundle the neuralOS engine + weights
+    #    (downloaded into resources/neuralos/ by the release workflows)
+    patch_file(
+        "electron-builder.yml",
+        [(
+            '  - from: "packages/provider-registry/data"\n    to: "provider-registry"',
+            '  - from: "packages/provider-registry/data"\n    to: "provider-registry"\n'
+            '  - from: "resources/neuralos"\n    to: "neuralos"',
+        )],
+    )
+
     # 5. settings label + 6. en-US description
     patch_file(
         "src/renderer/i18n/label.ts",

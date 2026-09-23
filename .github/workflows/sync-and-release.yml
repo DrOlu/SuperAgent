@@ -98,6 +98,10 @@ jobs:
           if [ -f src/main/ai/mcp/servers/__tests__/neuralos.test.ts ]; then
             cp src/main/ai/mcp/servers/__tests__/neuralos.test.ts /tmp/keep/neuralos-test/
           fi
+          mkdir -p /tmp/keep/neuralos-resources
+          if [ -f resources/neuralos/README.md ]; then
+            cp resources/neuralos/README.md /tmp/keep/neuralos-resources/
+          fi
 
       - name: Clone latest Cherry Studio
         if: steps.check.outputs.do_release == 'true'
@@ -124,6 +128,10 @@ jobs:
           fi
           if [ -f /tmp/keep/neuralos-test/neuralos.test.ts ]; then
             cp /tmp/keep/neuralos-test/neuralos.test.ts src/main/ai/mcp/servers/__tests__/
+          fi
+          mkdir -p resources/neuralos
+          if [ -f /tmp/keep/neuralos-resources/README.md ]; then
+            cp /tmp/keep/neuralos-resources/README.md resources/neuralos/
           fi
 
       - name: Run rebrand
@@ -242,6 +250,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         shell: bash
+      - name: Download neuralOS engine + weights
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p resources/neuralos
+          BASE="https://huggingface.co/Cactus-Compute/needle3/resolve/main"
+          curl -fsSL --retry 3 -o resources/neuralos/needle3.cact "$BASE/needle3.cact"
+          case "${{ matrix.target }}" in
+            mac)
+              curl -fsSL --retry 3 -o resources/neuralos/engine-macos-arm64 "$BASE/macos-arm64/needle"
+              ;;
+            linux)
+              curl -fsSL --retry 3 -o resources/neuralos/engine-linux-x86_64 "$BASE/linux-x86_64/needle"
+              curl -fsSL --retry 3 -o resources/neuralos/engine-linux-arm64 "$BASE/linux-arm64/needle"
+              ;;
+            win)
+              curl -fsSL --retry 3 -o resources/neuralos/engine-windows-x86_64.exe "$BASE/windows-x86_64/needle.exe"
+              curl -fsSL --retry 3 -o resources/neuralos/engine-windows-arm64.exe "$BASE/windows-arm64/needle.exe"
+              ;;
+          esac
+          ls -la resources/neuralos/
 
       - name: Compile ${{ matrix.target }}
         env:
@@ -255,6 +284,15 @@ jobs:
         run: pnpm ${{ matrix.cmd }}
         shell: bash
 
+      - name: Verify bundled neuralOS engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=$(find dist -type d -name neuralos 2>/dev/null | head -1)
+          echo "neuralos resources at: ${found:-NOT FOUND}"
+          [ -n "$found" ]
+          ls -la "$found"
+          test -f "$found/needle3.cact"
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

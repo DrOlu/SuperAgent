@@ -22,6 +22,8 @@ vi.mock('node:fs', () => ({
 const { NeuralosServer } = await import('../neuralos/NeuralosServer')
 const {
   adminProbe,
+  bundledEngineCandidates,
+  bundledEngineName,
   engineSelect,
   executeProbe,
   graphProbe,
@@ -105,8 +107,6 @@ describe('instanceDirFor', () => {
   })
 
   it('rejects unknown instances as data', async () => {
-    primeFs({ dirs: {}, files: {} })
-    readFileMock.mockRejectedValue(new Error('ENOENT'))
     accessMock.mockRejectedValue(new Error('ENOENT'))
     const deps = makeDeps({})
     expect(await instanceDirFor(deps, 'nope')).toEqual({
@@ -205,6 +205,40 @@ describe('graphProbe', () => {
       error: 'this instance has no connect graph probe',
       available_graph_probes: ['cb_graph_overview']
     })
+  })
+})
+
+describe('bundledEngineName', () => {
+  it('maps each supported platform/arch to its bundled binary', () => {
+    expect(bundledEngineName('darwin', 'arm64')).toBe('engine-macos-arm64')
+    expect(bundledEngineName('linux', 'x64')).toBe('engine-linux-x86_64')
+    expect(bundledEngineName('linux', 'arm64')).toBe('engine-linux-arm64')
+    expect(bundledEngineName('win32', 'x64')).toBe('engine-windows-x86_64.exe')
+    expect(bundledEngineName('win32', 'arm64')).toBe('engine-windows-arm64.exe')
+  })
+
+  it('returns null for unsupported pairs (macos-x64 has no published engine)', () => {
+    expect(bundledEngineName('darwin', 'x64')).toBeNull()
+  })
+})
+
+describe('bundledEngineCandidates', () => {
+  it('offers the per-arch engine first, then the flat layout', () => {
+    expect(bundledEngineCandidates('/res', 'darwin', 'arm64')).toEqual([
+      { bin: '/res/neuralos/engine-macos-arm64', weights: '/res/neuralos/needle3.cact' },
+      { bin: '/res/neuralos/needle', weights: '/res/neuralos/needle3.cact' }
+    ])
+    expect(bundledEngineCandidates('/res', 'win32', 'x64')).toEqual([
+      { bin: '/res/neuralos/engine-windows-x86_64.exe', weights: '/res/neuralos/needle3.cact' },
+      { bin: '/res/neuralos/needle.exe', weights: '/res/neuralos/needle3.cact' }
+    ])
+  })
+
+  it('returns no candidates without a resources dir; darwin-x64 keeps only the flat fallback', () => {
+    expect(bundledEngineCandidates(undefined, 'darwin', 'arm64')).toEqual([])
+    expect(bundledEngineCandidates('/res', 'darwin', 'x64')).toEqual([
+      { bin: '/res/neuralos/needle', weights: '/res/neuralos/needle3.cact' }
+    ])
   })
 })
 

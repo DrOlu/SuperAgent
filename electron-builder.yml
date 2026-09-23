@@ -75,9 +75,11 @@ files:
   - "!**/*.{h,iobj,ipdb,tlog,recipe,vcxproj,vcxproj.filters,Makefile,*.Makefile}" # filter .node build files
   - "resources/**/*" # include all files in resources, and unpack them from asar for runtime access
   - "!resources/devtools/**" # dev-only extensions are loaded from source in development
+  - "!resources/neuralos/**" # shipped via extraResources only
 asarUnpack:
   - resources/**
   - "!resources/devtools/**"
+  - "!resources/neuralos/**"
   - "**/*.{metal,exp,lib}"
   - "node_modules/@img/sharp-*/**"
   # DSH runs under bundled Bun: bundle its JS and unpack native/runtime files.

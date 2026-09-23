@@ -1058,14 +1058,29 @@ def apply_neuralos_integration():
     )
 
     # 7. electron-builder: bundle the neuralOS engine + weights
-    #    (downloaded into resources/neuralos/ by the release workflows)
+    #    (downloaded into resources/neuralos/ by the release workflows; the
+    #    files/asarUnpack exclusions stop the asar glob from packing a
+    #    duplicate ~36 MB copy — extraResources ships the only one)
     patch_file(
         "electron-builder.yml",
-        [(
-            '  - from: "packages/provider-registry/data"\n    to: "provider-registry"',
-            '  - from: "packages/provider-registry/data"\n    to: "provider-registry"\n'
-            '  - from: "resources/neuralos"\n    to: "neuralos"',
-        )],
+        [
+            (
+                '  - from: "packages/provider-registry/data"\n    to: "provider-registry"',
+                '  - from: "packages/provider-registry/data"\n    to: "provider-registry"\n'
+                '  - from: "resources/neuralos"\n    to: "neuralos"',
+            ),
+            (
+                '  - "!resources/devtools/**" # dev-only extensions are loaded from source in development\n'
+                'asarUnpack:',
+                '  - "!resources/devtools/**" # dev-only extensions are loaded from source in development\n'
+                '  - "!resources/neuralos/**" # shipped via extraResources only\n'
+                'asarUnpack:',
+            ),
+            (
+                'asarUnpack:\n  - resources/**\n  - "!resources/devtools/**"',
+                'asarUnpack:\n  - resources/**\n  - "!resources/devtools/**"\n  - "!resources/neuralos/**"',
+            ),
+        ],
     )
 
     # 5. settings label + 6. en-US description

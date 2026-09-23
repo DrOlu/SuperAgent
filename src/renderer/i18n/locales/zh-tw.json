@@ -1306,6 +1306,7 @@
   "error.diagnosis.ai_loading": "",
   "error.diagnosis.ai_result": "AI ",
   "error.diagnosis.auth": "API Key ",
+  "error.diagnosis.bad_request": "HTTP 400",
   "error.diagnosis.content": "",
   "error.diagnosis.context_length": "",
   "error.diagnosis.deprecated": "",

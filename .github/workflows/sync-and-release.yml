@@ -176,6 +176,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Typecheck gate (never push a tree that does not compile)
+        if: steps.check.outputs.do_release == 'true'
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm run typecheck:node
+
       - name: Commit and push
         id: commit
         if: steps.check.outputs.do_release == 'true'
@@ -270,6 +277,9 @@ jobs:
               curl -fsSL --retry 3 -o resources/neuralos/engine-windows-arm64.exe "$BASE/windows-arm64/needle.exe"
               ;;
           esac
+          # curl leaves engines non-executable (v2.0.58 shipped 644 -> every
+          # bundled-engine spawn died with EACCES); the exec bit must ride along.
+          chmod +x resources/neuralos/engine-*
           ls -la resources/neuralos/
 
       - name: Compile ${{ matrix.target }}
@@ -293,6 +303,10 @@ jobs:
           [ -n "$found" ]
           ls -la "$found"
           test -f "$found/needle3.cact"
+          # gate on the exec bit too — existence alone shipped v2.0.58 broken
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            for f in "$found"/engine-*; do test -x "$f"; done
+          fi
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

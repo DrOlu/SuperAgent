@@ -11,11 +11,13 @@ vi.mock('@logger', () => ({
 const readdirMock = vi.fn()
 const accessMock = vi.fn()
 const readFileMock = vi.fn()
+const chmodMock = vi.fn(async (_p: string, _mode: number) => {})
 vi.mock('node:fs', () => ({
   promises: {
     readdir: (...a: unknown[]) => readdirMock(...a),
     access: (...a: unknown[]) => accessMock(...a),
-    readFile: (...a: unknown[]) => readFileMock(...a)
+    readFile: (...a: unknown[]) => readFileMock(...a),
+    chmod: (p: string, mode: number) => chmodMock(p, mode)
   }
 }))
 
@@ -158,6 +160,12 @@ describe('engineSelect', () => {
     const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'x')
     expect(result).toEqual({ error: 'engine exited 1: ' })
   })
+
+  it('names the fix when the engine is not executable (EACCES)', async () => {
+    const deps = depsWithExec(async () => ({ stdout: '', stderr: '', code: 'EACCES' as unknown as number }))
+    const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'x')
+    expect(result).toEqual({ error: 'engine binary is not executable — chmod +x /engine/needle' })
+  })
 })
 
 describe('executeProbe / adminProbe', () => {
@@ -263,6 +271,34 @@ describe('resolveEngine', () => {
     const deps = makeDeps({})
     const result = await resolveEngine(deps)
     expect('error' in result && result.error).toContain('neuralOS engine not found')
+  })
+
+  it('chmods the resolved engine to 0755 (a bundled engine can ship without the exec bit)', async () => {
+    primeFs({
+      files: {
+        '/instances/engine/needle': '',
+        '/instances/engine/needle3.cact': ''
+      }
+    })
+    chmodMock.mockReset()
+    const deps = makeDeps({})
+    const result = await resolveEngine(deps)
+    expect('engineBin' in result && result.engineBin).toBe('/instances/engine/needle')
+    expect(chmodMock).toHaveBeenCalledWith('/instances/engine/needle', 0o755)
+  })
+
+  it('still resolves when the chmod fails (read-only install)', async () => {
+    primeFs({
+      files: {
+        '/instances/engine/needle': '',
+        '/instances/engine/needle3.cact': ''
+      }
+    })
+    chmodMock.mockReset()
+    chmodMock.mockRejectedValue(new Error('EACCES'))
+    const deps = makeDeps({})
+    const result = await resolveEngine(deps)
+    expect('engineBin' in result && result.engineBin).toBe('/instances/engine/needle')
   })
 })
 

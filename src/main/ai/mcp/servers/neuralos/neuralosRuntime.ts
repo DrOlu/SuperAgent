@@ -167,10 +167,13 @@ export async function resolveEngine(deps: NeuralosDeps): Promise<ResolvedEngine 
     try {
       await fs.access(c.bin)
       await fs.access(c.weights)
-      return { engineBin: c.bin, engineWeights: c.weights }
     } catch {
       continue
     }
+    // A bundled engine can ship without the execute bit (v2.0.58 did); heal
+    // it here instead of failing every ask with EACCES.
+    if (process.platform !== 'win32') await fs.chmod(c.bin, 0o755).catch(() => {})
+    return { engineBin: c.bin, engineWeights: c.weights }
   }
   return {
     error:
@@ -203,7 +206,11 @@ export async function engineSelect(
   } catch (err) {
     return { error: `engine execution failed: ${String(err)}` }
   }
-  if (out.code !== 0 && !out.stdout.trim()) return { error: `engine exited ${out.code}: ${out.stderr.slice(0, 200)}` }
+  if (out.code !== 0 && !out.stdout.trim()) {
+    if (String(out.code) === 'EACCES')
+      return { error: `engine binary is not executable — chmod +x ${engine.engineBin}` }
+    return { error: `engine exited ${out.code}: ${out.stderr.slice(0, 200)}` }
+  }
   const parsed = parseJsonObject(out.stdout)
   if (!parsed) return { error: `engine output not JSON: ${out.stdout.slice(0, 120)}` }
   const calls = (parsed as { function_calls?: { name?: string; arguments?: Record<string, unknown> }[] }).function_calls

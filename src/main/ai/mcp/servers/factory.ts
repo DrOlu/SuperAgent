@@ -48,9 +48,9 @@ const inMemoryServers: Partial<Record<BuiltinMcpServerName, InMemoryServerLoader
   [BuiltinMcpServerNames.browser]: async () => {
     return application.get('BrowserSessionService').createMcpServer()
   },
-  [BuiltinMcpServerNames.neuralos]: async () => {
+  [BuiltinMcpServerNames.neuralos]: async (_args, envs) => {
     const { NeuralosServer } = await import('./neuralos/NeuralosServer')
-    return new NeuralosServer().mcpServer
+    return new NeuralosServer(undefined, envs).mcpServer
   }
 }
 

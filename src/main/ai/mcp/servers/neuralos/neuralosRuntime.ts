@@ -25,7 +25,16 @@ export interface NeuralosDeps {
   pythonBin: string
 }
 
-export function defaultDeps(): NeuralosDeps {
+/** Server-configured env wins over process env; empty strings mean unset. */
+function envValue(envs: Record<string, string> | undefined, key: string, fallback?: string): string | undefined {
+  const fromServer = envs?.[key]?.trim()
+  if (fromServer) return fromServer
+  const fromProcess = process.env[key]?.trim()
+  if (fromProcess) return fromProcess
+  return fallback
+}
+
+export function defaultDeps(envs?: Record<string, string>): NeuralosDeps {
   return {
     execFile: (cmd, args, env) =>
       new Promise((resolve) => {
@@ -42,10 +51,10 @@ export function defaultDeps(): NeuralosDeps {
           }
         )
       }),
-    instancesRoot: process.env.NEURALOS_INSTANCES_DIR ?? path.join(homedir(), 'neuralos-instances'),
-    engineBin: process.env.NEURALOS_ENGINE_BIN,
-    engineWeights: process.env.NEURALOS_ENGINE_WEIGHTS,
-    pythonBin: process.env.NEURALOS_PYTHON ?? 'python3'
+    instancesRoot: envValue(envs, 'NEURALOS_INSTANCES_DIR') ?? path.join(homedir(), 'neuralos-instances'),
+    engineBin: envValue(envs, 'NEURALOS_ENGINE_BIN'),
+    engineWeights: envValue(envs, 'NEURALOS_ENGINE_WEIGHTS'),
+    pythonBin: envValue(envs, 'NEURALOS_PYTHON', 'python3') as string
   }
 }
 

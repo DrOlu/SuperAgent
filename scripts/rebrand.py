@@ -1012,9 +1012,9 @@ def apply_neuralos_integration():
             "  [BuiltinMcpServerNames.browser]: async () => {\n"
             "    return application.get('BrowserSessionService').createMcpServer()\n"
             "  },\n"
-            "  [BuiltinMcpServerNames.neuralos]: async () => {\n"
+            "  [BuiltinMcpServerNames.neuralos]: async (_args, envs) => {\n"
             "    const { NeuralosServer } = await import('./neuralos/NeuralosServer')\n"
-            "    return new NeuralosServer().mcpServer\n"
+            "    return new NeuralosServer(undefined, envs).mcpServer\n"
             "  }\n}",
         )],
     )
@@ -1048,12 +1048,16 @@ def apply_neuralos_integration():
             "    reference: 'https://github.com/cactus-compute/needle',\n"
             "    type: 'inMemory',\n"
             "    isActive: true,\n"
-            "    shouldConfig: false,\n"
+            "    shouldConfig: true,\n"
+            "    env: {\n"
+            "      NEURALOS_INSTANCES_DIR: '',\n"
+            "      NEURALOS_PYTHON: 'python3'\n"
+            "    },\n"
             "    provider: 'CherryAI',\n"
             "    installSource: 'builtin',\n"
             "    isTrusted: true\n"
             "  },\n"
-            "  {\n    name: BuiltinMcpServerNames.memory,",
+            "  {\n    name: BuiltinMcpServerNames.memory",
         )],
     )
 

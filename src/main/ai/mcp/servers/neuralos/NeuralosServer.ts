@@ -75,8 +75,8 @@ export class NeuralosServer {
   private readonly handlers: Record<string, NeuralosHandler>
   private readonly deps: ReturnType<typeof defaultDeps>
 
-  constructor(deps?: ReturnType<typeof defaultDeps>) {
-    this.deps = deps ?? defaultDeps()
+  constructor(deps?: ReturnType<typeof defaultDeps>, envs?: Record<string, string>) {
+    this.deps = deps ?? defaultDeps(envs)
     this.handlers = {
       neuralos_list_instances: {
         description: LIST_INSTANCES_DESCRIPTION,

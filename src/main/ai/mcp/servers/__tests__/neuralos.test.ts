@@ -24,6 +24,7 @@ const {
   adminProbe,
   bundledEngineCandidates,
   bundledEngineName,
+  defaultDeps,
   engineSelect,
   executeProbe,
   graphProbe,
@@ -239,6 +240,20 @@ describe('bundledEngineCandidates', () => {
     expect(bundledEngineCandidates('/res', 'darwin', 'x64')).toEqual([
       { bin: '/res/neuralos/needle', weights: '/res/neuralos/needle3.cact' }
     ])
+  })
+})
+
+describe('defaultDeps env precedence', () => {
+  it('server-configured env wins over process env; empty strings mean unset', () => {
+    const deps = defaultDeps({ NEURALOS_PYTHON: '/framework/python3.12', NEURALOS_INSTANCES_DIR: '  ' })
+    expect(deps.pythonBin).toBe('/framework/python3.12')
+    expect(deps.instancesRoot).not.toBe('  ') // blank server value falls through
+  })
+
+  it('process env and sane defaults apply when the server config is absent', () => {
+    const deps = defaultDeps({ NEURALOS_INSTANCES_DIR: '/custom/instances' })
+    expect(deps.instancesRoot).toBe('/custom/instances')
+    expect(deps.pythonBin).toBe(process.env.NEURALOS_PYTHON || 'python3')
   })
 })
 

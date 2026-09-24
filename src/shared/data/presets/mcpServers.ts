@@ -71,7 +71,11 @@ export const PRESET_MCP_SERVERS = freezePresets([
     reference: 'https://github.com/cactus-compute/needle',
     type: 'inMemory',
     isActive: true,
-    shouldConfig: false,
+    shouldConfig: true,
+    env: {
+      NEURALOS_INSTANCES_DIR: '',
+      NEURALOS_PYTHON: 'python3'
+    },
     provider: 'CherryAI',
     installSource: 'builtin',
     isTrusted: true

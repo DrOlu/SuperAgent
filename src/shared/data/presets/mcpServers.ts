@@ -81,7 +81,7 @@ export const PRESET_MCP_SERVERS = freezePresets([
     isTrusted: true
   },
   {
-    name: BuiltinMcpServerNames.memory,
+    name: BuiltinMcpServerNames.memory
     reference: 'https://github.com/modelcontextprotocol/servers/tree/main/src/memory',
     type: 'inMemory',
     isActive: true,

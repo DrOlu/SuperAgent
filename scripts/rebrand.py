@@ -781,13 +781,23 @@ export class CherrySupportSeeder implements ISeeder {
     if os.path.exists(prov_vis):
         with open(prov_vis, "r", encoding="utf-8") as f:
             t = f.read()
-        t = t.replace(
-            "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID",
-            # cherryin check LAST: a leading `id === 'cherryin'` narrows the
-            # literal-union type, making the later `!== local-embedding`
-            # comparison a TS2367 no-overlap error.
-            "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID && provider.id === 'cherryin'",
+        # cherryin check LAST: a leading `id === 'cherryin'` narrows the
+        # literal-union type, making the later `!== local-embedding`
+        # comparison a TS2367 no-overlap error. This patch once ran as a raw
+        # prefix-replace and appended the condition once per run — collapse
+        # any repetition to exactly one before applying.
+        t = re.sub(
+            r"(return !isCherryAIProvider\(provider\) && provider\.id !== LOCAL_EMBEDDING_PROVIDER_ID)( && provider\.id === 'cherryin')+",
+            r"\1 && provider.id === 'cherryin'",
+            t,
+            count=1,
         )
+        if " && provider.id === 'cherryin'" not in t:
+            t = t.replace(
+                "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID",
+                "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID && provider.id === 'cherryin'",
+                1,
+            )
         with open(prov_vis, "w", encoding="utf-8") as f:
             f.write(t)
         patches.append("providerSettings.ts → only SuperAgent provider visible")
@@ -1057,7 +1067,7 @@ def apply_neuralos_integration():
             "    installSource: 'builtin',\n"
             "    isTrusted: true\n"
             "  },\n"
-            "  {\n    name: BuiltinMcpServerNames.memory",
+            "  {\n    name: BuiltinMcpServerNames.memory,",
         )],
     )
 
@@ -1098,13 +1108,15 @@ def apply_neuralos_integration():
     )
     patch_file(
         "src/renderer/i18n/locales/en-us.json",
+        # insert at the SORTED slot (memory < neuralos < no) — i18n:check
+        # rejects unsorted keys and the first cut anchored before "browser".
         [(
-            '"settings.mcp.builtinServersDescriptions.browser":',
+            '"settings.mcp.builtinServersDescriptions.no":',
             '"settings.mcp.builtinServersDescriptions.neuralos": "neuralOS instances — on-device data '
             'agents over verified probe menus. Ask plain-English questions about a data source; the '
             'local engine picks the probe and the instance bridge executes it. Configure the instances '
             'directory via NEURALOS_INSTANCES_DIR.",\n'
-            '  "settings.mcp.builtinServersDescriptions.browser":',
+            '  "settings.mcp.builtinServersDescriptions.no":',
         )],
     )
 

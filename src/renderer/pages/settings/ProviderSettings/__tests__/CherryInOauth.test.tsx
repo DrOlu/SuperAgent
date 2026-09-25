@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { oauthWithCherryIn } from '@renderer/services/oauth'
 import { popup } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
+import { IpcError } from '@shared/ipc/errors/IpcError'
+import { oauthErrorCodes } from '@shared/ipc/errors/oauth'
 
 import CherryInOauth from '../ProviderSpecific/CherryInOauth'
 
@@ -91,7 +93,7 @@ describe('CherryInOauth', () => {
     expect(screen.getByText('siin@gmail.com')).toBeInTheDocument()
     expect(screen.getByText('Pro')).toBeInTheDocument()
     expect(screen.getByText('$128.50')).toBeInTheDocument()
-    expect(screen.getByText(/superagent\.ng|open\.cherryin\.ai/)).toBeInTheDocument()
+    expect(screen.getByText(/open\.cherryin\.ai/)).toBeInTheDocument()
   })
 
   it('keeps balance fetch failures quiet and shows the empty balance state', async () => {
@@ -141,7 +143,7 @@ describe('CherryInOauth', () => {
 
     render(<CherryInOauth providerId="cherryin" />)
 
-    const loginButton = screen.getByRole('button', { name: /CherryIN|授权|Obtain API Key/i })
+    const loginButton = screen.getByRole('button', { name: /CherryIN|授权/i })
     const tagline = screen.getByText(/登录后即可使用所有模型服务|all model services/i)
 
     expect(loginButton).toBeInTheDocument()
@@ -149,9 +151,60 @@ describe('CherryInOauth', () => {
     expect(tagline.compareDocumentPosition(loginButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('opens the Paystack purchase page instead of running the OAuth flow', async () => {
+  it('cancels a preset-derived CherryIN login through its registered OAuth provider', async () => {
+    let rejectSignIn: (error: unknown) => void = () => {}
+    oauthWithCherryInMock.mockImplementationOnce(
+      () =>
+        new Promise<string>((_resolve, reject) => {
+          rejectSignIn = reject
+        })
+    )
     useProviderMock.mockReturnValue({
-      provider: { id: 'cherryin', name: 'SuperAgent', apiKeys: [], isEnabled: true },
+      provider: { id: 'custom-cherryin', presetProviderId: 'cherryin', name: 'CherryIN', apiKeys: [], isEnabled: true },
+      updateProvider: vi.fn(),
+      addApiKey: vi.fn(),
+      deleteApiKey: vi.fn()
+    })
+    ipcApiRequestMock.mockImplementation((route: string, input?: { providerId?: string }) => {
+      if (route === 'oauth.has_token') return Promise.resolve(false)
+      if (route === 'oauth.cancel_sign_in' && input?.providerId === 'cherryin') {
+        rejectSignIn(new IpcError(oauthErrorCodes.SIGN_IN_CANCELLED))
+        return Promise.resolve(undefined)
+      }
+      return Promise.resolve(undefined)
+    })
+    const user = userEvent.setup()
+
+    render(<CherryInOauth providerId="custom-cherryin" />)
+
+    const loginButton = screen.getByRole('button', { name: /CherryIN|授权/i })
+    await user.click(loginButton)
+
+    expect(loginButton).toBeDisabled()
+    expect(loginButton.querySelector('.animate-spin')).toBeInTheDocument()
+    const cancelButton = screen.getByRole('button', { name: /取消|Cancel/i })
+    expect(cancelButton).toBeEnabled()
+    expect(oauthWithCherryInMock).toHaveBeenCalledWith(expect.any(Function), {
+      oauthServer: 'https://open.cherryin.ai',
+      requestId: expect.any(String)
+    })
+
+    const requestId = oauthWithCherryInMock.mock.calls[0][1].requestId
+    await user.click(cancelButton)
+
+    await waitFor(() => expect(loginButton).toBeEnabled())
+    expect(ipcApiRequestMock).toHaveBeenCalledWith('oauth.has_token', { providerId: 'cherryin' })
+    expect(ipcApiRequestMock).toHaveBeenCalledWith('oauth.cancel_sign_in', {
+      providerId: 'cherryin',
+      requestId
+    })
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('restores the login action and reports an OAuth failure', async () => {
+    oauthWithCherryInMock.mockRejectedValueOnce(new Error('login failed'))
+    useProviderMock.mockReturnValue({
+      provider: { id: 'cherryin', name: 'CherryIN', apiKeys: [], isEnabled: true },
       updateProvider: vi.fn(),
       addApiKey: vi.fn(),
       deleteApiKey: vi.fn()
@@ -159,15 +212,15 @@ describe('CherryInOauth', () => {
     ipcApiRequestMock.mockImplementation((route: string) =>
       route === 'oauth.has_token' ? Promise.resolve(false) : Promise.resolve(undefined)
     )
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
     const user = userEvent.setup()
 
     render(<CherryInOauth providerId="cherryin" />)
 
-    await user.click(screen.getByRole('button', { name: /CherryIN|SuperAgent|授权|Obtain/i }))
+    const loginButton = screen.getByRole('button', { name: /CherryIN|授权/i })
+    await user.click(loginButton)
 
-    expect(openSpy).toHaveBeenCalledWith('https://paystack.com/buy/reactor-api-key', '_blank')
-    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(loginButton).toBeEnabled()
     expect(screen.queryByRole('button', { name: /取消|Cancel/i })).not.toBeInTheDocument()
   })
 

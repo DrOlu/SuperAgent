@@ -294,17 +294,16 @@
   --cs-black: oklch(0 0 0);
   --cs-white: oklch(1 0 0);
 
-  /* Brand (SuperAgent) — the confirm_original.png mark, #CC1100.
-     brand-500 is the exact logo red (oklch ~0.545 0.226 29). */
-  --cs-brand-50: oklch(0.98 0.015 32);
-  --cs-brand-100: oklch(0.96 0.038 31);
-  --cs-brand-200: oklch(0.91 0.083 30);
-  --cs-brand-300: oklch(0.85 0.145 30);
-  --cs-brand-400: oklch(0.72 0.2 29);
-  --cs-brand-500: oklch(0.545 0.226 29);
-  --cs-brand-600: oklch(0.47 0.21 29);
-  --cs-brand-700: oklch(0.42 0.19 29);
-  --cs-brand-800: oklch(0.36 0.16 29);
-  --cs-brand-900: oklch(0.3 0.13 29);
-  --cs-brand-950: oklch(0.22 0.09 29);
+  /* Brand (SuperAgent ) */
+  --cs-brand-50: oklch(0.98 0.015 152);
+  --cs-brand-100: oklch(0.96 0.034 151);
+  --cs-brand-200: oklch(0.91 0.073 151);
+  --cs-brand-300: oklch(0.85 0.13 149);
+  --cs-brand-400: oklch(0.81 0.173 148);
+  --cs-brand-500: oklch(0.77 0.208 146);
+  --cs-brand-600: oklch(0.67 0.192 146);
+  --cs-brand-700: oklch(0.56 0.156 146);
+  --cs-brand-800: oklch(0.43 0.117 146);
+  --cs-brand-900: oklch(0.3 0.075 147);
+  --cs-brand-950: oklch(0.22 0.051 148);
 }

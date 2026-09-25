@@ -12,8 +12,6 @@
 
 /* @import './color.css'; */
 @import './font.css' layer(app);
-@import './gellix.css' layer(app);
-@import './openship.css' layer(app);
 @import './markdown.css' layer(app);
 @import './scrollbar.css' layer(app);
 @import './container.css' layer(app);

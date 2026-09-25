@@ -300,26 +300,15 @@ describe('AppearanceSettings selectors', () => {
   it('shows the resolved i18n language when no app language preference is saved', async () => {
     MockUsePreferenceUtils.setPreferenceValue('app.language', null)
 
-    // With no saved preference the resolver falls back to navigator.language.
-    // Pin it so the expected fallback locale is deterministic on every host.
-    const originalLanguage = Object.getOwnPropertyDescriptor(window.navigator, 'language')
-    Object.defineProperty(window.navigator, 'language', { configurable: true, value: 'en-US' })
+    render(<AppearanceSettings />)
 
-    try {
-      render(<AppearanceSettings />)
+    await waitFor(() => {
+      expect(mocks.request).toHaveBeenCalledWith('system.get_fonts')
+      expect(mocks.request).toHaveBeenCalledWith('app.adjust_zoom', { delta: 0 })
+    })
 
-      await waitFor(() => {
-        expect(mocks.request).toHaveBeenCalledWith('system.get_fonts')
-        expect(mocks.request).toHaveBeenCalledWith('app.adjust_zoom', { delta: 0 })
-      })
-
-      expect(screen.getByRole('combobox', { name: /English/ })).toBeInTheDocument()
-      expect(screen.queryByRole('combobox', { name: /中文/ })).not.toBeInTheDocument()
-    } finally {
-      if (originalLanguage) {
-        Object.defineProperty(window.navigator, 'language', originalLanguage)
-      }
-    }
+    expect(screen.getByRole('combobox', { name: /中文/ })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /English/ })).not.toBeInTheDocument()
   })
 
   it('does not render manual chat layout switches', async () => {

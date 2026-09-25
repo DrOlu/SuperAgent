@@ -155,7 +155,7 @@ describe('ArchiveSettings', () => {
     const user = userEvent.setup()
     MockUsePreferenceUtils.setPreferenceValue('data.trash.retention_days', 30)
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     const retention = screen.getByRole('group', { name: 'Auto-cleanup interval' })
     await user.click(within(retention).getByRole('button', { name: '30 days' }))
@@ -172,21 +172,21 @@ describe('ArchiveSettings', () => {
     const user = userEvent.setup()
     await i18n.changeLanguage('zh-CN')
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
-    const tabs = within(screen.getByRole('tablist', { name: 'Archive' }))
-    for (const name of ['All', 'Assistants', 'Agents', 'Topics', 'Tasks', 'Paintings', 'Files']) {
+    const tabs = within(screen.getByRole('tablist', { name: '归档' }))
+    for (const name of ['全部', '助手', '智能体', '话题', '任务', '绘图', '文件']) {
       expect(tabs.getByRole('tab', { name })).toBeVisible()
     }
-    expect(screen.getByRole('tabpanel', { name: 'Topics' })).toHaveTextContent('Deleted topic')
+    expect(screen.getByRole('tabpanel', { name: '话题' })).toHaveTextContent('Deleted topic')
 
-    await user.click(tabs.getByRole('tab', { name: 'Tasks' }))
-    expect(screen.getByRole('tabpanel', { name: 'Tasks' })).toHaveTextContent('Deleted session')
+    await user.click(tabs.getByRole('tab', { name: '任务' }))
+    expect(screen.getByRole('tabpanel', { name: '任务' })).toHaveTextContent('Deleted session')
     expect(screen.queryByText('Deleted topic')).not.toBeInTheDocument()
 
     await user.keyboard('{Home}{ArrowRight}{ArrowRight}{ArrowRight}')
-    expect(tabs.getByRole('tab', { name: 'Topics' })).toHaveFocus()
-    expect(screen.getByRole('tabpanel', { name: 'Topics' })).toHaveTextContent('Deleted topic')
+    expect(tabs.getByRole('tab', { name: '话题' })).toHaveFocus()
+    expect(screen.getByRole('tabpanel', { name: '话题' })).toHaveTextContent('Deleted topic')
     expect(screen.queryByText('Deleted session')).not.toBeInTheDocument()
   })
 
@@ -231,7 +231,7 @@ describe('ArchiveSettings', () => {
       retainedReferencedFileCount: 2
     })
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     expect(screen.queryByRole('menuitem', { name: 'Empty Archive' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'More' }))
@@ -256,7 +256,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
     async (mode) => {
       const user = userEvent.setup()
       render(<ArchiveSettings />)
-      await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+      await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
       if (mode === 'batch') {
         await user.click(screen.getByRole('button', { name: 'Batch manage' }))
         await user.click(screen.getByRole('checkbox', { name: 'Select Deleted topic' }))
@@ -289,7 +289,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
   it('replaces category navigation with batch controls until batch mode ends', async () => {
     const user = userEvent.setup()
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     expect(screen.queryByRole('checkbox', { name: 'Select Deleted topic' })).not.toBeInTheDocument()
 
@@ -343,7 +343,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
       }) as never
     )
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     await openFileDelete(user)
 
@@ -368,7 +368,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
       (options?.query?.entryIds ?? []).map((entryId) => ({ entryId, refCount: 0 }))
     )
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     await openFileDelete(user)
 
@@ -390,7 +390,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
       .mockResolvedValueOnce(mocks.fileItems.slice(0, 500).map(({ id }) => ({ entryId: id, refCount: 0 })))
       .mockRejectedValueOnce(new Error('second chunk unavailable'))
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     await openFileDelete(user)
 
@@ -409,7 +409,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
       { entryId: 'file-3', refCount: 4 }
     ])
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     await openFileDelete(user)
 
@@ -424,7 +424,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
       .mockRejectedValueOnce(new Error('ref counts unavailable'))
       .mockResolvedValueOnce([{ entryId: 'file-1', refCount: 0 }])
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
 
     await openFileDelete(user)
 
@@ -440,7 +440,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
     const user = userEvent.setup()
     vi.mocked(dataApiService.get).mockResolvedValue([{ entryId: 'file-1', refCount: 0 }])
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
     await openFileDelete(user)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Delete Permanently' })).toBeEnabled())
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -461,7 +461,7 @@ describe('ArchiveSettings permanent-delete confirmation', () => {
       )
       .mockResolvedValueOnce([{ entryId: 'file-1', refCount: 3 }])
     render(<ArchiveSettings />)
-    await chooseCategory(user, i18n.language === 'zh-CN' ? 'Topics' : 'Topics')
+    await chooseCategory(user, i18n.language === 'zh-CN' ? '话题' : 'Topics')
     await openFileDelete(user)
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await chooseCategory(user, 'Topics')

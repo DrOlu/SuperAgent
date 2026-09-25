@@ -16,7 +16,7 @@ export const VisionTag = ({ size = 12, showTooltip, showLabel, ...restProps }: P
   return (
     <CustomTag
       size={size}
-      color="var(--cs-brand-600)"
+      color="#00b96b"
       icon={<Eye size={size} color="currentColor" className="text-current" />}
       tooltip={showTooltip ? t('models.type.vision') : undefined}
       {...restProps}>

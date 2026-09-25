@@ -870,7 +870,7 @@ export const DefaultPreferences: PreferenceSchemas = {
     'ui.sidebar_shortcut': [{ id: 'sidebar-shortcut:core.app:agents', target: { kind: 'resource', locator: { providerId: 'core.app', resourceId: 'agents' } }, type: 'shortcut' }, { id: 'sidebar-shortcut:core.app:assistants', target: { kind: 'resource', locator: { providerId: 'core.app', resourceId: 'assistants' } }, type: 'shortcut' }, { id: 'sidebar-shortcut:core.app:translate', target: { kind: 'resource', locator: { providerId: 'core.app', resourceId: 'translate' } }, type: 'shortcut' }, { id: 'sidebar-shortcut:core.app:paintings', target: { kind: 'resource', locator: { providerId: 'core.app', resourceId: 'paintings' } }, type: 'shortcut' }, { id: 'sidebar-shortcut:core.app:knowledge', target: { kind: 'resource', locator: { providerId: 'core.app', resourceId: 'knowledge' } }, type: 'shortcut' }],
     'ui.theme_mode': PreferenceTypes.ThemeMode.system,
     'ui.theme_user.code_font_family': '',
-    'ui.theme_user.color_primary': '#CC1100',
+    'ui.theme_user.color_primary': '#00b96b',
     'ui.theme_user.font_family': '',
     'ui.window_style': 'transparent'
   }

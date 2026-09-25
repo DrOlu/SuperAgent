@@ -121,6 +121,7 @@
   "openclaw.errors.external_config_invalid": "OpenClaw  SuperAgent  OpenClaw{{details}}",
   "openclaw.errors.more_issues": " {{count}} ",
   "openclaw.errors.preflight_failed": "SuperAgent  OpenClaw ",
+  "openclaw.errors.preflight_timeout": "OpenClaw  {{seconds}}  schemaSuperAgent OpenClaw ",
   "paintings.generate_failed": "",
   "paintings.image_mix_failed": "",
   "selection.name": "",

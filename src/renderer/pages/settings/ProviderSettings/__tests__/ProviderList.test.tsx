@@ -217,7 +217,7 @@ describe('ProviderList', () => {
 
     expect(providerEditorModuleState.loaded).toBe(false)
 
-    await user.click(screen.getByRole('button', { name: '添加服务商' }))
+    await user.click(screen.getByRole('button', { name: 'Add Provider' }))
 
     expect(await screen.findByTestId('provider-editor-drawer')).toHaveAttribute('data-open', 'true')
     expect(providerEditorModuleState.loaded).toBe(true)
@@ -237,7 +237,7 @@ describe('ProviderList', () => {
     expect(screen.getByTestId('provider-list-item-openai')).toHaveAttribute('data-selected', 'true')
     expect(screen.getByTestId('provider-list-item-anthropic')).toHaveAttribute('data-selected', 'false')
 
-    fireEvent.change(screen.getByPlaceholderText('搜索模型平台...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search Providers...'), {
       target: { value: 'anth' }
     })
 
@@ -301,7 +301,7 @@ describe('ProviderList', () => {
 
     render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: '添加服务商' }))
+    await user.click(screen.getByRole('button', { name: 'Add Provider' }))
 
     await waitFor(() => {
       expect(providerEditorDrawerSpy).toHaveBeenLastCalledWith(
@@ -328,7 +328,7 @@ describe('ProviderList', () => {
 
     expect(useReorderMock).toHaveBeenCalledWith('/providers', { revalidateOnSuccess: false })
     expect(screen.queryByTestId('provider-editor-drawer')).not.toBeInTheDocument()
-    fireEvent.click(screen.getAllByRole('button', { name: /添加/i })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /Add/i })[0])
     expect(await screen.findByTestId('provider-editor-drawer')).toHaveAttribute('data-open', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: 'trigger-reorder' }))
@@ -350,7 +350,7 @@ describe('ProviderList', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: '添加服务商' }))
+    await user.click(screen.getByRole('button', { name: 'Add Provider' }))
     const submit = providerEditorDrawerSpy.mock.calls.at(-1)?.[0].onSubmit
 
     await act(async () => {
@@ -410,14 +410,14 @@ describe('ProviderList', () => {
   it('labels the provider filter icon button for assistive technology', () => {
     render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: '筛选服务商' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter providers' })).toBeInTheDocument()
   })
 
   it('restores the provider filter after leaving and returning to the page', () => {
     const first = render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '筛选服务商' }))
-    fireEvent.click(screen.getByRole('button', { name: '仅已禁用' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Filter providers' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Disabled Only' }))
 
     expect(MockUseCacheUtils.getPersistCacheValue('settings.provider.filter_mode')).toBe('disabled')
 
@@ -431,10 +431,10 @@ describe('ProviderList', () => {
   it('keeps a single add action below the scrollable provider list', () => {
     render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
 
-    const addButton = screen.getByRole('button', { name: '添加服务商' })
+    const addButton = screen.getByRole('button', { name: 'Add Provider' })
     const scrollbar = screen.getByTestId('provider-list-scrollbar')
-    const filterButton = screen.getByRole('button', { name: '筛选服务商' })
-    const searchInput = screen.getByPlaceholderText('搜索模型平台...')
+    const filterButton = screen.getByRole('button', { name: 'Filter providers' })
+    const searchInput = screen.getByPlaceholderText('Search Providers...')
     const searchWrap = searchInput.closest('div')
 
     expect(scrollbar).not.toContainElement(addButton)

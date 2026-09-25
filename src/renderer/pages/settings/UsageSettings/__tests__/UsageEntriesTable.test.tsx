@@ -113,11 +113,11 @@ describe('UsageEntriesTable', () => {
     expect(entryRow.getByText('MiniMax')).toBeInTheDocument()
     expect(entryRow.queryByText('MiniMax-M3')).not.toBeInTheDocument()
     expect(entryRow.getByTestId('source-label')).toHaveTextContent('Default Assistant')
-    expect(entryRow.queryByText(/Language|语言/)).not.toBeInTheDocument()
+    expect(entryRow.queryByText(/Language|Language/)).not.toBeInTheDocument()
     expect(entryRow.queryByText('Primary key')).not.toBeInTheDocument()
     expect(entryRow.queryByText('sk-****0001')).not.toBeInTheDocument()
     expect(entryRow.getAllByText('-')).toHaveLength(4)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/Entries|请求/)
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/Entries|Requests/)
 
     const date = entryRow.getByText('Jul 28, 2026 16:23')
     expect(date).toHaveAttribute('title', 'Jul 28, 2026 16:23')
@@ -163,10 +163,10 @@ describe('UsageEntriesTable', () => {
     )
 
     for (const { modelName, expectedSource } of [
-      { modelName: 'Language model', expectedSource: /Language|语言/ },
-      { modelName: 'Embedding model', expectedSource: /Embedding|嵌入/ },
-      { modelName: 'Image model', expectedSource: /Image|图片/ },
-      { modelName: 'Rerank model', expectedSource: /Reranker|重排/ }
+      { modelName: 'Language model', expectedSource: /Language|Language/ },
+      { modelName: 'Embedding model', expectedSource: /Embedding|Embedding/ },
+      { modelName: 'Image model', expectedSource: /Image|Image/ },
+      { modelName: 'Rerank model', expectedSource: /Reranker|Reranker/ }
     ]) {
       const row = screen.getByText(modelName).closest('tr')
       expect(row).not.toBeNull()
@@ -174,7 +174,7 @@ describe('UsageEntriesTable', () => {
       expect(within(row!).queryByTestId('source-label')).not.toBeInTheDocument()
     }
 
-    expect(screen.queryByText(/Unattributed source|未归因来源/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Unattributed source|Unattributed source/)).not.toBeInTheDocument()
   })
 
   it('keeps existing rows mounted while a new sort is loading', () => {

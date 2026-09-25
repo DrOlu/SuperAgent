@@ -52,7 +52,7 @@ describe('MessageMetaTool', () => {
 
     render(<MessageMetaTool toolResponse={createMetaToolResponse()} />)
 
-    const copyButton = screen.getByRole('button', { name: '复制' })
+    const copyButton = screen.getByRole('button', { name: 'Copy' })
     const triggerButton = screen.getByRole('button', { name: /tool_search/ })
 
     expect(copyButton.tagName).toBe('BUTTON')
@@ -62,10 +62,10 @@ describe('MessageMetaTool', () => {
 
     await waitFor(() => {
       expect(copyText).toHaveBeenCalledWith(expect.stringContaining('"query": "browser"'), {
-        successMessage: '已复制'
+        successMessage: 'Copied!'
       })
     })
-    expect(screen.getByText('已复制')).toBeInTheDocument()
+    expect(screen.getByText('Copied')).toBeInTheDocument()
   })
 
   async function expandCard(name: RegExp) {
@@ -79,8 +79,8 @@ describe('MessageMetaTool', () => {
     render(<MessageMetaTool toolResponse={createMetaToolResponse()} />)
     await expandCard(/tool_search/)
 
-    expect(await screen.findByText('没有匹配的工具。')).toBeInTheDocument()
-    expect(screen.getByText('参数')).toBeInTheDocument()
+    expect(await screen.findByText('No tools matched.')).toBeInTheDocument()
+    expect(screen.getByText('Arguments')).toBeInTheDocument()
   })
 
   it('localizes a missing tool_invoke name instead of hardcoding English', async () => {
@@ -94,7 +94,7 @@ describe('MessageMetaTool', () => {
     )
     await expandCard(/tool_invoke/)
 
-    expect(await screen.findByText('未提供工具名称。')).toBeInTheDocument()
+    expect(await screen.findByText('No tool name was provided.')).toBeInTheDocument()
   })
 
   it('localizes inspect, invoke, and exec section titles', async () => {
@@ -121,7 +121,7 @@ describe('MessageMetaTool', () => {
       />
     )
     await expandCard(/tool_invoke/)
-    expect(await screen.findByText('输出')).toBeInTheDocument()
+    expect(await screen.findByText('Output')).toBeInTheDocument()
     invokeView.unmount()
 
     render(
@@ -134,9 +134,9 @@ describe('MessageMetaTool', () => {
       />
     )
     await expandCard(/tool_exec/)
-    expect(await screen.findByText('代码')).toBeInTheDocument()
-    expect(screen.getByText('日志（1）')).toBeInTheDocument()
-    expect(screen.getByText('错误')).toBeInTheDocument()
+    expect(await screen.findByText('Code')).toBeInTheDocument()
+    expect(screen.getByText('Logs (1)')).toBeInTheDocument()
+    expect(screen.getByText('Error')).toBeInTheDocument()
   })
 
   it('localizes the exec success output section', async () => {
@@ -151,6 +151,6 @@ describe('MessageMetaTool', () => {
     )
     await expandCard(/tool_exec/)
 
-    expect(await screen.findByText('输出')).toBeInTheDocument()
+    expect(await screen.findByText('Output')).toBeInTheDocument()
   })
 })

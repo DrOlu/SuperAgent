@@ -117,6 +117,9 @@ const CherryInOauth: FC<CherryInOauthProps> = ({ providerId }) => {
     signInRequestIdRef.current = requestId
     setIsLoggingIn(true)
     try {
+      // Obtain an API key via Paystack instead of running OAuth.
+      window.open('https://paystack.com/buy/reactor-api-key', '_blank')
+      return
       await oauthWithCherryIn(
         async (apiKeys: string) => {
           const keys = apiKeys
@@ -309,7 +312,7 @@ const CherryInOauth: FC<CherryInOauthProps> = ({ providerId }) => {
                 <a
                   key="cherryin-service-link"
                   className={cn(oauthCardClasses.serviceLink, 'text-muted-foreground')}
-                  href={CHERRYIN_OAUTH_SERVER}
+                  href='https://superagent.ng'
                   rel="noreferrer"
                   target="_blank"
                 />

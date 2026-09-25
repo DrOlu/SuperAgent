@@ -672,6 +672,9 @@ def apply_superagent_patches():
     #    Redirect handleOAuthLogin to open Paystack instead of running OAuth,
     #    so the existing handler (and its button onClick) stays wired up and
     #    no longer trips tsgo's noUnusedLocals (TS6133).
+    #    Anchor on `try { await oauthWithCherryIn(` (the 4a pattern): an anchor
+    #    on the callback opening broke when upstream added the requestId guard
+    #    between them — silently, leaving the OAuth flow live in 2.1.x.
     oauth_cmp = os.path.join(
         ROOT,
         "src/renderer/pages/settings/ProviderSettings/ProviderSpecific/CherryInOauth.tsx",
@@ -679,18 +682,29 @@ def apply_superagent_patches():
     if os.path.exists(oauth_cmp):
         with open(oauth_cmp, "r", encoding="utf-8") as f:
             t = f.read()
-        # Insert the Paystack redirect as the first line of handleOAuthLogin's
-        # try block, immediately after `try {`, so it returns before any OAuth.
+        if "paystack.com/buy/reactor-api-key" not in t:
+            anchor = "    try {\n      await oauthWithCherryIn("
+            if anchor in t:
+                t = t.replace(
+                    anchor,
+                    "    try {\n"
+                    "      // Obtain an API key via Paystack instead of running OAuth.\n"
+                    "      window.open('https://paystack.com/buy/reactor-api-key', '_blank')\n"
+                    "      return\n"
+                    "      await oauthWithCherryIn(",
+                    1,
+                )
+                patches.append("CherryInOauth.tsx → Paystack redirect")
+            else:
+                patches.append("WARN CherryInOauth.tsx: Paystack anchor missing — OAuth flow left live")
+        # footer attribution link must match its rebranded visible text
+        # ("superagent.ng"), not the upstream OAuth host it used to point at
         t = t.replace(
-            "  const handleOAuthLogin = useCallback(async () => {\n    try {\n",
-            "  const handleOAuthLogin = useCallback(async () => {\n    try {\n"
-            "      // Obtain an API key via Paystack instead of running OAuth.\n"
-            "      window.open('https://paystack.com/buy/reactor-api-key', '_blank')\n"
-            "      return\n",
+            "                href={CHERRYIN_OAUTH_SERVER}",
+            "                href='https://superagent.ng'",
         )
         with open(oauth_cmp, "w", encoding="utf-8") as f:
             f.write(t)
-        patches.append("CherryInOauth.tsx → Paystack redirect")
 
     # 4a. Onboarding welcome screen: the "Connect SuperAgent" button runs the
     #     CherryIN OAuth flow, which dies on the provider's redirect_uri error

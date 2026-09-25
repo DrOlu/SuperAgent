@@ -43,7 +43,7 @@ const rightPanelCapabilities = [
     resolve: () => ({
       id: 'files',
       instanceKey: 'files',
-      title: '对话',
+      title: 'Chats',
       readiness: 'ready' as const,
       canMaximize: true
     })
@@ -206,7 +206,7 @@ describe('ConversationShell', () => {
         <ConversationShell
           topBar={<div data-testid="top-bar" />}
           topRightTool={
-            <RightPanelShortcut tab="files" label="对话" icon={<span data-testid="resource-shortcut-icon" />} />
+            <RightPanelShortcut tab="files" label="Chats" icon={<span data-testid="resource-shortcut-icon" />} />
           }
           showTopRightToolWhenPaneOpen
           center={<div />}
@@ -222,10 +222,10 @@ describe('ConversationShell', () => {
 
     fireEvent.click(container.querySelector('[data-shell-tab-shortcut="files"]') as HTMLElement)
 
-    expect(screen.getByRole('button', { name: '对话' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Chats' })).toBeInTheDocument()
     expect(container.querySelector('[data-conversation-shell-topbar-right]')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /最大化|common\.maximize/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Maximize|common\.maximize/ }))
 
     expect(container.querySelector('[data-conversation-shell-topbar-right]')).not.toBeInTheDocument()
   })

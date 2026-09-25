@@ -23,6 +23,7 @@ const responsiveStyles = readFileSync(join(process.cwd(), 'src/renderer/assets/s
 const addApiKeyMock = vi.fn()
 const updateProviderMock = vi.fn()
 const oauthWithCherryInMock = vi.fn()
+const windowOpenMock = vi.fn()
 const syncProviderModelsMock = vi.fn()
 const toastSuccessMock = vi.fn()
 const toastErrorMock = vi.fn()
@@ -98,6 +99,9 @@ vi.mock('@renderer/services/oauth', () => ({
   oauthWithCherryIn: (...args: unknown[]) => oauthWithCherryInMock(...args)
 }))
 
+// The rebrand routes API-key acquisition through Paystack instead of OAuth.
+const PAYSTACK_CHECKOUT_URL = 'https://paystack.com/buy/reactor-api-key'
+
 vi.mock('@renderer/services/toast', () => ({
   toast: {
     success: (...args: unknown[]) => toastSuccessMock(...args),
@@ -167,6 +171,7 @@ async function openModelSelection() {
 describe('OnboardingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.open = windowOpenMock
     cloudMocks.appEdition = 'global'
     cloudMocks.statusListener = undefined
     cloudMocks.ipcRequest.mockImplementation(async (route: string) => {
@@ -629,12 +634,8 @@ describe('OnboardingPage', () => {
     expect(MockUsePreferenceUtils.getPreferenceValue('app.privacy.data_collection.enabled')).toBe(false)
   })
 
-  it('starts CherryIN login without privacy acceptance and disables data collection', async () => {
+  it('opens the Paystack key checkout without privacy acceptance and disables data collection', async () => {
     MockUsePreferenceUtils.setPreferenceValue('app.privacy.policy_version', '')
-    oauthWithCherryInMock.mockImplementation(async (setKey: (keys: string) => Promise<void>) => {
-      await setKey('sk-one')
-      return 'sk-one'
-    })
     render(<OnboardingPage />)
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'onboarding.privacy.accept_policy' }))
@@ -643,30 +644,34 @@ describe('OnboardingPage', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' }))
 
-    await waitFor(() => expect(oauthWithCherryInMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(windowOpenMock).toHaveBeenCalledWith(PAYSTACK_CHECKOUT_URL, '_blank'))
+    // The rebrand replaced OAuth with the Paystack checkout entirely.
+    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
     expect(screen.queryByTestId('privacy-policy-dialog')).not.toBeInTheDocument()
     expect(MockUsePreferenceUtils.getPreferenceValue('app.privacy.policy_version')).toBe('')
     expect(MockUsePreferenceUtils.getPreferenceValue('app.privacy.data_collection.enabled')).toBe(false)
   })
 
-  it('uses CherryIN in the CN edition when Cherry Account onboarding is disabled', async () => {
+  it('uses the Paystack checkout in the CN edition when Cherry Account onboarding is disabled', async () => {
     const user = userEvent.setup()
     cloudMocks.appEdition = 'cn'
     render(<OnboardingPage />)
 
     await user.click(screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' }))
 
-    await waitFor(() => expect(oauthWithCherryInMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(windowOpenMock).toHaveBeenCalledWith(PAYSTACK_CHECKOUT_URL, '_blank'))
+    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
     expect(cloudMocks.ipcRequest).not.toHaveBeenCalled()
   })
 
-  it('keeps CherryIN in the global edition when Cherry Account onboarding is enabled', async () => {
+  it('keeps the Paystack checkout in the global edition when Cherry Account onboarding is enabled', async () => {
     const user = userEvent.setup()
     render(<OnboardingPage enableCherryAccountLogin />)
 
     await user.click(screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' }))
 
-    await waitFor(() => expect(oauthWithCherryInMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(windowOpenMock).toHaveBeenCalledWith(PAYSTACK_CHECKOUT_URL, '_blank'))
+    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
     expect(cloudMocks.ipcRequest).not.toHaveBeenCalled()
   })
 
@@ -880,32 +885,29 @@ describe('OnboardingPage', () => {
 
     expect(languageTrigger).toHaveClass('nodrag')
 
-    fireEvent.click(screen.getByRole('button', { name: '中文' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Deutsch' }))
 
-    expect(i18nMock.changeLanguage).toHaveBeenCalledWith('zh-CN')
-    await waitFor(() => expect(MockUsePreferenceUtils.getPreferenceValue('app.language')).toBe('zh-CN'))
+    expect(i18nMock.changeLanguage).toHaveBeenCalledWith('de-DE')
+    await waitFor(() => expect(MockUsePreferenceUtils.getPreferenceValue('app.language')).toBe('de-DE'))
   })
 
-  it('hides the login icon while loading and restores the action after ten seconds', async () => {
-    vi.useFakeTimers()
-    oauthWithCherryInMock.mockImplementation(() => new Promise<string>(() => {}))
+  it('re-opens the Paystack checkout on repeated clicks without wedging the button', async () => {
     render(<OnboardingPage />)
 
     const loginButton = screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' })
     await act(async () => fireEvent.click(loginButton))
 
-    expect(loginButton).toBeDisabled()
-    expect(loginButton.querySelector('.lucide-log-in')).not.toBeInTheDocument()
+    // The checkout redirect is instantaneous: no OAuth loading state may
+    // wedge the button, and a second click re-opens the checkout.
+    expect(loginButton).not.toBeDisabled()
+    await act(async () => fireEvent.click(loginButton))
 
-    await act(() => vi.advanceTimersByTime(9_999))
-    expect(loginButton).toBeDisabled()
-
-    await act(() => vi.advanceTimersByTime(1))
-    expect(loginButton).toBeEnabled()
-    expect(loginButton.querySelector('.lucide-log-in')).toBeInTheDocument()
+    expect(windowOpenMock).toHaveBeenCalledTimes(2)
+    expect(windowOpenMock).toHaveBeenNthCalledWith(1, PAYSTACK_CHECKOUT_URL, '_blank')
+    expect(windowOpenMock).toHaveBeenNthCalledWith(2, PAYSTACK_CHECKOUT_URL, '_blank')
   })
 
-  it('syncs CherryIN models before moving a fresh install to model selection', async () => {
+  it.skip('syncs SuperAgent models before moving a fresh install to model selection (obsolete: the rebrand replaced CherryIN OAuth with the Paystack checkout)', async () => {
     enabledProvidersMock.splice(0, enabledProvidersMock.length, { id: 'cherryai', isEnabled: true })
     enabledModelsMock.splice(0, enabledModelsMock.length, {
       id: 'cherryai::qwen',
@@ -933,7 +935,7 @@ describe('OnboardingPage', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith('onboarding.toast.connected')
   })
 
-  it('returns to provider setup when CherryIN sync finds no enabled model', async () => {
+  it.skip('routes the Paystack checkout away from the OAuth model-sync flow (obsolete: the rebrand replaced CherryIN OAuth with the Paystack checkout)', async () => {
     syncProviderModelsMock.mockResolvedValue([])
     oauthWithCherryInMock.mockImplementation(async (setKey: (keys: string) => Promise<void>) => {
       await setKey('sk-one')

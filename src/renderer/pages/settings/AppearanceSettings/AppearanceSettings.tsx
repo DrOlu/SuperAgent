@@ -53,10 +53,10 @@ import { defaultLanguage } from '@shared/utils/languages'
 
 import ThemeColorPicker from './components/ThemeColorPicker'
 
-const DEFAULT_COLOR_PRIMARY = '#00b96b'
+const DEFAULT_COLOR_PRIMARY = '#CC1100'
 const DEFAULT_ZOOM_FACTOR = 1
 const THEME_COLOR_PRESETS = [
-  DEFAULT_COLOR_PRIMARY,
+  DEFAULT_COLOR_PRIMARY, // SuperAgent red (the confirm_original.png mark)
   '#EF4444', // Red
   '#F59E0B', // Amber
   '#3B82F6', // Blue

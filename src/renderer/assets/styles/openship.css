@@ -1,0 +1,51 @@
+/*
+ * Openship-derived shell polish (dedicated owning stylesheet, per the
+ * style organization guidelines in tailwind.css).
+ *
+ * 1. Crisp text rendering for the Gellix interface face.
+ * 2. Brand-tinted selection.
+ * 3. Flat, quiet primary controls — the brand ramp already carries the
+ *    colour; the shell stays out of its way.
+ * 4. Slightly airier cards/popovers so surfaces lift by fill, not border.
+ */
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--cs-theme-primary, var(--cs-primary)) 30%, transparent);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  /* Primary controls stay flat: the ramp is the identity, not a gradient. */
+  [data-variant='primary']:not(:disabled),
+  .bg-primary:not(input):not(textarea) {
+    background-image: none;
+  }
+
+  /* Cards and popovers lift by fill with a whisper of shadow, not a border
+     box. Only neutral borders are softened — stateful borders are untouched. */
+  .bg-card,
+  [data-slot='card'] {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 1px 3px rgb(0 0 0 / 0.03);
+  }
+
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--cs-theme-primary, var(--cs-primary)) 45%, transparent);
+    outline-offset: 2px;
+  }
+}

@@ -13,6 +13,7 @@ import {
   graphProbe,
   instanceDirFor,
   listInstances,
+  readDocs,
   resolveEngine
 } from './neuralosRuntime'
 
@@ -52,9 +53,22 @@ const ADMIN_INPUT = z.object({
 const ADMIN_DESCRIPTION =
   'Execute a WRITE/admin probe on an instance (boot a server, tag a resource, purge DNS). Destructive and reversible only per the instance design; requires confirm="yes" and host approval. Read-only questions must use neuralos_ask instead.'
 
+const DOCS_INPUT = z.object({
+  topic: z
+    .string()
+    .optional()
+    .describe(
+      'a topic key from the index (e.g. factory | runtime | bootstrap | tool-design | powershell) — omit to get the full index'
+    )
+})
+
+const DOCS_DESCRIPTION =
+  'Read the neuralOS manual that ships with the app — the full method for building and running on-device data agents, no external skills needed. Omit topic for the index (topics + scripts + real paths); pass a topic for its document. Start with "factory" to build a new instance from any data source, "bootstrap" to set up a host, "runtime"/"tool-design" when behavior looks wrong.'
+
 interface NeuralosHandler {
   description: string
   inputSchema: z.ZodType
+  maxChars?: number
   run: (args: unknown) => Promise<unknown>
 }
 
@@ -64,10 +78,10 @@ function toTool(name: string, handler: NeuralosHandler): Tool {
   return { name, description: handler.description, inputSchema: inputSchema as Tool['inputSchema'] }
 }
 
-function truncate(value: unknown): string {
+function truncate(value: unknown, maxChars = MAX_RESULT_CHARS): string {
   const text = typeof value === 'string' ? value : JSON.stringify(value)
-  if (text.length <= MAX_RESULT_CHARS) return text
-  return `${text.slice(0, MAX_RESULT_CHARS)}\n… (truncated at ${MAX_RESULT_CHARS} chars)`
+  if (text.length <= maxChars) return text
+  return `${text.slice(0, maxChars)}\n… (truncated at ${maxChars} chars)`
 }
 
 export class NeuralosServer {
@@ -118,6 +132,15 @@ export class NeuralosServer {
           if (typeof dir !== 'string') return dir
           return adminProbe(this.deps, dir, input.probe, input.args)
         }
+      },
+      neuralos_docs: {
+        description: DOCS_DESCRIPTION,
+        inputSchema: DOCS_INPUT,
+        maxChars: 25_000,
+        run: async (raw) => {
+          const { topic } = DOCS_INPUT.parse(raw)
+          return readDocs(this.deps, topic)
+        }
       }
     }
 
@@ -136,7 +159,7 @@ export class NeuralosServer {
       }
       try {
         const value = await handler.run(request.params.arguments)
-        return { content: [{ type: 'text', text: truncate(value) }] }
+        return { content: [{ type: 'text', text: truncate(value, handler.maxChars) }] }
       } catch (error) {
         logger.error(`Tool error: ${request.params.name}`, error instanceof Error ? error : { error: String(error) })
         const message = error instanceof z.ZodError ? `Invalid input: ${error.message}` : 'Error: Tool execution failed'

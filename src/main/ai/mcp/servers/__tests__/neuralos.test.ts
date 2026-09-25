@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { describe, expect, it, vi } from 'vitest'
@@ -33,6 +35,7 @@ const {
   instanceDirFor,
   listInstances,
   parseJsonObject,
+  readDocs,
   resolveEngine
 } = await import('../neuralos/neuralosRuntime')
 
@@ -309,6 +312,60 @@ describe('parseJsonObject', () => {
   })
 })
 
+describe('readDocs', () => {
+  const docsRoot = resolve('resources/neuralos/docs')
+  const INDEX = JSON.stringify({
+    version: 1,
+    docs_dir: 'placeholder',
+    scripts_dir: 'placeholder',
+    topics: {
+      factory: { file: 'factory.md', about: 'build instances' },
+      runtime: { file: 'runtime.md', about: 'the engine' }
+    },
+    scripts: { 'profile_data.py': 'see factory' }
+  })
+
+  it('returns the index with real paths when no topic is given', async () => {
+    primeFs({ files: { [`${docsRoot}/index.json`]: INDEX } })
+    const result = (await readDocs(makeDeps({}), undefined)) as Record<string, unknown>
+    expect(result['docs_dir']).toBe(docsRoot)
+    expect(result['scripts_dir']).toBe(resolve('resources/neuralos/scripts'))
+    expect((result['topics'] as Record<string, unknown>)['factory']).toEqual({
+      file: 'factory.md',
+      about: 'build instances'
+    })
+  })
+
+  it('returns a topic document with its real location', async () => {
+    primeFs({
+      files: { [`${docsRoot}/index.json`]: INDEX, [`${docsRoot}/factory.md`]: '# Factory\nthe four-phase workflow' }
+    })
+    const result = (await readDocs(makeDeps({}), 'factory')) as Record<string, unknown>
+    expect(result['topic']).toBe('factory')
+    expect(result['file']).toBe('factory.md')
+    expect(result['content']).toContain('four-phase workflow')
+  })
+
+  it('answers an unknown topic with the available list', async () => {
+    primeFs({ files: { [`${docsRoot}/index.json`]: INDEX } })
+    const result = (await readDocs(makeDeps({}), 'nope')) as Record<string, unknown>
+    expect(result['error']).toBe("no docs topic 'nope'")
+    expect(result['available_topics']).toEqual(['factory', 'runtime'])
+  })
+
+  it('rejects topic names that are not index keys', async () => {
+    primeFs({ files: { [`${docsRoot}/index.json`]: INDEX } })
+    const result = (await readDocs(makeDeps({}), '../index.json')) as Record<string, unknown>
+    expect(result['error']).toContain('invalid topic')
+  })
+
+  it('answers a missing docs bundle honestly', async () => {
+    readFileMock.mockRejectedValue(new Error('ENOENT'))
+    const result = (await readDocs(makeDeps({}), 'factory')) as Record<string, unknown>
+    expect(String(result['error'])).toContain('neuralOS docs not found')
+  })
+})
+
 describe('NeuralosServer', () => {
   async function connectNeuralosClient(deps?: ConstructorParameters<typeof NeuralosServer>[0]) {
     const server = new NeuralosServer(deps)
@@ -319,12 +376,13 @@ describe('NeuralosServer', () => {
     return client
   }
 
-  it('lists the four neuralos tools', async () => {
+  it('lists the five neuralos tools', async () => {
     const client = await connectNeuralosClient()
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'neuralos_admin',
       'neuralos_ask',
+      'neuralos_docs',
       'neuralos_graph',
       'neuralos_list_instances'
     ])

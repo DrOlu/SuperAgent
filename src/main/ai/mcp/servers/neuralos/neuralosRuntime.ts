@@ -23,6 +23,7 @@ export interface NeuralosDeps {
   engineBin?: string
   engineWeights?: string
   pythonBin: string
+  docsDir?: string
 }
 
 /** Server-configured env wins over process env; empty strings mean unset. */
@@ -54,7 +55,8 @@ export function defaultDeps(envs?: Record<string, string>): NeuralosDeps {
     instancesRoot: envValue(envs, 'NEURALOS_INSTANCES_DIR') ?? path.join(homedir(), 'neuralos-instances'),
     engineBin: envValue(envs, 'NEURALOS_ENGINE_BIN'),
     engineWeights: envValue(envs, 'NEURALOS_ENGINE_WEIGHTS'),
-    pythonBin: envValue(envs, 'NEURALOS_PYTHON', 'python3') as string
+    pythonBin: envValue(envs, 'NEURALOS_PYTHON', 'python3') as string,
+    docsDir: envValue(envs, 'NEURALOS_DOCS_DIR')
   }
 }
 
@@ -344,4 +346,62 @@ export async function adminProbe(
   if (!/^[A-Za-z0-9_]+$/.test(probe)) return { error: `invalid probe name: ${probe}` }
   const result = await executeProbe(deps, instanceDir, probe, args)
   return { probe, admin: true, result }
+}
+
+export interface DocsIndex {
+  version: number
+  docs_dir: string
+  scripts_dir: string
+  topics: Record<string, { file: string; about: string }>
+  scripts: Record<string, string>
+}
+
+export const MAX_DOC_CHARS = 24_000
+
+function docsCandidates(deps: NeuralosDeps): string[] {
+  const out: string[] = []
+  if (deps.docsDir) out.push(deps.docsDir)
+  const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  if (resources) out.push(path.join(resources, 'neuralos', 'docs'))
+  out.push(path.resolve('resources', 'neuralos', 'docs')) // dev tree
+  return out
+}
+
+/**
+ * The bundled neuralOS manual (docs/ + scripts/ ship beside the engine).
+ * No topic → the index with real paths; a topic → that document's content.
+ */
+export async function readDocs(deps: NeuralosDeps, topic?: string): Promise<Record<string, unknown>> {
+  for (const dir of docsCandidates(deps)) {
+    let raw: string
+    try {
+      raw = await fs.readFile(path.join(dir, 'index.json'), 'utf-8')
+    } catch {
+      continue
+    }
+    let index: DocsIndex
+    try {
+      index = JSON.parse(raw)
+    } catch {
+      continue
+    }
+    const scriptsDir = path.join(path.dirname(dir), 'scripts')
+    if (!topic?.trim()) {
+      return { docs_dir: dir, scripts_dir: scriptsDir, topics: index.topics, scripts: index.scripts }
+    }
+    if (!/^[a-z0-9-]+$/.test(topic)) return { error: `invalid topic: ${topic}` }
+    const entry = index.topics[topic]
+    if (!entry) return { error: `no docs topic '${topic}'`, available_topics: Object.keys(index.topics) }
+    let content: string
+    try {
+      content = await fs.readFile(path.join(dir, entry.file), 'utf-8')
+    } catch {
+      return { error: `cannot read ${entry.file} in ${dir}` }
+    }
+    if (content.length > MAX_DOC_CHARS) {
+      content = `${content.slice(0, MAX_DOC_CHARS)}\n… (truncated at ${MAX_DOC_CHARS} chars)`
+    }
+    return { topic, file: entry.file, docs_dir: dir, scripts_dir: scriptsDir, content }
+  }
+  return { error: 'neuralOS docs not found in this install (no resources/neuralos/docs/index.json)' }
 }

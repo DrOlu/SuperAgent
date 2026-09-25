@@ -102,6 +102,13 @@ jobs:
           if [ -f resources/neuralos/README.md ]; then
             cp resources/neuralos/README.md /tmp/keep/neuralos-resources/
           fi
+          mkdir -p /tmp/keep/neuralos-resources/docs /tmp/keep/neuralos-resources/scripts
+          if [ -d resources/neuralos/docs ]; then
+            cp -a resources/neuralos/docs/. /tmp/keep/neuralos-resources/docs/
+          fi
+          if [ -d resources/neuralos/scripts ]; then
+            cp -a resources/neuralos/scripts/. /tmp/keep/neuralos-resources/scripts/
+          fi
 
       - name: Clone latest Cherry Studio
         if: steps.check.outputs.do_release == 'true'
@@ -132,6 +139,13 @@ jobs:
           mkdir -p resources/neuralos
           if [ -f /tmp/keep/neuralos-resources/README.md ]; then
             cp /tmp/keep/neuralos-resources/README.md resources/neuralos/
+          fi
+          mkdir -p resources/neuralos/docs resources/neuralos/scripts
+          if [ -d /tmp/keep/neuralos-resources/docs ] && [ "$(ls -A /tmp/keep/neuralos-resources/docs 2>/dev/null)" ]; then
+            cp -a /tmp/keep/neuralos-resources/docs/. resources/neuralos/docs/
+          fi
+          if [ -d /tmp/keep/neuralos-resources/scripts ] && [ "$(ls -A /tmp/keep/neuralos-resources/scripts 2>/dev/null)" ]; then
+            cp -a /tmp/keep/neuralos-resources/scripts/. resources/neuralos/scripts/
           fi
 
       - name: Run rebrand

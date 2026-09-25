@@ -1071,6 +1071,42 @@ def apply_neuralos_integration():
         )],
     )
 
+    # 7a. Settings UI: "Obtain API Key" on the neuralos builtin server
+    #     (same pattern as the qveris special case; the Paystack link sells
+    #     the reactor API key).
+    patch_file(
+        "src/renderer/pages/settings/McpSettings/BuiltinMcpServerList.tsx",
+        [(
+            "import { QVERIS_API_KEY_REGISTRATION_URL } from './QVerisApiKeyGuide'",
+            "import { QVERIS_API_KEY_REGISTRATION_URL } from './QVerisApiKeyGuide'\n\nconst NEURALOS_API_KEY_URL = 'https://paystack.com/buy/reactor-api-key'",
+        ), (
+            "                          {t('settings.mcp.qveris.get_api_key')}\n"
+            "                        </a>\n"
+            "                      )}",
+            "                          {t('settings.mcp.qveris.get_api_key')}\n"
+            "                        </a>\n"
+            "                      )}\n"
+            "                      {server.name === BuiltinMcpServerNames.neuralos && (\n"
+            "                        <a\n"
+            "                          href={NEURALOS_API_KEY_URL}\n"
+            "                          target=\"_blank\"\n"
+            "                          rel=\"noopener noreferrer\"\n"
+            "                          className=\"wrap-break-word mt-2 block text-link hover:underline\">\n"
+            "                          {t('settings.mcp.neuralos.get_api_key')}\n"
+            "                        </a>\n"
+            "                      )}",
+        )],
+    )
+    patch_file(
+        "src/renderer/i18n/locales/en-us.json",
+        # sorted slot: settings.mcp.name < neuralos.get_api_key < newServer
+        [(
+            '"settings.mcp.name": "Name",',
+            '"settings.mcp.name": "Name",\n'
+            '  "settings.mcp.neuralos.get_api_key": "Obtain API Key",',
+        )],
+    )
+
     # 7. electron-builder: bundle the neuralOS engine + weights
     #    (downloaded into resources/neuralos/ by the release workflows; the
     #    files/asarUnpack exclusions stop the asar glob from packing a

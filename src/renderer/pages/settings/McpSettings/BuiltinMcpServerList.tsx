@@ -15,6 +15,8 @@ import { isBrowserMcpServer } from '@shared/utils/mcp'
 import { BuiltinMcpServerNames } from '@shared/utils/mcp'
 
 import { QVERIS_API_KEY_REGISTRATION_URL } from './QVerisApiKeyGuide'
+
+const NEURALOS_API_KEY_URL = 'https://paystack.com/buy/reactor-api-key'
 import { toCreateMcpServerDto } from './utils'
 
 const BuiltinMcpServerList: FC = () => {
@@ -117,6 +119,15 @@ const BuiltinMcpServerList: FC = () => {
                           rel="noopener noreferrer"
                           className="wrap-break-word mt-2 block text-link hover:underline">
                           {t('settings.mcp.qveris.get_api_key')}
+                        </a>
+                      )}
+                      {server.name === BuiltinMcpServerNames.neuralos && (
+                        <a
+                          href={NEURALOS_API_KEY_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="wrap-break-word mt-2 block text-link hover:underline">
+                          {t('settings.mcp.neuralos.get_api_key')}
                         </a>
                       )}
                     </div>

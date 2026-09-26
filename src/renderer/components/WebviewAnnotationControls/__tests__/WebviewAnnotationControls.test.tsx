@@ -152,12 +152,12 @@ describe('WebviewAnnotationControls', () => {
     renderControls(webview)
     act(() => stateChanged(webview, false, 0))
 
-    const toggle = screen.getByRole('button', { name: 'Annotate page' })
+    const toggle = screen.getByRole('button', { name: '标注页面' })
     expect(toggle).toHaveAttribute('aria-pressed', 'false')
     await user.click(toggle)
 
     expect(sentCommands(webview)).toContainEqual({ type: 'set_enabled', sessionId, enabled: true })
-    expect(screen.getByRole('button', { name: 'Stop annotating' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '退出标注' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('configures the guest with the resolved app accent', () => {
@@ -223,8 +223,8 @@ describe('WebviewAnnotationControls', () => {
     renderControls(webview)
     act(() => stateChanged(webview, false, 2))
 
-    expect(screen.getByRole('button', { name: /Annotate page.*2 annotations/ })).toBeInTheDocument()
-    expect(screen.queryByLabelText('2 annotations')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /标注页面.*2 条标注/ })).toBeInTheDocument()
+    expect(screen.queryByLabelText('2 条标注')).not.toBeInTheDocument()
   })
 
   it('collects annotation text in the trusted host UI and saves it to the guest', async () => {
@@ -252,18 +252,18 @@ describe('WebviewAnnotationControls', () => {
       })
     )
 
-    const editor = await screen.findByLabelText('Describe what should change or what you noticed…')
+    const editor = await screen.findByLabelText('描述需要修改的内容或你注意到的问题…')
     expect(readPopoverAnchorRect).toHaveBeenLastCalledWith(
       expect.objectContaining({ x: 420, y: 420, width: 80, height: 32 })
     )
     await waitFor(() => expect(editor).toHaveFocus())
     expect(editor.querySelector('[data-placeholder]')).toHaveAttribute(
       'data-placeholder',
-      'Describe what should change or what you noticed…'
+      '描述需要修改的内容或你注意到的问题…'
     )
     await user.type(editor, 'Host-owned draft{Enter}', { skipClick: true })
     expect(editor.querySelector('[data-placeholder]')?.getAttribute('data-placeholder') ?? '').toBe('')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: '保存' }))
 
     expect(sentCommands(webview)).toContainEqual({
       type: 'save_editor',
@@ -292,7 +292,7 @@ describe('WebviewAnnotationControls', () => {
       })
     )
 
-    const toggleGroup = screen.getByRole('button', { name: 'Stop annotating' }).parentElement!
+    const toggleGroup = screen.getByRole('button', { name: '退出标注' }).parentElement!
     vi.spyOn(toggleGroup, 'getBoundingClientRect').mockReturnValue(
       DOMRect.fromRect({ x: 24, y: 16, width: 60, height: 28 })
     )
@@ -306,12 +306,12 @@ describe('WebviewAnnotationControls', () => {
       })
     )
 
-    const editor = await screen.findByLabelText('Describe what should change or what you noticed…')
+    const editor = await screen.findByLabelText('描述需要修改的内容或你注意到的问题…')
     await waitFor(() => expect(editor).toHaveFocus())
     await user.type(editor, ' updated', { skipClick: true })
 
-    expect(screen.getByRole('alert')).toHaveTextContent("This element can't be annotated. Select a nearby element.")
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('无法标注此元素，请选择附近的元素。')
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
     expect(editor).toHaveTextContent('Host-owned draft updated')
     expect(readPopoverAnchorRect).toHaveBeenLastCalledWith(
       expect.objectContaining({ x: 24, y: 16, width: 60, height: 28 })
@@ -327,14 +327,14 @@ describe('WebviewAnnotationControls', () => {
     renderControls(webview)
     act(() => stateChanged(webview, false, 2))
 
-    const copy = screen.getByRole('button', { name: 'Copy annotations as Markdown' })
+    const copy = screen.getByRole('button', { name: '复制标注 Markdown' })
     await user.click(copy)
     expect(copy).toBeDisabled()
 
     await act(async () => snapshotReady(webview))
 
     await waitFor(async () => expect(await navigator.clipboard.readText()).toBe('# Resolved annotations'))
-    expect(toastSuccess).toHaveBeenCalledWith('Annotations copied')
+    expect(toastSuccess).toHaveBeenCalledWith('已复制标注')
     expect(copy).toBeEnabled()
   })
 
@@ -345,10 +345,10 @@ describe('WebviewAnnotationControls', () => {
     renderControls(webview)
     act(() => stateChanged(webview))
 
-    await user.click(screen.getByRole('button', { name: 'Copy annotations as Markdown' }))
+    await user.click(screen.getByRole('button', { name: '复制标注 Markdown' }))
     await act(async () => snapshotReady(webview))
 
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Failed to copy annotations'))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('复制标注失败'))
     expect(loggerError).toHaveBeenCalledOnce()
     expect(await navigator.clipboard.readText()).toBe('')
   })
@@ -359,12 +359,12 @@ describe('WebviewAnnotationControls', () => {
     renderControls(webview)
     act(() => stateChanged(webview, false, 2))
 
-    await user.click(screen.getByRole('button', { name: 'Clear annotations' }))
-    const dialog = screen.getByRole('dialog', { name: 'Clear all annotations?' })
-    await user.click(within(dialog).getByRole('button', { name: 'Clear annotations' }))
+    await user.click(screen.getByRole('button', { name: '清空标注' }))
+    const dialog = screen.getByRole('dialog', { name: '清空全部标注？' })
+    await user.click(within(dialog).getByRole('button', { name: '清空标注' }))
 
     expect(dialog).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Annotate page' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '标注页面' })).toBeInTheDocument()
     expect(sentCommands(webview)).toContainEqual({ type: 'clear', sessionId })
   })
 
@@ -373,16 +373,16 @@ describe('WebviewAnnotationControls', () => {
     const webview = createWebview()
     renderControls(webview)
     act(() => stateChanged(webview, false, 2))
-    await user.click(screen.getByRole('button', { name: 'Clear annotations' }))
+    await user.click(screen.getByRole('button', { name: '清空标注' }))
     vi.mocked(webview.send).mockRejectedValueOnce(new Error('guest unavailable'))
-    const dialog = screen.getByRole('dialog', { name: 'Clear all annotations?' })
+    const dialog = screen.getByRole('dialog', { name: '清空全部标注？' })
 
-    await user.click(within(dialog).getByRole('button', { name: 'Clear annotations' }))
+    await user.click(within(dialog).getByRole('button', { name: '清空标注' }))
 
-    const remainingDialog = screen.getByRole('dialog', { name: 'Clear all annotations?' })
+    const remainingDialog = screen.getByRole('dialog', { name: '清空全部标注？' })
     expect(remainingDialog).toBeInTheDocument()
-    await user.click(within(remainingDialog).getByRole('button', { name: 'Cancel' }))
-    expect(screen.getByRole('button', { name: /Annotate page.*2 annotations/ })).toBeInTheDocument()
+    await user.click(within(remainingDialog).getByRole('button', { name: '取消' }))
+    expect(screen.getByRole('button', { name: /标注页面.*2 条标注/ })).toBeInTheDocument()
   })
 
   it('closes a delivered clear confirmation when navigation retires its session', async () => {
@@ -390,7 +390,7 @@ describe('WebviewAnnotationControls', () => {
     const webview = createWebview()
     renderControls(webview)
     act(() => stateChanged(webview, false, 2))
-    await user.click(screen.getByRole('button', { name: 'Clear annotations' }))
+    await user.click(screen.getByRole('button', { name: '清空标注' }))
     let resolveClear!: () => void
     vi.mocked(webview.send).mockImplementationOnce(
       () =>
@@ -398,9 +398,9 @@ describe('WebviewAnnotationControls', () => {
           resolveClear = resolve
         })
     )
-    const dialog = screen.getByRole('dialog', { name: 'Clear all annotations?' })
+    const dialog = screen.getByRole('dialog', { name: '清空全部标注？' })
 
-    await user.click(within(dialog).getByRole('button', { name: 'Clear annotations' }))
+    await user.click(within(dialog).getByRole('button', { name: '清空标注' }))
     act(() =>
       webview.emitNative('did-start-navigation', {
         isMainFrame: true,
@@ -413,7 +413,7 @@ describe('WebviewAnnotationControls', () => {
       resolveClear()
     })
 
-    expect(screen.queryByRole('dialog', { name: 'Clear all annotations?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '清空全部标注？' })).not.toBeInTheDocument()
   })
 
   it('closes a clear confirmation when the target identity changes', async () => {
@@ -430,8 +430,8 @@ describe('WebviewAnnotationControls', () => {
       />
     )
     act(() => stateChanged(webview, false, 2))
-    await user.click(screen.getByRole('button', { name: 'Clear annotations' }))
-    expect(screen.getByRole('dialog', { name: 'Clear all annotations?' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '清空标注' }))
+    expect(screen.getByRole('dialog', { name: '清空全部标注？' })).toBeInTheDocument()
 
     view.rerender(
       <WebviewAnnotationControls
@@ -443,7 +443,7 @@ describe('WebviewAnnotationControls', () => {
       />
     )
 
-    expect(screen.queryByRole('dialog', { name: 'Clear all annotations?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '清空全部标注？' })).not.toBeInTheDocument()
 
     view.rerender(
       <WebviewAnnotationControls
@@ -455,7 +455,7 @@ describe('WebviewAnnotationControls', () => {
       />
     )
 
-    expect(screen.queryByRole('dialog', { name: 'Clear all annotations?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '清空全部标注？' })).not.toBeInTheDocument()
   })
 
   it('retains the count but disables every action while the host is inactive', () => {
@@ -463,8 +463,8 @@ describe('WebviewAnnotationControls', () => {
     renderControls(webview, false)
     act(() => stateChanged(webview, true, 1))
 
-    expect(screen.getByRole('button', { name: /Annotate page.*1 annotation/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Copy annotations as Markdown' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Clear annotations' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /标注页面.*1 条标注/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '复制标注 Markdown' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '清空标注' })).toBeDisabled()
   })
 })

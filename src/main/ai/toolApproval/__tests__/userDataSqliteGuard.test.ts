@@ -302,7 +302,7 @@ describe('path comparison semantics', () => {
     expect(
       isSameOrInsidePath(
         '\\\\SERVER\\Share\\SuperAgent\\Data\\file.sqlite',
-        '\\\\server\\share\\SuperAgent',
+        '\\\\server\\share\\cherry studio',
         'win32'
       )
     ).toBe(true)

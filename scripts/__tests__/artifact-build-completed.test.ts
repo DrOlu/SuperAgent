@@ -26,13 +26,13 @@ afterEach(() => {
 
 describe('normalizeArtifactFilePath', () => {
   it.each([
-    ['windows', 'SuperAgent-2.0.9-x64-setup.exe', 'SuperAgent-2.0.9-win-x64-setup.exe'],
-    ['windows', 'SuperAgent-2.0.9-arm64-portable.exe', 'SuperAgent-2.0.9-win-arm64-portable.exe'],
-    ['mac', 'SuperAgent-2.0.9-x64.dmg', 'SuperAgent-2.0.9-mac-x64.dmg'],
-    ['mac', 'SuperAgent-2.0.9-arm64.zip.blockmap', 'SuperAgent-2.0.9-mac-arm64.zip.blockmap'],
-    ['linux', 'SuperAgent-2.0.9-x86_64.AppImage', 'SuperAgent-2.0.9-linux-x64.AppImage'],
-    ['linux', 'SuperAgent-2.0.9-amd64.deb', 'SuperAgent-2.0.9-linux-x64.deb'],
-    ['linux', 'SuperAgent-2.0.9-aarch64.rpm', 'SuperAgent-2.0.9-linux-arm64.rpm']
+    ['windows', 'SuperAgent-2.0.9-x64-setup.exe', 'Cherry-Studio-2.0.9-win-x64-setup.exe'],
+    ['windows', 'SuperAgent-2.0.9-arm64-portable.exe', 'Cherry-Studio-2.0.9-win-arm64-portable.exe'],
+    ['mac', 'SuperAgent-2.0.9-x64.dmg', 'Cherry-Studio-2.0.9-mac-x64.dmg'],
+    ['mac', 'SuperAgent-2.0.9-arm64.zip.blockmap', 'Cherry-Studio-2.0.9-mac-arm64.zip.blockmap'],
+    ['linux', 'SuperAgent-2.0.9-x86_64.AppImage', 'Cherry-Studio-2.0.9-linux-x64.AppImage'],
+    ['linux', 'SuperAgent-2.0.9-amd64.deb', 'Cherry-Studio-2.0.9-linux-x64.deb'],
+    ['linux', 'SuperAgent-2.0.9-aarch64.rpm', 'Cherry-Studio-2.0.9-linux-arm64.rpm']
   ])('normalizes the %s release asset %s', (platform, source, expected) => {
     expect(normalizeArtifactFilePath(path.join('dist', source), PRODUCT_NAME, VERSION, platform)).toBe(
       path.join('dist', expected)
@@ -40,7 +40,7 @@ describe('normalizeArtifactFilePath', () => {
   })
 
   it('is idempotent for an already normalized asset', () => {
-    const file = path.join('dist', 'SuperAgent-2.0.9-linux-x64.AppImage')
+    const file = path.join('dist', 'Cherry-Studio-2.0.9-linux-x64.AppImage')
     expect(normalizeArtifactFilePath(file, PRODUCT_NAME, VERSION, 'linux')).toBe(file)
   })
 
@@ -53,7 +53,7 @@ describe('normalizeArtifactFilePath', () => {
         'mac',
         'SuperAgent CN'
       )
-    ).toBe(path.join('dist', 'SuperAgent-CN-2.0.9-mac-x64.dmg'))
+    ).toBe(path.join('dist', 'Cherry-Studio-CN-2.0.9-mac-x64.dmg'))
   })
 
   it.each(['latest.yml', 'latest-linux.yml', 'release-history.json', 'other-product-2.0.9-x64.zip'])(
@@ -69,11 +69,11 @@ describe('artifactBuildCompleted', () => {
   it('renames the file and exposes its final path to later publisher hooks', () => {
     const directory = temporaryDirectory()
     const source = path.join(directory, 'SuperAgent-2.0.9-x86_64.AppImage')
-    const expected = path.join(directory, 'SuperAgent-2.0.9-linux-x64.AppImage')
+    const expected = path.join(directory, 'Cherry-Studio-2.0.9-linux-x64.AppImage')
     fs.writeFileSync(source, 'artifact')
     const buildResult = {
       file: source,
-      safeArtifactName: 'SuperAgent-2.0.9-x86_64.AppImage',
+      safeArtifactName: 'Cherry-Studio-2.0.9-x86_64.AppImage',
       packager: {
         appInfo: { productName: PRODUCT_NAME, version: VERSION },
         config: {},
@@ -84,7 +84,7 @@ describe('artifactBuildCompleted', () => {
     artifactBuildCompleted(buildResult)
 
     expect(buildResult.file).toBe(expected)
-    expect(buildResult.safeArtifactName).toBe('SuperAgent-2.0.9-linux-x64.AppImage')
+    expect(buildResult.safeArtifactName).toBe('Cherry-Studio-2.0.9-linux-x64.AppImage')
     expect(fs.existsSync(source)).toBe(false)
     expect(fs.readFileSync(expected, 'utf8')).toBe('artifact')
   })
@@ -93,7 +93,7 @@ describe('artifactBuildCompleted', () => {
     const source = path.join(temporaryDirectory(), 'SuperAgent-2.0.9-x86_64.AppImage')
     const buildResult = {
       file: source,
-      safeArtifactName: 'SuperAgent-2.0.9-x86_64.AppImage',
+      safeArtifactName: 'Cherry-Studio-2.0.9-x86_64.AppImage',
       packager: {
         appInfo: { productName: PRODUCT_NAME, version: VERSION },
         config: {},

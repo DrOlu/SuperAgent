@@ -55,6 +55,6 @@ describe('dsh SDK bundling viability', () => {
       { maxPixels: 1024, maxDimension: 32, maxBytes: 1048576 }
     )
     expect(prepared.ref).toMatchObject({ mediaType: 'image/png', width: 1, height: 1 })
-    expect(sharp.versions.sharp).toBe('0.35.4')
+    expect(sharp.versions.sharp).toBe('0.35.3')
   })
 })

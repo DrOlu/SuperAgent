@@ -155,7 +155,7 @@ describe('SettingsPage', () => {
     expect(container.querySelector('[data-ui="settings.content"]')).toBeInTheDocument()
     expect(screen.getByText('偏好')).toBeInTheDocument()
 
-    const generalItem = screen.getByRole('button', { name: 'General' })
+    const generalItem = screen.getByRole('button', { name: '通用' })
     const appearanceItem = screen.getByRole('button', { name: '外观' })
     const defaultModelItem = screen.getByRole('button', { name: '默认模型' })
     const localModelsItem = screen.getByRole('button', { name: '本地模型' })

@@ -81,7 +81,7 @@ const expectedVariableCounts: Record<string, number> = {
   'monochrome-suit': 5,
   'circular-cutout': 6,
   'travel-journal': 6,
-  'wedding-invitation': 9,
+  'wedding-invitation': 10,
   'storyboard-sketch': 6,
   'anime-companion': 5,
   'doodle-shadow': 4,
@@ -189,14 +189,14 @@ describe('painting template catalog contract', () => {
       chineseVariableCount += chineseVariables.length
     }
 
-    expect(englishVariableCount).toBe(173)
-    expect(chineseVariableCount).toBe(173)
+    expect(englishVariableCount).toBe(174)
+    expect(chineseVariableCount).toBe(174)
     expect(englishTemplates['wedding-invitation'].prompt).toContain('${Lin Zhao & Shen Zhiyi}')
     expect(chineseTemplates['wedding-invitation'].prompt).toContain('${Lin Zhao & Shen Zhiyi}')
     expect(englishTemplates['birthday-poster'].prompt).toContain('${2}')
     expect(chineseTemplates['birthday-poster'].prompt).toContain('${2}')
     expect(variableValues(englishTemplates['storyboard-sketch'].prompt)[2]).toContain('watching the horizon')
-    expect(variableValues(chineseTemplates['storyboard-sketch'].prompt)[2]).toContain('watching the horizon')
+    expect(variableValues(chineseTemplates['storyboard-sketch'].prompt)[2]).toContain('眺望远方')
   })
 
   it('keeps the painting showcase translated for every app locale', () => {
@@ -209,6 +209,9 @@ describe('painting template catalog contract', () => {
       for (const key of ['caption', 'styles_label', 'title'] as const) {
         expect(showcase[key].trim()).not.toHaveLength(0)
         expect(showcase[key]).not.toMatch(/^\[to be translated\]/)
+        if (localeFile !== 'locales/en-us.json') {
+          expect(showcase[key]).not.toBe(englishShowcase[key])
+        }
       }
     }
   })

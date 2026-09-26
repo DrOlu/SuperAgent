@@ -2076,17 +2076,21 @@ describe('AgentService', () => {
       ])
     })
 
-    it('excludes the removed Cherry Support agent from global search', async () => {
+    it('matches and displays Cherry Support through its localized fallback description', async () => {
       await insertAgent({
         id: CHERRY_SUPPORT_AGENT_ID,
         name: 'Cherry Support',
-        description: 'Official SuperAgent support Agent for setup guidance, troubleshooting, FAQs, and feedback',
+        description: '',
         configuration: { builtin_role: 'support' },
         updatedAt: 100
       })
 
-      expect(agentService.search({ q: 'troubleshooting', limit: 5 })).toEqual([])
-      expect(agentService.search({ q: 'Cherry Support', limit: 5 })).toEqual([])
+      expect(agentService.search({ q: 'troubleshooting', limit: 5 })).toEqual([
+        expect.objectContaining({
+          id: CHERRY_SUPPORT_AGENT_ID,
+          subtitle: 'Official SuperAgent support Agent for setup guidance, troubleshooting, FAQs, and feedback'
+        })
+      ])
     })
   })
 

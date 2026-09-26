@@ -1,8 +1,6 @@
 import { resolve } from 'node:path'
 
 import { setupTestDatabase } from '@test-helpers/db'
-// The cherrySupportSeeder's deletion path consults the data-service registry.
-import '@data/services/AgentSessionMessageService'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

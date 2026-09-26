@@ -225,7 +225,7 @@ describe('ConversationShell', () => {
     expect(screen.getByRole('button', { name: '对话' })).toBeInTheDocument()
     expect(container.querySelector('[data-conversation-shell-topbar-right]')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Maximize|common\.maximize/ }))
+    fireEvent.click(screen.getByRole('button', { name: /最大化|common\.maximize/ }))
 
     expect(container.querySelector('[data-conversation-shell-topbar-right]')).not.toBeInTheDocument()
   })

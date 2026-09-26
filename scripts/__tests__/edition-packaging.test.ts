@@ -109,7 +109,7 @@ describe('edition packaging', () => {
       nsisGuid: '41a4ccd8-bcc0-5710-9eee-0e164da68057',
       productName: 'SuperAgent',
       protocol: 'superagent',
-      publish: { owner: 'DrOlu', provider: 'github', repo: 'SuperAgent' },
+      publish: { provider: 'generic', url: 'https://releases.superagent.ng' },
       windowsArtifactName: '${productName}-${version}-${arch}-setup.${ext}'
     })
   })
@@ -196,5 +196,22 @@ describe('edition packaging', () => {
     ])
   })
 
+  it('re-signs both Windows editions before syncing the release to GitCode', () => {
+    const workflow = parse(
+      readFileSync(path.join(projectRoot, '.github/workflows/sync-to-gitcode.yml'), 'utf8')
+    ) as GitCodeWorkflow
+    const buildJob = workflow.jobs['build-windows-signed']
+    const syncJob = workflow.jobs['sync-to-gitcode']
+    const buildStep = buildJob.steps.find((step) => step.name === 'Build Windows with code signing')
+    const preserveStep = buildJob.steps.find((step) => step.name === 'Preserve signed Windows artifacts locally')
 
+    expect(buildJob.strategy?.matrix?.edition).toEqual([GLOBAL_EDITION, CHINA_EDITION])
+    expect(buildStep?.run).toMatch(/^\s*pnpm build:win:cn\s*$/m)
+    expect(buildStep?.run).toMatch(/^\s*pnpm build:win\s*$/m)
+    expect(buildStep?.run).toContain('electron-builder.cn.config.cjs')
+    expect(preserveStep?.if).toContain('steps.build-windows.outputs.supported')
+    expect(
+      [...buildJob.steps, ...syncJob.steps].some((step) => /actions\/(upload|download)-artifact@/.test(step.uses ?? ''))
+    ).toBe(false)
+  })
 })

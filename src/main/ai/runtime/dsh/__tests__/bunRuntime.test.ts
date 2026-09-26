@@ -43,8 +43,8 @@ describe('required DSH Bun runtime', () => {
       false,
       'DSH could not start because its bundled runtime is unavailable. Run pnpm download:binaries in the development checkout and try again.'
     ],
-    ['zh-CN', true, 'DSH could not start because its bundled runtime is unavailable. Reinstall SuperAgent and try again.'],
-    ['zh-CN', false, 'DSH could not start because its bundled runtime is unavailable. Run pnpm download:binaries in the development checkout and try again.']
+    ['zh-CN', true, 'DSH 无法启动，因为内置运行时不可用。请重新安装 SuperAgent 后重试。'],
+    ['zh-CN', false, 'DSH 无法启动，因为内置运行时不可用。请在开发仓库中运行 pnpm download:binaries 后重试。']
   ] as const)(
     'localizes runtime recovery for %s (packaged: %s) and preserves the cause',
     async (language, isPackaged, message) => {

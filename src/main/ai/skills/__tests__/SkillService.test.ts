@@ -7,6 +7,75 @@ import { pathToFileURL } from 'node:url'
 import { setupTestDatabase } from '@test-helpers/db'
 import { MockMainPreferenceServiceUtils } from '@test-mocks/main/PreferenceService'
 import AdmZip from 'adm-zip'
+
+/** Minimal stored-entry (method 0) ZIP writer used to author entries with
+ * traversal names that modern zip libraries refuse to create themselves. */
+function crc32(buf: Buffer): number {
+  let c: number
+  const table: number[] = []
+  for (let n = 0; n < 256; n++) {
+    c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    table[n] = c >>> 0
+  }
+  let crc = 0xffffffff
+  for (const byte of buf) crc = table[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function buildRawZip(entries: { name: string; data: Buffer }[]): Buffer {
+  const chunks: Buffer[] = []
+  const central: Buffer[] = []
+  let offset = 0
+  for (const { name, data } of entries) {
+    const nameBuf = Buffer.from(name, 'utf8')
+    const crc = crc32(data)
+    const local = Buffer.alloc(30)
+    local.writeUInt32LE(0x04034b50, 0)
+    local.writeUInt16LE(20, 4)
+    local.writeUInt16LE(0, 6)
+    local.writeUInt16LE(0, 8)
+    local.writeUInt16LE(0, 10)
+    local.writeUInt16LE(0, 12)
+    local.writeUInt32LE(crc, 14)
+    local.writeUInt32LE(data.length, 18)
+    local.writeUInt32LE(data.length, 22)
+    local.writeUInt16LE(nameBuf.length, 26)
+    local.writeUInt16LE(0, 28)
+    chunks.push(local, nameBuf, data)
+    const cd = Buffer.alloc(46)
+    cd.writeUInt32LE(0x02014b50, 0)
+    cd.writeUInt16LE(20, 4)
+    cd.writeUInt16LE(20, 6)
+    cd.writeUInt16LE(0, 8)
+    cd.writeUInt16LE(0, 10)
+    cd.writeUInt16LE(0, 12)
+    cd.writeUInt16LE(0, 14)
+    cd.writeUInt32LE(crc, 16)
+    cd.writeUInt32LE(data.length, 20)
+    cd.writeUInt32LE(data.length, 24)
+    cd.writeUInt16LE(nameBuf.length, 28)
+    cd.writeUInt16LE(0, 30)
+    cd.writeUInt16LE(0, 32)
+    cd.writeUInt16LE(0, 34)
+    cd.writeUInt16LE(0, 36)
+    cd.writeUInt32LE(0, 38)
+    cd.writeUInt32LE(offset, 42)
+    central.push(cd, nameBuf)
+    offset += local.length + nameBuf.length + data.length
+  }
+  const cdBuf = Buffer.concat(central)
+  const eocd = Buffer.alloc(22)
+  eocd.writeUInt32LE(0x06054b50, 0)
+  eocd.writeUInt16LE(0, 4)
+  eocd.writeUInt16LE(0, 6)
+  eocd.writeUInt16LE(entries.length, 8)
+  eocd.writeUInt16LE(entries.length, 10)
+  eocd.writeUInt32LE(cdBuf.length, 12)
+  eocd.writeUInt32LE(offset, 16)
+  eocd.writeUInt16LE(0, 20)
+  return Buffer.concat([...chunks, cdBuf, eocd])
+}
 import { eq } from 'drizzle-orm'
 import { net } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -2536,11 +2605,17 @@ describe('SkillService', () => {
     it('rejects entries that escape the destination dir before extracting', async () => {
       const zipDir = await createTempDir('skill-zipslip-')
       const destDir = await createTempDir('skill-dest-')
-      const zip = new AdmZip()
-      zip.addFile('SKILL.md', Buffer.from('---\nname: x\n---\n'))
-      zip.addFile('../../../evil-slip-marker.sh', Buffer.from('pwn'))
+      // adm-zip >=0.6 normalizes traversal segments at addFile time, so the malicious
+      // entry is written as a raw stored-entry ZIP to keep the zip-slip contract testable
+      // regardless of the construction library version.
       const zipPath = path.join(zipDir, 'skill.zip')
-      zip.writeZip(zipPath)
+      fs.writeFileSync(
+        zipPath,
+        buildRawZip([
+          { name: 'SKILL.md', data: Buffer.from('---\nname: x\n---\n') },
+          { name: '../../../evil-slip-marker.sh', data: Buffer.from('pwn') }
+        ])
+      )
 
       // node-stream-zip rejects malicious names itself ('Malicious entry') and the
       // explicit guard is defense-in-depth — either layer rejecting satisfies the contract.

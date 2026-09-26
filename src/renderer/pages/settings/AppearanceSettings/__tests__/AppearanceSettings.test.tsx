@@ -307,8 +307,8 @@ describe('AppearanceSettings selectors', () => {
       expect(mocks.request).toHaveBeenCalledWith('app.adjust_zoom', { delta: 0 })
     })
 
-    expect(screen.getByRole('combobox', { name: /中文/ })).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: /English/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /English/ })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /中文/ })).not.toBeInTheDocument()
   })
 
   it('does not render manual chat layout switches', async () => {

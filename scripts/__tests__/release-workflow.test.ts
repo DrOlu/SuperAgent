@@ -721,19 +721,19 @@ describe('release publication state', () => {
 
     expect(body).toContain('## Downloads (v1.2.0)')
     expect(body.match(/^\| (Windows|macOS|Linux) \|/gm)).toHaveLength(6)
-    expect(body.match(/https:\/\/github\.com\/Hyperspace Technologies\/superagent\/releases\/download\/v1\.2\.0\//g)).toHaveLength(
+    expect(body.match(/https:\/\/github\.com\/DrOlu\/SuperAgent\/releases\/download\/v1\.2\.0\//g)).toHaveLength(
       14
     )
     expect(body).toContain(
-      '[Installer](https://github.com/DrOlu/SuperAgent/releases/download/v1.2.0/Cherry-Studio-1.2.0-win-x64-setup.exe)'
+      '[Installer](https://github.com/DrOlu/SuperAgent/releases/download/v1.2.0/SuperAgent-1.2.0-win-x64-setup.exe)'
     )
     expect(body).toContain(
-      '[RPM](https://github.com/DrOlu/SuperAgent/releases/download/v1.2.0/Cherry-Studio-1.2.0-linux-arm64.rpm)'
+      '[RPM](https://github.com/DrOlu/SuperAgent/releases/download/v1.2.0/SuperAgent-1.2.0-linux-arm64.rpm)'
     )
     expect(body).not.toMatch(/\.(?:blockmap|ya?ml|json)\)/)
     expect(body).toContain('<summary>Release Notes</summary>\n\nEnglish notes\n\n</details>')
     expect(body).toContain('| Platform | Architecture | Download |\n| --- | --- | --- |')
-    expect(body).not.toMatch(/下载|发布说明|简体中文|中文说明|China Edition|Cherry-Studio-CN-/)
+    expect(body).not.toMatch(/下载|发布说明|简体中文|中文说明|China Edition|SuperAgent-CN-/)
     expect(body.indexOf('| macOS | Apple silicon (arm64) |')).toBeLessThan(body.indexOf('| macOS | Intel (x64) |'))
     expect(body).not.toContain('<!--LANG:')
     expect(body).not.toContain('## Release Notes')
@@ -1031,400 +1031,123 @@ describe('release publication state', () => {
   })
 })
 
-describe('release workflow gates', () => {
+describe('release workflow gates (current pipeline)', () => {
   const workflowRoot = path.resolve(import.meta.dirname, '../..', '.github/workflows')
+  const readWorkflow = (name: string) => parse(fs.readFileSync(path.join(workflowRoot, name), 'utf8'))
+  const stepNames = (job: { steps?: Array<{ name?: string }> }) => (job.steps ?? []).map((step) => step.name ?? '')
 
-  it('builds and stages both editions for every selected release platform', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'release.yml'), 'utf8'))
-    const releaseJob = workflow.jobs.release
-    const validationStep = releaseJob.steps.find(
-      (step: { name?: string }) => step.name === 'Validate edition release artifacts'
-    )
-    const channelStep = releaseJob.steps.find(
-      (step: { name?: string }) => step.name === 'Resolve update manifest channel'
-    )
-    const stagingSteps = releaseJob.steps.filter((step: { name?: string }) => step.name?.startsWith('Stage '))
-    const historyStep = releaseJob.steps.find((step: { name?: string }) => step.name === 'Stage stable release history')
-
-    expect(releaseJob.strategy.matrix.edition).toEqual(['global', 'cn'])
-    expect(validationStep.run).toContain('validate-edition-artifacts.js "${{ matrix.edition }}"')
-    expect(channelStep.run).toContain('getReleaseChannel')
-    expect(stagingSteps).toHaveLength(4)
-    for (const step of stagingSteps.slice(0, 3)) {
-      expect(step.with.name).toContain('${{ matrix.edition }}')
-      expect(step.with.path).toContain('dist/${{ steps.release-channel.outputs.channel }}*.yml')
-    }
-    expect(stagingSteps[0].with.path).toContain('dist/*.blockmap')
-    expect(stagingSteps[1].with.path).toContain('dist/*.blockmap')
-    expect(historyStep.if).toContain("matrix.edition == 'global'")
-    expect(historyStep.with.path).toBe('resources/superagent/release-history.json')
+  it('keeps exactly the three current SuperAgent workflows', () => {
+    const files = fs.readdirSync(workflowRoot).filter((file) => file.endsWith('.yml')).sort()
+    expect(files).toEqual(['rebrand.yml', 'release.yml', 'sync-and-release.yml'])
   })
 
-  it('revalidates the selected release branch head before draft mutation and tag movement', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'release.yml'), 'utf8'))
-    const finalizeSteps = workflow.jobs['finalize-build'].steps
-    const headStep = finalizeSteps.find((step: { name?: string }) => step.name === 'Revalidate current release head')
-    const releaseIndex = finalizeSteps.findIndex(
-      (step: { name?: string }) => step.name === 'Create or update draft release'
+  it('publishes installers pulled from the dispatched build run with checksums', () => {
+    const workflow = readWorkflow('release.yml')
+    expect(Object.keys(workflow.on.workflow_dispatch.inputs)).toEqual(['build_run_id', 'tag'])
+    const steps = stepNames(workflow.jobs.release)
+    expect(steps).toContain('Download build artifacts')
+    expect(steps).toContain('Flatten installers + checksums')
+    expect(steps).toContain('Create GitHub Release')
+    const download = workflow.jobs.release.steps.find(
+      (step: { name?: string }) => step.name === 'Download build artifacts'
     )
-    const uploadedStep = finalizeSteps.find((step: { name?: string }) => step.name === 'Validate uploaded draft')
-    const tagStep = finalizeSteps.find(
-      (step: { name?: string }) => step.name === 'Move draft tag with lease after artifact upload'
+    expect(download.with['run-id']).toBe('${{ inputs.build_run_id }}')
+    const flatten = workflow.jobs.release.steps.find(
+      (step: { name?: string }) => step.name === 'Flatten installers + checksums'
     )
-    const draftStep = finalizeSteps.find((step: { name?: string }) => step.name === 'Create or update draft release')
-    const notesStep = finalizeSteps.find(
-      (step: { name?: string }) => step.name === 'Add generated changes to release notes'
+    expect(flatten.run).toContain('-name "SuperAgent-*.dmg"')
+    expect(flatten.run).toContain('-name "latest*.yml"')
+    expect(flatten.run).toContain('sha256sum')
+    const publish = workflow.jobs.release.steps.find(
+      (step: { name?: string }) => step.name === 'Create GitHub Release'
     )
-    const notesSyntax = spawnSync('bash', ['-n'], { encoding: 'utf8', input: notesStep.run })
-
-    expect(finalizeSteps.indexOf(headStep)).toBeLessThan(releaseIndex)
-    expect(headStep.run).toContain('BRANCH_SHA="$BRANCH_SHA"')
-    expect(draftStep.id).toBe('draft-release')
-    expect(uploadedStep.run).toContain('BRANCH_SHA="$BRANCH_SHA"')
-    expect(uploadedStep.run).toContain('releases/$RELEASE_ID')
-    expect(uploadedStep.run).not.toContain('releases/tags/')
-    expect(tagStep.run).toContain('BRANCH_SHA="$BRANCH_SHA"')
-    expect(tagStep.run).toContain('node scripts/release/validate-release-state.js build-completion')
-    expect(tagStep.run).toContain('gh api --method POST "repos/$REPO/git/refs"')
-    expect(tagStep.run).toContain('beforeOid: $beforeOid')
-    expect(notesSyntax.status, notesSyntax.stderr).toBe(0)
-    expect(notesStep.run).toContain('gh api --paginate --slurp')
-    expect(notesStep.run).toContain('-f previous_tag_name="$PREVIOUS_TAG"')
-    expect(notesStep.run).toContain('if [ -z "$PREVIOUS_TAG" ]')
+    expect(publish.with.tag_name).toBe('${{ inputs.tag }}')
+    expect(publish.with.fail_on_unmatched_files).toBe(true)
+    expect(publish.with.make_latest).toBe(true)
   })
 
-  it('requires environment approval before validating and publishing the exact build', () => {
-    const releaseWorkflow = parse(fs.readFileSync(path.join(workflowRoot, 'release.yml'), 'utf8'))
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'publish-release.yml'), 'utf8'))
-    const publishSteps = workflow.jobs.publish.steps
-    const publishStep = publishSteps.find(
-      (step: { name?: string }) => step.name === 'Validate and publish current draft'
+  it('syncs upstream, gates on the typecheck, and only releases when upstream moved', () => {
+    const workflow = readWorkflow('sync-and-release.yml')
+    expect(Object.keys(workflow.on)).toEqual(['schedule', 'workflow_dispatch'])
+    expect(workflow.on.workflow_dispatch.inputs.force).toBeDefined()
+    expect(workflow.on.workflow_dispatch.inputs.version).toBeDefined()
+    const sync = workflow.jobs.sync
+    const findStep = (predicate: (step: { name?: string; id?: string }) => boolean) =>
+      (sync.steps ?? []).find(predicate) as { outputs?: Record<string, string>; run?: string; env?: Record<string, string> }
+    const checkStep = findStep((step) => step.id === 'check' || step.name === 'Check if upstream moved since last sync')
+    const bumpStep = findStep((step) => step.id === 'bump')
+    const commitStep = findStep((step) => step.id === 'commit')
+    const typecheckStep = findStep((step) => step.name === 'Typecheck gate (never push a tree that does not compile)')
+    // Step outputs land in the job-level outputs (GitHub Actions contract).
+    expect(sync.outputs.do_release).toBe('${{ steps.check.outputs.do_release }}')
+    expect(checkStep.run).toContain('do_release=')
+    // Bump outputs surface at the job level (GitHub Actions contract).
+    expect(sync.outputs.new_version).toBe('${{ steps.bump.outputs.version }}')
+    expect(sync.outputs.release_tag).toBe('${{ steps.bump.outputs.tag }}')
+    expect(bumpStep.run).toContain('resources/superagent/release-history.json')
+    expect(bumpStep.run).toContain('<!--LANG:zh-CN-->')
+    expect(typecheckStep.run).toContain('pnpm run typecheck:node')
+    expect(sync.steps.find((step: { name?: string }) => step.name === 'Save preserved files').run).toContain(
+      'src/main/ai/mcp/servers/neuralos'
     )
-
-    expect(releaseWorkflow.on.workflow_dispatch.inputs).not.toHaveProperty('operation')
-    expect(releaseWorkflow.jobs).not.toHaveProperty('publish-release')
-    expect(workflow.jobs.approve.environment).toBe('release')
-    expect(workflow.jobs.publish.needs).toBe('approve')
-    expect(workflow.jobs.publish.concurrency.group).toBe('release-state')
-    expect(workflow.jobs.approve).not.toHaveProperty('concurrency')
-    expect(workflow.jobs.publish.steps[0].with.ref).toBe('${{ github.workflow_sha }}')
-    expect(publishStep.run.match(/validate-release-state\.js publish/g)).toHaveLength(1)
-    expect(publishStep.run.indexOf('HOTFIX_CUTOFF_SHA=')).toBeLessThan(
-      publishStep.run.indexOf('validate-release-state.js publish')
-    )
-    expect(publishStep.run.indexOf('validate-release-state.js publish')).toBeLessThan(
-      publishStep.run.indexOf('gh api --method PATCH')
-    )
-    expect(publishStep.run).toContain('repos/$REPO/actions/runs/$BUILD_RUN_ID')
-    expect(publishStep.run).toContain('releases?per_page=100')
-    expect(publishStep.run).not.toContain('releases/tags/')
+    expect(commitStep.env.SUPERAGENT_PAT).toBe('${{ secrets.SUPERAGENT_PAT }}')
   })
 
-  it('dispatches one all-platform build only for the current successful release head', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'auto-release-build.yml'), 'utf8'))
-    const dispatchStep = workflow.jobs.dispatch.steps.find(
-      (step: { name?: string }) => step.name === 'Revalidate and dispatch release build'
-    )
-    const releaseWorkflow = parse(fs.readFileSync(path.join(workflowRoot, 'release.yml'), 'utf8'))
-    const expectedShaStep = releaseWorkflow.jobs.prepare.steps.find(
-      (step: { name?: string }) => step.name === 'Verify automatically selected release commit'
-    )
-
-    expect(workflow.on.workflow_run.workflows).toEqual(['CI'])
-    expect(workflow.jobs.dispatch.if).toContain("github.event.workflow_run.event == 'push'")
-    expect(workflow.jobs.dispatch.if).toContain(
-      'github.event.workflow_run.head_repository.full_name == github.repository'
-    )
-    expect(dispatchStep.run).toContain('if [ "$BRANCH_SHA" != "$CI_SHA" ]')
-    expect(dispatchStep.run).toContain('Release build all $BRANCH @ $CI_SHA')
-    expect(dispatchStep.run).toContain('gh workflow run release.yml')
-    expect(dispatchStep.run).toContain('-f platform=all')
-    expect(dispatchStep.run).toContain('-f expected_sha="$CI_SHA"')
-    expect(releaseWorkflow.on.workflow_dispatch.inputs.expected_sha.required).toBe(false)
-    expect(expectedShaStep.if).toBe("inputs.expected_sha != ''")
-    expect(expectedShaStep.run).toContain('if [ "$GITHUB_SHA" != "$EXPECTED_SHA" ]')
-    expect(releaseWorkflow.jobs.prepare.steps.indexOf(expectedShaStep)).toBe(0)
+  it('builds all three platforms and verifies the bundled neuralOS engine', () => {
+    const workflow = readWorkflow('sync-and-release.yml')
+    const build = workflow.jobs.build
+    expect(build.needs).toBe('sync')
+    expect(build.strategy.matrix.include.map((entry: { target: string }) => entry.target)).toEqual([
+      'linux',
+      'mac',
+      'win'
+    ])
+    const names = stepNames(build)
+    expect(names).toContain('Download neuralOS engine + weights')
+    expect(names).toContain('Verify bundled neuralOS engine')
+    expect(names).toContain('Compile ${{ matrix.target }}')
+    const engine = build.steps.find((step: { name?: string }) => step.name === 'Download neuralOS engine + weights')
+    expect(engine.run).toContain('resources/neuralos/needle3.cact')
+    expect(engine.run).toContain('chmod +x resources/neuralos/engine-*')
+    const verify = build.steps.find((step: { name?: string }) => step.name === 'Verify bundled neuralOS engine')
+    expect(verify.run).toContain('test -f "$found/needle3.cact"')
+    const upload = build.steps.find((step: { name?: string }) => step.name === 'Upload artifacts')
+    expect(upload.with.name).toBe('superagent-${{ matrix.target }}-${{ github.run_id }}')
+    expect(upload.with['retention-days']).toBe(14)
   })
 
-  it('reports a merged hotfix contract failure before release resolution', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'backport-release-fixes.yml'), 'utf8'))
-    const backportSteps = workflow.jobs.backport.steps
-    const contractStep = backportSteps.find((step: { id?: string }) => step.id === 'hotfix-contract')
-    const contractIndex = backportSteps.indexOf(contractStep)
-    const releaseRefIndex = backportSteps.findIndex((step: { id?: string }) => step.id === 'release-ref')
-    const failureStep = backportSteps.find(
-      (step: { name?: string }) => step.name === 'Synchronize failed backport state'
-    )
-
-    expect(contractStep.run).toContain('$RUNNER_TEMP/backport-failure-message')
-    expect(contractStep.run).toContain('node scripts/release/hotfix-release-notes.js --check')
-    expect(contractIndex).toBeLessThan(releaseRefIndex)
-    expect(failureStep.if).toBe('always() && failure()')
-    expect(failureStep.env.CONTRACT_OUTCOME).toBe('${{ steps.hotfix-contract.outcome }}')
-    expect(failureStep.run).toContain('if [ "$CONTRACT_OUTCOME" = "failure" ]; then')
-    expect(failureStep.run).toContain('gh pr comment')
+  it('publishes the release from the sync outputs with checksums', () => {
+    const workflow = readWorkflow('sync-and-release.yml')
+    const release = workflow.jobs.release
+    expect(release.needs).toEqual(['sync', 'build'])
+    const publish = release.steps.find((step: { name?: string }) => step.name === 'Create GitHub Release')
+    expect(publish.with.tag_name).toBe('${{ needs.sync.outputs.release_tag }}')
+    expect(publish.with.fail_on_unmatched_files).toBe(true)
   })
 
-  it('classifies hotfix labels from the title before validating an optional release note', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'backport-release-fixes.yml'), 'utf8'))
-    const classifyStep = workflow.jobs.classify.steps.find(
-      (step: { name?: string }) => step.name === 'Synchronize hotfix label'
-    )
-    const addLabelIndex = classifyStep.run.indexOf('--add-label "hotfix"')
-    const noteCheckIndex = classifyStep.run.indexOf('hotfix-release-notes.js --check')
-
-    expect(addLabelIndex).toBeGreaterThan(-1)
-    expect(addLabelIndex).toBeLessThan(noteCheckIndex)
-  })
-
-  it('builds previews without environment approval while retaining signing and service credentials', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'preview-release.yml'), 'utf8'))
-    const buildJob = workflow.jobs.build
-    const checkoutStep = buildJob.steps.find((step: { name?: string }) => step.name === 'Check out preview commit')
-    const macBuildStep = buildJob.steps.find((step: { name?: string }) => step.name === 'Build Mac')
-
-    for (const job of Object.values(workflow.jobs)) {
-      expect(job).not.toHaveProperty('environment')
-    }
-    expect(checkoutStep.with['persist-credentials']).toBe(false)
-    expect(macBuildStep.env).toMatchObject({
-      APPLE_ID: '${{ secrets.APPLE_ID }}',
-      CSC_LINK: '${{ secrets.CSC_LINK }}',
-      MAIN_VITE_CHERRYAI_CLIENT_SECRET: '${{ secrets.MAIN_VITE_CHERRYAI_CLIENT_SECRET }}'
-    })
-  })
-
-  it('keeps preview packages in Actions artifacts without GitHub release publishing', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'preview-release.yml'), 'utf8'))
-
-    expect(workflow.permissions).toEqual({ contents: 'read' })
-    for (const job of Object.values(workflow.jobs) as {
-      permissions?: { contents?: string }
-      steps: { name?: string; uses?: string; run?: string; env?: Record<string, string> }[]
-    }[]) {
-      expect(job.permissions?.contents).not.toBe('write')
-      for (const step of job.steps) {
-        expect(step.uses ?? '').not.toMatch(/release-action|action-gh-release/)
-        if (step.name?.startsWith('Build ')) {
-          expect(step.run).toContain('--publish never')
-          expect(step.env).not.toHaveProperty('GH_TOKEN')
-        }
-      }
-    }
-  })
-
-  it('builds and stages both editions for every selected preview platform', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'preview-release.yml'), 'utf8'))
-    const buildJob = workflow.jobs.build
-    const buildSteps = buildJob.steps.filter((step: { name?: string }) => step.name?.startsWith('Build '))
-    const validationStep = buildJob.steps.find(
-      (step: { name?: string }) => step.name === 'Validate edition preview artifacts'
-    )
-
-    expect(buildJob.strategy.matrix.edition).toEqual(['global', 'cn'])
-    for (const step of buildSteps) {
-      expect(step.run).toContain("matrix.edition == 'cn'")
-    }
-    expect(validationStep.run).toContain('validate-edition-artifacts.js "${{ matrix.edition }}"')
-  })
-
-  it('uploads one directly downloadable installer per preview architecture', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'preview-release.yml'), 'utf8'))
-    const uploads = workflow.jobs.build.steps.filter((step: { uses?: string }) =>
-      step.uses?.startsWith('actions/upload-artifact@')
-    )
-
-    expect(uploads).toHaveLength(2)
-    for (const [index, arch] of ['x64', 'arm64'].entries()) {
-      const options = uploads[index].with
-      expect(options.archive).toBe(false)
-      expect(options['if-no-files-found']).toBe('error')
-      const patterns = options.path.trim().split('\n')
-      for (const edition of ['global', 'cn']) {
-        for (const [platform, suffix] of [
-          ['windows', '-setup.exe'],
-          ['mac', '.dmg'],
-          ['linux', '.AppImage']
-        ]) {
-          const artifacts = getExpectedReleaseArtifacts({
-            edition,
-            platform,
-            productName: 'SuperAgent',
-            version: '2.0.14-preview-1234567'
-          })
-          const files = [...artifacts.files, ...artifacts.manifests.map((manifest) => manifest.file)]
-          const selected = files.filter((file) =>
-            patterns.some((pattern: string) => path.matchesGlob(`dist/${file}`, pattern))
-          )
-          expect(selected).toHaveLength(1)
-          expect(selected[0]).toContain(edition === 'cn' ? 'Cherry-Studio-CN-' : 'Cherry-Studio-2.')
-          expect(selected[0].endsWith(`-${arch}${suffix}`)).toBe(true)
-        }
-      }
-    }
-  })
-
-  it.each([false, true])('summarizes available preview downloads when artifacts are empty: %s', async (empty) => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'preview-release.yml'), 'utf8'))
-    const job = workflow.jobs.summary
-    expect(job.needs).toContain('build')
-    expect(job.if).toContain('always()')
-    expect(job.permissions.actions).toBe('read')
-    const artifacts = [
-      { id: 101, name: 'Cherry-Studio-2.0.14-preview-1234567-win-x64-setup.exe', size_in_bytes: 1048576 },
-      { id: 102, name: 'Cherry-Studio-CN-2.0.14-preview-1234567-mac-arm64.dmg', size_in_bytes: 2621440 },
-      { id: 103, name: 'Cherry-Studio-2.0.14-preview-1234567-linux-arm64.AppImage', size_in_bytes: 3145728 },
-      { id: 104, name: 'Cherry-Studio-2.0.14-preview-1234567-win-arm64-setup.exe', expired: true },
-      { id: 105, name: 'unrelated.zip' }
-    ]
-    let output = ''
-    const github = {
-      rest: { actions: { listWorkflowRunArtifacts: 'listWorkflowRunArtifacts' } },
-      paginate: async (_endpoint: unknown, params: { owner: string; repo: string; run_id: number }) => {
-        expect(params).toMatchObject({ owner: 'Hyperspace Technologies', repo: 'superagent', run_id: 42 })
-        return empty ? [] : artifacts
-      }
-    }
-    const core = {
-      summary: {
-        addRaw(markdown: string) {
-          output += markdown
-          return this
-        },
-        async write() {}
-      }
-    }
-    const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor
-    await new AsyncFunction('github', 'context', 'core', job.steps[0].with.script)(
-      github,
-      { repo: { owner: 'Hyperspace Technologies', repo: 'superagent' }, runId: 42, serverUrl: 'https://github.com' },
-      core
-    )
-
-    expect(output).toContain('3 days')
-    if (empty) {
-      expect(output).toContain('No preview installers are available')
-      expect(output).not.toContain('[Download]')
-    } else {
-      expect(output).toContain('| Windows | Global | x64 | 2.0.14-preview-1234567 | 1.0 MiB |')
-      expect(output).toContain('| macOS | CN | arm64 | 2.0.14-preview-1234567 | 2.5 MiB |')
-      expect(output).toContain('| Linux | Global | arm64 | 2.0.14-preview-1234567 | 3.0 MiB |')
-      for (const id of [101, 102, 103]) {
-        expect(output).toContain(
-          `[Download](https://github.com/DrOlu/SuperAgent/actions/runs/42/artifacts/${id})`
-        )
-      }
-      expect(output).not.toContain('/artifacts/104')
-      expect(output).not.toContain('unrelated.zip')
-    }
-  })
-
-  it('syncs post-release metadata from the published tag without depending on the release branch head', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'post-release.yml'), 'utf8'))
-    const metadataStep = workflow.jobs['sync-release-metadata'].steps.find(
-      (step: { name?: string }) => step.name === 'Prepare published metadata changes'
-    )
-    const payloadStep = workflow.jobs['sync-release-metadata'].steps.find(
-      (step: { name?: string }) => step.name === 'Create signed metadata commit payload'
-    )
-
-    expect(metadataStep.run).toContain('refs/tags/$TAG:refs/tags/$TAG')
-    expect(metadataStep.run).not.toContain('refs/heads/$RELEASE_BRANCH')
-    expect(metadataStep.run).not.toContain('BRANCH_SHA')
-    expect(payloadStep.run).not.toContain('Unexpected release metadata change')
-    expect(payloadStep.run).not.toContain('must not change file mode')
-  })
-
-  it('copies only known preparation files and revalidates them before creating the release branch', () => {
-    const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'prepare-release.yml'), 'utf8'))
-    const validationStep = workflow.jobs.publish.steps.find(
-      (step: { name?: string }) => step.name === 'Validate prepared release artifact'
-    )
-
-    expect(validationStep.run.indexOf('fs.copyFileSync')).toBeLessThan(
-      validationStep.run.indexOf('validate-prepared-release.js')
-    )
-    expect(validationStep.run).toContain('--include-generated-manifest')
-    expect(validationStep.run).not.toContain('function walk')
-    expect(validationStep.run).not.toContain('unexpected file set')
-    expect(validationStep.run).not.toContain('git status')
-  })
-
-  // The workflow step under test is a bash script authored for GitHub-hosted
-  // ubuntu runners. On Windows `bash` resolves to WSL or Git Bash, neither of
-  // which can consume the Windows-style RUNNER_TEMP path this test passes in.
-  it.skipIf(process.platform === 'win32')(
-    'restores the frozen release head and keeps only prepared metadata changes',
-    () => {
-      const workflow = parse(fs.readFileSync(path.join(workflowRoot, 'prepare-release.yml'), 'utf8'))
-      const prepareSteps = workflow.jobs.prepare.steps
-      const claudeStep = prepareSteps.find((step: { name?: string }) => step.name === 'Prepare Release via Claude')
-      const retainStep = prepareSteps.find(
-        (step: { name?: string }) => step.name === 'Retain prepared release metadata'
-      )
-      const syncIndex = prepareSteps.findIndex(
-        (step: { name?: string }) => step.name === 'Sync release history from prepared release notes'
-      )
-      const validationIndex = prepareSteps.findIndex(
-        (step: { name?: string }) => step.name === 'Validate prepared release metadata'
-      )
-
-      expect(claudeStep.with.claude_args).toContain('Bash(git:*)')
-      expect(claudeStep.with.claude_args).toContain('Bash(node:*)')
-      expect(retainStep.run).toContain('git diff --binary --full-index')
-      expect(retainStep.run).toContain('git reset --hard "$RELEASE_HEAD"')
-      expect(retainStep.run).toContain('git clean -fd')
-      expect(retainStep.run).toContain('git apply "$RELEASE_PATCH"')
-      expect(prepareSteps.indexOf(retainStep)).toBeLessThan(syncIndex)
-      expect(syncIndex).toBeLessThan(validationIndex)
-
-      const fixture = createGitFixture()
-      write(fixture.repo, 'package.json', '{"version":"1.0.0"}\n')
-      write(fixture.repo, 'electron-builder.yml', 'releaseInfo:\n  releaseNotes: old\n')
-      write(fixture.repo, 'resources/superagent/release-history.json', '[]\n')
-      const releaseHead = commit(fixture.repo, 'release metadata')
-
-      write(fixture.repo, 'package.json', '{"version":"1.1.0"}\n')
-      write(fixture.repo, 'electron-builder.yml', 'releaseInfo:\n  releaseNotes: new\n')
-      write(fixture.repo, 'resources/superagent/release-history.json', '[{"version":"1.1.0"}]\n')
-      write(fixture.repo, 'app.txt', 'unexpected tracked change\n')
-      write(fixture.repo, '.release-prep/prepare.js', 'temporary helper\n')
-      commit(fixture.repo, 'temporary local release preparation')
-
-      const runnerTemp = path.join(fixture.root, 'runner-temp')
-      fs.mkdirSync(runnerTemp)
-      execFileSync('bash', ['-e', '-o', 'pipefail', '-c', retainStep.run], {
-        cwd: fixture.repo,
-        env: { ...process.env, RELEASE_HEAD: releaseHead, RUNNER_TEMP: runnerTemp }
-      })
-
-      expect(git(fixture.repo, 'rev-parse', 'HEAD')).toBe(releaseHead)
-      expect(fs.readFileSync(path.join(fixture.repo, 'package.json'), 'utf8')).toBe('{"version":"1.1.0"}\n')
-      expect(fs.readFileSync(path.join(fixture.repo, 'electron-builder.yml'), 'utf8')).toContain('releaseNotes: new')
-      expect(fs.readFileSync(path.join(fixture.repo, 'app.txt'), 'utf8')).toBe('base\n')
-      expect(fs.existsSync(path.join(fixture.repo, '.release-prep'))).toBe(false)
-      expect(fs.readFileSync(path.join(fixture.repo, 'resources/superagent/release-history.json'), 'utf8')).toBe(
-        '[]\n'
-      )
-      expect(git(fixture.repo, 'diff', '--name-only').split('\n').sort()).toEqual([
-        'electron-builder.yml',
-        'package.json'
-      ])
-    }
-  )
-
-  it('runs release workflow contract tests for release-workflow-only pull requests', () => {
-    const workflow = fs.readFileSync(path.join(workflowRoot, 'ci.yml'), 'utf8')
-    for (const workflowName of [
-      'backport-release-fixes.yml',
-      'auto-release-build.yml',
-      'post-release.yml',
-      'prepare-release.yml',
-      'preview-release.yml',
-      'publish-release.yml',
-      'release.yml'
-    ]) {
-      expect(workflow).toContain(`- '.github/workflows/${workflowName}'`)
-    }
+  it('rebrands a fresh Cherry Studio clone and verifies the neuralOS integration', () => {
+    const workflow = readWorkflow('rebrand.yml')
+    expect(Object.keys(workflow.on.workflow_dispatch.inputs)).toEqual(['skip_build', 'push_target'])
+    const rebrand = workflow.jobs.rebrand
+    const names = stepNames(rebrand)
+    expect(names).toContain('Clone Cherry Studio')
+    expect(names).toContain('Run rebrand script')
+    expect(names).toContain('Generate icons from logo')
+    expect(names).toContain('Verify key branding')
+    expect(names).toContain('Verify neuralOS integration')
+    const integration = rebrand.steps.find((step: { name?: string }) => step.name === 'Verify neuralOS integration')
+    expect(integration.run).toContain('neuralos: ' + String.fromCharCode(39) + '@cherry/neuralos' + String.fromCharCode(39))
+    expect(integration.run).toContain('src/main/ai/mcp/servers/__tests__/neuralos.test.ts')
+    const build = workflow.jobs.build
+    expect(build.needs).toBe('rebrand')
+    expect(build['if']).toContain('skip_build')
+    expect(build.strategy.matrix.include.map((entry: { target: string }) => entry.target)).toEqual([
+      'linux',
+      'mac',
+      'win'
+    ])
+    const push = rebrand.steps.find((step: { id?: string }) => step.id === 'commit')
+    expect(push.env.SUPERAGENT_PAT).toBe('${{ secrets.SUPERAGENT_PAT }}')
+    expect(push.run).toContain('github.com/DrOlu/SuperAgent')
   })
 })

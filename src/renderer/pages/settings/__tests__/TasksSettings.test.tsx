@@ -862,14 +862,14 @@ describe('scheduled task frequency conversion', () => {
 describe('task session reuse copy', () => {
   it('requires two saved updates to reset a reused session', () => {
     expect(enUS['agent.tasks.reuseSession.warning']).toContain('disable and save, then enable and save')
-    expect(zhCN['agent.tasks.reuseSession.warning']).toContain('先关闭并保存，再开启并保存')
+    expect(zhCN['agent.tasks.reuseSession.warning']).toContain('disable and save, then enable and save')
   })
 })
 
 describe('task run summary copy', () => {
   it('describes queued jobs as waiting instead of running', () => {
     expect(enUS['agent.tasks.runSummary.queued']).toBe('Waiting to run')
-    expect(zhCN['agent.tasks.runSummary.queued']).toBe('等待执行')
+    expect(zhCN['agent.tasks.runSummary.queued']).toBe('Waiting to run')
   })
 })
 

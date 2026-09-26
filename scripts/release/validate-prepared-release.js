@@ -45,7 +45,7 @@ function validatePreparedRelease({ cwd, includeGeneratedManifest = false, target
 
   const stableRelease = semverPrerelease(targetVersion) === null
   const expectedPaths = stableRelease
-    ? ['electron-builder.yml', 'package.json', 'resources/cherry-studio/release-history.json']
+    ? ['electron-builder.yml', 'package.json', 'resources/superagent/release-history.json']
     : ['electron-builder.yml', 'package.json']
   if (includeGeneratedManifest) {
     expectedPaths.push('resources/builtin-agents/cherry-assistant/product-manifest.json')
@@ -81,9 +81,9 @@ function validatePreparedRelease({ cwd, includeGeneratedManifest = false, target
   assert.deepStrictEqual(preparedBuilder, baseBuilder, 'electron-builder.yml may change only releaseInfo.releaseNotes')
   validateReleaseNotes(preparedReleaseNotes)
 
-  const baseHistory = JSON.parse(readBaseFile(cwd, 'resources/cherry-studio/release-history.json'))
+  const baseHistory = JSON.parse(readBaseFile(cwd, 'resources/superagent/release-history.json'))
   const preparedHistory = JSON.parse(
-    fs.readFileSync(path.join(cwd, 'resources/cherry-studio/release-history.json'), 'utf8')
+    fs.readFileSync(path.join(cwd, 'resources/superagent/release-history.json'), 'utf8')
   )
   if (!stableRelease) {
     assert.deepStrictEqual(preparedHistory, baseHistory, 'Prerelease preparation must not change release history')

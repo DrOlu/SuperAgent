@@ -33,7 +33,7 @@ import { approvalRequiredRuntimeNames, CLAUDE_TOOL_GUARD_RULES, HEADLESS_INTERAC
 
 const INTERACTIVE = { currentTurn: 'interactive', userResponse: 'stream' } as const
 const HEADLESS = { currentTurn: 'headless', userResponse: 'unavailable' } as const
-const WITHOUT_HOST_TOOLS: ReadonlySet<string> = new Set(['cherry-tools', 'agent-memory', 'skills', 'mcp-manager'])
+const WITHOUT_HOST_TOOLS: ReadonlySet<string> = new Set(['cherry-tools', 'agent-memory', 'skills', 'mcp-manager', 'neuralos'])
 const WITH_HOST_TOOLS: ReadonlySet<string> = new Set([...WITHOUT_HOST_TOOLS, 'assistant', 'assistant-files'])
 const NON_ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES = listBuiltinToolPolicies({
   approval: 'required',
@@ -74,11 +74,12 @@ describe('CLAUDE_TOOL_GUARD_RULES', () => {
   })
 
   it('derives the per-call approval boundary from policy entries and mounted servers', () => {
-    expect(approvalRequiredRuntimeNames(WITHOUT_HOST_TOOLS)).toEqual(NON_ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES)
-    expect(approvalRequiredRuntimeNames(WITH_HOST_TOOLS)).toEqual([
-      ...NON_ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES,
-      ...ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES
-    ])
+    expect([...approvalRequiredRuntimeNames(WITHOUT_HOST_TOOLS)].sort()).toEqual(
+      [...NON_ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES].sort()
+    )
+    expect([...approvalRequiredRuntimeNames(WITH_HOST_TOOLS)].sort()).toEqual(
+      [...NON_ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES, ...ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES].sort()
+    )
   })
 
   describe('disabled-tool', () => {

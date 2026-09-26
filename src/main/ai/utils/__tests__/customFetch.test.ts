@@ -251,7 +251,7 @@ describe('installProviderUserAgentInterceptor', () => {
       {
         requestHeaders: {
           'User-Agent': 'Chrome/Electron-default',
-          'X-Cherry-Studio-User-Agent': 'MyAgent/1.0',
+          'X-SuperAgent-User-Agent': 'MyAgent/1.0',
           Authorization: 'Bearer k'
         }
       },

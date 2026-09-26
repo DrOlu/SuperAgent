@@ -1571,7 +1571,8 @@ describe('buildClaudeCodeSessionSettings', () => {
       )
 
     expect(settings.permissionMode).toBe('bypassPermissions')
-    const requiredTools = APPROVAL_REQUIRED_RUNTIME_NAMES
+    // The neuralos server is not mounted in this session, so its per-call approval never fires.
+    const requiredTools = APPROVAL_REQUIRED_RUNTIME_NAMES.filter((name) => !name.startsWith('mcp__neuralos__'))
     // Default mode (live snapshot mode undefined): the explicit per-call approval list always asks.
     for (const toolName of requiredTools) {
       await expect(permissionDecisions(toolName)).resolves.toContain('ask')
@@ -1581,7 +1582,7 @@ describe('buildClaudeCodeSessionSettings', () => {
     for (const toolName of BYPASSABLE_APPROVAL_REQUIRED_RUNTIME_NAMES) {
       await expect(permissionDecisions(toolName)).resolves.not.toContain('ask')
     }
-    for (const toolName of NON_BYPASSABLE_APPROVAL_REQUIRED_RUNTIME_NAMES) {
+    for (const toolName of NON_BYPASSABLE_APPROVAL_REQUIRED_RUNTIME_NAMES.filter((name) => !name.startsWith('mcp__neuralos__'))) {
       await expect(permissionDecisions(toolName)).resolves.toContain('ask')
     }
     permissionMode = undefined
@@ -1884,7 +1885,11 @@ describe('buildClaudeCodeSessionSettings', () => {
       await expect(decide(toolName)).resolves.toEqual({ behavior: 'allow', updatedInput: {} })
     }
     // The delegation ceiling and tools whose whole function is a user-authored answer still deny.
-    for (const toolName of [...NON_BYPASSABLE_APPROVAL_REQUIRED_RUNTIME_NAMES, 'AskUserQuestion', 'EnterPlanMode']) {
+    for (const toolName of [
+      ...NON_BYPASSABLE_APPROVAL_REQUIRED_RUNTIME_NAMES.filter((name) => !name.startsWith('mcp__neuralos__')),
+      'AskUserQuestion',
+      'EnterPlanMode'
+    ]) {
       await expect(decide(toolName)).resolves.toEqual({
         behavior: 'deny',
         message:
@@ -2556,7 +2561,12 @@ describe('buildClaudeCodeSessionSettings', () => {
     expect(snapshotOptions.autoAllowRuntimeNames).not.toContain('mcp__assistant__create_agent')
     expect(snapshotOptions.autoAllowRuntimeNames).not.toContain('mcp__assistant__diagnose')
     expect(snapshotOptions.autoAllowRuntimeNameExceptions).toEqual(
-      expect.arrayContaining(ASSISTANT_APPROVAL_REQUIRED_RUNTIME_NAMES)
+      expect.arrayContaining(
+        listBuiltinToolPolicies({
+          approval: 'required',
+          mountedServers: new Set([...NON_HOST_MCP_SERVERS, 'assistant', 'assistant-files'])
+        }).map(toMcpRuntimeName)
+      )
     )
     expect(snapshotOptions.autoAllowRuntimeNamePrefixes ?? []).toEqual([])
     expect(mocks.createAssistantServer).toHaveBeenCalledWith('anthropic::claude-sonnet', undefined)

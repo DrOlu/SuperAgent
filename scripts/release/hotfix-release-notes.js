@@ -141,7 +141,7 @@ function main() {
   const packageManifest = JSON.parse(fs.readFileSync('package.json', 'utf8'))
   updateHotfixReleaseMetadata({
     builderPath: 'electron-builder.yml',
-    historyPath: 'resources/cherry-studio/release-history.json',
+    historyPath: 'resources/superagent/release-history.json',
     prBody,
     version: packageManifest.version
   })

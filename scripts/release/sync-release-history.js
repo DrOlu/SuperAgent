@@ -20,7 +20,7 @@ function main() {
 
   const synced = syncReleaseHistory({
     builderPath: 'electron-builder.yml',
-    historyPath: 'resources/cherry-studio/release-history.json',
+    historyPath: 'resources/superagent/release-history.json',
     version
   })
   console.log(synced ? `Synced release history for ${version}` : `Skipped release history for prerelease ${version}`)

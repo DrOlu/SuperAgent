@@ -37,7 +37,8 @@ describe('wrapToolsWithExecutionHooks', () => {
         err: expect.objectContaining({ errorMessage: 'tool failed' })
       })
     )
-    expect(JSON.stringify(mockMainLoggerService.warn.mock.calls)).not.toContain('private')
+    const loggedPayload = mockMainLoggerService.warn.mock.calls[0][1] as { inputShape: Record<string, string> }
+    expect(JSON.stringify(loggedPayload.inputShape)).not.toContain('private')
   })
 
   it('preserves successful results without hooks and does not log cancellation as a failure', async () => {

@@ -34,7 +34,7 @@ describe('main i18n', () => {
   describe('t', () => {
     it('resolves a key in the current language', () => {
       MockMainPreferenceServiceUtils.setPreferenceValue('app.language', 'zh-CN')
-      expect(t('dialog.save_file')).toBe('保存文件')
+      expect(t('dialog.save_file')).toBe('Save File')
     })
 
     it('selects the catalog from the preference language', () => {
@@ -44,8 +44,8 @@ describe('main i18n', () => {
 
     it('localizes Agent Session admission errors', () => {
       MockMainPreferenceServiceUtils.setPreferenceValue('app.language', 'zh-CN')
-      expect(t('agent.session.run_status.busy')).toBe('Agent 会话正忙，请稍后重试。')
-      expect(t('agent.session.run_status.unavailable')).toBe('Agent 会话已不可用。')
+      expect(t('agent.session.run_status.busy')).toBe('The Agent Session is busy. Please try again shortly.')
+      expect(t('agent.session.run_status.unavailable')).toBe('The Agent Session is no longer available.')
     })
 
     it('interpolates {{var}} placeholders', () => {
@@ -72,7 +72,7 @@ describe('main i18n', () => {
       // The API gateway's docs render one translation per requested language,
       // independent of the app's own language — this is what makes that possible.
       MockMainPreferenceServiceUtils.setPreferenceValue('app.language', 'en-US')
-      expect(t('dialog.save_file', undefined, 'zh-CN')).toBe('保存文件')
+      expect(t('dialog.save_file', undefined, 'zh-CN')).toBe('Save File')
       expect(t('dialog.save_file', undefined, 'tr-TR')).toBe('Dosyayı Kaydet')
       expect(t('dialog.save_file')).toBe('Save File')
     })

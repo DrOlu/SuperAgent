@@ -97,7 +97,7 @@ describe('validate accepts translations the catalog already relies on', () => {
 
   it('accepts a protected term whose case or hyphenation shifted', () => {
     expect(validate('Exit GitHub', '退出 Github', ['GitHub'])).toBeNull()
-    expect(validate('SuperAgent diagnostics', 'Cherry-Studio-Diagnose', ['SuperAgent'])).toBeNull()
+    expect(validate('SuperAgent diagnostics', 'SuperAgent-Diagnose', ['SuperAgent'])).toBeNull()
   })
 
   it('accepts an empty translation of a punctuation-only source', () => {

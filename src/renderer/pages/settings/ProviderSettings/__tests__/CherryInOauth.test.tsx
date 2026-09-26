@@ -5,8 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { oauthWithCherryIn } from '@renderer/services/oauth'
 import { popup } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
-import { IpcError } from '@shared/ipc/errors/IpcError'
-import { oauthErrorCodes } from '@shared/ipc/errors/oauth'
 
 import CherryInOauth from '../ProviderSpecific/CherryInOauth'
 

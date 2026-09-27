@@ -80,7 +80,7 @@ describe('brand sweep contract (no Cherry, no CJK in English)', () => {
       'Cherry-Studio-Berater',
       'CherryIN Models',
       'Cherry Cloud service',
-      'Cherry Assistant',
+      'SuperAgent Assistant',
       'Cherry Support prepared'
     ]) {
       expect(enUs.filter((entry) => entry.value.includes(banned)).map((e) => e.key)).toEqual([])

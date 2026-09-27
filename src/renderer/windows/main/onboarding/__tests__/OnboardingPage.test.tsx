@@ -631,7 +631,10 @@ describe('OnboardingPage', () => {
 
   it('starts CherryIN login without privacy acceptance and disables data collection', async () => {
     MockUsePreferenceUtils.setPreferenceValue('app.privacy.policy_version', '')
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    oauthWithCherryInMock.mockImplementation(async (setKey: (keys: string) => Promise<void>) => {
+      await setKey('sk-one')
+      return 'sk-one'
+    })
     render(<OnboardingPage />)
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'onboarding.privacy.accept_policy' }))
@@ -640,39 +643,31 @@ describe('OnboardingPage', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' }))
 
-    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://paystack.com/buy/reactor-api-key', '_blank'))
-    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
+    await waitFor(() => expect(oauthWithCherryInMock).toHaveBeenCalledTimes(1))
     expect(screen.queryByTestId('privacy-policy-dialog')).not.toBeInTheDocument()
     expect(MockUsePreferenceUtils.getPreferenceValue('app.privacy.policy_version')).toBe('')
     expect(MockUsePreferenceUtils.getPreferenceValue('app.privacy.data_collection.enabled')).toBe(false)
-    openSpy.mockRestore()
   })
 
   it('uses CherryIN in the CN edition when Cherry Account onboarding is disabled', async () => {
     const user = userEvent.setup()
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     cloudMocks.appEdition = 'cn'
     render(<OnboardingPage />)
 
     await user.click(screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' }))
 
-    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://paystack.com/buy/reactor-api-key', '_blank'))
-    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
+    await waitFor(() => expect(oauthWithCherryInMock).toHaveBeenCalledTimes(1))
     expect(cloudMocks.ipcRequest).not.toHaveBeenCalled()
-    openSpy.mockRestore()
   })
 
   it('keeps CherryIN in the global edition when Cherry Account onboarding is enabled', async () => {
     const user = userEvent.setup()
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     render(<OnboardingPage enableCherryAccountLogin />)
 
     await user.click(screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' }))
 
-    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://paystack.com/buy/reactor-api-key', '_blank'))
-    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
+    await waitFor(() => expect(oauthWithCherryInMock).toHaveBeenCalledTimes(1))
     expect(cloudMocks.ipcRequest).not.toHaveBeenCalled()
-    openSpy.mockRestore()
   })
 
   it('uses cancellable Cherry Cloud login instead of CherryIN in the CN edition', async () => {
@@ -885,28 +880,32 @@ describe('OnboardingPage', () => {
 
     expect(languageTrigger).toHaveClass('nodrag')
 
-    fireEvent.click(screen.getByRole('button', { name: '日本語' }))
+    fireEvent.click(screen.getByRole('button', { name: '中文' }))
 
-    expect(i18nMock.changeLanguage).toHaveBeenCalledWith('ja-JP')
-    await waitFor(() => expect(MockUsePreferenceUtils.getPreferenceValue('app.language')).toBe('ja-JP'))
+    expect(i18nMock.changeLanguage).toHaveBeenCalledWith('zh-CN')
+    await waitFor(() => expect(MockUsePreferenceUtils.getPreferenceValue('app.language')).toBe('zh-CN'))
   })
 
-  it('opens the Paystack checkout and restores the login action right away', async () => {
-    // The Paystack flow returns immediately, so the transient loading state
-    // clears as soon as the handler resolves — there is no 10s pending window.
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+  it('hides the login icon while loading and restores the action after ten seconds', async () => {
+    vi.useFakeTimers()
+    oauthWithCherryInMock.mockImplementation(() => new Promise<string>(() => {}))
     render(<OnboardingPage />)
 
     const loginButton = screen.getByRole('button', { name: 'onboarding.welcome.login_cherryin' })
     await act(async () => fireEvent.click(loginButton))
 
-    expect(openSpy).toHaveBeenCalledWith('https://paystack.com/buy/reactor-api-key', '_blank')
-    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
+    expect(loginButton).toBeDisabled()
+    expect(loginButton.querySelector('.lucide-log-in')).not.toBeInTheDocument()
+
+    await act(() => vi.advanceTimersByTime(9_999))
+    expect(loginButton).toBeDisabled()
+
+    await act(() => vi.advanceTimersByTime(1))
     expect(loginButton).toBeEnabled()
     expect(loginButton.querySelector('.lucide-log-in')).toBeInTheDocument()
   })
 
-  it('opens the Paystack checkout for CherryIN login without syncing models or advancing steps', async () => {
+  it('syncs CherryIN models before moving a fresh install to model selection', async () => {
     enabledProvidersMock.splice(0, enabledProvidersMock.length, { id: 'cherryai', isEnabled: true })
     enabledModelsMock.splice(0, enabledModelsMock.length, {
       id: 'cherryai::qwen',
@@ -914,34 +913,41 @@ describe('OnboardingPage', () => {
       isEnabled: true,
       capabilities: []
     })
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    selectedModelsMock.defaultModel = { id: 'cherryai::qwen', providerId: CHERRYAI_PROVIDER_ID, capabilities: [] }
+    selectedModelsMock.quickModel = { id: 'cherryai::qwen', providerId: CHERRYAI_PROVIDER_ID, capabilities: [] }
+    selectedModelsMock.translateModel = { id: 'cherryai::qwen', providerId: CHERRYAI_PROVIDER_ID, capabilities: [] }
+    oauthWithCherryInMock.mockImplementation(async (setKey: (keys: string) => Promise<void>) => {
+      await setKey('sk-one, sk-two')
+      return 'sk-one, sk-two'
+    })
+
     render(<OnboardingPage />)
 
     fireEvent.click(screen.getByRole('button', { name: /onboarding\.welcome\.login_cherryin/ }))
 
-    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://paystack.com/buy/reactor-api-key', '_blank'))
-    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
-    expect(addApiKeyMock).not.toHaveBeenCalled()
-    expect(updateProviderMock).not.toHaveBeenCalled()
-    expect(syncProviderModelsMock).not.toHaveBeenCalled()
-    expect(screen.queryByTestId('model-settings')).not.toBeInTheDocument()
-    expect(toastSuccessMock).not.toHaveBeenCalled()
-    openSpy.mockRestore()
+    await waitFor(() => expect(screen.getByTestId('model-settings')).toBeInTheDocument())
+    expect(addApiKeyMock).toHaveBeenCalledWith('sk-one', 'OAuth')
+    expect(addApiKeyMock).toHaveBeenCalledWith('sk-two', 'OAuth')
+    expect(updateProviderMock).toHaveBeenCalledWith({ isEnabled: true })
+    expect(syncProviderModelsMock).toHaveBeenCalledTimes(1)
+    expect(toastSuccessMock).toHaveBeenCalledWith('onboarding.toast.connected')
   })
 
-  it('keeps the welcome step after CherryIN login defers to the Paystack checkout', async () => {
+  it('returns to provider setup when CherryIN sync finds no enabled model', async () => {
     syncProviderModelsMock.mockResolvedValue([])
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    oauthWithCherryInMock.mockImplementation(async (setKey: (keys: string) => Promise<void>) => {
+      await setKey('sk-one')
+      return 'sk-one'
+    })
+
     render(<OnboardingPage />)
 
     fireEvent.click(screen.getByRole('button', { name: /onboarding\.welcome\.login_cherryin/ }))
 
-    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://paystack.com/buy/reactor-api-key', '_blank'))
-    expect(oauthWithCherryInMock).not.toHaveBeenCalled()
-    expect(syncProviderModelsMock).not.toHaveBeenCalled()
+    expect(await screen.findByTestId('provider-settings')).toBeInTheDocument()
+    expect(syncProviderModelsMock).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId('model-settings')).not.toBeInTheDocument()
-    expect(toastErrorMock).not.toHaveBeenCalled()
+    expect(toastErrorMock).toHaveBeenCalledWith('onboarding.provider_setup.missing_model')
     expect(toastSuccessMock).not.toHaveBeenCalled()
-    openSpy.mockRestore()
   })
 })

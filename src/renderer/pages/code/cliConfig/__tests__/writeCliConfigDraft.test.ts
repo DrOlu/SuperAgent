@@ -1578,16 +1578,11 @@ describe('writeCliConfigDraft', () => {
       expect(dataApiService.get).not.toHaveBeenCalledWith('/providers/deepseek')
     })
 
-    it('rejects the SuperAgent managed default model and writes nothing', async () => {
-      // v2.1.9: the managed default is the gateway router (typesafe/jev-router)
-      mockGet({ '/models/': () => ({ id: 'typesafe/jev-router' }) })
+    it('rejects the CherryAI managed default model and writes nothing', async () => {
+      mockGet({ '/models/': () => ({ id: 'qwen' }) })
 
       await expect(
-        writeCliConfigDraft({
-          cliTool: CodeCli.CLAUDE_CODE,
-          modelId: 'cherryai::typesafe/jev-router',
-          gateway
-        })
+        writeCliConfigDraft({ cliTool: CodeCli.CLAUDE_CODE, modelId: 'cherryai::qwen', gateway })
       ).rejects.toThrow(/gateway/)
       expect(writes).toEqual([])
     })

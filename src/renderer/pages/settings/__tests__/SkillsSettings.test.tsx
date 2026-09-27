@@ -52,20 +52,20 @@ describe('SkillsSettings', () => {
     const user = userEvent.setup()
     render(<SkillsSettings />)
 
-    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['All', 'System', 'Built-in'])
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['全部', '系统', '内置'])
     expect(screen.getAllByRole('listitem')).toHaveLength(5)
 
-    await user.click(screen.getByRole('tab', { name: 'System' }))
+    await user.click(screen.getByRole('tab', { name: '系统' }))
     expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       'System import',
       'Local system import',
       'Online import'
     ])
 
-    await user.click(screen.getByRole('tab', { name: 'Built-in' }))
+    await user.click(screen.getByRole('tab', { name: '内置' }))
     expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Builtin skill'])
 
-    await user.click(screen.getByRole('tab', { name: 'All' }))
+    await user.click(screen.getByRole('tab', { name: '全部' }))
     expect(screen.getAllByRole('listitem')).toHaveLength(5)
   })
 

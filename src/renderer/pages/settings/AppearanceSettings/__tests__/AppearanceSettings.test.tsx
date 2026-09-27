@@ -307,9 +307,8 @@ describe('AppearanceSettings selectors', () => {
       expect(mocks.request).toHaveBeenCalledWith('app.adjust_zoom', { delta: 0 })
     })
 
-    // v2.2.4: zh-CN removed from the language picker; the resolved UI language
-    // is English when no preference is saved.
-    expect(screen.getByRole('combobox', { name: /English/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /中文/ })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /English/ })).not.toBeInTheDocument()
   })
 
   it('does not render manual chat layout switches', async () => {

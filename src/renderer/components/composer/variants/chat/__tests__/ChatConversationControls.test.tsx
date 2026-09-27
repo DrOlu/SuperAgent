@@ -110,6 +110,6 @@ describe('ChatConversationControls', () => {
       />
     )
 
-    expect(screen.getByText('MiniMax-M3 | MiniMax CN')).toBeInTheDocument()
+    expect(screen.getByText('MiniMax-M3 | MiniMax')).toBeInTheDocument()
   })
 })

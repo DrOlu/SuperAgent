@@ -117,7 +117,7 @@ describe('UsageEntriesTable', () => {
     expect(entryRow.queryByText('Primary key')).not.toBeInTheDocument()
     expect(entryRow.queryByText('sk-****0001')).not.toBeInTheDocument()
     expect(entryRow.getAllByText('-')).toHaveLength(4)
-    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Requests')
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/Entries|请求/)
 
     const date = entryRow.getByText('Jul 28, 2026 16:23')
     expect(date).toHaveAttribute('title', 'Jul 28, 2026 16:23')

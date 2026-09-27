@@ -17,8 +17,6 @@ import { describe, expect, it } from 'vitest'
  *    never trip this test.
  */
 const localeRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-// test dir = src/renderer/i18n/__tests__ → repo root is 4 levels up
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 
 const rendererLocales = path.join(localeRoot, 'locales')
 const mainLocales = path.resolve(localeRoot, '../../../src/main/i18n/locales')

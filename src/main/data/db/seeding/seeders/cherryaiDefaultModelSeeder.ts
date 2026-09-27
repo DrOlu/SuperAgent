@@ -236,7 +236,7 @@ function repointDeadDefaultModelPreferencesTx(tx: TxLike): void {
 
     let value: string | null = null
     try {
-      const parsed: unknown = JSON.parse(existing.value)
+      const parsed: unknown = JSON.parse(String(existing.value))
       value = typeof parsed === 'string' ? parsed : null
     } catch {
       value = typeof existing.value === 'string' ? existing.value : null

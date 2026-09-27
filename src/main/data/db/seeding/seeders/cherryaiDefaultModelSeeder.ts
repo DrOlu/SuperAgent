@@ -248,7 +248,7 @@ function repointDeadDefaultModelPreferencesTx(tx: TxLike): void {
     const [row] = tx
       .select({ id: userModelTable.id })
       .from(userModelTable)
-      .where(eq(userModelTable.id, value))
+      .where(eq(userModelTable.id, value as string))
       .limit(1)
       .all()
     if (row) continue

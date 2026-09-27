@@ -256,7 +256,9 @@ jobs:
 
       - name: Run neuralOS unit tests
         if: matrix.os == 'ubuntu-latest'
-        run: pnpm vitest run src/main/ai/mcp/servers/__tests__/neuralos.test.ts --project main
+        run: pnpm vitest run src/main/ai/mcp/servers/__tests__/neuralos.test.ts \
+          src/renderer/pages/settings/ProviderSettings/utils/__tests__/providerDisplay.test.ts \
+          src/renderer/assets/styles/__tests__/brandGradient.test.ts --project main
         shell: bash
 
       - name: Compile ${{ matrix.target }}

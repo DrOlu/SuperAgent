@@ -45,8 +45,8 @@ apply() { # apply <file> <old> <new> <label>
 import sys
 path, old, new, label = sys.argv[1:5]
 s = open(path).read()
-if new in s:
-    sys.exit(0)  # already applied
+if (new in s) if new else (old not in s):
+    sys.exit(0)  # already applied (or nothing left to remove)
 if old not in s:
     print(f"[ui-overlay] WARN: {label}: pattern drifted in {path}", file=sys.stderr)
     sys.exit(0)
@@ -120,6 +120,14 @@ apply src/renderer/pages/settings/AppearanceSettings/AppearanceSettings.tsx \
   "const DEFAULT_COLOR_PRIMARY = '#00b96b'" \
   "const DEFAULT_COLOR_PRIMARY = '#CC1100'" \
   "default accent #CC1100"
+
+# Provider settings visibility: upstream's botched sync clause hides every
+# provider except 'cherryin' from the settings list — which also misroutes
+# the Claude Code runtime to the wrong endpoint (403 on auth). Never ship it.
+apply src/renderer/utils/providerSettings.ts \
+  " && provider.id === 'cherryin'" \
+  "" \
+  "provider settings visibility (de-cherryin)"
 
 apply src/shared/data/preference/preferenceSchemas.ts \
   "'ui.theme_user.color_primary': '#00b96b'," \

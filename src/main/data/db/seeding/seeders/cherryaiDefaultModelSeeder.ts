@@ -42,7 +42,7 @@ export const DEFAULT_MODEL_PREFERENCE_KEYS = [
   'feature.translate.model_id'
 ] as const
 
-type TxLike = Pick<DbType, 'select' | 'insert' | 'update'>
+type TxLike = Pick<DbType, 'select' | 'insert' | 'update' | 'delete'>
 type ManagedCherryProviderRow = Omit<InsertUserProviderRow, 'orderKey'>
 type CherryAiDefaultModelRow = Omit<InsertUserModelRow, 'orderKey'>
 type DefaultModelPreferenceRow = {
@@ -236,7 +236,8 @@ function repointDeadDefaultModelPreferencesTx(tx: TxLike): void {
 
     let value: string | null = null
     try {
-      value = JSON.parse(existing.value)
+      const parsed: unknown = JSON.parse(existing.value)
+      value = typeof parsed === 'string' ? parsed : null
     } catch {
       value = typeof existing.value === 'string' ? existing.value : null
     }

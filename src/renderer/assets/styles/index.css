@@ -11,6 +11,8 @@
 @layer properties, theme, base, components, utilities, app;
 
 /* @import './color.css'; */
+@import './gellix.css' layer(app);
+@import './openship.css' layer(app);
 @import './font.css' layer(app);
 @import './markdown.css' layer(app);
 @import './scrollbar.css' layer(app);

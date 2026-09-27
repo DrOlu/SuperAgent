@@ -89,6 +89,17 @@ jobs:
           mkdir -p /tmp/keep/scripts /tmp/keep/.github/workflows
           cp -a scripts/rebrand.py /tmp/keep/scripts/
           cp -a scripts/generate_icons.sh /tmp/keep/scripts/
+          cp -a scripts/superagent-ui-overlay.sh /tmp/keep/scripts/
+          # SuperAgent UI theme (re-applied by the overlay script after the wipe)
+          mkdir -p /tmp/keep/ui/gellix-fonts /tmp/keep/ui/styles /tmp/keep/ui/brand-contract
+          if [ -d src/renderer/assets/fonts/gellix ]; then
+            cp -a src/renderer/assets/fonts/gellix/. /tmp/keep/ui/gellix-fonts/
+          fi
+          for f in gellix.css openship.css; do
+            [ -f "src/renderer/assets/styles/$f" ] && cp "src/renderer/assets/styles/$f" /tmp/keep/ui/styles/
+          done
+          [ -f packages/ui/scripts/__tests__/brand-contract.test.ts ] && \
+            cp packages/ui/scripts/__tests__/brand-contract.test.ts /tmp/keep/ui/brand-contract/
           cp superagent_logo.svg /tmp/keep/
           cp -a .github/workflows/*.yml /tmp/keep/.github/workflows/ 2>/dev/null || true
           mkdir -p /tmp/keep/cherryin-oauth-test /tmp/keep/neuralos-module /tmp/keep/neuralos-test
@@ -157,6 +168,10 @@ jobs:
       - name: Run rebrand
         if: steps.check.outputs.do_release == 'true'
         run: python3 scripts/rebrand.py .
+
+      - name: Re-apply SuperAgent UI theme (overlay)
+        if: steps.check.outputs.do_release == 'true'
+        run: bash scripts/superagent-ui-overlay.sh /tmp/keep/ui
 
       - name: Generate icons
         if: steps.check.outputs.do_release == 'true'

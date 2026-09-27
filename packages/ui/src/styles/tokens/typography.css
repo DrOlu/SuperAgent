@@ -5,8 +5,8 @@
 
 :root {
   /* Font Families */
-  --cs-font-family-heading: Inter;
-  --cs-font-family-body: Inter;
+  --cs-font-family-heading: 'Gellix', Inter, system-ui, -apple-system, sans-serif;
+  --cs-font-family-body: 'Gellix', Inter, system-ui, -apple-system, sans-serif;
 
   /* Font Weights () */
   --cs-font-weight-regular: 400;

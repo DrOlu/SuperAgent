@@ -61,6 +61,16 @@ jobs:
           if [ -f resources/neuralos/README.md ]; then
             cp resources/neuralos/README.md /tmp/seed/neuralos-resources/
           fi
+          # SuperAgent UI theme (re-applied by the overlay script after the wipe)
+          mkdir -p /tmp/seed/ui/gellix-fonts /tmp/seed/ui/styles /tmp/seed/ui/brand-contract
+          if [ -d src/renderer/assets/fonts/gellix ]; then
+            cp -a src/renderer/assets/fonts/gellix/. /tmp/seed/ui/gellix-fonts/
+          fi
+          for f in gellix.css openship.css; do
+            [ -f "src/renderer/assets/styles/$f" ] && cp "src/renderer/assets/styles/$f" /tmp/seed/ui/styles/
+          done
+          [ -f packages/ui/scripts/__tests__/brand-contract.test.ts ] && \
+            cp packages/ui/scripts/__tests__/brand-contract.test.ts /tmp/seed/ui/brand-contract/
 
       - name: Clone Cherry Studio
         run: |
@@ -81,7 +91,19 @@ jobs:
           # Merge our scripts into cherry-studio's scripts/ (keep cherry's build scripts)
           cp /tmp/seed/scripts/rebrand.py scripts/rebrand.py
           cp /tmp/seed/scripts/generate_icons.sh scripts/generate_icons.sh
-          chmod +x scripts/generate_icons.sh
+          cp /tmp/seed/scripts/superagent-ui-overlay.sh scripts/superagent-ui-overlay.sh
+          chmod +x scripts/generate_icons.sh scripts/superagent-ui-overlay.sh
+          # SuperAgent UI theme files (whole-file restorations; the overlay
+          # script re-applies the in-place token edits after the rebrand)
+          mkdir -p src/renderer/assets/fonts/gellix src/renderer/assets/styles packages/ui/scripts/__tests__
+          if [ -d /tmp/seed/ui/gellix-fonts ]; then
+            cp -a /tmp/seed/ui/gellix-fonts/. src/renderer/assets/fonts/gellix/
+          fi
+          for f in gellix.css openship.css; do
+            [ -f "/tmp/seed/ui/styles/$f" ] && cp "/tmp/seed/ui/styles/$f" src/renderer/assets/styles/
+          done
+          [ -f /tmp/seed/ui/brand-contract/brand-contract.test.ts ] && \
+            cp /tmp/seed/ui/brand-contract/brand-contract.test.ts packages/ui/scripts/__tests__/
           # Restore the neuralOS MCP server (SuperAgent-native module; rebrand.py
           # re-applies its registration patches into the upstream files)
           mkdir -p src/main/ai/mcp/servers/neuralos src/main/ai/mcp/servers/__tests__
@@ -98,6 +120,9 @@ jobs:
 
       - name: Run rebrand script
         run: python3 scripts/rebrand.py .
+
+      - name: Re-apply SuperAgent UI theme (overlay)
+        run: bash scripts/superagent-ui-overlay.sh /tmp/seed/ui
 
       - name: Generate icons from logo
         run: bash scripts/generate_icons.sh superagent_logo.svg

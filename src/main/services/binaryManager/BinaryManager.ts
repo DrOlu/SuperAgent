@@ -902,15 +902,13 @@ export class BinaryManager extends BaseService {
     if (pipIndexUrl) Object.assign(env, pipIndexEnv(pipIndexUrl))
 
     // Opt-in GitHub token: users who hit the 60 req/hr unauthenticated API
-    // limit (shared NATs, CI, Codespaces) can set SUPERAGENT_GITHUB_TOKEN to
+    // limit (shared NATs, CI, Codespaces) can set CHERRY_GITHUB_TOKEN to
     // raise it to 5000 req/hr. We deliberately do NOT pick up the ambient
     // GITHUB_TOKEN / GH_TOKEN to avoid forwarding the user's general shell
-    // token into mise without consent. The legacy CHERRY_GITHUB_TOKEN name
-    // keeps working for existing environments.
-    const ghToken =
-      process.env['SUPERAGENT_GITHUB_TOKEN'] ?? process.env['CHERRY_GITHUB_TOKEN']
-    if (ghToken) {
-      env['GITHUB_TOKEN'] = ghToken
+    // token into mise without consent.
+    const cherryGhToken = process.env['CHERRY_GITHUB_TOKEN']
+    if (cherryGhToken) {
+      env['GITHUB_TOKEN'] = cherryGhToken
     }
     if (installSettings.githubToken) env['GITHUB_TOKEN'] = installSettings.githubToken
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SuperAgent brand sweep — rewrites user-visible i18n VALUES after a sync.
 
-The upstream-sync pipeline replaces the whole tree with fresh Cherry Studio
+The upstream-sync pipeline replaces the whole tree with fresh SuperAgent
 and runs rebrand.py, whose token list is code-safe but misses locale VALUES
 (hyphenated forms, bare "Cherry", "CherryIN", "CherryAI", "Cherry Cloud").
 This script sweeps ONLY the values of every locale pack; i18n KEYS are
@@ -30,8 +30,8 @@ REPLACEMENTS = [
     ("Cherry could not", "SuperAgent could not"),
     ("Cherry will clean up", "SuperAgent will clean up"),
     ("Cherry-specific", "SuperAgent-specific"),
-    ("Cherry Assistant", "SuperAgent Assistant"),
-    ("Cherry Studio", "SuperAgent"),
+    ("SuperAgent Assistant", "SuperAgent Assistant"),
+    ("SuperAgent", "SuperAgent"),
     ("Cherry", "SuperAgent"),  # bare, LAST
 ]
 

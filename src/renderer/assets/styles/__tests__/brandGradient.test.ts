@@ -5,31 +5,22 @@ import { describe, expect, it } from 'vitest'
 
 /**
  * Brand gradient contract — the SuperAgent mark is confirm_original.png
- * (#CC1100, hsl hue ~5). The sent-message bubble gradient, the selected
- * conversation wash, and the accent bar must stay in that red-orange
- * family in BOTH themes, or the whole chat surface drifts off-brand.
- * (Port of ReactorPro's brand-gradient contract to the SuperAgent DOM.)
+ * (#CC1100, hsl hue ~5). The selected-conversation wash and accent bar
+ * must stay in that red-orange family.
+ *
+ * SENT-MESSAGE BUBBLES: deliberately NOT themed. The v2.1.7 gradient
+ * bubble (deep red → red-orange, white text) was dropped in v2.1.8 by
+ * product decision — message frames keep their native theme styling.
+ * The first test pins that decision so it can't quietly return.
+ * (Port of ReactorPro's brand-gradient contract, minus the bubble.)
  */
 const css = readFileSync(path.resolve(import.meta.dirname, '../openship.css'), 'utf8')
 
 describe('brand gradient contract (#CC1100 red)', () => {
-  it('user message bubbles carry the #CC1100-family gradient in both themes', () => {
-    const bubble = css.slice(css.indexOf('.message-user {'), css.indexOf('html.dark .message-user {'))
-    const darkBubble = css.slice(
-      css.indexOf('html.dark .message-user {'),
-      css.indexOf('/* ── The selected conversation')
-    )
-    // Brand hue stops: #CC1100 sits at hue ~5, sat 95-100%.
-    // Light: hsl(5 95% 42%) deep red; dark: hsl(5 100% 48%) lifted for black.
-    expect(bubble).toMatch(/hsl\(5 95% 42% \/ 0\.96\)/)
-    expect(darkBubble).toMatch(/hsl\(5 100% 48% \/ 0\.96\)/)
-    // Bold style: white text over the saturated gradient.
-    expect(bubble).toMatch(/color: #fff/)
-    expect(darkBubble).toMatch(/color: #fff/)
-  })
-
-  it('targets .message-user (the stable MessageFrame hook), not a styled-components hash', () => {
-    expect(css).toMatch(/^\.message-user \{/m)
+  it('sent-message frames are NOT themed — no gradient bubble (v2.1.8 decision)', () => {
+    // No .message-user selector at all, and no white-on-gradient styling.
+    expect(css).not.toMatch(/\.message-user/)
+    expect(css).not.toMatch(/linear-gradient\([^)]*\)[^}]*\n?\s*color: #fff/)
   })
 
   it('the selected conversation row is marked by the brand wash + accent bar', () => {

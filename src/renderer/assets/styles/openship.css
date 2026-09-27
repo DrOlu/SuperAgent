@@ -53,12 +53,13 @@
 /* ════════════════════════════════════════════════════════════════════
    Brand UI layer — the ReactorPro facelift contract, ported to the
    SuperAgent mark (#CC1100, oklch hue 29 / hsl hue ~5):
-     1. Sent messages carry the bold brand-red gradient bubble.
-     2. The selected conversation row gets the brand wash + accent bar.
-     3. Cards lift by fill — resting borders go transparent.
-     4. Hidden scrollbars (openship's signature).
-   All selectors target stable hooks: .message-user (MessageFrame),
-   [data-selected] (resourceList rows), .bg-card / [data-slot='card'].
+     1. The selected conversation row gets the brand wash + accent bar.
+     2. Cards lift by fill — resting borders go transparent.
+     3. Hidden scrollbars (openship's signature).
+   Deliberately NOT here: gradient bubbles on sent messages — message
+   frames keep their native theme styling (dropped in v2.1.8 by request).
+   Selectors target stable hooks: [data-selected] (resourceList rows),
+   .bg-card / [data-slot='card'].
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── Hidden scrollbars ────────────────────────────────────────── */
@@ -116,41 +117,6 @@ html.dark [role='listbox'] {
   box-shadow:
     0 20px 48px rgb(0 0 0 / 0.5),
     0 4px 12px rgb(0 0 0 / 0.32);
-}
-
-/* ── Sent messages: the bold brand-red gradient bubble ──────────
-   #CC1100 = hsl(5 100% 40%): deep red → bright red-orange, white
-   text, soft brand glow. Dark stops lifted so they don't vibrate
-   on the black plane. */
-.message-user {
-  border-color: transparent;
-  background-color: transparent;
-  background-image: linear-gradient(
-    135deg,
-    hsl(5 95% 42% / 0.96),
-    hsl(9 100% 46% / 0.94),
-    hsl(14 100% 50% / 0.96)
-  );
-  color: #fff;
-  box-shadow: 0 1px 6px hsl(5 95% 42% / 0.28);
-}
-.message-user :where(a) {
-  color: #fff;
-  text-decoration-color: rgb(255 255 255 / 0.6);
-}
-html.dark .message-user {
-  background-image: linear-gradient(
-    135deg,
-    hsl(5 100% 48% / 0.96),
-    hsl(9 100% 52% / 0.94),
-    hsl(14 100% 56% / 0.96)
-  );
-  color: #fff;
-  box-shadow: 0 1px 8px hsl(5 100% 46% / 0.35);
-}
-html.dark .message-user :where(a) {
-  color: #fff;
-  text-decoration-color: rgb(255 255 255 / 0.6);
 }
 
 /* ── The selected conversation: brand wash + accent bar ─────────

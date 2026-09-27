@@ -63,6 +63,9 @@ jobs:
           fi
           # SuperAgent UI theme (re-applied by the overlay script after the wipe)
           mkdir -p /tmp/seed/ui/gellix-fonts /tmp/seed/ui/styles /tmp/seed/ui/brand-contract /tmp/seed/ui/brand-gradient
+          mkdir -p /tmp/seed/providers
+          [ -f src/shared/data/presets/cherryai.ts ] && cp src/shared/data/presets/cherryai.ts /tmp/seed/providers/
+          [ -f src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts ] && cp src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts /tmp/seed/providers/
           if [ -d src/renderer/assets/fonts/gellix ]; then
             cp -a src/renderer/assets/fonts/gellix/. /tmp/seed/ui/gellix-fonts/
           fi
@@ -108,6 +111,10 @@ jobs:
             cp /tmp/seed/ui/brand-contract/brand-contract.test.ts packages/ui/scripts/__tests__/
           [ -f /tmp/seed/ui/brand-gradient/brandGradient.test.ts ] && \
             cp /tmp/seed/ui/brand-gradient/brandGradient.test.ts src/renderer/assets/styles/__tests__/
+          # SuperAgent provider preset + seeder (403 fix carriers)
+          mkdir -p src/shared/data/presets src/main/data/db/seeding/seeders
+          [ -f /tmp/seed/providers/cherryai.ts ] && cp /tmp/seed/providers/cherryai.ts src/shared/data/presets/cherryai.ts
+          [ -f /tmp/seed/providers/cherryaiDefaultModelSeeder.ts ] && cp /tmp/seed/providers/cherryaiDefaultModelSeeder.ts src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts
           # Restore the neuralOS MCP server (SuperAgent-native module; rebrand.py
           # re-applies its registration patches into the upstream files)
           mkdir -p src/main/ai/mcp/servers/neuralos src/main/ai/mcp/servers/__tests__

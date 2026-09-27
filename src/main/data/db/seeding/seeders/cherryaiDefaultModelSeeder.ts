@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 
 import { ENDPOINT_TYPE } from '@cherrystudio/provider-registry'
 import { preferenceTable } from '@data/db/schemas/preference'
@@ -6,6 +6,7 @@ import type { InsertUserModelRow } from '@data/db/schemas/userModel'
 import { userModelTable } from '@data/db/schemas/userModel'
 import type { InsertUserProviderRow } from '@data/db/schemas/userProvider'
 import { providerService } from '@data/services/ProviderService'
+import { userProviderTable } from '@data/db/schemas/userProvider'
 import { insertManyWithOrderKey } from '@data/services/utils/orderKey'
 import { loggerService } from '@logger'
 import {
@@ -18,6 +19,7 @@ import {
   CHERRYAI_PROVIDER_ID,
   CHERRYAI_PROVIDER_NAME
 } from '@shared/data/presets/cherryai'
+import { createUniqueModelId } from '@shared/data/types/model'
 import type { ModelCapability } from '@shared/data/types/model'
 
 import type { DbType, ISeeder } from '../../types'
@@ -26,6 +28,13 @@ import { hashObject } from '../hashObject'
 const logger = loggerService.withContext('CherryAiDefaultModelSeeder')
 
 const DEFAULT_MODEL_PREFERENCE_SCOPE = 'default' as const
+/**
+ * Pre-2.1.9 default model id. The api.superagent.ng gateway now serves an
+ * OpenRouter-style catalog where bare ids like "qwen" do not exist — requests
+ * with the legacy id are rejected with 403 Forbidden. The seeder migrates
+ * installs that still reference it.
+ */
+const CHERRYAI_LEGACY_MODEL_IDS = ['qwen'] as const
 export const DEFAULT_MODEL_PREFERENCE_KEYS = [
   'chat.default_model_id',
   'feature.quick_assistant.model_id',
@@ -157,8 +166,95 @@ function ensureDefaultModelPreferencesTx(tx: TxLike): void {
 }
 
 function ensureCherryAiDefaultModelSetupTx(tx: TxLike): void {
+  repairLegacyDefaultModelTx(tx)
   ensureCherryAiDefaultProviderAndModelTx(tx)
   ensureDefaultModelPreferencesTx(tx)
+  repointDeadDefaultModelPreferencesTx(tx)
+}
+
+/**
+ * v2.1.9 repair: the old seeded default model id ("qwen") no longer exists on
+ * the api.superagent.ng gateway — every request with it returns 403 Forbidden.
+ * Drop the dead model row so the fresh default can seed, and remember which
+ * preference values referenced it.
+ */
+function repairLegacyDefaultModelTx(tx: TxLike): void {
+  // Legacy branding: the managed SuperAgent provider may still be stored as
+  // "CherryAI" / "CherryIN" from pre-rebrand installs.
+  const renamed = tx
+    .update(userProviderTable)
+    .set({ name: CHERRYAI_PROVIDER_NAME })
+    .where(
+      and(
+        eq(userProviderTable.providerId, CHERRYAI_PROVIDER_ID),
+        inArray(userProviderTable.name, ['CherryAI', 'CherryIN'])
+      )
+    )
+    .run()
+  if (renamed.changes > 0) {
+    logger.warn('Renamed legacy CherryAI/CherryIN provider to SuperAgent', {
+      providerId: CHERRYAI_PROVIDER_ID
+    })
+  }
+
+  for (const legacyModelId of CHERRYAI_LEGACY_MODEL_IDS) {
+    const legacyUnique = createUniqueModelId(CHERRYAI_PROVIDER_ID, legacyModelId)
+    const deleted = tx
+      .delete(userModelTable)
+      .where(
+        and(eq(userModelTable.providerId, CHERRYAI_PROVIDER_ID), eq(userModelTable.modelId, legacyModelId))
+      )
+      .run()
+    if (deleted.changes > 0) {
+      logger.warn('Removed legacy CherryAI default model (dead on the gateway)', {
+        modelId: legacyUnique
+      })
+    }
+  }
+}
+
+/**
+ * v2.1.9 repair: repoint the three default-model preferences when their value
+ * references the legacy id or any model row that no longer exists.
+ */
+function repointDeadDefaultModelPreferencesTx(tx: TxLike): void {
+  for (const key of DEFAULT_MODEL_PREFERENCE_KEYS) {
+    const [existing] = tx
+      .select({ value: preferenceTable.value })
+      .from(preferenceTable)
+      .where(and(eq(preferenceTable.scope, DEFAULT_MODEL_PREFERENCE_SCOPE), eq(preferenceTable.key, key)))
+      .limit(1)
+      .all()
+    if (!existing) continue
+
+    let value: string | null = null
+    try {
+      value = JSON.parse(existing.value)
+    } catch {
+      value = typeof existing.value === 'string' ? existing.value : null
+    }
+    if (!value) continue
+
+    // A value is dead when it references a model row that no longer exists
+    // (the legacy "qwen" row was removed above; synced models come and go).
+    const [row] = tx
+      .select({ id: userModelTable.id })
+      .from(userModelTable)
+      .where(eq(userModelTable.id, value))
+      .limit(1)
+      .all()
+    if (row) continue
+
+    tx.update(preferenceTable)
+      .set({ value: CHERRYAI_DEFAULT_UNIQUE_MODEL_ID })
+      .where(and(eq(preferenceTable.scope, DEFAULT_MODEL_PREFERENCE_SCOPE), eq(preferenceTable.key, key)))
+      .run()
+    logger.warn('Repointed dead default model preference to the gateway router', {
+      key,
+      oldValue: value,
+      newValue: CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
+    })
+  }
 }
 
 export class CherryAiDefaultModelSeeder implements ISeeder {

@@ -97,7 +97,7 @@ jobs:
           [ -f src/shared/data/presets/cherryai.ts ] && cp src/shared/data/presets/cherryai.ts /tmp/keep/providers/
           [ -f src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts ] && cp src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts /tmp/keep/providers/
           # SuperAgent UI theme (re-applied by the overlay script after the wipe)
-          mkdir -p /tmp/keep/ui/gellix-fonts /tmp/keep/ui/styles /tmp/keep/ui/brand-contract /tmp/keep/ui/brand-gradient
+          mkdir -p /tmp/keep/ui/gellix-fonts /tmp/keep/ui/styles /tmp/keep/ui/brand-contract /tmp/keep/ui/brand-gradient /tmp/keep/ui/brand-sweep
           if [ -d src/renderer/assets/fonts/gellix ]; then
             cp -a src/renderer/assets/fonts/gellix/. /tmp/keep/ui/gellix-fonts/
           fi

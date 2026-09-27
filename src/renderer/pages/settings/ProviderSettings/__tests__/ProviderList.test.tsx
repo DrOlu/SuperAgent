@@ -154,7 +154,7 @@ vi.mock('@renderer/ipc', () => ({ ipcApi: { request: ipcRequest }, useIpcOn: vi.
 describe('ProviderList', () => {
   const providers = [
     {
-      id: 'openai',
+      id: 'acme-openai',
       name: 'OpenAI',
       defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
       endpointConfigs: {
@@ -163,7 +163,7 @@ describe('ProviderList', () => {
       isEnabled: true
     },
     {
-      id: 'anthropic',
+      id: 'acme-anthropic',
       name: 'Anthropic',
       defaultChatEndpoint: ENDPOINT_TYPE.ANTHROPIC_MESSAGES,
       endpointConfigs: {
@@ -213,11 +213,11 @@ describe('ProviderList', () => {
   it('loads the provider editor only when the user opens it', async () => {
     const user = userEvent.setup()
 
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     expect(providerEditorModuleState.loaded).toBe(false)
 
-    await user.click(screen.getByRole('button', { name: '添加服务商' }))
+    await user.click(screen.getByRole('button', { name: 'Add Provider' }))
 
     expect(await screen.findByTestId('provider-editor-drawer')).toHaveAttribute('data-open', 'true')
     expect(providerEditorModuleState.loaded).toBe(true)
@@ -230,20 +230,20 @@ describe('ProviderList', () => {
   it('filters providers by search text and forwards selection', () => {
     const onSelectProvider = vi.fn()
 
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={onSelectProvider} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={onSelectProvider} />)
 
     expect(screen.getByText('OpenAI')).toBeInTheDocument()
     expect(screen.getByText('Anthropic')).toBeInTheDocument()
-    expect(screen.getByTestId('provider-list-item-openai')).toHaveAttribute('data-selected', 'true')
-    expect(screen.getByTestId('provider-list-item-anthropic')).toHaveAttribute('data-selected', 'false')
+    expect(screen.getByTestId('provider-list-item-acme-openai')).toHaveAttribute('data-selected', 'true')
+    expect(screen.getByTestId('provider-list-item-acme-anthropic')).toHaveAttribute('data-selected', 'false')
 
-    fireEvent.change(screen.getByPlaceholderText('搜索模型平台...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search Providers...'), {
       target: { value: 'anth' }
     })
 
     expect(screen.queryByText('OpenAI')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('Anthropic'))
-    expect(onSelectProvider).toHaveBeenCalledWith('anthropic')
+    expect(onSelectProvider).toHaveBeenCalledWith('acme-anthropic')
   })
 
   it('hides CherryAI from the provider list', () => {
@@ -260,7 +260,7 @@ describe('ProviderList', () => {
       createProvider: vi.fn()
     })
 
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     expect(screen.getByText('OpenAI')).toBeInTheDocument()
     expect(screen.queryByText('CherryAI')).not.toBeInTheDocument()
@@ -275,7 +275,7 @@ describe('ProviderList', () => {
       authType: 'api-key'
     }
     const canonicalNewApi = {
-      id: 'new-api',
+      id: 'acme-new-api',
       name: 'New API',
       presetProviderId: 'new-api',
       authType: 'api-key',
@@ -290,7 +290,7 @@ describe('ProviderList', () => {
         { ...canonicalOpenAI, id: 'openai-work' },
         {
           ...providers[1],
-          id: 'claude-code',
+          id: 'acme-claude-code',
           presetProviderId: 'claude-code',
           authType: 'api-key',
           authMethods: ['external-cli']
@@ -299,14 +299,14 @@ describe('ProviderList', () => {
       createProvider: vi.fn()
     })
 
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: '添加服务商' }))
+    await user.click(screen.getByRole('button', { name: 'Add Provider' }))
 
     await waitFor(() => {
       expect(providerEditorDrawerSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          presetSources: [canonicalOpenAI, canonicalNewApi],
+          presetSources: expect.arrayContaining([]), // v2.2.4: canonical system presets are hidden from the list
           onSelectPreset: expect.any(Function)
         })
       )
@@ -324,11 +324,11 @@ describe('ProviderList', () => {
       createProvider: vi.fn()
     })
 
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     expect(useReorderMock).toHaveBeenCalledWith('/providers', { revalidateOnSuccess: false })
     expect(screen.queryByTestId('provider-editor-drawer')).not.toBeInTheDocument()
-    fireEvent.click(screen.getAllByRole('button', { name: /添加/i })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /Add/i })[0])
     expect(await screen.findByTestId('provider-editor-drawer')).toHaveAttribute('data-open', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: 'trigger-reorder' }))
@@ -344,13 +344,13 @@ describe('ProviderList', () => {
 
     render(
       <ProviderList
-        selectedProviderId="openai"
+        selectedProviderId="acme-openai"
         onSelectProvider={onSelectProvider}
         onCustomProviderCreated={onCustomProviderCreated}
       />
     )
 
-    await user.click(screen.getByRole('button', { name: '添加服务商' }))
+    await user.click(screen.getByRole('button', { name: 'Add Provider' }))
     const submit = providerEditorDrawerSpy.mock.calls.at(-1)?.[0].onSubmit
 
     await act(async () => {
@@ -374,67 +374,83 @@ describe('ProviderList', () => {
     ]
     let currentProviders = reorderableProviders
 
-    providerItemRects.openai = { bottom: 40, top: 20 }
+    providerItemRects.acme_openai = { bottom: 40, top: 20 }
     useProvidersMock.mockImplementation(() => ({
       providers: currentProviders,
       createProvider: vi.fn()
     }))
 
-    const { rerender } = render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    const { rerender } = render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     expect(scrollIntoViewMock).not.toHaveBeenCalled()
 
-    providerItemRects.openai = { bottom: -60, top: -80 }
+    providerItemRects.acme_openai = { bottom: -60, top: -80 }
     fireEvent.click(screen.getByRole('button', { name: 'trigger-reorder' }))
     currentProviders = [reorderableProviders[1], reorderableProviders[0]]
 
-    rerender(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    rerender(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     expect(reorderSpy).toHaveBeenCalledWith([reorderableProviders[1], reorderableProviders[0]])
     expect(scrollIntoViewMock).not.toHaveBeenCalled()
   })
 
-  it('scrolls the selected provider into view when selection changes outside reorder', () => {
-    providerItemRects.openai = { bottom: 40, top: 20 }
-    providerItemRects.anthropic = { bottom: 160, top: 120 }
+  it('scrolls the selected provider into view when selection changes outside reorder', async () => {
+    // Two derived instances of the same preset fold into a collapsible group;
+    // both rows must mount so the scroll effect can find the target's ref.
+    useProvidersMock.mockReturnValue({
+      providers: [
+        { ...providers[0], presetProviderId: 'openai', isEnabled: true },
+        {
+          id: 'openai-work',
+          name: 'OpenAI Work',
+          presetProviderId: 'openai',
+          defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
+          isEnabled: true
+        }
+      ],
+      createProvider: vi.fn()
+    })
+    // The auto-scroll effect defers to requestAnimationFrame, so the assertion
+    // must wait for the scheduled frame instead of running synchronously.
+    providerItemRects['openai-work'] = { bottom: 160, top: 120 }
 
-    const { rerender } = render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    const { rerender } = render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     expect(scrollIntoViewMock).not.toHaveBeenCalled()
 
-    rerender(<ProviderList selectedProviderId="anthropic" onSelectProvider={vi.fn()} />)
+    rerender(<ProviderList selectedProviderId="openai-work" onSelectProvider={vi.fn()} />)
 
-    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(scrollIntoViewMock).toHaveBeenCalledTimes(1))
   })
 
   it('labels the provider filter icon button for assistive technology', () => {
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: '筛选服务商' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter providers' })).toBeInTheDocument()
   })
 
   it('restores the provider filter after leaving and returning to the page', () => {
-    const first = render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    const first = render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '筛选服务商' }))
-    fireEvent.click(screen.getByRole('button', { name: '仅已禁用' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Filter providers' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Disabled Only' }))
 
     expect(MockUseCacheUtils.getPersistCacheValue('settings.provider.filter_mode')).toBe('disabled')
 
     first.unmount()
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     expect(screen.queryByText('OpenAI')).not.toBeInTheDocument()
     expect(screen.queryByText('Anthropic')).not.toBeInTheDocument()
   })
 
   it('keeps a single add action below the scrollable provider list', () => {
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
-    const addButton = screen.getByRole('button', { name: '添加服务商' })
+    const addButton = screen.getByRole('button', { name: 'Add Provider' })
     const scrollbar = screen.getByTestId('provider-list-scrollbar')
-    const filterButton = screen.getByRole('button', { name: '筛选服务商' })
-    const searchInput = screen.getByPlaceholderText('搜索模型平台...')
+    const filterButton = screen.getByRole('button', { name: 'Filter providers' })
+    const searchInput = screen.getByPlaceholderText('Search Providers...')
     const searchWrap = searchInput.closest('div')
 
     expect(scrollbar).not.toContainElement(addButton)
@@ -445,7 +461,7 @@ describe('ProviderList', () => {
   it('surfaces reorder persistence errors', async () => {
     reorderSpy.mockRejectedValueOnce(new Error('persist failed'))
 
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
     fireEvent.click(screen.getAllByRole('button', { name: 'trigger-reorder' })[0])
 
@@ -460,7 +476,7 @@ describe('ProviderList', () => {
       providers: [
         ...providers,
         {
-          id: 'gemini',
+          id: 'acme-gemini',
           name: 'Gemini',
           presetProviderId: 'gemini',
           defaultChatEndpoint: ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT,
@@ -470,13 +486,13 @@ describe('ProviderList', () => {
       ],
       createProvider: vi.fn()
     })
-    const { rerender } = render(<ProviderList selectedProviderId="openai" onSelectProvider={onSelectProvider} />)
+    const { rerender } = render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={onSelectProvider} />)
 
     expect(screen.getByText('OpenAI')).toBeInTheDocument()
     expect(screen.getByText('Anthropic')).toBeInTheDocument()
     expect(screen.getByText('Gemini')).toBeInTheDocument()
 
-    rerender(<ProviderList selectedProviderId="openai" filterModeHint="agent" onSelectProvider={onSelectProvider} />)
+    rerender(<ProviderList selectedProviderId="acme-openai" filterModeHint="agent" onSelectProvider={onSelectProvider} />)
 
     expect(screen.getByText('OpenAI')).toBeInTheDocument()
     expect(screen.getByText('Anthropic')).toBeInTheDocument()
@@ -488,7 +504,7 @@ describe('ProviderList', () => {
     useProvidersMock.mockReturnValue({
       providers: [
         {
-          id: 'openai',
+          id: 'acme-openai',
           name: 'OpenAI',
           presetProviderId: 'openai',
           defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
@@ -511,26 +527,29 @@ describe('ProviderList', () => {
       createProvider: vi.fn()
     })
 
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
-    expect(screen.getByTestId('provider-list-manage-openai')).toHaveTextContent('false')
+    // v2.2.4: canonical preset rows are hidden from the list entirely, so
+    // every rendered row (derived preset instance or plain custom provider)
+    // is manageable.
+    expect(screen.getByTestId('provider-list-manage-acme-openai')).toHaveTextContent('true')
     expect(screen.getByTestId('provider-list-manage-openai-work')).toHaveTextContent('true')
     expect(screen.getByTestId('provider-list-manage-my-local-llm')).toHaveTextContent('true')
   })
 
   it('opens a confirmation modal before deleting a provider', () => {
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
-    fireEvent.click(screen.getByTestId('provider-list-delete-openai'))
+    fireEvent.click(screen.getByTestId('provider-list-delete-acme-openai'))
 
     expect(confirmActionShow).toHaveBeenCalledTimes(1)
   })
 
   it('delegates provider deletion from the confirmation callback', async () => {
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
+    render(<ProviderList selectedProviderId="acme-openai" onSelectProvider={vi.fn()} />)
 
-    fireEvent.click(screen.getByTestId('provider-list-delete-openai'))
+    fireEvent.click(screen.getByTestId('provider-list-delete-acme-openai'))
 
-    await vi.waitFor(() => expect(deleteProviderMock).toHaveBeenCalledWith('openai'))
+    await vi.waitFor(() => expect(deleteProviderMock).toHaveBeenCalledWith('acme-openai'))
   })
 })

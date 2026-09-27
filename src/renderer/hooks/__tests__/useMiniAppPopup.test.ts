@@ -568,7 +568,7 @@ describe('useMiniAppPopup', () => {
         result.current.openSmartMiniApp({
           appId: 'releases',
           name: 'Releases',
-          url: 'file:///Applications/Cherry%20Studio/resources/releases.html?theme=dark',
+          url: 'file:///Applications/SuperAgent/resources/releases.html?theme=dark',
           logo: 'icon'
         })
       })

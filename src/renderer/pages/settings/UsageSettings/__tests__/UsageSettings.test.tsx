@@ -84,40 +84,40 @@ describe('UsageSettings', () => {
   it('starts on the documented defaults', () => {
     render(<UsageSettings />)
 
-    expect(screen.getByRole('radio', { name: '最近 30 天' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('combobox', { name: '分组' })).toHaveTextContent('供应商')
-    expect(screen.getByRole('combobox', { name: '指标' })).toHaveTextContent('Token')
+    expect(screen.getByRole('radio', { name: 'Last 30 days' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('combobox', { name: 'Group by' })).toHaveTextContent('Provider')
+    expect(screen.getByRole('combobox', { name: 'Metric' })).toHaveTextContent('Tokens')
     expect(screen.getByRole('combobox', { name: 'Top' })).toHaveTextContent('10')
-    expect(screen.getByRole('button', { name: '柱状图' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('radio', { name: '按天' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('button', { name: 'Bar' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('radio', { name: 'Daily' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('restores the view selections after leaving and returning to the page', async () => {
     const user = userEvent.setup()
     const first = render(<UsageSettings />)
 
-    await user.click(screen.getByRole('radio', { name: '最近 90 天' }))
-    await user.click(screen.getByRole('combobox', { name: '分组' }))
-    await user.click(await screen.findByRole('option', { name: '模型' }))
-    await user.click(screen.getByRole('button', { name: '饼图' }))
-    await user.click(screen.getByRole('radio', { name: '按周' }))
+    await user.click(screen.getByRole('radio', { name: 'Last 90 days' }))
+    await user.click(screen.getByRole('combobox', { name: 'Group by' }))
+    await user.click(await screen.findByRole('option', { name: 'Model' }))
+    await user.click(screen.getByRole('button', { name: 'Pie' }))
+    await user.click(screen.getByRole('radio', { name: 'Weekly' }))
     await user.click(screen.getByRole('combobox', { name: 'Top' }))
     await user.click(await screen.findByRole('option', { name: '20' }))
 
     first.unmount()
     render(<UsageSettings />)
 
-    expect(screen.getByRole('radio', { name: '最近 90 天' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('combobox', { name: '分组' })).toHaveTextContent('模型')
-    expect(screen.getByRole('button', { name: '饼图' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('radio', { name: '按周' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'Last 90 days' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('combobox', { name: 'Group by' })).toHaveTextContent('Model')
+    expect(screen.getByRole('button', { name: 'Pie' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('radio', { name: 'Weekly' })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByRole('combobox', { name: 'Top' })).toHaveTextContent('20')
   })
 
   it('caps the dashboard column so ultrawide windows do not stretch charts', () => {
     render(<UsageSettings />)
 
-    const overview = screen.getByRole('heading', { name: '概览' })
+    const overview = screen.getByRole('heading', { name: 'Overview' })
     const column = overview.closest('.mx-auto')
 
     // Layout contract: the usage dashboard is bounded (`max-w-6xl`), not full-bleed (`max-w-none`).
@@ -139,9 +139,9 @@ describe('UsageSettings', () => {
 
     render(<UsageSettings />)
 
-    expect(screen.getByText('活跃天数')).toBeInTheDocument()
-    expect(screen.getByText('高峰日')).toBeInTheDocument()
-    expect(screen.getByText('用量最高模型')).toBeInTheDocument()
-    expect(screen.getByText('日均')).toBeInTheDocument()
+    expect(screen.getByText('Active days')).toBeInTheDocument()
+    expect(screen.getByText('Peak day')).toBeInTheDocument()
+    expect(screen.getByText('Top model')).toBeInTheDocument()
+    expect(screen.getByText('Daily average')).toBeInTheDocument()
   })
 })

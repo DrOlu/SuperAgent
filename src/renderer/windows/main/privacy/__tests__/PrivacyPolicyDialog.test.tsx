@@ -43,7 +43,7 @@ describe('privacy policy resource selection', () => {
 
   it('builds a Windows-safe dark theme file URL', () => {
     expect(buildPrivacyPolicyUrl('C:\\Program Files\\SuperAgent\\resources', 'zh-TW', ThemeMode.dark)).toBe(
-      'file:///C:/Program%20Files/Cherry%20Studio/resources/superagent/privacy-zh.html?theme=dark'
+      'file:///C:/Program%20Files/SuperAgent/resources/superagent/privacy-zh.html?theme=dark'
     )
   })
 })
@@ -62,7 +62,7 @@ describe('PrivacyPolicyDialog', () => {
     await waitFor(() => {
       expect(screen.getByTitle('privacy_policy.title')).toHaveAttribute(
         'src',
-        'file:///Applications/Cherry%20Studio.app/Contents/Resources/superagent/privacy-en.html?theme=light'
+        'file:///Applications/SuperAgent.app/Contents/Resources/superagent/privacy-en.html?theme=light'
       )
     })
     expect(mocks.ipcRequest).toHaveBeenCalledWith('app.get_info')

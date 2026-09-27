@@ -29,11 +29,11 @@ vi.mock('../ProviderList', () => ({
   ProviderList: ({ selectedProviderId, onSelectProvider, onCustomProviderCreated }: any) => (
     <div>
       <div data-testid="selected-provider-id">{selectedProviderId ?? ''}</div>
-      <button type="button" onClick={() => onSelectProvider('openai')}>
-        select-openai
+      <button type="button" onClick={() => onSelectProvider('cherryin')}>
+        select-superagent
       </button>
-      <button type="button" onClick={() => onSelectProvider('anthropic')}>
-        select-anthropic
+      <button type="button" onClick={() => onSelectProvider('ollama')}>
+        select-ollama
       </button>
       <button type="button" onClick={() => onSelectProvider('custom-with-key')}>
         select-custom-with-key
@@ -69,8 +69,8 @@ vi.mock('../ProviderSetting', () => ({
 
 describe('ProviderSettingsPage', () => {
   const providers = [
-    { id: 'openai', name: 'OpenAI', isEnabled: true },
-    { id: 'anthropic', name: 'Anthropic', isEnabled: true }
+    { id: 'cherryin', name: 'SuperAgent', isEnabled: true },
+    { id: 'ollama', name: 'Ollama', isEnabled: true }
   ]
 
   beforeEach(() => {
@@ -98,7 +98,7 @@ describe('ProviderSettingsPage', () => {
     render(<ProviderSettingsPage />)
 
     expect(screen.getByText(i18n.t('common.loading'))).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'select-openai' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'select-superagent' })).not.toBeInTheDocument()
   })
 
   it('shows a provider read failure and lets the user retry', async () => {
@@ -116,7 +116,7 @@ describe('ProviderSettingsPage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(i18n.t('common.error'))
     expect(screen.getByRole('alert')).toHaveTextContent('Provider registry unavailable')
-    expect(screen.queryByRole('button', { name: 'select-openai' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'select-superagent' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('common.retry') }))
     expect(refetch).toHaveBeenCalledOnce()
@@ -133,12 +133,12 @@ describe('ProviderSettingsPage', () => {
 
     render(<ProviderSettingsPage />)
 
-    expect(await screen.findByText('provider-setting-openai')).toBeInTheDocument()
+    expect(await screen.findByText('provider-setting-cherryin')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('preserves the remembered provider while an initial read fails', async () => {
-    MockUseCacheUtils.setPersistCacheValue('settings.provider.last_selected_provider_id', 'anthropic')
+    MockUseCacheUtils.setPersistCacheValue('settings.provider.last_selected_provider_id', 'ollama')
     useProvidersMock.mockReturnValue({
       providers: [],
       hasLoaded: false,
@@ -158,30 +158,30 @@ describe('ProviderSettingsPage', () => {
     })
     rerender(<ProviderSettingsPage />)
 
-    expect(await screen.findByText('provider-setting-anthropic')).toBeInTheDocument()
+    expect(await screen.findByText('provider-setting-ollama')).toBeInTheDocument()
   })
 
   it('restores the last selected provider after leaving and returning to the page', async () => {
     const first = render(<ProviderSettingsPage />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'select-anthropic' }))
-    await screen.findByText('provider-setting-anthropic')
+    fireEvent.click(screen.getByRole('button', { name: 'select-ollama' }))
+    await screen.findByText('provider-setting-ollama')
 
     first.unmount()
     render(<ProviderSettingsPage />)
 
-    expect(screen.getByText('provider-setting-anthropic')).toBeInTheDocument()
-    expect(screen.getByTestId('selected-provider-id')).toHaveTextContent('anthropic')
+    expect(screen.getByText('provider-setting-ollama')).toBeInTheDocument()
+    expect(screen.getByTestId('selected-provider-id')).toHaveTextContent('ollama')
   })
 
   it('lets an explicit search id override the remembered provider', async () => {
-    MockUseCacheUtils.setPersistCacheValue('settings.provider.last_selected_provider_id', 'openai')
-    searchMock = { id: 'anthropic' }
+    MockUseCacheUtils.setPersistCacheValue('settings.provider.last_selected_provider_id', 'cherryin')
+    searchMock = { id: 'ollama' }
 
     render(<ProviderSettingsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('provider-setting-anthropic')).toBeInTheDocument()
+      expect(screen.getByText('provider-setting-ollama')).toBeInTheDocument()
     })
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/settings/provider',
@@ -191,7 +191,7 @@ describe('ProviderSettingsPage', () => {
   })
 
   it('holds a first-visit deep link until providers load instead of consuming it blind', () => {
-    searchMock = { id: 'anthropic' }
+    searchMock = { id: 'ollama' }
     useProvidersMock.mockReturnValue({
       providers: [],
       hasLoaded: false,
@@ -215,8 +215,8 @@ describe('ProviderSettingsPage', () => {
     })
     view.rerender(<ProviderSettingsPage />)
 
-    expect(screen.getByText('provider-setting-anthropic')).toBeInTheDocument()
-    expect(screen.getByTestId('selected-provider-id')).toHaveTextContent('anthropic')
+    expect(screen.getByText('provider-setting-ollama')).toBeInTheDocument()
+    expect(screen.getByTestId('selected-provider-id')).toHaveTextContent('ollama')
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/provider', search: {}, replace: true })
   })
 
@@ -230,17 +230,17 @@ describe('ProviderSettingsPage', () => {
     render(<ProviderSettingsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('provider-setting-openai')).toBeInTheDocument()
+      expect(screen.getByText('provider-setting-cherryin')).toBeInTheDocument()
     })
-    expect(screen.getByTestId('selected-provider-id')).toHaveTextContent('openai')
+    expect(screen.getByTestId('selected-provider-id')).toHaveTextContent('cherryin')
     expect(screen.queryByText('provider-setting-cherryai')).not.toBeInTheDocument()
   })
 
   it('falls back when the remembered provider is no longer returned', async () => {
-    MockUseCacheUtils.setPersistCacheValue('settings.provider.last_selected_provider_id', 'openai')
+    MockUseCacheUtils.setPersistCacheValue('settings.provider.last_selected_provider_id', 'cherryin')
     useProvidersMock.mockReturnValue({
       providers: [
-        { id: 'zhipu', name: 'ZhiPu', isEnabled: true },
+        { id: 'grok', name: 'ZhiPu', isEnabled: true },
         { id: 'custom-provider', name: 'Custom Provider', isEnabled: true }
       ],
       hasLoaded: true,
@@ -251,8 +251,12 @@ describe('ProviderSettingsPage', () => {
 
     render(<ProviderSettingsPage />)
 
-    expect(await screen.findByText('provider-setting-zhipu')).toBeInTheDocument()
-    expect(screen.queryByText('provider-setting-openai')).not.toBeInTheDocument()
+    // v2.2.4: the remembered row vanished AND the remaining system row
+    // (grok) is hidden by the exposure policy — the page falls back to the
+    // first visible provider (the custom row).
+    expect(await screen.findByText('provider-setting-custom-provider')).toBeInTheDocument()
+    expect(screen.queryByText('provider-setting-cherryin')).not.toBeInTheDocument()
+    expect(screen.queryByText('provider-setting-grok')).not.toBeInTheDocument()
   })
 
   it('passes a stable provider selector to deep-link import across rerenders', () => {
@@ -290,7 +294,7 @@ describe('ProviderSettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'create-custom-with-key' }))
     expect(screen.getByText('api-setup-models')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'select-openai' }))
+    await user.click(screen.getByRole('button', { name: 'select-superagent' }))
     await user.click(screen.getByRole('button', { name: 'select-custom-with-key' }))
 
     expect(screen.queryByText('api-setup-models')).not.toBeInTheDocument()

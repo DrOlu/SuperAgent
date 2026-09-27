@@ -1,6 +1,9 @@
 import { and, eq, inArray } from 'drizzle-orm'
 
+import { app } from 'electron'
+
 import { ENDPOINT_TYPE } from '@cherrystudio/provider-registry'
+import { assistantTable } from '@data/db/schemas/assistant'
 import { preferenceTable } from '@data/db/schemas/preference'
 import type { InsertUserModelRow } from '@data/db/schemas/userModel'
 import { userModelTable } from '@data/db/schemas/userModel'
@@ -19,7 +22,8 @@ import {
   CHERRYAI_PROVIDER_ID,
   CHERRYAI_PROVIDER_NAME
 } from '@shared/data/presets/cherryai'
-import { SystemProviderIds } from '@shared/utils/systemProviderId'
+import { getDefaultAssistantNameForLocale } from '@shared/data/presets/defaultAssistant'
+import { isSystemProviderId, SystemProviderIds } from '@shared/utils/systemProviderId'
 import { createUniqueModelId } from '@shared/data/types/model'
 import type { ModelCapability } from '@shared/data/types/model'
 
@@ -36,6 +40,12 @@ const DEFAULT_MODEL_PREFERENCE_SCOPE = 'default' as const
  * installs that still reference it.
  */
 const CHERRYAI_LEGACY_MODEL_IDS = ['qwen'] as const
+/**
+ * v2.2.4 product decision: only these system providers are exposed in the
+ * UI. All other system providers are disabled at startup (and hidden from
+ * the settings list by isProviderSettingsListVisibleProvider).
+ */
+const EXPOSED_SYSTEM_PROVIDER_IDS = new Set<string>([SystemProviderIds.cherryin, SystemProviderIds.ollama])
 export const DEFAULT_MODEL_PREFERENCE_KEYS = [
   'chat.default_model_id',
   'feature.quick_assistant.model_id',
@@ -168,6 +178,8 @@ function ensureDefaultModelPreferencesTx(tx: TxLike): void {
 
 function ensureCherryAiDefaultModelSetupTx(tx: TxLike): void {
   repairLegacyDefaultModelTx(tx)
+  repairLegacyAssistantNameTx(tx)
+  disableNonExposedProvidersTx(tx)
   ensureCherryAiDefaultProviderAndModelTx(tx)
   ensureDefaultModelPreferencesTx(tx)
   repointDeadDefaultModelPreferencesTx(tx)
@@ -217,6 +229,46 @@ function repairLegacyDefaultModelTx(tx: TxLike): void {
         modelId: legacyUnique
       })
     }
+  }
+}
+
+/**
+ * v2.2.4 product decision: disable every system provider that is not
+ * exposed in the UI. Idempotent; never touches custom (non-system)
+ * providers or the exposed set.
+ */
+function disableNonExposedProvidersTx(tx: TxLike): void {
+  const rows = tx
+    .select({ providerId: userProviderTable.providerId, isEnabled: userProviderTable.isEnabled })
+    .from(userProviderTable)
+    .all()
+  for (const row of rows) {
+    if (!row.isEnabled) continue
+    if (!isSystemProviderId(row.providerId)) continue
+    if (EXPOSED_SYSTEM_PROVIDER_IDS.has(row.providerId)) continue
+    tx.update(userProviderTable)
+      .set({ isEnabled: false })
+      .where(eq(userProviderTable.providerId, row.providerId))
+      .run()
+  }
+}
+
+/**
+ * v2.2.4 repair: assistants seeded by the pre-rebrand bootstrap still carry
+ * the name "Cherry Assistant" (or "Cherry 助手" on zh systems). The default
+ * assistant seeder is bootstrap-only, so upgraded installs never self-heal.
+ * Only the SEED names are renamed — user-chosen names are left alone.
+ */
+function repairLegacyAssistantNameTx(tx: TxLike): void {
+  const renamed = tx
+    .update(assistantTable)
+    .set({ name: getDefaultAssistantNameForLocale(app.getPreferredSystemLanguages()[0]) })
+    .where(inArray(assistantTable.name, ['Cherry Assistant', 'Cherry 助手']))
+    .run()
+  if (renamed.changes > 0) {
+    logger.warn('Renamed legacy Cherry Assistant rows to SuperAgent Assistant', {
+      count: renamed.changes
+    })
   }
 }
 
@@ -275,7 +327,8 @@ export class CherryAiDefaultModelSeeder implements ISeeder {
       provider: createCherryAiProviderRow(),
       cloudProvider: createCherryCloudProviderRow(),
       model: createCherryAiDefaultModelRow(),
-      preferences: createDefaultModelPreferenceRows()
+      preferences: createDefaultModelPreferenceRows(),
+      exposedProviders: [...EXPOSED_SYSTEM_PROVIDER_IDS]
     })
   }
 

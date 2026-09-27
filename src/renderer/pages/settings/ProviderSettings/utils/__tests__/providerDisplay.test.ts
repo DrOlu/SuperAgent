@@ -38,8 +38,10 @@ describe('isProviderSettingsListVisibleProvider', () => {
     expect(isProviderSettingsListVisibleProvider(provider('cherryai'))).toBe(false)
   })
 
-  it('keeps a normal provider visible', () => {
-    expect(isProviderSettingsListVisibleProvider(provider('openai'))).toBe(true)
+  it('v2.2.4: hides non-exposed system providers (only SuperAgent + Ollama exposed)', () => {
+    expect(isProviderSettingsListVisibleProvider(provider('openai'))).toBe(false)
+    expect(isProviderSettingsListVisibleProvider(provider('cherryin'))).toBe(true)
+    expect(isProviderSettingsListVisibleProvider(provider('ollama'))).toBe(true)
   })
 })
 

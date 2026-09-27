@@ -74,18 +74,18 @@ describe('ClearCachePopup', () => {
   it('shows five choices with nothing selected by default', async () => {
     render(<ClearCachePopupContainer open resolve={vi.fn()} onClear={vi.fn()} />)
 
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     const checkboxes = screen.getAllByRole('checkbox')
     expect(checkboxes).toHaveLength(5)
     for (const checkbox of checkboxes) {
       expect(checkbox).not.toBeChecked()
     }
-    expect(screen.getByText('应用缓存')).toBeInTheDocument()
-    expect(screen.getByText('网站与小程序数据')).toBeInTheDocument()
-    expect(screen.getByText('v1 版本遗留数据')).toBeInTheDocument()
-    expect(screen.getByText('残留文件与知识库')).toBeInTheDocument()
-    expect(screen.getByText('历史日志')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '清除缓存' })).toBeDisabled()
+    expect(screen.getByText('App cache')).toBeInTheDocument()
+    expect(screen.getByText('Website and mini app data')).toBeInTheDocument()
+    expect(screen.getByText('Leftover data from v1')).toBeInTheDocument()
+    expect(screen.getByText('Leftover files and knowledge bases')).toBeInTheDocument()
+    expect(screen.getByText('Old logs')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear Cache' })).toBeDisabled()
   })
 
   it('hides v1 cleanup and skips its inspection when the persisted v1 state is absent', async () => {
@@ -93,9 +93,9 @@ describe('ClearCachePopup', () => {
 
     render(<ClearCachePopupContainer open resolve={vi.fn()} onClear={vi.fn()} />)
 
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     expect(screen.getAllByRole('checkbox')).toHaveLength(4)
-    expect(screen.queryByText('v1 版本遗留数据')).not.toBeInTheDocument()
+    expect(screen.queryByText('Leftover data from v1')).not.toBeInTheDocument()
     expect(inspectMock).not.toHaveBeenCalledWith('app.cache_cleanup.inspect', { groups: ['legacy_v1'] })
     expect(inspectBrowserMock).not.toHaveBeenCalled()
   })
@@ -113,7 +113,7 @@ describe('ClearCachePopup', () => {
 
     render(<ClearCachePopupContainer open resolve={resolve} onClear={vi.fn()} />)
     await waitFor(() => expect(inspectionSignal).toBeDefined())
-    await user.click(screen.getByRole('button', { name: '取消' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(inspectionSignal?.aborted).toBe(true)
     expect(resolve).toHaveBeenCalledWith(undefined)
@@ -124,10 +124,10 @@ describe('ClearCachePopup', () => {
     render(<ClearCachePopupContainer open resolve={vi.fn()} onClear={vi.fn()} />)
     const checkboxes = screen.getAllByRole('checkbox')
 
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     await user.click(checkboxes[0])
     await user.click(checkboxes[1])
-    expect(screen.getByText('约 3 KB')).toBeInTheDocument()
+    expect(screen.getByText('Approx. 3 KB')).toBeInTheDocument()
   })
 
   it('requires a destructive warning before selecting v1 data', async () => {
@@ -135,7 +135,7 @@ describe('ClearCachePopup', () => {
     confirmMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
     render(<ClearCachePopupContainer open resolve={vi.fn()} onClear={vi.fn()} />)
 
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     const legacyCheckbox = screen.getAllByRole('checkbox')[4]
     await user.click(legacyCheckbox)
 
@@ -143,9 +143,9 @@ describe('ClearCachePopup', () => {
     expect(legacyCheckbox).not.toBeChecked()
     const warning = confirmMock.mock.calls[0][0]
     expect(warning).toMatchObject({
-      title: '确认选择 v1 版本遗留数据？',
-      okText: '仍要选择',
-      cancelText: '取消',
+      title: 'Select leftover v1 data?',
+      okText: 'Select Anyway',
+      cancelText: 'Cancel',
       okButtonProps: { danger: true },
       maskClosable: false,
       closable: false
@@ -185,9 +185,9 @@ describe('ClearCachePopup', () => {
 
     render(<ClearCachePopupContainer open resolve={vi.fn()} onClear={vi.fn()} />)
 
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     await user.click(screen.getAllByRole('checkbox')[0])
-    expect(screen.getAllByText('已统计 1 KB，部分大小未知')).toHaveLength(2)
+    expect(screen.getAllByText('1 KB counted; some sizes are unknown')).toHaveLength(2)
   })
 
   it('closes after a successful cleanup', async () => {
@@ -196,9 +196,9 @@ describe('ClearCachePopup', () => {
     const resolve = vi.fn()
     render(<ClearCachePopupContainer open resolve={resolve} onClear={onClear} />)
 
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     await user.click(screen.getAllByRole('checkbox')[0])
-    await user.click(screen.getByRole('button', { name: '清除缓存' }))
+    await user.click(screen.getByRole('button', { name: 'Clear Cache' }))
 
     await waitFor(() => expect(resolve).toHaveBeenCalledWith(undefined))
     expect(onClear).toHaveBeenCalledWith(['normal_cache'])
@@ -214,9 +214,9 @@ describe('ClearCachePopup', () => {
     const resolve = vi.fn()
     render(<ClearCachePopupContainer open resolve={resolve} onClear={onClear} />)
 
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     await user.click(screen.getAllByRole('checkbox')[0])
-    const confirmButton = screen.getByRole('button', { name: '清除缓存' })
+    const confirmButton = screen.getByRole('button', { name: 'Clear Cache' })
     await user.click(confirmButton)
 
     await waitFor(() => expect(onClear).toHaveBeenCalledWith(['normal_cache']))
@@ -229,7 +229,7 @@ describe('ClearCachePopup', () => {
     finishCleanup?.(false)
 
     await waitFor(() => expect(inspectMock).toHaveBeenCalledTimes(10))
-    await waitFor(() => expect(screen.queryAllByText('计算中…')).toHaveLength(0))
+    await waitFor(() => expect(screen.queryAllByText('Calculating…')).toHaveLength(0))
     expect(resolve).not.toHaveBeenCalled()
     expect(confirmButton).toBeEnabled()
   })

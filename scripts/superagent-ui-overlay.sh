@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SuperAgent UI overlay — re-applies the brand theme after an upstream sync.
 #
-# The sync pipeline replaces the whole tree with fresh Cherry Studio (+rebrand),
+# The sync pipeline replaces the whole tree with fresh SuperAgent (+rebrand),
 # so every SuperAgent UI enhancement must be re-planted here. Idempotent:
 # each edit is skipped gracefully when its target pattern is absent (e.g.
 # upstream refactored the file) — a warning is printed instead of failing.

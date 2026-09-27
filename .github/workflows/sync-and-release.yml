@@ -139,7 +139,8 @@ jobs:
           cp /tmp/keep/.github/workflows/*.yml .github/workflows/
           cp /tmp/keep/scripts/rebrand.py scripts/rebrand.py
           cp /tmp/keep/scripts/generate_icons.sh scripts/generate_icons.sh
-          chmod +x scripts/generate_icons.sh
+          cp /tmp/keep/scripts/superagent-ui-overlay.sh scripts/superagent-ui-overlay.sh
+          chmod +x scripts/generate_icons.sh scripts/superagent-ui-overlay.sh
           cp /tmp/keep/superagent_logo.svg ./superagent_logo.svg
           # Restore the neuralOS MCP server + its registration patch carrier is
           # rebrand.py (preserved above) — plant the module back after the wipe

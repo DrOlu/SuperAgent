@@ -74,6 +74,8 @@ jobs:
           done
           [ -f packages/ui/scripts/__tests__/brand-contract.test.ts ] && \
             cp packages/ui/scripts/__tests__/brand-contract.test.ts /tmp/seed/ui/brand-contract/
+          [ -f src/renderer/i18n/__tests__/brandSweep.test.ts ] && \
+            cp src/renderer/i18n/__tests__/brandSweep.test.ts /tmp/seed/ui/brand-sweep/
           [ -f src/renderer/assets/styles/__tests__/brandGradient.test.ts ] && \
             cp src/renderer/assets/styles/__tests__/brandGradient.test.ts /tmp/seed/ui/brand-gradient/
 
@@ -109,6 +111,9 @@ jobs:
           done
           [ -f /tmp/seed/ui/brand-contract/brand-contract.test.ts ] && \
             cp /tmp/seed/ui/brand-contract/brand-contract.test.ts packages/ui/scripts/__tests__/
+          mkdir -p src/renderer/i18n/__tests__
+          [ -f /tmp/seed/ui/brand-sweep/brandSweep.test.ts ] && \
+            cp /tmp/seed/ui/brand-sweep/brandSweep.test.ts src/renderer/i18n/__tests__/
           [ -f /tmp/seed/ui/brand-gradient/brandGradient.test.ts ] && \
             cp /tmp/seed/ui/brand-gradient/brandGradient.test.ts src/renderer/assets/styles/__tests__/
           # SuperAgent provider preset + seeder (403 fix carriers)

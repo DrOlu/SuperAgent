@@ -108,6 +108,8 @@ jobs:
             cp packages/ui/scripts/__tests__/brand-contract.test.ts /tmp/keep/ui/brand-contract/
           [ -f src/renderer/assets/styles/__tests__/brandGradient.test.ts ] && \
             cp src/renderer/assets/styles/__tests__/brandGradient.test.ts /tmp/keep/ui/brand-gradient/
+          [ -f src/renderer/i18n/__tests__/brandSweep.test.ts ] && \
+            cp src/renderer/i18n/__tests__/brandSweep.test.ts /tmp/keep/ui/brand-sweep/
           cp superagent_logo.svg /tmp/keep/
           cp -a .github/workflows/*.yml /tmp/keep/.github/workflows/ 2>/dev/null || true
           mkdir -p /tmp/keep/cherryin-oauth-test /tmp/keep/neuralos-module /tmp/keep/neuralos-test
@@ -153,6 +155,8 @@ jobs:
           mkdir -p src/shared/data/presets src/main/data/db/seeding/seeders
           [ -f /tmp/keep/providers/cherryai.ts ] && cp /tmp/keep/providers/cherryai.ts src/shared/data/presets/cherryai.ts
           [ -f /tmp/keep/providers/cherryaiDefaultModelSeeder.ts ] && cp /tmp/keep/providers/cherryaiDefaultModelSeeder.ts src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts
+          mkdir -p src/renderer/i18n/__tests__
+          [ -f /tmp/keep/ui/brand-sweep/brandSweep.test.ts ] && cp /tmp/keep/ui/brand-sweep/brandSweep.test.ts src/renderer/i18n/__tests__/
           chmod +x scripts/generate_icons.sh scripts/superagent-ui-overlay.sh
           cp /tmp/keep/superagent_logo.svg ./superagent_logo.svg
           # Restore the neuralOS MCP server + its registration patch carrier is

@@ -29,6 +29,12 @@ if [ -f "$KEEP/brand-contract/brand-contract.test.ts" ]; then
 else
   warn "brand-contract test missing"
 fi
+mkdir -p src/renderer/assets/styles/__tests__
+if [ -f "$KEEP/brand-gradient/brandGradient.test.ts" ]; then
+  cp "$KEEP/brand-gradient/brandGradient.test.ts" src/renderer/assets/styles/__tests__/
+else
+  warn "brandGradient test missing"
+fi
 
 apply() { # apply <file> <old> <new> <label>
   local file="$1" old="$2" new="$3" label="$4"

@@ -91,7 +91,7 @@ jobs:
           cp -a scripts/generate_icons.sh /tmp/keep/scripts/
           cp -a scripts/superagent-ui-overlay.sh /tmp/keep/scripts/
           # SuperAgent UI theme (re-applied by the overlay script after the wipe)
-          mkdir -p /tmp/keep/ui/gellix-fonts /tmp/keep/ui/styles /tmp/keep/ui/brand-contract
+          mkdir -p /tmp/keep/ui/gellix-fonts /tmp/keep/ui/styles /tmp/keep/ui/brand-contract /tmp/keep/ui/brand-gradient
           if [ -d src/renderer/assets/fonts/gellix ]; then
             cp -a src/renderer/assets/fonts/gellix/. /tmp/keep/ui/gellix-fonts/
           fi
@@ -100,6 +100,8 @@ jobs:
           done
           [ -f packages/ui/scripts/__tests__/brand-contract.test.ts ] && \
             cp packages/ui/scripts/__tests__/brand-contract.test.ts /tmp/keep/ui/brand-contract/
+          [ -f src/renderer/assets/styles/__tests__/brandGradient.test.ts ] && \
+            cp src/renderer/assets/styles/__tests__/brandGradient.test.ts /tmp/keep/ui/brand-gradient/
           cp superagent_logo.svg /tmp/keep/
           cp -a .github/workflows/*.yml /tmp/keep/.github/workflows/ 2>/dev/null || true
           mkdir -p /tmp/keep/cherryin-oauth-test /tmp/keep/neuralos-module /tmp/keep/neuralos-test

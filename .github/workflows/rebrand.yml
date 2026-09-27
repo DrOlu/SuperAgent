@@ -62,7 +62,7 @@ jobs:
             cp resources/neuralos/README.md /tmp/seed/neuralos-resources/
           fi
           # SuperAgent UI theme (re-applied by the overlay script after the wipe)
-          mkdir -p /tmp/seed/ui/gellix-fonts /tmp/seed/ui/styles /tmp/seed/ui/brand-contract
+          mkdir -p /tmp/seed/ui/gellix-fonts /tmp/seed/ui/styles /tmp/seed/ui/brand-contract /tmp/seed/ui/brand-gradient
           if [ -d src/renderer/assets/fonts/gellix ]; then
             cp -a src/renderer/assets/fonts/gellix/. /tmp/seed/ui/gellix-fonts/
           fi
@@ -71,6 +71,8 @@ jobs:
           done
           [ -f packages/ui/scripts/__tests__/brand-contract.test.ts ] && \
             cp packages/ui/scripts/__tests__/brand-contract.test.ts /tmp/seed/ui/brand-contract/
+          [ -f src/renderer/assets/styles/__tests__/brandGradient.test.ts ] && \
+            cp src/renderer/assets/styles/__tests__/brandGradient.test.ts /tmp/seed/ui/brand-gradient/
 
       - name: Clone Cherry Studio
         run: |
@@ -104,6 +106,8 @@ jobs:
           done
           [ -f /tmp/seed/ui/brand-contract/brand-contract.test.ts ] && \
             cp /tmp/seed/ui/brand-contract/brand-contract.test.ts packages/ui/scripts/__tests__/
+          [ -f /tmp/seed/ui/brand-gradient/brandGradient.test.ts ] && \
+            cp /tmp/seed/ui/brand-gradient/brandGradient.test.ts src/renderer/assets/styles/__tests__/
           # Restore the neuralOS MCP server (SuperAgent-native module; rebrand.py
           # re-applies its registration patches into the upstream files)
           mkdir -p src/main/ai/mcp/servers/neuralos src/main/ai/mcp/servers/__tests__

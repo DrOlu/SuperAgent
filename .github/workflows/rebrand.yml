@@ -125,6 +125,9 @@ jobs:
       - name: Run rebrand script
         run: python3 scripts/rebrand.py .
 
+      - name: Brand sweep locales (values only)
+        run: python3 scripts/superagent-brand-sweep.py .
+
       - name: Re-apply SuperAgent UI theme (overlay)
         run: bash scripts/superagent-ui-overlay.sh /tmp/seed/ui
 

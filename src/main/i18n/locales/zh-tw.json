@@ -10,7 +10,7 @@
   "agent.session.workspace_status.inaccessible": "{{path}}",
   "agent.session.workspace_status.missing": "{{path}}",
   "agent.session.workspace_status.not_directory": "{{path}}",
-  "apiGateway.docs.description": " OpenAIAnthropic  Gemini  SuperAgent HTTP API Cherry ",
+  "apiGateway.docs.description": " OpenAIAnthropic  Gemini  SuperAgent HTTP API SuperAgent ",
   "apiGateway.docs.language_switcher_label": "",
   "apiGateway.docs.operations.chat_completions": " OpenAI Chat Completions  `stream: true` ",
   "apiGateway.docs.operations.count_tokens": " Anthropic  Token ",

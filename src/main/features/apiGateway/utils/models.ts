@@ -96,7 +96,7 @@ export function resolveGatewayModelAddress(modelAddress: string, allowAgentOnly 
   const providerId = modelAddress.slice(0, sepIdx)
   const apiModelId = modelAddress.slice(sepIdx + 1)
   if (isManagedCherryAiDefaultModel(providerId, apiModelId)) {
-    throw new Error('CherryAI managed default model is not available through the API gateway')
+    throw new Error('SuperAgent managed default model is not available through the API gateway')
   }
 
   let provider: Provider

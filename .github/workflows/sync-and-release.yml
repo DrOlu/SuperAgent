@@ -90,6 +90,7 @@ jobs:
           cp -a scripts/rebrand.py /tmp/keep/scripts/
           cp -a scripts/generate_icons.sh /tmp/keep/scripts/
           cp -a scripts/superagent-ui-overlay.sh /tmp/keep/scripts/
+          cp -a scripts/superagent-brand-sweep.py /tmp/keep/scripts/
           # SuperAgent UI theme (re-applied by the overlay script after the wipe)
           mkdir -p /tmp/keep/ui/gellix-fonts /tmp/keep/ui/styles /tmp/keep/ui/brand-contract /tmp/keep/ui/brand-gradient
           if [ -d src/renderer/assets/fonts/gellix ]; then
@@ -142,6 +143,7 @@ jobs:
           cp /tmp/keep/scripts/rebrand.py scripts/rebrand.py
           cp /tmp/keep/scripts/generate_icons.sh scripts/generate_icons.sh
           cp /tmp/keep/scripts/superagent-ui-overlay.sh scripts/superagent-ui-overlay.sh
+          cp /tmp/keep/scripts/superagent-brand-sweep.py scripts/superagent-brand-sweep.py
           chmod +x scripts/generate_icons.sh scripts/superagent-ui-overlay.sh
           cp /tmp/keep/superagent_logo.svg ./superagent_logo.svg
           # Restore the neuralOS MCP server + its registration patch carrier is
@@ -171,6 +173,10 @@ jobs:
       - name: Run rebrand
         if: steps.check.outputs.do_release == 'true'
         run: python3 scripts/rebrand.py .
+
+      - name: Brand sweep locales (values only)
+        if: steps.check.outputs.do_release == 'true'
+        run: python3 scripts/superagent-brand-sweep.py .
 
       - name: Re-apply SuperAgent UI theme (overlay)
         if: steps.check.outputs.do_release == 'true'

@@ -46,6 +46,13 @@ const CHERRYAI_LEGACY_MODEL_IDS = ['qwen'] as const
  * the settings list by isProviderSettingsListVisibleProvider).
  */
 const EXPOSED_SYSTEM_PROVIDER_IDS = new Set<string>([SystemProviderIds.cherryin, SystemProviderIds.ollama])
+/**
+ * v2.2.6 product decision: third-party CLI/agent backends and the retired
+ * Jalapeno Cloud gateway are hard-disabled at startup. They are NOT system
+ * providers (see CLI_ONLY_PROVIDER_IDS), so the system-provider guard below
+ * would otherwise leave them enabled and visible in the Model Provider list.
+ */
+const DISABLED_PROVIDER_IDS = new Set<string>(['claude-code', 'openai-codex', 'grok-cli', 'jalapeno-cloud'])
 export const DEFAULT_MODEL_PREFERENCE_KEYS = [
   'chat.default_model_id',
   'feature.quick_assistant.model_id',
@@ -235,7 +242,9 @@ function repairLegacyDefaultModelTx(tx: TxLike): void {
 /**
  * v2.2.4 product decision: disable every system provider that is not
  * exposed in the UI. Idempotent; never touches custom (non-system)
- * providers or the exposed set.
+ * providers or the exposed set. v2.2.6 additionally disables the CLI/agent
+ * backends and retired gateways listed in DISABLED_PROVIDER_IDS regardless
+ * of whether they are classified as system providers.
  */
 function disableNonExposedProvidersTx(tx: TxLike): void {
   const rows = tx
@@ -244,6 +253,13 @@ function disableNonExposedProvidersTx(tx: TxLike): void {
     .all()
   for (const row of rows) {
     if (!row.isEnabled) continue
+    if (DISABLED_PROVIDER_IDS.has(row.providerId)) {
+      tx.update(userProviderTable)
+        .set({ isEnabled: false })
+        .where(eq(userProviderTable.providerId, row.providerId))
+        .run()
+      continue
+    }
     if (!isSystemProviderId(row.providerId)) continue
     if (EXPOSED_SYSTEM_PROVIDER_IDS.has(row.providerId)) continue
     tx.update(userProviderTable)
@@ -257,16 +273,26 @@ function disableNonExposedProvidersTx(tx: TxLike): void {
  * v2.2.4 repair: assistants seeded by the pre-rebrand bootstrap still carry
  * the name "SuperAgent Assistant" (or "SuperAgent 助手" on zh systems). The default
  * assistant seeder is bootstrap-only, so upgraded installs never self-heal.
- * Only the SEED names are renamed — user-chosen names are left alone.
+ * v2.2.6 also repairs the ORIGINAL upstream seed names — "Cherry Assistant" /
+ * "Cherry 助手" — which pre-rebrand installs persisted before the rebrand
+ * mapping existed. Only the SEED names are renamed — user-chosen names are
+ * left alone.
  */
 function repairLegacyAssistantNameTx(tx: TxLike): void {
   const renamed = tx
     .update(assistantTable)
     .set({ name: getDefaultAssistantNameForLocale(app.getPreferredSystemLanguages()[0]) })
-    .where(inArray(assistantTable.name, ['SuperAgent Assistant', 'SuperAgent 助手']))
+    .where(
+      inArray(assistantTable.name, [
+        'Cherry Assistant',
+        'Cherry 助手',
+        'SuperAgent Assistant',
+        'SuperAgent 助手'
+      ])
+    )
     .run()
   if (renamed.changes > 0) {
-    logger.warn('Renamed legacy SuperAgent Assistant rows to SuperAgent Assistant', {
+    logger.warn('Renamed legacy assistant rows to the SuperAgent default name', {
       count: renamed.changes
     })
   }
@@ -328,7 +354,8 @@ export class CherryAiDefaultModelSeeder implements ISeeder {
       cloudProvider: createCherryCloudProviderRow(),
       model: createCherryAiDefaultModelRow(),
       preferences: createDefaultModelPreferenceRows(),
-      exposedProviders: [...EXPOSED_SYSTEM_PROVIDER_IDS]
+      exposedProviders: [...EXPOSED_SYSTEM_PROVIDER_IDS],
+      disabledProviders: [...DISABLED_PROVIDER_IDS]
     })
   }
 

@@ -66,6 +66,27 @@ CJK_RE = re.compile(
     "]"
 )
 
+# ---------------------------------------------------------------------------
+# v2.2.6 product decision: providers that must NEVER appear in the Model
+# Provider (Settings → Providers) list. These are third-party CLI/agent auth
+# backends (excluded from SystemProviderId via CLI_ONLY_PROVIDER_IDS) plus the
+# Jalapeno Cloud gateway that upstream added and then reverted. Because they
+# are not "system providers", the v2.2.4 exposure policy alone does not hide
+# them — this explicit deny-list is applied here so it survives every upstream
+# sync (retiredProviders.ts is regenerated from upstream on each run).
+# ---------------------------------------------------------------------------
+DISABLED_PROVIDER_IDS = ["claude-code", "openai-codex", "grok-cli", "jalapeno-cloud"]
+DISABLED_PROVIDER_MARKER = "const DISABLED_PROVIDER_IDS = new Set<string>("
+DISABLED_PROVIDER_BLOCK = (
+    "/**\n"
+    " * v2.2.6: third-party CLI/agent backends and the retired Jalapeno Cloud\n"
+    " * gateway are never exposed in Model Provider settings.\n"
+    " */\n"
+    "const DISABLED_PROVIDER_IDS = new Set<string>([\n"
+    + "".join("  '%s',\n" % pid for pid in DISABLED_PROVIDER_IDS)
+    + "])"
+)
+
 TEXT_EXT = {
     ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts",
     ".json", ".yml", ".yaml", ".md", ".markdown", ".html", ".htm",
@@ -790,11 +811,14 @@ export class CherrySupportSeeder implements ISeeder {
         patches.append("AgentService.ts → exclude cherry-support from listAgents/search")
 
     # 4c. Model Provider Settings (and onboarding + model selector, which share
-    #     this filter) must show ONLY the SuperAgent provider.
+    #     this filter) must show ONLY the SuperAgent provider, and must never
+    #     expose the CLI/agent backends or the retired Jalapeno Cloud gateway.
     prov_vis = os.path.join(ROOT, "src/renderer/utils/providerSettings.ts")
     if os.path.exists(prov_vis):
         with open(prov_vis, "r", encoding="utf-8") as f:
             t = f.read()
+        # Legacy structure (upstream before the v2.2.x provider-exposure
+        # refactor): restrict the filter to the rebranded SuperAgent provider.
         # cherryin check LAST: a leading `id === 'cherryin'` narrows the
         # literal-union type, making the later `!== local-embedding`
         # comparison a TS2367 no-overlap error. This patch once ran as a raw
@@ -806,15 +830,48 @@ export class CherrySupportSeeder implements ISeeder {
             t,
             count=1,
         )
-        if " && provider.id === 'cherryin'" not in t:
+        if " && provider.id === 'cherryin'" not in t and "EXPOSED_SYSTEM_PROVIDER_IDS" not in t:
             t = t.replace(
                 "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID",
                 "return !isCherryAIProvider(provider) && provider.id !== LOCAL_EMBEDDING_PROVIDER_ID && provider.id === 'cherryin'",
                 1,
             )
+        # v2.2.6: never expose the disabled provider ids. Insert the deny-list
+        # constant + the early guard once, keyed off the constant's declaration
+        # so re-running the script on an already-patched file is a no-op.
+        if DISABLED_PROVIDER_MARKER not in t:
+            needle = "export function isProviderSettingsListVisibleProvider(provider: Provider): boolean {"
+            if needle in t:
+                t = t.replace(needle, DISABLED_PROVIDER_BLOCK + "\n\n" + needle, 1)
+                t = t.replace(
+                    needle,
+                    needle
+                    + "\n  // Explicitly disabled providers (CLI/agent backends + retired gateways).\n  if (DISABLED_PROVIDER_IDS.has(provider.id)) {\n    return false\n  }",
+                    1,
+                )
         with open(prov_vis, "w", encoding="utf-8") as f:
             f.write(t)
-        patches.append("providerSettings.ts → only SuperAgent provider visible")
+        patches.append("providerSettings.ts → only SuperAgent provider visible; CLI/agent + Jalapeno disabled")
+
+    # 4d. Retire the CLI/agent backends and the removed Jalapeno Cloud gateway
+    #     so main-side metadata hides them everywhere (model selector,
+    #     migration, settings). Upstream regenerates this file on every sync,
+    #     so the patch must live in this preserved script.
+    retired = os.path.join(ROOT, "src/main/data/retiredProviders.ts")
+    if os.path.exists(retired):
+        with open(retired, "r", encoding="utf-8") as f:
+            t = f.read()
+        m = re.search(r"const RETIRED_PROVIDER_IDS = new Set\(\[([^\]]*)\]\)", t)
+        if m:
+            existing = [s.strip().strip("'\"") for s in m.group(1).split(",") if s.strip()]
+            for pid in DISABLED_PROVIDER_IDS:
+                if pid not in existing:
+                    existing.append(pid)
+            rendered = ", ".join("'%s'" % p for p in existing)
+            t = t[: m.start()] + ("const RETIRED_PROVIDER_IDS = new Set([%s])" % rendered) + t[m.end():]
+            with open(retired, "w", encoding="utf-8") as f:
+                f.write(t)
+            patches.append("retiredProviders.ts → disabled " + ", ".join(DISABLED_PROVIDER_IDS))
 
     # 5. Update feed: GitHub behind the scenes, visible → superagent.ng/downloads.html
     yml = os.path.join(ROOT, "electron-builder.yml")

@@ -273,23 +273,27 @@ function disableNonExposedProvidersTx(tx: TxLike): void {
  * v2.2.4 repair: assistants seeded by the pre-rebrand bootstrap still carry
  * the name "SuperAgent Assistant" (or "SuperAgent 助手" on zh systems). The default
  * assistant seeder is bootstrap-only, so upgraded installs never self-heal.
- * v2.2.6 also repairs the ORIGINAL upstream seed names — "SuperAgent Assistant" /
- * "SuperAgent 助手" — which pre-rebrand installs persisted before the rebrand
- * mapping existed. Only the SEED names are renamed — user-chosen names are
- * left alone.
+ * v2.2.6 also repairs the ORIGINAL upstream seed names which pre-rebrand
+ * installs persisted before the rebrand mapping existed. Only the SEED names
+ * are renamed — user-chosen names are left alone.
+ *
+ * The legacy "Cherry" literals are split with string concatenation on
+ * purpose: the rebrand token pass in scripts/rebrand.py rewrites every
+ * contiguous legacy-name occurrence in the tree, so a literal here would be
+ * silently turned into the NEW name and this repair would become a no-op.
  */
+const LEGACY_ASSISTANT_SEED_NAMES = [
+  'Cherry' + ' Assistant',
+  'Cherry' + ' 助手',
+  'SuperAgent Assistant',
+  'SuperAgent 助手'
+]
+
 function repairLegacyAssistantNameTx(tx: TxLike): void {
   const renamed = tx
     .update(assistantTable)
     .set({ name: getDefaultAssistantNameForLocale(app.getPreferredSystemLanguages()[0]) })
-    .where(
-      inArray(assistantTable.name, [
-        'SuperAgent Assistant',
-        'SuperAgent 助手',
-        'SuperAgent Assistant',
-        'SuperAgent 助手'
-      ])
-    )
+    .where(inArray(assistantTable.name, LEGACY_ASSISTANT_SEED_NAMES))
     .run()
   if (renamed.changes > 0) {
     logger.warn('Renamed legacy assistant rows to the SuperAgent default name', {

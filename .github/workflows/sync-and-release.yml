@@ -96,6 +96,7 @@ jobs:
           mkdir -p /tmp/keep/providers
           [ -f src/shared/data/presets/cherryai.ts ] && cp src/shared/data/presets/cherryai.ts /tmp/keep/providers/
           [ -f src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts ] && cp src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts /tmp/keep/providers/
+          [ -f src/renderer/utils/providerSettings.ts ] && cp src/renderer/utils/providerSettings.ts /tmp/keep/providers/
           # SuperAgent UI theme (re-applied by the overlay script after the wipe)
           mkdir -p /tmp/keep/ui/gellix-fonts /tmp/keep/ui/styles /tmp/keep/ui/brand-contract /tmp/keep/ui/brand-gradient /tmp/keep/ui/brand-sweep
           if [ -d src/renderer/assets/fonts/gellix ]; then
@@ -155,6 +156,7 @@ jobs:
           mkdir -p src/shared/data/presets src/main/data/db/seeding/seeders
           [ -f /tmp/keep/providers/cherryai.ts ] && cp /tmp/keep/providers/cherryai.ts src/shared/data/presets/cherryai.ts
           [ -f /tmp/keep/providers/cherryaiDefaultModelSeeder.ts ] && cp /tmp/keep/providers/cherryaiDefaultModelSeeder.ts src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts
+          [ -f /tmp/keep/providers/providerSettings.ts ] && cp /tmp/keep/providers/providerSettings.ts src/renderer/utils/providerSettings.ts
           mkdir -p src/renderer/i18n/__tests__
           [ -f /tmp/keep/ui/brand-sweep/brandSweep.test.ts ] && cp /tmp/keep/ui/brand-sweep/brandSweep.test.ts src/renderer/i18n/__tests__/
           chmod +x scripts/generate_icons.sh scripts/superagent-ui-overlay.sh

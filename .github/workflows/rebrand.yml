@@ -67,6 +67,7 @@ jobs:
           mkdir -p /tmp/seed/providers
           [ -f src/shared/data/presets/cherryai.ts ] && cp src/shared/data/presets/cherryai.ts /tmp/seed/providers/
           [ -f src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts ] && cp src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts /tmp/seed/providers/
+          [ -f src/renderer/utils/providerSettings.ts ] && cp src/renderer/utils/providerSettings.ts /tmp/seed/providers/
           if [ -d src/renderer/assets/fonts/gellix ]; then
             cp -a src/renderer/assets/fonts/gellix/. /tmp/seed/ui/gellix-fonts/
           fi
@@ -121,6 +122,7 @@ jobs:
           mkdir -p src/shared/data/presets src/main/data/db/seeding/seeders
           [ -f /tmp/seed/providers/cherryai.ts ] && cp /tmp/seed/providers/cherryai.ts src/shared/data/presets/cherryai.ts
           [ -f /tmp/seed/providers/cherryaiDefaultModelSeeder.ts ] && cp /tmp/seed/providers/cherryaiDefaultModelSeeder.ts src/main/data/db/seeding/seeders/cherryaiDefaultModelSeeder.ts
+          [ -f /tmp/seed/providers/providerSettings.ts ] && cp /tmp/seed/providers/providerSettings.ts src/renderer/utils/providerSettings.ts
           # Restore the neuralOS MCP server (SuperAgent-native module; rebrand.py
           # re-applies its registration patches into the upstream files)
           mkdir -p src/main/ai/mcp/servers/neuralos src/main/ai/mcp/servers/__tests__

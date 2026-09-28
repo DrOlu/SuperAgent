@@ -273,8 +273,8 @@ function disableNonExposedProvidersTx(tx: TxLike): void {
  * v2.2.4 repair: assistants seeded by the pre-rebrand bootstrap still carry
  * the name "SuperAgent Assistant" (or "SuperAgent 助手" on zh systems). The default
  * assistant seeder is bootstrap-only, so upgraded installs never self-heal.
- * v2.2.6 also repairs the ORIGINAL upstream seed names — "Cherry Assistant" /
- * "Cherry 助手" — which pre-rebrand installs persisted before the rebrand
+ * v2.2.6 also repairs the ORIGINAL upstream seed names — "SuperAgent Assistant" /
+ * "SuperAgent 助手" — which pre-rebrand installs persisted before the rebrand
  * mapping existed. Only the SEED names are renamed — user-chosen names are
  * left alone.
  */
@@ -284,8 +284,8 @@ function repairLegacyAssistantNameTx(tx: TxLike): void {
     .set({ name: getDefaultAssistantNameForLocale(app.getPreferredSystemLanguages()[0]) })
     .where(
       inArray(assistantTable.name, [
-        'Cherry Assistant',
-        'Cherry 助手',
+        'SuperAgent Assistant',
+        'SuperAgent 助手',
         'SuperAgent Assistant',
         'SuperAgent 助手'
       ])

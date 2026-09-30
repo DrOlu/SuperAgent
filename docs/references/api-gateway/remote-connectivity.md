@@ -22,7 +22,7 @@ sources:
 ## 
 
 -  `RemoteAdvertisement`  Bonjour  `_cherry-remote._tcp`TXT 
-  SRV  Gateway  IPv4 listener Gateway  owner lifecycle 
+  SRV  Gateway  IPv4 / IPv6 listeners Gateway  owner lifecycle 
 -  API 
   
 -  Expo  ResolverManager  15 socket

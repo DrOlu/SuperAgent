@@ -5531,6 +5531,7 @@
   "settings.tool.websearch.model_tools_preferred.description": " URL ",
   "settings.tool.websearch.model_tools_preferred.label": " Web ",
   "settings.tool.websearch.provider_description.bocha": " AI  API",
+  "settings.tool.websearch.provider_description.crawl4ai": " Crawl4AI  Markdown ",
   "settings.tool.websearch.provider_description.exa": " AI  API",
   "settings.tool.websearch.provider_description.exa_mcp": " Exa MCP Server  Exa  Agent ",
   "settings.tool.websearch.provider_description.fetch": " URL  URL ",

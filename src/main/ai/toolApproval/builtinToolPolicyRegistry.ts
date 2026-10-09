@@ -123,6 +123,7 @@ const BUILTIN_TOOL_POLICIES = {
   neuralosAsk: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_ask', 'auto'),
   neuralosGraph: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_graph', 'auto'),
   neuralosAdmin: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_admin', 'required', 'enforce'),
+  neuralosFactory: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_factory', 'auto'),
 
   // The doctor turn is headless; writes are gated by DoctorAgentService proposals, not by approval.
   doctorSession: tool(CHERRY_MCP_SERVER.DOCTOR, 'session', 'auto'),

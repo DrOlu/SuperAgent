@@ -1216,7 +1216,7 @@ def apply_neuralos_integration():
             "    shouldConfig: true,\n"
             "    env: {\n"
             "      NEURALOS_INSTANCES_DIR: '',\n"
-            "      NEURALOS_PYTHON: 'python3'\n"
+            "      NEURALOS_PYTHON: ''\n"
             "    },\n"
             "    provider: 'CherryAI',\n"
             "    installSource: 'builtin',\n"

@@ -36,6 +36,11 @@ function envValue(envs: Record<string, string> | undefined, key: string, fallbac
   return fallback
 }
 
+/** Conventional interpreter name per platform: `python` on Windows, `python3` elsewhere. */
+export function defaultPythonBin(platform: NodeJS.Platform): string {
+  return platform === 'win32' ? 'python' : 'python3'
+}
+
 export function defaultDeps(envs?: Record<string, string>): NeuralosDeps {
   return {
     execFile: (cmd, args, env) =>
@@ -56,7 +61,7 @@ export function defaultDeps(envs?: Record<string, string>): NeuralosDeps {
     instancesRoot: envValue(envs, 'NEURALOS_INSTANCES_DIR') ?? path.join(homedir(), 'neuralos-instances'),
     engineBin: envValue(envs, 'NEURALOS_ENGINE_BIN'),
     engineWeights: envValue(envs, 'NEURALOS_ENGINE_WEIGHTS'),
-    pythonBin: envValue(envs, 'NEURALOS_PYTHON', 'python3') as string,
+    pythonBin: envValue(envs, 'NEURALOS_PYTHON', defaultPythonBin(process.platform)) as string,
     docsDir: envValue(envs, 'NEURALOS_DOCS_DIR'),
     scriptsDir: envValue(envs, 'NEURALOS_SCRIPTS_DIR')
   }

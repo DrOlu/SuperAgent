@@ -47,6 +47,7 @@ const {
   bundledEngineCandidates,
   bundledEngineName,
   defaultDeps,
+  defaultPythonBin,
   engineSelect,
   executeProbe,
   graphProbe,
@@ -311,6 +312,25 @@ describe('defaultDeps env precedence', () => {
     const deps = defaultDeps({ NEURALOS_INSTANCES_DIR: '/custom/instances' })
     expect(deps.instancesRoot).toBe('/custom/instances')
     expect(deps.pythonBin).toBe(process.env.NEURALOS_PYTHON || 'python3')
+  })
+})
+
+describe('defaultPythonBin', () => {
+  it('names the conventional interpreter per platform', () => {
+    expect(defaultPythonBin('win32')).toBe('python')
+    expect(defaultPythonBin('darwin')).toBe('python3')
+    expect(defaultPythonBin('linux')).toBe('python3')
+  })
+
+  it('applies the platform default when neither server nor process env configures python', () => {
+    const previous = process.env.NEURALOS_PYTHON
+    delete process.env.NEURALOS_PYTHON
+    try {
+      const deps = defaultDeps({ NEURALOS_INSTANCES_DIR: '/custom/instances' })
+      expect(deps.pythonBin).toBe(defaultPythonBin(process.platform))
+    } finally {
+      if (previous !== undefined) process.env.NEURALOS_PYTHON = previous
+    }
   })
 })
 

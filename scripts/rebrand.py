@@ -1104,7 +1104,12 @@ def apply_neuralos_integration():
                 "    }\n"
                 "    case BuiltinMcpServerNames.neuralos: {\n"
                 "      const { NeuralosServer } = await import('./neuralos/NeuralosServer')\n"
-                "      return statelessEndpoint(() => new NeuralosServer(undefined, envs).mcpServer)\n"
+                "      // SDK-generation McpServer bridged to the wrapped protocol type\n"
+                "      // (@modelcontextprotocol/server adds internal tool-scope fields);\n"
+                "      // only the transport surface (connect/close) crosses here.\n"
+                "      return statelessEndpoint(\n"
+                "        () => new NeuralosServer(undefined, envs).mcpServer as unknown as McpProtocolServer\n"
+                "      )\n"
                 "    }\n"
                 "    default:\n"
                 "      throw new Error(`Unknown in-memory MCP server: ${name}`)",
@@ -1115,19 +1120,6 @@ def apply_neuralos_integration():
                 "    BuiltinMcpServerNames.neuralos\n  ].some((builtin) => builtin === name)",
             ),
         ],
-    )
-
-    # 2c. align NeuralosServer with the wrapped protocol package. The factory
-    #     (and memory.ts) use @modelcontextprotocol/server's McpServer, which
-    #     is the SDK class plus tool-scope bookkeeping (_toolInputSchemaJson,
-    #     toolInputSchemaJson, resolveScopeChallenge). Importing the SDK class
-    #     directly made the endpoint assignment a TS2739 missing-props error.
-    patch_file(
-        "src/main/ai/mcp/servers/neuralos/NeuralosServer.ts",
-        [(
-            "import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'",
-            "import { McpServer } from '@modelcontextprotocol/server'",
-        )],
     )
 
     # 2b. factory tests — extend upstream's factory.test.ts with the

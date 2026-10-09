@@ -1197,7 +1197,8 @@ def apply_neuralos_integration():
                 "  neuralosListInstances: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_list_instances', 'auto'),\n"
                 "  neuralosAsk: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_ask', 'auto'),\n"
                 "  neuralosGraph: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_graph', 'auto'),\n"
-                "  neuralosAdmin: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_admin', 'required', 'enforce')",
+                "  neuralosAdmin: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_admin', 'required', 'enforce'),\n"
+                "  neuralosFactory: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_factory', 'auto')",
             ),
         ],
     )
@@ -1341,6 +1342,11 @@ def apply_neuralos_integration():
             "src/main/ai/toolApproval/builtinToolPolicyRegistry.ts",
             "NEURALOS: 'neuralos'",
             "builtin tool policies have no neuralos entries",
+        ),
+        (
+            "src/main/ai/toolApproval/builtinToolPolicyRegistry.ts",
+            "neuralos_factory",
+            "builtin tool policies have no neuralos_factory entry",
         ),
     ]
     failures = []

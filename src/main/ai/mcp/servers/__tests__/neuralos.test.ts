@@ -17,6 +17,7 @@ const chmodMock = vi.fn(async (_p: string, _mode: number) => {})
 const mkdtempMock = vi.fn(async (_prefix: string) => '/tmp/neuralos-menu-test')
 const writeFileMock = vi.fn(async (_p: string, _data: string) => {})
 const rmMock = vi.fn(async (_p: string, _opts?: unknown) => {})
+const mkdirMock = vi.fn(async (_p: string, _opts?: unknown) => {})
 vi.mock('node:fs', () => ({
   promises: {
     readdir: (...a: unknown[]) => readdirMock(...a),
@@ -25,7 +26,8 @@ vi.mock('node:fs', () => ({
     chmod: (p: string, mode: number) => chmodMock(p, mode),
     mkdtemp: (prefix: string) => mkdtempMock(prefix),
     writeFile: (p: string, data: string) => writeFileMock(p, data),
-    rm: (p: string, opts?: unknown) => rmMock(p, opts)
+    rm: (p: string, opts?: unknown) => rmMock(p, opts),
+    mkdir: (p: string, opts?: unknown) => mkdirMock(p, opts)
   }
 }))
 vi.mock('node:os', () => {
@@ -392,13 +394,14 @@ describe('NeuralosServer', () => {
     return client
   }
 
-  it('lists the five neuralos tools', async () => {
+  it('lists the six neuralos tools', async () => {
     const client = await connectNeuralosClient()
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'neuralos_admin',
       'neuralos_ask',
       'neuralos_docs',
+      'neuralos_factory',
       'neuralos_graph',
       'neuralos_list_instances'
     ])
@@ -495,6 +498,110 @@ describe('NeuralosServer', () => {
     const asError = result as { isError?: boolean; content: { text?: string }[] }
     expect(asError.isError).toBe(true)
     expect(String(asError.content[0]?.text)).toMatch(/confirm|Invalid/i)
+  })
+
+  it('builds an instance through the factory and serves it to neuralos_ask', async () => {
+    primeFs({
+      dirs: { '/instances': [] },
+      files: {
+        '/instances/newinst/needle_menu.json': MENU,
+        '/instances/engine/needle': '',
+        '/instances/engine/needle3.cact': ''
+      }
+    })
+    // access must fail for the not-yet-existing target DIRECTORY (so
+    // overwrite is not required) but pass for the menu/engine files.
+    accessMock.mockImplementation(async (p: string) => {
+      if (p === '/instances/newinst') throw new Error('ENOENT')
+    })
+    const deps = depsWithExec(async (cmd, args) => {
+      if (cmd === 'python3' && args[0] === '-c') return { stdout: '{"count": 7}', stderr: '', code: 0 }
+      if (args.some((a) => String(a).endsWith('.py'))) return { stdout: '{}', stderr: '', code: 0 }
+      if (args.join(' ').includes('--prompt')) {
+        return {
+          stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.8 }),
+          stderr: '',
+          code: 0
+        }
+      }
+      return { stdout: '', stderr: 'unexpected exec', code: 1 }
+    })
+    const client = await connectNeuralosClient({ ...deps, scriptsDir: '/scripts' } as never)
+    const result = await client.callTool({
+      name: 'neuralos_factory',
+      arguments: { source: '/data/sales.csv', name: 'newinst', verify_question: 'count the invoices' }
+    })
+    const text = (result.content as { type: string; text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.name).toBe('newinst')
+    expect(parsed.path).toBe('/instances/newinst')
+    expect(parsed.steps.map((s: { step: string }) => s.step)).toEqual(['profile', 'graph', 'model', 'generate'])
+    expect(parsed.probes).toEqual(['cb_graph_overview', 'transactions_count'])
+    expect(parsed.verified).toEqual({
+      pick: 'transactions_count',
+      confidence: 0.8,
+      result: { count: 7 }
+    })
+    // File sources skip the graph step (discover_relationships assumes a
+    // database profile); the other three factory scripts run in order.
+    const ranScripts = deps.execFile.mock.calls
+      .map(([c, a]) => (c === 'python3' && String(a[0]).startsWith('/scripts/') ? a[0] : null))
+      .filter(Boolean)
+    expect(ranScripts).toEqual([
+      '/scripts/profile_data.py',
+      '/scripts/gen_pydantic.py',
+      '/scripts/gen_needle_instance.py'
+    ])
+    // The fresh instance is immediately usable through the normal ask path.
+    readdirMock.mockImplementation(async () => [{ name: 'newinst', isDirectory: () => true }])
+    const listed = await client.callTool({ name: 'neuralos_list_instances', arguments: {} })
+    expect((listed.content as { text?: string }[])[0]?.text).toContain('newinst')
+  })
+
+  it('refuses to replace an existing instance without overwrite:true', async () => {
+    primeFs({ dirs: { '/instances': ['existing'] } })
+    const deps = makeDeps({})
+    const client = await connectNeuralosClient({ ...deps, scriptsDir: '/scripts' } as never)
+    const result = await client.callTool({
+      name: 'neuralos_factory',
+      arguments: { source: '/data/sales.csv', name: 'existing' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    expect(text).toContain("instance 'existing' already exists")
+    expect(deps.execFile).not.toHaveBeenCalled()
+  })
+
+  it('returns script failures as data with the failing step named', async () => {
+    primeFs({ dirs: { '/instances': [] } })
+    accessMock.mockImplementation(async (p: string) => {
+      if (String(p).startsWith('/instances/badsrc')) throw new Error('ENOENT')
+    })
+    const deps = depsWithExec(async (_cmd, args) => {
+      if (String(args[0]).endsWith('profile_data.py')) return { stdout: '', stderr: 'source not found', code: 2 }
+      return { stdout: '{}', stderr: '', code: 0 }
+    })
+    const client = await connectNeuralosClient({ ...deps, scriptsDir: '/scripts' } as never)
+    const result = await client.callTool({
+      name: 'neuralos_factory',
+      arguments: { source: '/data/missing.csv', name: 'badsrc' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.step).toBe('profile')
+    expect(parsed.error).toContain('profile step failed (exit 2)')
+    expect(parsed.error).toContain('source not found')
+  })
+
+  it('rejects invalid instance names before touching the filesystem', async () => {
+    const deps = makeDeps({})
+    const client = await connectNeuralosClient({ ...deps, scriptsDir: '/scripts' } as never)
+    const result = await client.callTool({
+      name: 'neuralos_factory',
+      arguments: { source: '/data/sales.csv', name: '../escape' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    expect(text).toContain('invalid instance name: ../escape')
+    expect(deps.execFile).not.toHaveBeenCalled()
   })
 })
 

@@ -1,6 +1,5 @@
-import { promises as fs } from 'fs'
-import os from 'os'
-import path from 'path'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
 
 import { McpServer } from '@modelcontextprotocol/server'
 import * as z from 'zod'
@@ -12,17 +11,23 @@ import {
   defaultDeps,
   engineSelect,
   executeProbe,
+  factoryBuild,
   graphProbe,
   instanceDirFor,
   listInstances,
   readDocs,
-  resolveEngine
+  resolveEngine,
+  writeRetrievalMenu
 } from './neuralosRuntime'
+
+// Retrieval lives in the runtime (the factory uses it too); re-exported here
+// for the tests that pin the ask.py scoring contract.
+export { scoreProbes, STOP_WORDS, RETRIEVAL_K } from './neuralosRuntime'
+export type { NeuralosMenuProbe } from './neuralosRuntime'
 
 const logger = loggerService.withContext('McpServer:Neuralos')
 
 const MAX_RESULT_CHARS = 6000
-const RETRIEVAL_K = 8
 
 const LIST_INSTANCES_DESCRIPTION =
   'List the available neuralOS instances (on-device data agents). Each instance is a verified menu of probes over a real data source (a database, API, or file set). Use this first to see what can be queried.'
@@ -68,55 +73,22 @@ const DOCS_INPUT = z.object({
 const DOCS_DESCRIPTION =
   'Read the neuralOS manual that ships with the app — the full method for building and running on-device data agents, no external skills needed. Omit topic for the index (topics + scripts + real paths); pass a topic for its document. Start with "factory" to build a new instance from any data source, "bootstrap" to set up a host, "runtime"/"tool-design" when behavior looks wrong.'
 
-// The ask.py stop list — the 121M engine must not be queried with filler tokens.
-const STOP_WORDS = new Set(
-  (
-    'the a an of in on for to and or is are was were what which who how many show me give list all with their from by at '
-    + 'it its do does did i we you this that those these there have has had more than one not use between during along '
-    + 'per into over under about'
-  ).split(' ')
-)
+const FACTORY_INPUT = z.object({
+  source: z
+    .string()
+    .describe(
+      'the data source: an absolute file path (csv/json/jsonl/log/xlsx/sqlite/db…), a database DSN (mysql:// postgres:// sqlite:///), or an https URL'
+    ),
+  name: z.string().describe('instance name to create (letters, digits, dot, dash, underscore)'),
+  overwrite: z.boolean().optional().describe('replace the instance directory if it already exists (default: refuse)'),
+  verify_question: z
+    .string()
+    .optional()
+    .describe('optional VERIFY step: run this question against the freshly built instance and return the digest')
+})
 
-interface NeuralosMenuProbe {
-  name: string
-  description?: string
-  triggers?: string[]
-}
-
-/**
- * Port of the ask.py retrieval front-end: score the question against each
- * probe's triggers/name/description and keep only the top-K most relevant,
- * so the 121M engine sees eight probes instead of the whole menu.
- */
-export function scoreProbes(
-  menu: NeuralosMenuProbe[],
-  question: string,
-  k = RETRIEVAL_K
-): NeuralosMenuProbe[] {
-  const tokens = (text: unknown): string[] =>
-    (String(text).toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter((token) => !STOP_WORDS.has(token))
-  const questionTokens = new Set(tokens(question))
-  return menu
-    .map((probe) => {
-      let score = 0
-      for (const trigger of probe.triggers ?? []) {
-        for (const token of tokens(trigger)) {
-          if (questionTokens.has(token)) score += 3
-        }
-      }
-      for (const token of tokens((probe.name ?? '').replace(/_/g, ' '))) {
-        if (questionTokens.has(token)) score += 1
-      }
-      for (const token of tokens(probe.description ?? '')) {
-        if (questionTokens.has(token)) score += 0.3
-      }
-      return { probe, score }
-    })
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, k)
-    .map((entry) => entry.probe)
-}
+const FACTORY_DESCRIPTION =
+  'Build a new neuralOS instance from a raw data source (the factory): profile the data, discover relationships, generate the Pydantic models and the probe menu + bridge, then optionally run a verify question. The new instance immediately works with neuralos_ask / neuralos_graph. Pass overwrite:true to replace an existing instance of the same name.'
 
 interface NeuralosHandler {
   description: string
@@ -154,7 +126,7 @@ export class NeuralosServer {
           const engine = await resolveEngine(this.deps)
           if ('error' in engine) return engine
           // ask.py retrieval: hand the engine only the top-K relevant probes.
-          const selectPath = await this.writeRetrievalMenu(`${dir}/needle_menu.json`, question)
+          const selectPath = await writeRetrievalMenu(`${dir}/needle_menu.json`, question)
           if (typeof selectPath !== 'string') return { instance, question, ...selectPath }
           try {
             const selection = await engineSelect(this.deps, engine, selectPath, question)
@@ -194,6 +166,14 @@ export class NeuralosServer {
           const { topic } = DOCS_INPUT.parse(raw)
           return readDocs(this.deps, topic)
         }
+      },
+      neuralos_factory: {
+        description: FACTORY_DESCRIPTION,
+        inputSchema: FACTORY_INPUT,
+        run: async (raw) => {
+          const { source, name, overwrite, verify_question } = FACTORY_INPUT.parse(raw)
+          return factoryBuild(this.deps, { source, name, overwrite, verifyQuestion: verify_question })
+        }
       }
     }
 
@@ -214,27 +194,14 @@ export class NeuralosServer {
             return { content: [{ type: 'text' as const, text: truncate(value, handler.maxChars) }] }
           } catch (error) {
             logger.error(`Tool error: ${name}`, error instanceof Error ? error : { error: String(error) })
-            const message = error instanceof z.ZodError ? `Invalid input: ${error.message}` : 'Error: Tool execution failed'
+            const message =
+              error instanceof z.ZodError
+                ? `Invalid input: ${error.message}`
+                : `Error: ${error instanceof Error ? error.message : String(error)}`
             return { content: [{ type: 'text', text: message }], isError: true }
           }
         }
       )
     }
-  }
-
-  private async writeRetrievalMenu(menuPath: string, question: string): Promise<string | { error: string }> {
-    let menu: NeuralosMenuProbe[]
-    try {
-      menu = JSON.parse(await fs.readFile(menuPath, 'utf-8'))
-    } catch {
-      return { error: 'cannot read needle_menu.json' }
-    }
-    if (!Array.isArray(menu)) return { error: 'needle_menu.json is not a probe array' }
-    const selected = scoreProbes(menu, question)
-    if (selected.length === 0) return { error: 'no probe matched; retrieval found nothing relevant' }
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'neuralos-menu-'))
-    const selectPath = path.join(dir, 'needle_menu.json')
-    await fs.writeFile(selectPath, JSON.stringify(selected))
-    return selectPath
   }
 }

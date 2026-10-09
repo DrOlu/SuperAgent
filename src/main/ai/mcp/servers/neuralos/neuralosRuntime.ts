@@ -8,7 +8,7 @@
 
 import { execFile } from 'node:child_process'
 import { type Dirent, promises as fs } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 
 export interface ExecResult {
@@ -24,6 +24,7 @@ export interface NeuralosDeps {
   engineWeights?: string
   pythonBin: string
   docsDir?: string
+  scriptsDir?: string
 }
 
 /** Server-configured env wins over process env; empty strings mean unset. */
@@ -56,7 +57,8 @@ export function defaultDeps(envs?: Record<string, string>): NeuralosDeps {
     engineBin: envValue(envs, 'NEURALOS_ENGINE_BIN'),
     engineWeights: envValue(envs, 'NEURALOS_ENGINE_WEIGHTS'),
     pythonBin: envValue(envs, 'NEURALOS_PYTHON', 'python3') as string,
-    docsDir: envValue(envs, 'NEURALOS_DOCS_DIR')
+    docsDir: envValue(envs, 'NEURALOS_DOCS_DIR'),
+    scriptsDir: envValue(envs, 'NEURALOS_SCRIPTS_DIR')
   }
 }
 
@@ -247,8 +249,18 @@ export function parseJsonObject(text: string): unknown | null {
 const PROBE_RUNNER = [
   'import json, os, sys',
   'sys.path.insert(0, os.environ["NEURALOS_INSTANCE_DIR"])',
-  'import bridge',
-  'fn = getattr(bridge, os.environ["NEURALOS_PROBE"], None)',
+  '# Generated instances expose specialized tools via instance.TOOLS',
+  '# (menu name -> wrapped bridge call); hand-built instances expose',
+  '# every menu name directly on the bridge. Try instance first.',
+  'fn = None',
+  'try:',
+  '    import instance as inst',
+  '    fn = {t.__name__: t for t in getattr(inst, "TOOLS", [])}.get(os.environ["NEURALOS_PROBE"])',
+  'except Exception:',
+  '    fn = None',
+  'if fn is None:',
+  '    import bridge',
+  '    fn = getattr(bridge, os.environ["NEURALOS_PROBE"], None)',
   'if fn is None:',
   '    print(json.dumps({"error": "unknown probe", "probe": os.environ["NEURALOS_PROBE"]}))',
   'else:',
@@ -404,4 +416,241 @@ export async function readDocs(deps: NeuralosDeps, topic?: string): Promise<Reco
     return { topic, file: entry.file, docs_dir: dir, scripts_dir: scriptsDir, content }
   }
   return { error: 'neuralOS docs not found in this install (no resources/neuralos/docs/index.json)' }
+}
+
+// ---------------------------------------------------------------------------
+// ask.py retrieval front-end (top-K probe selection for the 121M engine)
+// ---------------------------------------------------------------------------
+
+export const RETRIEVAL_K = 8
+
+// The ask.py stop list — the 121M engine must not be queried with filler tokens.
+export const STOP_WORDS = new Set(
+  (
+    'the a an of in on for to and or is are was were what which who how many show me give list all with their from by at '
+    + 'it its do does did i we you this that those these there have has had more than one not use between during along '
+    + 'per into over under about'
+  ).split(' ')
+)
+
+export interface NeuralosMenuProbe {
+  name: string
+  description?: string
+  triggers?: string[]
+}
+
+/**
+ * Port of the ask.py retrieval front-end: score the question against each
+ * probe's triggers/name/description and keep only the top-K most relevant,
+ * so the 121M engine sees eight probes instead of the whole menu.
+ */
+export function scoreProbes(
+  menu: NeuralosMenuProbe[],
+  question: string,
+  k = RETRIEVAL_K
+): NeuralosMenuProbe[] {
+  const tokens = (text: unknown): string[] =>
+    (String(text).toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter((token) => !STOP_WORDS.has(token))
+  const questionTokens = new Set(tokens(question))
+  return menu
+    .map((probe) => {
+      let score = 0
+      for (const trigger of probe.triggers ?? []) {
+        for (const token of tokens(trigger)) {
+          if (questionTokens.has(token)) score += 3
+        }
+      }
+      for (const token of tokens((probe.name ?? '').replace(/_/g, ' '))) {
+        if (questionTokens.has(token)) score += 1
+      }
+      for (const token of tokens(probe.description ?? '')) {
+        if (questionTokens.has(token)) score += 0.3
+      }
+      return { probe, score }
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k)
+    .map((entry) => entry.probe)
+}
+
+/** Reduced-menu scratch file for one engine selection; caller removes the dir. */
+export async function writeRetrievalMenu(menuPath: string, question: string): Promise<string | { error: string }> {
+  let menu: NeuralosMenuProbe[]
+  try {
+    menu = JSON.parse(await fs.readFile(menuPath, 'utf-8'))
+  } catch {
+    return { error: 'cannot read needle_menu.json' }
+  }
+  if (!Array.isArray(menu)) return { error: 'needle_menu.json is not a probe array' }
+  const selected = scoreProbes(menu, question)
+  if (selected.length === 0) return { error: 'no probe matched; retrieval found nothing relevant' }
+  const dir = await fs.mkdtemp(path.join(tmpdir(), 'neuralos-menu-'))
+  const selectPath = path.join(dir, 'needle_menu.json')
+  await fs.writeFile(selectPath, JSON.stringify(selected))
+  return selectPath
+}
+
+// ---------------------------------------------------------------------------
+// The factory: PROFILE → GRAPH → MODEL → GENERATE → (VERIFY)
+// ---------------------------------------------------------------------------
+
+const FACTORY_SCRIPTS = [
+  'profile_data.py',
+  'discover_relationships.py',
+  'gen_pydantic.py',
+  'gen_needle_instance.py'
+]
+
+function scriptsCandidates(deps: NeuralosDeps): string[] {
+  const out: string[] = []
+  if (deps.scriptsDir) out.push(deps.scriptsDir)
+  const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  if (resources) out.push(path.join(resources, 'neuralos', 'scripts'))
+  out.push(path.resolve('resources', 'neuralos', 'scripts')) // dev tree
+  return out
+}
+
+export async function resolveScriptsDir(deps: NeuralosDeps): Promise<string | { error: string }> {
+  for (const dir of scriptsCandidates(deps)) {
+    let complete = true
+    for (const script of FACTORY_SCRIPTS) {
+      try {
+        await fs.access(path.join(dir, script))
+      } catch {
+        complete = false
+        break
+      }
+    }
+    if (complete) return dir
+  }
+  return {
+    error: `neuralOS factory scripts not found in this install (looked for ${FACTORY_SCRIPTS.join(', ')}) — set NEURALOS_SCRIPTS_DIR`
+  }
+}
+
+export interface FactoryInput {
+  source: string
+  name: string
+  overwrite?: boolean
+  verifyQuestion?: string
+}
+
+/**
+ * Build a runnable instance from a raw data source using the bundled factory
+ * scripts (stdlib Python, run with the configured pythonBin). Everything is
+ * errors-as-data; `steps` records how far the pipeline got.
+ */
+export async function factoryBuild(deps: NeuralosDeps, input: FactoryInput): Promise<Record<string, unknown>> {
+  if (!/^[A-Za-z0-9._-]+$/.test(input.name)) return { error: `invalid instance name: ${input.name}` }
+  if (!input.source?.trim()) return { error: 'source is required (file path, DSN, or https URL)' }
+  const scriptsDir = await resolveScriptsDir(deps)
+  if (typeof scriptsDir !== 'string') return scriptsDir
+  const target = path.join(deps.instancesRoot, input.name)
+  const targetExists = await fs.access(target).then(
+    () => true,
+    () => false
+  )
+  if (targetExists && !input.overwrite) {
+    return { error: `instance '${input.name}' already exists — pass overwrite:true to replace it` }
+  }
+  await fs.mkdir(target, { recursive: true })
+  const isDsn = /^[a-z][a-z0-9+.-]*:\/\//i.test(input.source)
+  const steps: { step: string; ok: boolean; skipped?: boolean }[] = []
+  const runStep = async (step: string, script: string, args: string[]): Promise<{ error: string } | null> => {
+    const out = await deps.execFile(deps.pythonBin, [path.join(scriptsDir, script), ...args])
+    const ok = out.code === 0
+    steps.push({ step, ok })
+    if (!ok) {
+      return { error: `${step} step failed (exit ${out.code}): ${(out.stderr || out.stdout || 'no output').slice(0, 300)}` }
+    }
+    return null
+  }
+  let failed = await runStep('profile', 'profile_data.py', [
+    '--source',
+    input.source,
+    '--out',
+    path.join(target, 'profile.json'),
+    '--sample',
+    '50'
+  ])
+  if (failed) return { ...failed, step: 'profile' }
+  // discover_relationships.py assumes a database profile (source.tables);
+  // file/URL sources are single-table and have no inter-table joins to find.
+  let isDatabase = false
+  try {
+    const profile = JSON.parse(await fs.readFile(path.join(target, 'profile.json'), 'utf-8'))
+    isDatabase = Array.isArray(profile?.source?.tables)
+  } catch {
+    // treat an unreadable profile as non-database; the model step will fail loudly
+  }
+  if (isDatabase) {
+    failed = await runStep('graph', 'discover_relationships.py', [
+      '--profile',
+      path.join(target, 'profile.json'),
+      '--out',
+      path.join(target, 'graph_edges.json')
+    ])
+    if (failed) return { ...failed, step: 'graph' }
+  } else {
+    steps.push({ step: 'graph', ok: true, skipped: true })
+  }
+  failed = await runStep('model', 'gen_pydantic.py', [
+    '--profile',
+    path.join(target, 'profile.json'),
+    '--out',
+    path.join(target, 'models.py')
+  ])
+  if (failed) return { ...failed, step: 'model' }
+  const generateArgs = [
+    '--profile',
+    path.join(target, 'profile.json'),
+    '--models',
+    path.join(target, 'models.py'),
+    '--out',
+    target,
+    '--runtime',
+    'python',
+    '--agent-name',
+    input.name
+  ]
+  if (isDsn) generateArgs.push('--db-dsn', input.source)
+  failed = await runStep('generate', 'gen_needle_instance.py', generateArgs)
+  if (failed) return { ...failed, step: 'generate' }
+  const menu = await readMenu(target)
+  if ('error' in menu) return { error: `generated instance has no readable menu: ${menu.error}`, step: 'generate' }
+  const probes = menu.map((t) => t.name)
+  const result: Record<string, unknown> = {
+    name: input.name,
+    path: target,
+    dsn_source: isDsn,
+    probe_count: probes.length,
+    probes: probes.slice(0, 40),
+    graph_probes: probes.filter((n) => n.includes('_graph_')),
+    steps
+  }
+  if (input.verifyQuestion) {
+    const engine = await resolveEngine(deps)
+    if ('error' in engine) {
+      result['verified'] = { error: engine.error }
+    } else {
+      const selectPath = await writeRetrievalMenu(path.join(target, 'needle_menu.json'), input.verifyQuestion)
+      if (typeof selectPath !== 'string') {
+        result['verified'] = selectPath
+      } else {
+        try {
+          const selection = await engineSelect(deps, engine, selectPath, input.verifyQuestion)
+          if ('error' in selection) {
+            result['verified'] = selection
+          } else {
+            const probeResult = await executeProbe(deps, target, selection.pick, selection.args)
+            result['verified'] = { pick: selection.pick, confidence: selection.confidence, result: probeResult }
+          }
+        } finally {
+          await fs.rm(path.dirname(selectPath), { recursive: true, force: true }).catch(() => undefined)
+        }
+      }
+    }
+  }
+  return result
 }

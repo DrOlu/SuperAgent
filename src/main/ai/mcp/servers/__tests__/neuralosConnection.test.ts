@@ -26,6 +26,7 @@ describe('neuralos over the production in-process wire', () => {
       'neuralos_admin',
       'neuralos_ask',
       'neuralos_docs',
+      'neuralos_factory',
       'neuralos_graph',
       'neuralos_list_instances'
     ])

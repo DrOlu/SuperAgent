@@ -87,6 +87,15 @@ export async function createBuiltinMcpEndpoint(
     case BuiltinMcpServerNames.browser: {
       return application.get('BrowserSessionService').createMcpEndpoint()
     }
+    case BuiltinMcpServerNames.neuralos: {
+      const { NeuralosServer } = await import('./neuralos/NeuralosServer')
+      // SDK-generation McpServer bridged to the wrapped protocol type
+      // (@modelcontextprotocol/server adds internal tool-scope fields);
+      // only the transport surface (connect/close) crosses here.
+      return statelessEndpoint(
+        () => new NeuralosServer(undefined, envs).mcpServer as unknown as McpProtocolServer
+      )
+    }
     default:
       throw new Error(`Unknown in-memory MCP server: ${name}`)
   }
@@ -116,6 +125,7 @@ export function hasInMemoryImplementation(name: string): boolean {
     BuiltinMcpServerNames.difyKnowledge,
     BuiltinMcpServerNames.python,
     BuiltinMcpServerNames.didiMcp,
-    BuiltinMcpServerNames.browser
+    BuiltinMcpServerNames.browser,
+    BuiltinMcpServerNames.neuralos
   ].some((builtin) => builtin === name)
 }

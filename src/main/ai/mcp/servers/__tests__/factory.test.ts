@@ -8,7 +8,12 @@ vi.mock('@application', async () => {
   return mockApplicationFactory({})
 })
 
-const { createBuiltinMcpEndpoint, getBuiltinAutoInstallEnv, resolveBuiltinExternalMcpServer } =
+const {
+  createBuiltinMcpEndpoint,
+  getBuiltinAutoInstallEnv,
+  hasInMemoryImplementation,
+  resolveBuiltinExternalMcpServer
+} =
   await import('../factory')
 
 const server = (overrides: Partial<McpServer>): McpServer => ({
@@ -106,5 +111,36 @@ describe('createBuiltinMcpEndpoint', () => {
     await expect(createBuiltinMcpEndpoint(BuiltinMcpServerNames.mcpAutoInstall)).rejects.toThrow(
       /Unknown in-memory MCP server/
     )
+  })
+
+  it('creates the neuralos endpoint exposing the protocol server', async () => {
+    const endpoint = await createBuiltinMcpEndpoint(BuiltinMcpServerNames.neuralos, [], {
+      NEURALOS_INSTANCES_DIR: '/res/neuralos',
+      NEURALOS_PYTHON: 'python3'
+    })
+    expect(typeof endpoint.createServer).toBe('function')
+    expect(typeof endpoint.close).toBe('function')
+    expect(typeof endpoint.createServer().connect).toBe('function')
+    await endpoint.close()
+  })
+})
+
+describe('neuralos in-memory activation', () => {
+  // Regression: the neuralos preset ships type 'inMemory' with no command/baseUrl.
+  // When the factory missed the neuralos entry, mcpTransportKind() returned 'invalid'
+  // and activation fell through to ExternalMcpConnection, which threw
+  // "Either baseUrl or command must be provided".
+  it('recognises neuralos as an in-memory builtin', () => {
+    expect(hasInMemoryImplementation(BuiltinMcpServerNames.neuralos)).toBe(true)
+  })
+
+  it('routes the neuralos preset to the inMemory transport, not the external stdio path', async () => {
+    const { mcpTransportKind } = await import('../../mcpTransportKind')
+    const preset = server({
+      name: BuiltinMcpServerNames.neuralos,
+      type: 'inMemory',
+      installSource: 'builtin'
+    })
+    expect(mcpTransportKind(preset)).toBe('inMemory')
   })
 })

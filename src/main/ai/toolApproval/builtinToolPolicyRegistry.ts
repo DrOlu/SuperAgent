@@ -52,7 +52,8 @@ export const CHERRY_MCP_SERVER = {
   MCP_MANAGER: 'mcp-manager',
   ASSISTANT: 'assistant',
   ASSISTANT_FILES: 'assistant-files',
-  NEURALOS: 'neuralos'
+  NEURALOS: 'neuralos',
+  DOCTOR: 'doctor'
 } as const
 
 export interface BuiltinToolPolicyEntry {
@@ -121,7 +122,16 @@ const BUILTIN_TOOL_POLICIES = {
   neuralosListInstances: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_list_instances', 'auto'),
   neuralosAsk: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_ask', 'auto'),
   neuralosGraph: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_graph', 'auto'),
-  neuralosAdmin: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_admin', 'required', 'enforce')
+  neuralosAdmin: tool(CHERRY_MCP_SERVER.NEURALOS, 'neuralos_admin', 'required', 'enforce'),
+
+  // The doctor turn is headless; writes are gated by DoctorAgentService proposals, not by approval.
+  doctorSession: tool(CHERRY_MCP_SERVER.DOCTOR, 'session', 'auto'),
+  doctorReadFile: tool(CHERRY_MCP_SERVER.DOCTOR, 'read_file', 'auto'),
+  doctorReport: tool(CHERRY_MCP_SERVER.DOCTOR, 'report', 'auto'),
+  doctorDataApi: tool(CHERRY_MCP_SERVER.DOCTOR, 'data_api', 'auto'),
+  doctorPreference: tool(CHERRY_MCP_SERVER.DOCTOR, 'preference', 'auto'),
+  doctorProbeEndpoint: tool(CHERRY_MCP_SERVER.DOCTOR, 'probe_endpoint', 'auto'),
+  doctorFix: tool(CHERRY_MCP_SERVER.DOCTOR, 'doctor_fix', 'auto')
 } as const satisfies Record<string, BuiltinToolPolicyEntry>
 
 export const BUILTIN_TOOL_POLICY_ENTRIES: readonly BuiltinToolPolicyEntry[] = Object.values(BUILTIN_TOOL_POLICIES)

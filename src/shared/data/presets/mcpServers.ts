@@ -74,7 +74,7 @@ export const PRESET_MCP_SERVERS = freezePresets([
     shouldConfig: true,
     env: {
       NEURALOS_INSTANCES_DIR: '',
-      NEURALOS_PYTHON: 'python3'
+      NEURALOS_PYTHON: ''
     },
     provider: 'CherryAI',
     installSource: 'builtin',

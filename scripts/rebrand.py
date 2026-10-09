@@ -1117,6 +1117,19 @@ def apply_neuralos_integration():
         ],
     )
 
+    # 2c. align NeuralosServer with the wrapped protocol package. The factory
+    #     (and memory.ts) use @modelcontextprotocol/server's McpServer, which
+    #     is the SDK class plus tool-scope bookkeeping (_toolInputSchemaJson,
+    #     toolInputSchemaJson, resolveScopeChallenge). Importing the SDK class
+    #     directly made the endpoint assignment a TS2739 missing-props error.
+    patch_file(
+        "src/main/ai/mcp/servers/neuralos/NeuralosServer.ts",
+        [(
+            "import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'",
+            "import { McpServer } from '@modelcontextprotocol/server'",
+        )],
+    )
+
     # 2b. factory tests — extend upstream's factory.test.ts with the
     #     activation regression (transport kind) and the endpoint wiring.
     patch_file(

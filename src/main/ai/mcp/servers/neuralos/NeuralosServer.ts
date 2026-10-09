@@ -1,6 +1,8 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { promises as fs } from 'fs'
+import os from 'os'
+import path from 'path'
+
+import { McpServer } from '@modelcontextprotocol/server'
 import * as z from 'zod'
 
 import { loggerService } from '@logger'
@@ -20,6 +22,7 @@ import {
 const logger = loggerService.withContext('McpServer:Neuralos')
 
 const MAX_RESULT_CHARS = 6000
+const RETRIEVAL_K = 8
 
 const LIST_INSTANCES_DESCRIPTION =
   'List the available neuralOS instances (on-device data agents). Each instance is a verified menu of probes over a real data source (a database, API, or file set). Use this first to see what can be queried.'
@@ -65,17 +68,61 @@ const DOCS_INPUT = z.object({
 const DOCS_DESCRIPTION =
   'Read the neuralOS manual that ships with the app — the full method for building and running on-device data agents, no external skills needed. Omit topic for the index (topics + scripts + real paths); pass a topic for its document. Start with "factory" to build a new instance from any data source, "bootstrap" to set up a host, "runtime"/"tool-design" when behavior looks wrong.'
 
-interface NeuralosHandler {
-  description: string
-  inputSchema: z.ZodType
-  maxChars?: number
-  run: (args: unknown) => Promise<unknown>
+// The ask.py stop list — the 121M engine must not be queried with filler tokens.
+const STOP_WORDS = new Set(
+  (
+    'the a an of in on for to and or is are was were what which who how many show me give list all with their from by at '
+    + 'it its do does did i we you this that those these there have has had more than one not use between during along '
+    + 'per into over under about'
+  ).split(' ')
+)
+
+interface NeuralosMenuProbe {
+  name: string
+  description?: string
+  triggers?: string[]
 }
 
-function toTool(name: string, handler: NeuralosHandler): Tool {
-  const inputSchema = z.toJSONSchema(handler.inputSchema) as Record<string, unknown>
-  delete inputSchema.$schema
-  return { name, description: handler.description, inputSchema: inputSchema as Tool['inputSchema'] }
+/**
+ * Port of the ask.py retrieval front-end: score the question against each
+ * probe's triggers/name/description and keep only the top-K most relevant,
+ * so the 121M engine sees eight probes instead of the whole menu.
+ */
+export function scoreProbes(
+  menu: NeuralosMenuProbe[],
+  question: string,
+  k = RETRIEVAL_K
+): NeuralosMenuProbe[] {
+  const tokens = (text: unknown): string[] =>
+    (String(text).toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter((token) => !STOP_WORDS.has(token))
+  const questionTokens = new Set(tokens(question))
+  return menu
+    .map((probe) => {
+      let score = 0
+      for (const trigger of probe.triggers ?? []) {
+        for (const token of tokens(trigger)) {
+          if (questionTokens.has(token)) score += 3
+        }
+      }
+      for (const token of tokens((probe.name ?? '').replace(/_/g, ' '))) {
+        if (questionTokens.has(token)) score += 1
+      }
+      for (const token of tokens(probe.description ?? '')) {
+        if (questionTokens.has(token)) score += 0.3
+      }
+      return { probe, score }
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k)
+    .map((entry) => entry.probe)
+}
+
+interface NeuralosHandler {
+  description: string
+  inputSchema: z.ZodObject<any>
+  maxChars?: number
+  run: (args: unknown) => Promise<unknown>
 }
 
 function truncate(value: unknown, maxChars = MAX_RESULT_CHARS): string {
@@ -106,11 +153,17 @@ export class NeuralosServer {
           if (typeof dir !== 'string') return dir
           const engine = await resolveEngine(this.deps)
           if ('error' in engine) return engine
-          const menuPath = `${dir}/needle_menu.json`
-          const selection = await engineSelect(this.deps, engine, menuPath, question)
-          if ('error' in selection) return { instance, question, ...selection }
-          const result = await executeProbe(this.deps, dir, selection.pick, selection.args)
-          return { instance, question, pick: selection.pick, confidence: selection.confidence, result }
+          // ask.py retrieval: hand the engine only the top-K relevant probes.
+          const selectPath = await this.writeRetrievalMenu(`${dir}/needle_menu.json`, question)
+          if (typeof selectPath !== 'string') return { instance, question, ...selectPath }
+          try {
+            const selection = await engineSelect(this.deps, engine, selectPath, question)
+            if ('error' in selection) return { instance, question, ...selection }
+            const result = await executeProbe(this.deps, dir, selection.pick, selection.args)
+            return { instance, question, pick: selection.pick, confidence: selection.confidence, result }
+          } finally {
+            await fs.rm(path.dirname(selectPath), { recursive: true, force: true }).catch(() => undefined)
+          }
         }
       },
       neuralos_graph: {
@@ -144,27 +197,44 @@ export class NeuralosServer {
       }
     }
 
-    this.mcpServer = new McpServer({ name: 'neuralos', version: '1.0.0' }, { capabilities: { tools: {} } })
-    this.setupHandlers()
+    // Modern protocol generation only: the builtin bridge pins 2026-07-28 and
+    // requires server/discover, which this McpServer class speaks natively.
+    this.mcpServer = new McpServer({ name: 'neuralos', version: '1.0.0' })
+    this.registerTools()
   }
 
-  private setupHandlers(): void {
-    this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: Object.entries(this.handlers).map(([name, handler]) => toTool(name, handler))
-    }))
-    this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
-      const handler = this.handlers[request.params.name]
-      if (!handler) {
-        return { content: [{ type: 'text', text: `Unknown tool: ${request.params.name}` }], isError: true }
-      }
-      try {
-        const value = await handler.run(request.params.arguments)
-        return { content: [{ type: 'text', text: truncate(value, handler.maxChars) }] }
-      } catch (error) {
-        logger.error(`Tool error: ${request.params.name}`, error instanceof Error ? error : { error: String(error) })
-        const message = error instanceof z.ZodError ? `Invalid input: ${error.message}` : 'Error: Tool execution failed'
-        return { content: [{ type: 'text', text: message }], isError: true }
-      }
-    })
+  private registerTools(): void {
+    for (const [name, handler] of Object.entries(this.handlers)) {
+      this.mcpServer.registerTool(
+        name,
+        { description: handler.description, inputSchema: handler.inputSchema },
+        async (args: unknown) => {
+          try {
+            const value = await handler.run(args)
+            return { content: [{ type: 'text' as const, text: truncate(value, handler.maxChars) }] }
+          } catch (error) {
+            logger.error(`Tool error: ${name}`, error instanceof Error ? error : { error: String(error) })
+            const message = error instanceof z.ZodError ? `Invalid input: ${error.message}` : 'Error: Tool execution failed'
+            return { content: [{ type: 'text', text: message }], isError: true }
+          }
+        }
+      )
+    }
+  }
+
+  private async writeRetrievalMenu(menuPath: string, question: string): Promise<string | { error: string }> {
+    let menu: NeuralosMenuProbe[]
+    try {
+      menu = JSON.parse(await fs.readFile(menuPath, 'utf-8'))
+    } catch {
+      return { error: 'cannot read needle_menu.json' }
+    }
+    if (!Array.isArray(menu)) return { error: 'needle_menu.json is not a probe array' }
+    const selected = scoreProbes(menu, question)
+    if (selected.length === 0) return { error: 'no probe matched; retrieval found nothing relevant' }
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'neuralos-menu-'))
+    const selectPath = path.join(dir, 'needle_menu.json')
+    await fs.writeFile(selectPath, JSON.stringify(selected))
+    return selectPath
   }
 }

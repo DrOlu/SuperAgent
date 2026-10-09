@@ -89,12 +89,7 @@ export async function createBuiltinMcpEndpoint(
     }
     case BuiltinMcpServerNames.neuralos: {
       const { NeuralosServer } = await import('./neuralos/NeuralosServer')
-      // SDK-generation McpServer bridged to the wrapped protocol type
-      // (@modelcontextprotocol/server adds internal tool-scope fields);
-      // only the transport surface (connect/close) crosses here.
-      return statelessEndpoint(
-        () => new NeuralosServer(undefined, envs).mcpServer as unknown as McpProtocolServer
-      )
+      return statelessEndpoint(() => new NeuralosServer(undefined, envs).mcpServer)
     }
     default:
       throw new Error(`Unknown in-memory MCP server: ${name}`)

@@ -120,6 +120,9 @@ jobs:
           if [ -f src/main/ai/mcp/servers/__tests__/neuralos.test.ts ]; then
             cp src/main/ai/mcp/servers/__tests__/neuralos.test.ts /tmp/keep/neuralos-test/
           fi
+          if [ -f src/main/ai/mcp/servers/__tests__/neuralosConnection.test.ts ]; then
+            cp src/main/ai/mcp/servers/__tests__/neuralosConnection.test.ts /tmp/keep/neuralos-test/
+          fi
           if [ -f src/renderer/pages/settings/ProviderSettings/__tests__/CherryInOauth.test.tsx ]; then
             cp src/renderer/pages/settings/ProviderSettings/__tests__/CherryInOauth.test.tsx /tmp/keep/cherryin-oauth-test/
           fi
@@ -169,6 +172,9 @@ jobs:
           fi
           if [ -f /tmp/keep/neuralos-test/neuralos.test.ts ]; then
             cp /tmp/keep/neuralos-test/neuralos.test.ts src/main/ai/mcp/servers/__tests__/
+          fi
+          if [ -f /tmp/keep/neuralos-test/neuralosConnection.test.ts ]; then
+            cp /tmp/keep/neuralos-test/neuralosConnection.test.ts src/main/ai/mcp/servers/__tests__/
           fi
           if [ -f /tmp/keep/cherryin-oauth-test/CherryInOauth.test.tsx ]; then
             cp /tmp/keep/cherryin-oauth-test/CherryInOauth.test.tsx src/renderer/pages/settings/ProviderSettings/__tests__/

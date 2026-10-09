@@ -14,16 +14,32 @@ const readdirMock = vi.fn()
 const accessMock = vi.fn()
 const readFileMock = vi.fn()
 const chmodMock = vi.fn(async (_p: string, _mode: number) => {})
+const mkdtempMock = vi.fn(async (_prefix: string) => '/tmp/neuralos-menu-test')
+const writeFileMock = vi.fn(async (_p: string, _data: string) => {})
+const rmMock = vi.fn(async (_p: string, _opts?: unknown) => {})
 vi.mock('node:fs', () => ({
   promises: {
     readdir: (...a: unknown[]) => readdirMock(...a),
     access: (...a: unknown[]) => accessMock(...a),
     readFile: (...a: unknown[]) => readFileMock(...a),
-    chmod: (p: string, mode: number) => chmodMock(p, mode)
+    chmod: (p: string, mode: number) => chmodMock(p, mode),
+    mkdtemp: (prefix: string) => mkdtempMock(prefix),
+    writeFile: (p: string, data: string) => writeFileMock(p, data),
+    rm: (p: string, opts?: unknown) => rmMock(p, opts)
   }
 }))
+vi.mock('node:os', () => {
+  const osMock = {
+    tmpdir: () => '/tmp',
+    homedir: () => '/home/tester',
+    platform: () => process.platform,
+    arch: () => process.arch,
+    EOL: '\n'
+  }
+  return { ...osMock, default: osMock }
+})
 
-const { NeuralosServer } = await import('../neuralos/NeuralosServer')
+const { NeuralosServer, scoreProbes } = await import('../neuralos/NeuralosServer')
 const {
   adminProbe,
   bundledEngineCandidates,
@@ -40,8 +56,8 @@ const {
 } = await import('../neuralos/neuralosRuntime')
 
 const MENU = JSON.stringify([
-  { name: 'cb_graph_overview', description: 'the relationship map' },
-  { name: 'transactions_count', description: 'count rows' }
+  { name: 'cb_graph_overview', description: 'the relationship map', triggers: ['graph overview', 'entity map'] },
+  { name: 'transactions_count', description: 'count rows', triggers: ['count transactions', 'invoice count'] }
 ])
 
 function primeFs({ dirs = {}, files = {} }: { dirs?: Record<string, string[]>; files?: Record<string, string> }) {
@@ -388,7 +404,7 @@ describe('NeuralosServer', () => {
     ])
   })
 
-  it('routes neuralos_ask through engine selection and probe execution', async () => {
+  it('routes neuralos_ask through ask.py retrieval, engine selection and probe execution', async () => {
     primeFs({
       dirs: { '/instances': ['cyber'] },
       files: {
@@ -397,9 +413,11 @@ describe('NeuralosServer', () => {
         '/instances/engine/needle3.cact': ''
       }
     })
+    let engineToolsPath = ''
     const deps = depsWithExec(async (cmd, args) => {
       if (cmd === 'python3') return { stdout: '{"count": 42}', stderr: '', code: 0 }
       if (args.join(' ').includes('--prompt')) {
+        engineToolsPath = args[args.indexOf('--tools') + 1]
         return {
           stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.9 }),
           stderr: '',
@@ -411,16 +429,49 @@ describe('NeuralosServer', () => {
     const client = await connectNeuralosClient(deps)
     const result = await client.callTool({
       name: 'neuralos_ask',
-      arguments: { instance: 'cyber', question: 'how many' }
+      arguments: { instance: 'cyber', question: 'count the invoices' }
     })
     const text = (result.content as { type: string; text?: string }[])[0]?.text ?? ''
     expect(JSON.parse(text)).toEqual({
       instance: 'cyber',
-      question: 'how many',
+      question: 'count the invoices',
       pick: 'transactions_count',
       confidence: 0.9,
       result: { count: 42 }
     })
+    // The engine saw the retrieval-filtered menu, not the instance's full menu.
+    expect(engineToolsPath).not.toBe('/instances/cyber/needle_menu.json')
+    expect(engineToolsPath).toContain('neuralos-menu-')
+    const written = writeFileMock.mock.calls.find(([p]) => p === engineToolsPath)
+    expect(JSON.parse(written?.[1] as string).map((probe: { name: string }) => probe.name)).toEqual([
+      'transactions_count'
+    ])
+    // The scratch menu is cleaned up after the call.
+    expect(rmMock).toHaveBeenCalledWith('/tmp/neuralos-menu-test', { recursive: true, force: true })
+  })
+
+  it('answers a question that matches no probe as data, without calling the engine', async () => {
+    primeFs({
+      dirs: { '/instances': ['cyber'] },
+      files: {
+        '/instances/cyber/needle_menu.json': MENU,
+        '/instances/engine/needle': '',
+        '/instances/engine/needle3.cact': ''
+      }
+    })
+    const deps = makeDeps({})
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'cyber', question: 'xyzzy qwerty frobnicate' }
+    })
+    const text = (result.content as { type: string; text?: string }[])[0]?.text ?? ''
+    expect(JSON.parse(text)).toEqual({
+      instance: 'cyber',
+      question: 'xyzzy qwerty frobnicate',
+      error: 'no probe matched; retrieval found nothing relevant'
+    })
+    expect(deps.execFile).not.toHaveBeenCalled()
   })
 
   it('answers an unknown instance as data, not an exception', async () => {
@@ -443,6 +494,32 @@ describe('NeuralosServer', () => {
     })
     const asError = result as { isError?: boolean; content: { text?: string }[] }
     expect(asError.isError).toBe(true)
-    expect(asError.content[0]?.text).toContain('Invalid input')
+    expect(String(asError.content[0]?.text)).toMatch(/confirm|Invalid/i)
+  })
+})
+
+describe('scoreProbes (ask.py retrieval)', () => {
+  const menu = [
+    { name: 'transactions_count', description: 'count rows', triggers: ['count transactions', 'invoice count'] },
+    { name: 'cb_graph_overview', description: 'the relationship map', triggers: ['graph overview'] },
+    { name: 'top_artists', description: 'artists by revenue', triggers: ['top artists', 'revenue by artist'] }
+  ]
+
+  it('ranks trigger hits first and keeps only scoring probes', () => {
+    const picks = scoreProbes(menu, 'count the invoices')
+    expect(picks.map((p) => p.name)).toEqual(['transactions_count'])
+  })
+
+  it('caps the context at K probes', () => {
+    const wide = menu.concat(
+      Array.from({ length: 12 }, (_, i) => ({ name: `probe_${i}`, description: 'count rows', triggers: ['count'] }))
+    )
+    const picks = scoreProbes(wide, 'count transactions', 8)
+    expect(picks).toHaveLength(8)
+    expect(picks[0]?.name).toBe('transactions_count')
+  })
+
+  it('filters stop words so filler questions match nothing', () => {
+    expect(scoreProbes(menu, 'how many the of')).toEqual([])
   })
 })

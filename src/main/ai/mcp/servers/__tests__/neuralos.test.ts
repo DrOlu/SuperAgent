@@ -62,10 +62,28 @@ const MENU = JSON.stringify([
   { name: 'transactions_count', description: 'count rows', triggers: ['count transactions', 'invoice count'] }
 ])
 
-function primeFs({ dirs = {}, files = {} }: { dirs?: Record<string, string[]>; files?: Record<string, string> }) {
-  readdirMock.mockImplementation(async (dir: string) =>
-    (dirs[dir] ?? []).map((n) => ({ name: n, isDirectory: () => true }))
-  )
+function primeFs({
+  dirs = {},
+  files = {},
+  symlinks = []
+}: {
+  dirs?: Record<string, string[]>
+  files?: Record<string, string>
+  symlinks?: string[]
+}) {
+  readdirMock.mockImplementation(async (dir: string) => {
+    const dirEntries = (dirs[dir] ?? []).map((n) => ({
+      name: n,
+      isDirectory: () => true,
+      isSymbolicLink: () => false
+    }))
+    const linkEntries = symlinks.map((n) => ({
+      name: n,
+      isDirectory: () => false,
+      isSymbolicLink: () => true
+    }))
+    return [...dirEntries, ...linkEntries]
+  })
   accessMock.mockImplementation(async (p: string) => {
     void p
   })
@@ -114,6 +132,16 @@ describe('listInstances', () => {
         probes: ['cb_graph_overview', 'transactions_count']
       }
     ])
+  })
+
+  it('lists symlinked instance directories (a fleet assembled from elsewhere)', async () => {
+    primeFs({
+      symlinks: ['mtn-build'],
+      files: { '/instances/mtn-build/needle_menu.json': MENU }
+    })
+    const deps = makeDeps({})
+    const result = await listInstances(deps)
+    expect(Array.isArray(result) && result.some((i) => i.name === 'mtn-build')).toBe(true)
   })
 
   it('returns an error as data when the root is missing', async () => {

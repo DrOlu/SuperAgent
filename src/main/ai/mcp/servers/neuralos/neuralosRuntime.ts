@@ -78,7 +78,10 @@ export async function listInstances(deps: NeuralosDeps): Promise<InstanceInfo[] 
   }
   const instances: InstanceInfo[] = []
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue
+    // Symlinked instance directories (e.g. a fleet assembled from elsewhere)
+    // report isDirectory() === false; the menu check below follows the link,
+    // and broken or non-instance links fail it and are skipped.
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) continue
     const dir = path.join(deps.instancesRoot, entry.name)
     try {
       await fs.access(path.join(dir, 'needle_menu.json'))

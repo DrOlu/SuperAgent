@@ -1313,6 +1313,52 @@ def apply_neuralos_integration():
     if patches:
         changed_files.extend(patches)
 
+    # Tripwire: a missed anchor above degrades silently into "activation
+    # errors at runtime" (that is how ERA_NEGOTIATION_FAILED shipped), and
+    # the typecheck gate cannot see it. Fail the sync loudly instead.
+    verifications = [
+        (
+            "src/main/ai/mcp/servers/factory.ts",
+            "case BuiltinMcpServerNames.neuralos:",
+            "factory switch has no neuralos case — activation would fall through to the external path",
+        ),
+        (
+            "src/main/ai/mcp/servers/factory.ts",
+            "BuiltinMcpServerNames.neuralos\n  ].some((builtin) => builtin === name)",
+            "factory in-memory allowlist has no neuralos entry",
+        ),
+        (
+            "src/main/ai/mcp/servers/neuralos/NeuralosServer.ts",
+            "import { McpServer } from '@modelcontextprotocol/server'",
+            "NeuralosServer is not on the modern protocol generation — pinned-era negotiation would fail",
+        ),
+        (
+            "src/shared/data/presets/mcpServers.ts",
+            "name: BuiltinMcpServerNames.neuralos",
+            "settings catalog has no neuralos preset",
+        ),
+        (
+            "src/main/ai/toolApproval/builtinToolPolicyRegistry.ts",
+            "NEURALOS: 'neuralos'",
+            "builtin tool policies have no neuralos entries",
+        ),
+    ]
+    failures = []
+    for rel, needle, problem in verifications:
+        fp = os.path.join(ROOT, rel)
+        content = ""
+        if os.path.exists(fp):
+            with open(fp, "r", encoding="utf-8") as f:
+                content = f.read()
+        if needle not in content:
+            failures.append(f"{rel}: {problem}")
+    if failures:
+        print("[neuralos-gate] FAILED — the sync tree would ship a broken neuralOS integration:")
+        for failure in failures:
+            print("  - " + failure)
+        sys.exit(1)
+    print("[neuralos-gate] ok — factory, modern-era server, preset and tool policies all wired")
+
 
 def main():
     print(f"[rebrand] root = {ROOT}")

@@ -1083,21 +1083,102 @@ def apply_neuralos_integration():
         )],
     )
 
-    # 2. factory loader
+    # 2. factory loader — upstream factory.ts is a switch over
+    #    BuiltinMcpServerNames with `createMcpEndpoint()` on the browser case.
+    #    The previous patch anchored on a record-map shape that never existed,
+    #    so the neuralos case and the hasInMemoryImplementation entry were both
+    #    skipped: mcpTransportKind() returned 'invalid' for the preset
+    #    (type 'inMemory', no command/baseUrl) and activation fell through to
+    #    ExternalMcpConnection → "Either baseUrl or command must be provided".
     patch_file(
         "src/main/ai/mcp/servers/factory.ts",
-        [(
-            "  [BuiltinMcpServerNames.browser]: async () => {\n"
-            "    return application.get('BrowserSessionService').createMcpServer()\n"
-            "  }\n}",
-            "  [BuiltinMcpServerNames.browser]: async () => {\n"
-            "    return application.get('BrowserSessionService').createMcpServer()\n"
-            "  },\n"
-            "  [BuiltinMcpServerNames.neuralos]: async (_args, envs) => {\n"
-            "    const { NeuralosServer } = await import('./neuralos/NeuralosServer')\n"
-            "    return new NeuralosServer(undefined, envs).mcpServer\n"
-            "  }\n}",
-        )],
+        [
+            (
+                "    case BuiltinMcpServerNames.browser: {\n"
+                "      return application.get('BrowserSessionService').createMcpEndpoint()\n"
+                "    }\n"
+                "    default:\n"
+                "      throw new Error(`Unknown in-memory MCP server: ${name}`)",
+                "    case BuiltinMcpServerNames.browser: {\n"
+                "      return application.get('BrowserSessionService').createMcpEndpoint()\n"
+                "    }\n"
+                "    case BuiltinMcpServerNames.neuralos: {\n"
+                "      const { NeuralosServer } = await import('./neuralos/NeuralosServer')\n"
+                "      return statelessEndpoint(() => new NeuralosServer(undefined, envs).mcpServer)\n"
+                "    }\n"
+                "    default:\n"
+                "      throw new Error(`Unknown in-memory MCP server: ${name}`)",
+            ),
+            (
+                "    BuiltinMcpServerNames.browser\n  ].some((builtin) => builtin === name)",
+                "    BuiltinMcpServerNames.browser,\n"
+                "    BuiltinMcpServerNames.neuralos\n  ].some((builtin) => builtin === name)",
+            ),
+        ],
+    )
+
+    # 2b. factory tests — extend upstream's factory.test.ts with the
+    #     activation regression (transport kind) and the endpoint wiring.
+    patch_file(
+        "src/main/ai/mcp/servers/__tests__/factory.test.ts",
+        [
+            (
+                "const { createBuiltinMcpEndpoint, getBuiltinAutoInstallEnv, resolveBuiltinExternalMcpServer } =",
+                "const {\n"
+                "  createBuiltinMcpEndpoint,\n"
+                "  getBuiltinAutoInstallEnv,\n"
+                "  hasInMemoryImplementation,\n"
+                "  resolveBuiltinExternalMcpServer\n"
+                "} =",
+            ),
+            (
+                "describe('createBuiltinMcpEndpoint', () => {\n"
+                "  it('rejects a name with no in-process implementation', async () => {\n"
+                "    await expect(createBuiltinMcpEndpoint(BuiltinMcpServerNames.mcpAutoInstall)).rejects.toThrow(\n"
+                "      /Unknown in-memory MCP server/\n"
+                "    )\n"
+                "  })\n"
+                "})",
+                "describe('createBuiltinMcpEndpoint', () => {\n"
+                "  it('rejects a name with no in-process implementation', async () => {\n"
+                "    await expect(createBuiltinMcpEndpoint(BuiltinMcpServerNames.mcpAutoInstall)).rejects.toThrow(\n"
+                "      /Unknown in-memory MCP server/\n"
+                "    )\n"
+                "  })\n"
+                "\n"
+                "  it('creates the neuralos endpoint exposing the protocol server', async () => {\n"
+                "    const endpoint = await createBuiltinMcpEndpoint(BuiltinMcpServerNames.neuralos, [], {\n"
+                "      NEURALOS_INSTANCES_DIR: '/res/neuralos',\n"
+                "      NEURALOS_PYTHON: 'python3'\n"
+                "    })\n"
+                "    expect(typeof endpoint.createServer).toBe('function')\n"
+                "    expect(typeof endpoint.close).toBe('function')\n"
+                "    expect(typeof endpoint.createServer().connect).toBe('function')\n"
+                "    await endpoint.close()\n"
+                "  })\n"
+                "})\n"
+                "\n"
+                "describe('neuralos in-memory activation', () => {\n"
+                "  // Regression: the neuralos preset ships type 'inMemory' with no command/baseUrl.\n"
+                "  // When the factory missed the neuralos entry, mcpTransportKind() returned 'invalid'\n"
+                "  // and activation fell through to ExternalMcpConnection, which threw\n"
+                "  // \"Either baseUrl or command must be provided\".\n"
+                "  it('recognises neuralos as an in-memory builtin', () => {\n"
+                "    expect(hasInMemoryImplementation(BuiltinMcpServerNames.neuralos)).toBe(true)\n"
+                "  })\n"
+                "\n"
+                "  it('routes the neuralos preset to the inMemory transport, not the external stdio path', async () => {\n"
+                "    const { mcpTransportKind } = await import('../../mcpTransportKind')\n"
+                "    const preset = server({\n"
+                "      name: BuiltinMcpServerNames.neuralos,\n"
+                "      type: 'inMemory',\n"
+                "      installSource: 'builtin'\n"
+                "    })\n"
+                "    expect(mcpTransportKind(preset)).toBe('inMemory')\n"
+                "  })\n"
+                "})",
+            ),
+        ],
     )
 
     # 3. approval policy: server const + entries (admin asks even under Full Access)

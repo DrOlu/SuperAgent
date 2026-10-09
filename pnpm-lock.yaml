@@ -226,7 +226,7 @@ patchedDependencies:
   '@ai-sdk/google@3.0.113': 8cbaff63516ef35b2a638a683af4799855611da4a40b71ff896798ba90e30874
   '@ai-sdk/open-responses@1.0.34': 7a7a5a05a06775293425dfb63c279d62fded2d6ac0667ba64664cc43bfef0648
   '@ai-sdk/openai-compatible@2.0.72': e1c53c511799253d3cc69a6a2bdcba7cb2ea5792b27b243fd82cb8f086d50480
-  '@ai-sdk/openai@3.0.109': 73104fb31762e68f006fef075ad1a4b57e622f2f45039246f233886f6a92412c
+  '@ai-sdk/openai@3.0.109': 20f56d97d97f666e8356fde783cde3f9e5bae2cb02af1c17e2644c184c306a5b
   '@ai-sdk/react@3.0.187': 8182f09c37c2d080e4794d30401712c0605e986e985380ea76699758f2ed7230
   '@aiden0z/pptx-renderer@1.2.2': cef8fdac29413f0b6e59df97fe5c874f536c1bc064d77aa88f7d5028f78a6329
   '@deepseek-ai/dsh-llm-pi-ai@0.2.0-rc.2': 22e1bba3e6b5d2567a6c64821bc2310147b41f8f6d993774d1c65b249f7d6d78
@@ -448,7 +448,7 @@ importers:
         version: 1.0.34(patch_hash=7a7a5a05a06775293425dfb63c279d62fded2d6ac0667ba64664cc43bfef0648)(zod@4.4.3)
       '@ai-sdk/openai':
         specifier: 3.0.109
-        version: 3.0.109(patch_hash=73104fb31762e68f006fef075ad1a4b57e622f2f45039246f233886f6a92412c)(zod@4.4.3)
+        version: 3.0.109(patch_hash=20f56d97d97f666e8356fde783cde3f9e5bae2cb02af1c17e2644c184c306a5b)(zod@4.4.3)
       '@ai-sdk/openai-compatible':
         specifier: 2.0.72
         version: 2.0.72(patch_hash=e1c53c511799253d3cc69a6a2bdcba7cb2ea5792b27b243fd82cb8f086d50480)(zod@4.4.3)
@@ -1658,7 +1658,7 @@ importers:
         version: 3.0.113(patch_hash=8cbaff63516ef35b2a638a683af4799855611da4a40b71ff896798ba90e30874)(zod@4.4.3)
       '@ai-sdk/openai':
         specifier: 3.0.109
-        version: 3.0.109(patch_hash=73104fb31762e68f006fef075ad1a4b57e622f2f45039246f233886f6a92412c)(zod@4.4.3)
+        version: 3.0.109(patch_hash=20f56d97d97f666e8356fde783cde3f9e5bae2cb02af1c17e2644c184c306a5b)(zod@4.4.3)
       '@ai-sdk/openai-compatible':
         specifier: ^2.0.72
         version: 2.0.72(patch_hash=e1c53c511799253d3cc69a6a2bdcba7cb2ea5792b27b243fd82cb8f086d50480)(zod@4.4.3)
@@ -1695,7 +1695,7 @@ importers:
         version: 3.0.113(patch_hash=8cbaff63516ef35b2a638a683af4799855611da4a40b71ff896798ba90e30874)(zod@4.4.3)
       '@ai-sdk/openai':
         specifier: 3.0.109
-        version: 3.0.109(patch_hash=73104fb31762e68f006fef075ad1a4b57e622f2f45039246f233886f6a92412c)(zod@4.4.3)
+        version: 3.0.109(patch_hash=20f56d97d97f666e8356fde783cde3f9e5bae2cb02af1c17e2644c184c306a5b)(zod@4.4.3)
       '@ai-sdk/openai-compatible':
         specifier: ^2.0.72
         version: 2.0.72(patch_hash=e1c53c511799253d3cc69a6a2bdcba7cb2ea5792b27b243fd82cb8f086d50480)(zod@4.4.3)
@@ -17086,7 +17086,7 @@ snapshots:
   '@ai-sdk/azure@3.0.116(zod@4.4.3)':
     dependencies:
       '@ai-sdk/deepseek': 2.0.62(zod@4.4.3)
-      '@ai-sdk/openai': 3.0.109(patch_hash=73104fb31762e68f006fef075ad1a4b57e622f2f45039246f233886f6a92412c)(zod@4.4.3)
+      '@ai-sdk/openai': 3.0.109(patch_hash=20f56d97d97f666e8356fde783cde3f9e5bae2cb02af1c17e2644c184c306a5b)(zod@4.4.3)
       '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
       zod: 4.4.3
@@ -17178,7 +17178,7 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
       zod: 4.4.3
 
-  '@ai-sdk/openai@3.0.109(patch_hash=73104fb31762e68f006fef075ad1a4b57e622f2f45039246f233886f6a92412c)(zod@4.4.3)':
+  '@ai-sdk/openai@3.0.109(patch_hash=20f56d97d97f666e8356fde783cde3f9e5bae2cb02af1c17e2644c184c306a5b)(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)

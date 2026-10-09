@@ -88,6 +88,8 @@ export async function createBuiltinMcpEndpoint(
       return application.get('BrowserSessionService').createMcpEndpoint()
     }
     case BuiltinMcpServerNames.neuralos: {
+      // NeuralosServer is built on the modern protocol generation
+      // (@modelcontextprotocol/server) so it negotiates the pinned era.
       const { NeuralosServer } = await import('./neuralos/NeuralosServer')
       return statelessEndpoint(() => new NeuralosServer(undefined, envs).mcpServer)
     }

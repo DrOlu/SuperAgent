@@ -1,0 +1,325 @@
+{
+  "_comment": "SHARED refusal-gate conformance suite. Any product that generates or runs an instance ask.py (ReactorPro, SuperAgent, neuralOSd) must pass every case here, unchanged. Reasons are BARE TOKENS with the specifics in refusal_detail, and exit codes are 0 answered / 2 nothing produced.",
+  "gate_version": 1,
+  "contract": {
+    "exit_codes": {
+      "answered": 0,
+      "refused": 2
+    },
+    "refusal_reasons": [
+      "action_intent",
+      "dropped_filter",
+      "no_probe_matches",
+      "low_coverage",
+      "unbound_argument",
+      "probe_error"
+    ],
+    "reasons_are_bare_tokens": true,
+    "detail_field": "refusal_detail",
+    "envelope_required": [
+      "instance",
+      "question",
+      "probe",
+      "arguments",
+      "refused",
+      "refusal_reason",
+      "refusal_detail",
+      "gate_version"
+    ]
+  },
+  "menu": [
+    {
+      "name": "open_incidents",
+      "description": "Count open incidents.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "how many open incidents",
+        "open incidents"
+      ]
+    },
+    {
+      "name": "unresolved_incidents",
+      "description": "Count unresolved incidents.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "how many unresolved incidents",
+        "unresolved incidents"
+      ]
+    },
+    {
+      "name": "open_problems",
+      "description": "Count open problems.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "how many open problems",
+        "open problems"
+      ]
+    },
+    {
+      "name": "open_work_orders",
+      "description": "Count open work orders.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "how many open work orders",
+        "open work orders"
+      ]
+    },
+    {
+      "name": "itsm_overview",
+      "description": "Overall ITSM counts.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "give me an itsm overview",
+        "itsm overview"
+      ]
+    },
+    {
+      "name": "sales_by_region",
+      "description": "Sales by region.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "which region has the highest sales",
+        "sales by region",
+        "top region"
+      ]
+    },
+    {
+      "name": "count_records",
+      "description": "Count the records in the source.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "how many records",
+        "count records",
+        "record count"
+      ]
+    },
+    {
+      "name": "count_by_status",
+      "description": "Count records grouped by status.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "a status value",
+            "enum": [
+              "paid",
+              "unpaid"
+            ]
+          }
+        },
+        "required": []
+      },
+      "triggers": [
+        "count records by status",
+        "count by status"
+      ]
+    },
+    {
+      "name": "report_pages",
+      "description": "Pages with extractable text.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "triggers": [
+        "how many pages",
+        "page count",
+        "report length"
+      ]
+    },
+    {
+      "name": "search_report",
+      "description": "Search the report for a fragment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "text to search for",
+            "pattern": "(?:mention|about)\\s+(.{3,60})"
+          }
+        },
+        "required": []
+      },
+      "triggers": [
+        "search the report",
+        "which pages mention",
+        "find in the report"
+      ]
+    },
+    {
+      "name": "get_page",
+      "description": "Text of one page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer",
+            "description": "page number",
+            "minimum": 1
+          }
+        },
+        "required": []
+      },
+      "triggers": [
+        "show page",
+        "page content",
+        "read page"
+      ]
+    }
+  ],
+  "bridge": {
+    "open_incidents": {
+      "count": 24
+    },
+    "unresolved_incidents": {
+      "count": 6
+    },
+    "open_problems": {
+      "count": 8
+    },
+    "open_work_orders": {
+      "count": 12
+    },
+    "itsm_overview": {
+      "incidents": 24,
+      "problems": 8
+    },
+    "sales_by_region": {
+      "region": "west"
+    },
+    "count_records": {
+      "count": 30
+    },
+    "count_by_status": {
+      "column": "status",
+      "counts": {
+        "paid": 18,
+        "unpaid": 12
+      }
+    },
+    "report_pages": {
+      "pages_with_text": 123
+    },
+    "search_report": {
+      "pages_matched": 1
+    },
+    "get_page": {
+      "page": 60,
+      "chars": 2500
+    }
+  },
+  "cases": [
+    {
+      "question": "how many open incidents",
+      "kind": "answer",
+      "probe": "open_incidents"
+    },
+    {
+      "question": "how many unresolved incidents",
+      "kind": "answer",
+      "probe": "unresolved_incidents"
+    },
+    {
+      "question": "give me an itsm overview",
+      "kind": "answer",
+      "probe": "itsm_overview"
+    },
+    {
+      "question": "which region has the highest sales",
+      "kind": "answer",
+      "probe": "sales_by_region"
+    },
+    {
+      "question": "show page 60 content",
+      "kind": "answer",
+      "probe": "get_page"
+    },
+    {
+      "question": "which pages mention corporate governance",
+      "kind": "answer",
+      "probe": "search_report"
+    },
+    {
+      "question": "how many records",
+      "kind": "answer",
+      "probe": "count_records"
+    },
+    {
+      "question": "count records by status",
+      "kind": "answer",
+      "probe": "count_by_status"
+    },
+    {
+      "question": "how many incident attachments exist",
+      "kind": "refuse",
+      "reason": "no_probe_matches"
+    },
+    {
+      "question": "how many problems were closed last month",
+      "kind": "refuse",
+      "reason": "dropped_filter"
+    },
+    {
+      "question": "how many work orders are blocked",
+      "kind": "refuse",
+      "reason": "dropped_filter"
+    },
+    {
+      "question": "which incidents have a parent problem",
+      "kind": "refuse",
+      "reason": "no_probe_matches"
+    },
+    {
+      "question": "how many incidents came from email",
+      "kind": "refuse",
+      "reason": "no_probe_matches"
+    },
+    {
+      "question": "delete all returned orders",
+      "kind": "refuse",
+      "reason": "action_intent"
+    },
+    {
+      "question": "delete all invoices",
+      "kind": "refuse",
+      "reason": "action_intent"
+    },
+    {
+      "question": "what is the weather in lagos tomorrow",
+      "kind": "refuse",
+      "reason": "no_probe_matches"
+    }
+  ],
+  "false_refusal_sweep": true
+}

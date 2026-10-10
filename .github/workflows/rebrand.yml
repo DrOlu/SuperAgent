@@ -63,6 +63,15 @@ jobs:
           if [ -f src/main/ai/mcp/servers/__tests__/neuralosGenTemplate.test.ts ]; then
             cp src/main/ai/mcp/servers/__tests__/neuralosGenTemplate.test.ts /tmp/seed/neuralos-test/
           fi
+          if [ -f src/main/ai/mcp/servers/__tests__/neuralosConformance.test.ts ]; then
+            cp src/main/ai/mcp/servers/__tests__/neuralosConformance.test.ts /tmp/seed/neuralos-test/
+          fi
+          # The shared refusal-gate conformance fixture (ReactorPro #107) lives
+          # under resources/neuralos, which the wipe removes — carry it across.
+          mkdir -p /tmp/seed/neuralos-conformance
+          if [ -d resources/neuralos/conformance ]; then
+            cp -a resources/neuralos/conformance/. /tmp/seed/neuralos-conformance/
+          fi
           mkdir -p /tmp/seed/neuralos-resources
           if [ -f resources/neuralos/README.md ]; then
             cp resources/neuralos/README.md /tmp/seed/neuralos-resources/
@@ -143,6 +152,13 @@ jobs:
           fi
           if [ -f /tmp/seed/neuralos-test/neuralosGenTemplate.test.ts ]; then
             cp /tmp/seed/neuralos-test/neuralosGenTemplate.test.ts src/main/ai/mcp/servers/__tests__/
+          fi
+          if [ -f /tmp/seed/neuralos-test/neuralosConformance.test.ts ]; then
+            cp /tmp/seed/neuralos-test/neuralosConformance.test.ts src/main/ai/mcp/servers/__tests__/
+          fi
+          mkdir -p resources/neuralos/conformance
+          if [ -d /tmp/seed/neuralos-conformance ] && [ "$(ls -A /tmp/seed/neuralos-conformance 2>/dev/null)" ]; then
+            cp -a /tmp/seed/neuralos-conformance/. resources/neuralos/conformance/
           fi
           mkdir -p resources/neuralos
           if [ -f /tmp/seed/neuralos-resources/README.md ]; then

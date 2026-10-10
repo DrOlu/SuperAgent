@@ -191,7 +191,6 @@ publish:
   provider: github
   owner: DrOlu
   repo: SuperAgent
-  useMultipleRangeRequest: false
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
 beforePack: scripts/packaging/before-pack.js

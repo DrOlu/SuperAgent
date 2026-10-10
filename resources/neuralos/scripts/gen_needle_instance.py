@@ -881,6 +881,10 @@ def mask_pii(x):
 
 
 GATE_VERSION = 1
+# Shared contract (ReactorPro #107): refusal_reason is a BARE TOKEN and the
+# specifics live in `refusal_detail`, so a consumer that exact-matches a reason
+# works identically across ReactorPro / SuperAgent / neuralOSd. Exit codes are
+# shared too: 0 answered / 2 nothing produced (SystemExit(2) below).
 MIN_QUESTION_COVERAGE = 0.5
 GATE_STOP = set("the a an of in on for to and or is are was were what which who "
                 "me give all with their from by at it its do does did "
@@ -1025,6 +1029,8 @@ def ask_one(question, k=K_DEFAULT, full=False, use_cache=True):
             env = {"ask_id": ask_id, "question": question, "normalized": normalized,
                    "probe": None, "menu_version": mver,
                    "refused": True, "refusal_reason": "no_probe_matches",
+                   "refusal_detail": {"rule": "no_probe_matches",
+                                      "why": "no probe scored > 0"},
                    "gate_version": GATE_VERSION, "error":
                    "no probe scored > 0 for this question"}
             emit(env); audit({**env, "ts": time.time()})
@@ -1041,6 +1047,7 @@ def ask_one(question, k=K_DEFAULT, full=False, use_cache=True):
                "normalized": normalized, "probe": None,
                "menu_version": mver, "mode": "refused",
                "refused": True, "refusal_reason": gate_reason,
+               "refusal_detail": {"rule": gate_reason},
                "gate_version": GATE_VERSION,
                "error": "refused (%s): the menu cannot answer this "
                         "confidently, and guessing is worse" % gate_reason,
@@ -1085,7 +1092,7 @@ def ask_one(question, k=K_DEFAULT, full=False, use_cache=True):
     env = {"ask_id": ask_id, "ts": time.time(), "question": question,
            "normalized": normalized, "probe": used_probe,
            "menu_version": mver, "mode": mode, "confidence": conf,
-           "refused": False, "refusal_reason": None,
+           "refused": False, "refusal_reason": None, "refusal_detail": None,
            "gate_version": GATE_VERSION,
            "latency_ms": int((time.time() - t0) * 1000),
            "results": None if empty else results}

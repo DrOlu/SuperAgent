@@ -105,17 +105,33 @@ export async function listInstances(deps: NeuralosDeps): Promise<InstanceInfo[] 
   return instances
 }
 
-type Menu = { name: string; description?: string }[]
+type Menu = { name: string; description?: string; parameters?: { properties?: Record<string, unknown> } }[]
 
-async function readMenu(instanceDir: string): Promise<Menu | { error: string }> {
+/**
+ * needle_menu.json is canonically a bare probe array; neuralOSd's Instance
+ * export also wrote wrapped shapes ({"name":…, "menu":[…]} / {"probes":[…]}).
+ * Accept all three on read; only an unrecognised shape is an error.
+ */
+export async function readMenu(instanceDir: string): Promise<Menu | { error: string }> {
+  const file = path.join(instanceDir, 'needle_menu.json')
+  let parsed: unknown
   try {
-    const raw = await fs.readFile(path.join(instanceDir, 'needle_menu.json'), 'utf-8')
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return { error: 'menu is not an array' }
-    return parsed
+    parsed = JSON.parse(await fs.readFile(file, 'utf-8'))
   } catch {
     return { error: `cannot read needle_menu.json in ${instanceDir}` }
   }
+  if (Array.isArray(parsed)) return parsed
+  if (parsed && typeof parsed === 'object') {
+    const obj = parsed as Record<string, unknown>
+    for (const key of ['menu', 'probes']) {
+      if (Array.isArray(obj[key])) return obj[key] as Menu
+    }
+    const keys = Object.keys(obj)
+      .map((k) => `'${k}'`)
+      .join(', ')
+    return { error: `needle_menu.json is an object with keys [${keys}] — expected a probe array` }
+  }
+  return { error: 'needle_menu.json is neither a probe array nor an object' }
 }
 
 export interface ResolvedEngine {
@@ -445,6 +461,7 @@ export interface NeuralosMenuProbe {
   name: string
   description?: string
   triggers?: string[]
+  parameters?: unknown
 }
 
 /**
@@ -484,19 +501,250 @@ export function scoreProbes(
 
 /** Reduced-menu scratch file for one engine selection; caller removes the dir. */
 export async function writeRetrievalMenu(menuPath: string, question: string): Promise<string | { error: string }> {
-  let menu: NeuralosMenuProbe[]
+  let parsed: unknown
   try {
-    menu = JSON.parse(await fs.readFile(menuPath, 'utf-8'))
+    parsed = JSON.parse(await fs.readFile(menuPath, 'utf-8'))
   } catch {
     return { error: 'cannot read needle_menu.json' }
   }
-  if (!Array.isArray(menu)) return { error: 'needle_menu.json is not a probe array' }
+  const menu: NeuralosMenuProbe[] | null = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray((parsed as Record<string, unknown>)?.menu)
+      ? ((parsed as Record<string, unknown>).menu as NeuralosMenuProbe[])
+      : Array.isArray((parsed as Record<string, unknown>)?.probes)
+        ? ((parsed as Record<string, unknown>).probes as NeuralosMenuProbe[])
+        : null
+  if (!menu) return { error: 'needle_menu.json is not a probe array' }
   const selected = scoreProbes(menu, question)
   if (selected.length === 0) return { error: 'no probe matched; retrieval found nothing relevant' }
   const dir = await fs.mkdtemp(path.join(tmpdir(), 'neuralos-menu-'))
   const selectPath = path.join(dir, 'needle_menu.json')
   await fs.writeFile(selectPath, JSON.stringify(selected))
   return selectPath
+}
+
+// ---------------------------------------------------------------------------
+// Refusal gate — mirrors neuralOSd src/neuralosd/router.py (_gate, GATE_VERSION 1).
+// Pure menu+question logic: no probe run, no model call, no network. A refusal
+// is a first-class outcome — in a regulated deployment a confident wrong
+// number is worse than an honest "I cannot answer this".
+// ---------------------------------------------------------------------------
+
+export const GATE_VERSION = 1
+export const MIN_QUESTION_COVERAGE = 0.5
+
+// Gate stop list (router.py): pure function words only. Intent-bearing words
+// (how, many, show, list, count…) are PRESERVED so phrase specificity survives.
+const GATE_STOP = new Set(
+  (
+    'the a an of in on for to and or is are was were what which who '
+    + 'me give all with their from by at it its do does did '
+    + 'i we you this that those these there have has had more than one not '
+    + 'use between during along per into over under about'
+  ).split(' ')
+)
+
+// Intent with no subject: coverage is measured over what remains after these.
+export const GENERIC_INTENT = new Set(
+  (
+    'how many much show list give tell me find get what which who where when '
+    + 'top best most least first last sample example preview all any '
+    + 'are is there exist exists please number status break down '
+    + 'some few several couple'
+  ).split(' ')
+)
+
+// Imperative ACTION verbs. Checked on the FIRST word only, and the verb must
+// also be unknown to every probe (a probe named play_logs still answers).
+export const ACTION_VERBS = new Set([
+  'play', 'erase', 'delete', 'remove', 'drop', 'wipe', 'purge', 'send',
+  'execute', 'restart', 'shutdown', 'kill', 'exploit', 'deploy', 'cancel'
+])
+
+// Status/time qualifiers: if the question carries one the winner's vocabulary
+// lacks, the answer would silently ignore it — a wrong answer that looks right.
+export const QUALIFIERS = [
+  'blocked', 'overdue', 'rejected', 'closed', 'resolved', 'pending',
+  'escalated', 'cancelled', 'archived', 'on hold', 'last week', 'last month',
+  'last year', 'this week', 'this month', 'yesterday', 'today', 'unassigned'
+]
+
+function stripPlural(tokens: Set<string>): Set<string> {
+  return new Set(
+    [...tokens].map((t) => (t.length > 3 && t.endsWith('s') ? t.slice(0, -1) : t))
+  )
+}
+
+function gateTokens(text: unknown): Set<string> {
+  return stripPlural(
+    new Set(
+      (String(text).toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter(
+        (token) => !GATE_STOP.has(token)
+      )
+    )
+  )
+}
+
+/** triggers + probe name + enum values — what this probe can be said to know. */
+function gateProbeVocab(probe: NeuralosMenuProbe): Set<string> {
+  let vocab = new Set<string>()
+  for (const trigger of probe.triggers ?? []) vocab = vocab.union(gateTokens(trigger))
+  vocab = vocab.union(gateTokens((probe.name ?? '').replace(/_/g, ' ')))
+  const properties =
+    ((probe.parameters as { properties?: Record<string, { enum?: unknown[] }> } | undefined)?.properties ??
+      undefined) || {}
+  for (const spec of Object.values(properties)) {
+    for (const value of spec?.enum ?? []) vocab = vocab.union(gateTokens(value))
+  }
+  return vocab
+}
+
+function gateMenuVocab(menu: NeuralosMenuProbe[]): Set<string> {
+  let vocab = new Set<string>()
+  for (const probe of menu) vocab = vocab.union(gateProbeVocab(probe))
+  return vocab
+}
+
+/** Enum/pattern cages from the winner that the question literally satisfies. */
+function gateCagedSeen(winner: NeuralosMenuProbe, normalized: string): boolean {
+  const properties =
+    (winner.parameters as { properties?: Record<string, { enum?: unknown[]; pattern?: string }> } | undefined)
+      ?.properties ?? {}
+  for (const spec of Object.values(properties)) {
+    if (Array.isArray(spec?.enum)) {
+      for (const value of spec.enum) {
+        if (value && new RegExp(`\\b${String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(normalized))
+          return true
+      }
+    }
+    if (spec?.pattern) {
+      try {
+        if (new RegExp(spec.pattern).test(normalized)) return true
+      } catch {
+        // an uncompilable cage cannot extract — it cannot vouch either
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * The three-outcome decision, computed from the MENU and the QUESTION only.
+ * Returns null (confident — execute the winner) or a refusal reason:
+ *   action_intent            imperative verb opens the question and no probe
+ *                            claims it (never bypassed by extracted entities)
+ *   dropped_filter:<qual>    the question carries a status/time qualifier the
+ *                            winner's vocabulary does not
+ *   no_probe_matches         a domain noun unknown to every probe
+ *   low_coverage             the winner knows < 50% of the question's domain
+ *                            nouns
+ * An extracted caged argument visible in the question bypasses everything
+ * except action_intent: an enum/pattern hit IS the confidence signal there.
+ */
+export function askGate(
+  normalizedQuestion: string,
+  menu: NeuralosMenuProbe[],
+  winner?: NeuralosMenuProbe
+): string | null {
+  const normalized = normalizedQuestion.toLowerCase().trim()
+  const vocab = new Map(menu.map((p) => [p.name, stripPlural(gateProbeVocab(p))]))
+  const menuVocab = stripPlural(gateMenuVocab(menu))
+
+  // Imperative intent is checked first, against the whole menu, even when
+  // retrieval found nothing — "delete all orders" must not degrade into a
+  // generic "nothing matched".
+  const first = normalized.split(/\s+/)[0] ?? ''
+  if (first && ACTION_VERBS.has(first) && !menuVocab.has(first)) return 'action_intent'
+
+  const domainEmptyOfWinners = (): 'no_probe_matches' | null => {
+    const questionTokens = gateTokens(normalized)
+    let domain = new Set([...questionTokens].filter((t) => !GENERIC_INTENT.has(t) && !/^\d+$/.test(t)))
+    if (domain.size === 0) domain = new Set([...questionTokens].filter((t) => !GENERIC_INTENT.has(t)))
+    if (domain.size === 0) domain = questionTokens
+    const knownAnywhere = (token: string): boolean =>
+      menuVocab.has(token) ||
+      (token.length > 3 && token.endsWith('s') && menuVocab.has(token.slice(0, -1))) ||
+      (token.length > 3 && menuVocab.has(`${token}s`))
+    if (domain.size > 0 && ![...domain].some(knownAnywhere)) return 'no_probe_matches'
+    return null
+  }
+
+  if (!winner) {
+    // Retrieval found nothing: the only honest outcome left is a refusal
+    // unless the domain is (partly) known — the caller already reports a
+    // retrieval miss for that case.
+    return domainEmptyOfWinners()
+  }
+
+  const winnerVocab = vocab.get(winner.name) ?? new Set<string>()
+  if (gateCagedSeen(winner, normalized)) return null
+
+  for (const qualifier of QUALIFIERS) {
+    if (new RegExp(`\\b${qualifier.replace(' ', '\\s+')}\\b`, 'i').test(normalized)) {
+      const head = qualifier.split(' ')[0]
+      if (!winnerVocab.has(head)) return `dropped_filter:${qualifier}`
+    }
+  }
+
+  const questionTokens = gateTokens(normalized)
+  let domain = new Set([...questionTokens].filter((t) => !GENERIC_INTENT.has(t) && !/^\d+$/.test(t)))
+  if (domain.size === 0) domain = new Set([...questionTokens].filter((t) => !GENERIC_INTENT.has(t)))
+  if (domain.size === 0) domain = questionTokens
+
+  // A domain noun no probe has ever heard of is an unknown subject — the
+  // honest answer is a refusal, not the nearest probe's number. Plural-
+  // insensitive: "incidents" counts as knowing "incident".
+  const knownAnywhere = (token: string): boolean =>
+    menuVocab.has(token) ||
+    (token.length > 3 && token.endsWith('s') && menuVocab.has(token.slice(0, -1))) ||
+    (token.length > 3 && menuVocab.has(`${token}s`))
+  for (const token of domain) {
+    if (!knownAnywhere(token)) return 'no_probe_matches'
+  }
+
+  const covered = [...domain].filter((t) => winnerVocab.has(t)).length
+  if (domain.size > 0 && covered / domain.size < MIN_QUESTION_COVERAGE) return 'low_coverage'
+  return null
+}
+
+export interface AskPyOutcome {
+  envelope: Record<string, unknown>
+}
+
+/**
+ * Prefer the instance's own ask.py as the answering surface — it may carry a
+ * refusal gate the runtime must honour. Returns null when the instance ships
+ * no ask.py, or when the script fails/unparsable (caller falls back to the
+ * retrieval+engine path, which is still gated). `reasonKey` covers generated
+ * (refusal_reason) and hand-authored (reason) envelopes.
+ */
+export async function askViaAskPy(
+  deps: NeuralosDeps,
+  instanceDir: string,
+  question: string
+): Promise<AskPyOutcome | null> {
+  try {
+    await fs.access(path.join(instanceDir, 'ask.py'))
+  } catch {
+    return null
+  }
+  const out = await deps.execFile(deps.pythonBin, [path.join(instanceDir, 'ask.py'), question], undefined).catch(
+    (err: unknown) =>
+      ({
+        stdout: (err as { stdout?: string }).stdout ?? '',
+        stderr: (err as { stderr?: string }).stderr ?? '',
+        code: 1
+      }) as ExecResult
+  )
+  void out.code // 0 answered, 2 nothing produced — the envelope decides, not the code
+  let envelope: Record<string, unknown>
+  try {
+    envelope = JSON.parse(out.stdout)
+  } catch {
+    return null
+  }
+  if (!envelope || typeof envelope !== 'object') return null
+  return { envelope }
 }
 
 // ---------------------------------------------------------------------------

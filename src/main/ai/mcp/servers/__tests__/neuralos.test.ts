@@ -43,6 +43,7 @@ vi.mock('node:os', () => {
 
 const { NeuralosServer, scoreProbes } = await import('../neuralos/NeuralosServer')
 const {
+  askGate,
   adminProbe,
   bundledEngineCandidates,
   bundledEngineName,
@@ -55,6 +56,7 @@ const {
   listInstances,
   parseJsonObject,
   readDocs,
+  readMenu,
   resolveEngine
 } = await import('../neuralos/neuralosRuntime')
 
@@ -66,11 +68,13 @@ const MENU = JSON.stringify([
 function primeFs({
   dirs = {},
   files = {},
-  symlinks = []
+  symlinks = [],
+  accessReject = []
 }: {
   dirs?: Record<string, string[]>
   files?: Record<string, string>
   symlinks?: string[]
+  accessReject?: string[]
 }) {
   readdirMock.mockImplementation(async (dir: string) => {
     const dirEntries = (dirs[dir] ?? []).map((n) => ({
@@ -86,7 +90,7 @@ function primeFs({
     return [...dirEntries, ...linkEntries]
   })
   accessMock.mockImplementation(async (p: string) => {
-    void p
+    if (accessReject.some((prefix) => String(p).startsWith(prefix))) throw new Error('ENOENT')
   })
   readFileMock.mockImplementation(async (p: string) => {
     if (p in files) return files[p]
@@ -315,6 +319,159 @@ describe('defaultDeps env precedence', () => {
   })
 })
 
+describe('askGate (refusal rules, mirrored from neuralOSd router._gate)', () => {
+  const ITSM_MENU = [
+    {
+      name: 'list_open_incidents',
+      description: 'List open incidents.',
+      triggers: ['open incidents', 'incident list', 'show incidents'],
+      parameters: {
+        type: 'object',
+        properties: { status: { type: 'string', enum: ['open', 'in_progress'] } },
+        required: []
+      }
+    },
+    {
+      name: 'count_work_orders',
+      description: 'Count work orders.',
+      triggers: ['work order count', 'count work orders', 'work orders'],
+      parameters: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'incident_summary',
+      description: 'Incident stats and ITSM overview.',
+      triggers: ['incident summary', 'incident stats', 'itsm overview'],
+      parameters: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'count_problems',
+      description: 'Count problem records.',
+      triggers: ['problem count', 'count problems', 'open problems'],
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  ]
+  const SALES_MENU = [
+    {
+      name: 'sales_by_region',
+      description: 'Revenue and units grouped by region.',
+      triggers: ['sales by region', 'regional sales', 'highest sales by region'],
+      parameters: {
+        type: 'object',
+        properties: { region: { type: 'string', enum: ['AMER', 'APAC', 'EMEA'] } },
+        required: []
+      }
+    },
+    {
+      name: 'count_records',
+      description: 'Count rows.',
+      triggers: ['count records', 'record count'],
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  ]
+  const REPORT_MENU = [
+    {
+      name: 'report_pages',
+      description: 'Page count of the report.',
+      triggers: ['how many pages', 'page count', 'report length'],
+      parameters: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'search_report',
+      description: 'Full-text search across report pages.',
+      triggers: ['pages mentioning', 'search the report', 'which pages mention', 'corporate governance mentions'],
+      parameters: {
+        type: 'object',
+        properties: { term: { type: 'string', pattern: '(?:mention|about)\\s+(.+)' } },
+        required: ['term']
+      }
+    },
+    {
+      name: 'get_page',
+      description: 'One page by number.',
+      triggers: ['show page', 'page content'],
+      parameters: {
+        type: 'object',
+        properties: { n: { type: 'integer', pattern: 'page\\s+(\\d{1,3})' } },
+        required: ['n']
+      }
+    }
+  ]
+
+  const gateFor = (menu: Parameters<typeof scoreProbes>[0], question: string): string | null => {
+    const ranked = scoreProbes(menu, question)
+    return askGate(question, menu, ranked[0])
+  }
+
+  it('refuses an imperative action no probe claims', () => {
+    expect(gateFor(SALES_MENU, 'delete all returned orders')).toBe('action_intent')
+  })
+
+  it('refuses a dropped status filter the winner does not carry', () => {
+    expect(gateFor(ITSM_MENU, 'how many work orders are blocked')).toBe('dropped_filter:blocked')
+    expect(gateFor(ITSM_MENU, 'how many problems were closed last month')).toBe('dropped_filter:closed')
+  })
+
+  it('refuses a question whose whole domain is unknown to the menu', () => {
+    expect(gateFor(ITSM_MENU, 'how many incident attachments exist')).toBe('no_probe_matches')
+    expect(gateFor(SALES_MENU, 'which incidents have a parent problem')).toBe('no_probe_matches')
+  })
+
+  it('does not refuse answerable questions', () => {
+    expect(gateFor(ITSM_MENU, 'how many open incidents')).toBeNull()
+    expect(gateFor(SALES_MENU, 'which region has the highest sales')).toBeNull()
+    expect(gateFor(SALES_MENU, 'give me a record count')).toBeNull()
+    expect(gateFor(REPORT_MENU, 'how pages mention corporate governance')).toBeNull()
+    expect(gateFor(REPORT_MENU, 'show page 60 content')).toBeNull()
+    expect(gateFor(ITSM_MENU, 'give me an itsm overview')).toBeNull()
+  })
+
+  it('never refuses a declared first trigger (false-refusal sweep)', () => {
+    for (const menu of [ITSM_MENU, SALES_MENU, REPORT_MENU]) {
+      for (const probe of menu) {
+        const firstTrigger = probe.triggers[0]
+        const ranked = scoreProbes(menu, firstTrigger)
+        expect(ranked.length).toBeGreaterThan(0)
+        expect(askGate(firstTrigger, menu, ranked[0])).toBeNull()
+      }
+    }
+  })
+
+  it('an extracted enum value vouches for an out-of-vocabulary question', () => {
+    // "EMEA" is a caged enum on sales_by_region: even with unknown extra
+    // nouns, the cage is the confidence signal.
+    const ranked = scoreProbes(SALES_MENU, 'EMEA breakdown by the units metric')
+    if (ranked[0]?.name === 'sales_by_region') {
+      expect(askGate('EMEA breakdown by the units metric', SALES_MENU, ranked[0])).toBeNull()
+    }
+  })
+})
+
+describe('readMenu shapes', () => {
+  it('reads the canonical bare array', async () => {
+    primeFs({ files: { '/i/needle_menu.json': MENU } })
+    const menu = await readMenu('/i')
+    expect(Array.isArray(menu) && menu).toHaveLength(2)
+  })
+
+  it('reads the wrapped {"menu": [...]} export shape', async () => {
+    primeFs({ files: { '/i/needle_menu.json': JSON.stringify({ name: 'i', menu: JSON.parse(MENU) }) } })
+    const menu = await readMenu('/i')
+    expect(Array.isArray(menu) && menu).toHaveLength(2)
+  })
+
+  it('reads the {"probes": [...]} export shape', async () => {
+    primeFs({ files: { '/i/needle_menu.json': JSON.stringify({ probes: JSON.parse(MENU) }) } })
+    const menu = await readMenu('/i')
+    expect(Array.isArray(menu) && menu).toHaveLength(2)
+  })
+
+  it('errors with the keys found on an unrecognised shape', async () => {
+    primeFs({ files: { '/i/needle_menu.json': JSON.stringify({ name: 'i', version: 3 }) } })
+    const result = await readMenu('/i')
+    expect('error' in result && result.error).toContain("keys ['name', 'version']")
+  })
+})
+
 describe('defaultPythonBin', () => {
   it('names the conventional interpreter per platform', () => {
     expect(defaultPythonBin('win32')).toBe('python')
@@ -508,7 +665,8 @@ describe('NeuralosServer', () => {
         '/instances/cyber/needle_menu.json': MENU,
         '/instances/engine/needle': '',
         '/instances/engine/needle3.cact': ''
-      }
+      },
+      accessReject: ['/instances/cyber/ask.py']
     })
     const deps = makeDeps({})
     const client = await connectNeuralosClient(deps)
@@ -517,10 +675,13 @@ describe('NeuralosServer', () => {
       arguments: { instance: 'cyber', question: 'xyzzy qwerty frobnicate' }
     })
     const text = (result.content as { type: string; text?: string }[])[0]?.text ?? ''
+    // The whole domain is unknown to the menu — the gate refuses instead of
+    // answering with the nearest probe.
     expect(JSON.parse(text)).toEqual({
       instance: 'cyber',
       question: 'xyzzy qwerty frobnicate',
-      error: 'no probe matched; retrieval found nothing relevant'
+      refused: true,
+      refusal_reason: 'no_probe_matches'
     })
     expect(deps.execFile).not.toHaveBeenCalled()
   })
@@ -650,6 +811,71 @@ describe('NeuralosServer', () => {
     const text = (result.content as { text?: string }[])[0]?.text ?? ''
     expect(text).toContain('invalid instance name: ../escape')
     expect(deps.execFile).not.toHaveBeenCalled()
+  })
+
+  it('honours an ask.py refusal as terminal — engine and probe never run', async () => {
+    primeFs({
+      dirs: { '/instances': ['gated'] },
+      files: {
+        '/instances/gated/needle_menu.json': MENU,
+        '/instances/gated/ask.py': '# stub refused ask.py'
+      }
+    })
+    const deps = depsWithExec(async (_cmd, args) => {
+      if (String(args[0]).endsWith('ask.py')) {
+        return {
+          stdout: JSON.stringify({ refused: true, refusal_reason: 'action_intent', probe: null }),
+          stderr: '',
+          code: 0
+        }
+      }
+      throw new Error(`must not execute during a refusal: ${_cmd} ${args.join(' ')}`)
+    })
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'gated', question: 'delete everything' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.refused).toBe(true)
+    expect(parsed.refusal_reason).toBe('action_intent')
+    // Exactly one exec: ask.py itself. No engine selection, no probe runner.
+    expect(deps.execFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns the ask.py answer as the answering surface when it handles the question', async () => {
+    primeFs({
+      dirs: { '/instances': ['gated'] },
+      files: { '/instances/gated/ask.py': '# stub' }
+    })
+    const deps = depsWithExec(async (_cmd, args) => {
+      if (String(args[0]).endsWith('ask.py')) {
+        return {
+          stdout: JSON.stringify({
+            probe: 'count_records',
+            confidence: 0.9,
+            mode: 'retrieval',
+            refused: false,
+            results: [{ rows: 5 }]
+          }),
+          stderr: '',
+          code: 0
+        }
+      }
+      throw new Error('unexpected exec')
+    })
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'gated', question: 'how many rows' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.probe).toBe('count_records')
+    expect(parsed.results).toEqual([{ rows: 5 }])
+    expect(parsed.refused).toBe(false)
+    expect(deps.execFile).toHaveBeenCalledTimes(1)
   })
 })
 

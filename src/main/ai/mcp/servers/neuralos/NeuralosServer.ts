@@ -8,6 +8,8 @@ import { loggerService } from '@logger'
 
 import {
   adminProbe,
+  askGate,
+  askViaAskPy,
   defaultDeps,
   engineSelect,
   executeProbe,
@@ -16,7 +18,9 @@ import {
   instanceDirFor,
   listInstances,
   readDocs,
+  readMenu,
   resolveEngine,
+  scoreProbes,
   writeRetrievalMenu
 } from './neuralosRuntime'
 
@@ -123,9 +127,39 @@ export class NeuralosServer {
           const { instance, question } = ASK_INPUT.parse(raw)
           const dir = await instanceDirFor(this.deps, instance)
           if (typeof dir !== 'string') return dir
+          // Prefer the instance's own ask.py — it may carry a refusal gate the
+          // runtime must honour. A refusal is terminal: no engine, no probe.
+          const viaAskPy = await askViaAskPy(this.deps, dir, question)
+          if (viaAskPy) {
+            const env = viaAskPy.envelope
+            if (env.refused === true) {
+              return {
+                instance,
+                question,
+                refused: true,
+                refusal_reason: String(env.refusal_reason ?? env.reason ?? 'refused'),
+                probe: env.probe ?? null
+              }
+            }
+            if (env.probe !== null && env.probe !== undefined) {
+              return { instance, question, ...env }
+            }
+            // Nothing-produced envelope — fall through to the gated path.
+          }
           const engine = await resolveEngine(this.deps)
           if ('error' in engine) return engine
-          // ask.py retrieval: hand the engine only the top-K relevant probes.
+          const menu = await readMenu(dir)
+          if ('error' in menu) return menu
+          const ranked = scoreProbes(menu, question)
+          // The gate runs even on an empty retrieval: an imperative question
+          // ("delete all orders") must be refused, not reported as a miss.
+          const gateReason = askGate(question, menu, ranked[0])
+          if (gateReason !== null) {
+            return { instance, question, refused: true, refusal_reason: gateReason }
+          }
+          if (ranked.length === 0) {
+            return { instance, question, error: 'no probe matched; retrieval found nothing relevant' }
+          }
           const selectPath = await writeRetrievalMenu(`${dir}/needle_menu.json`, question)
           if (typeof selectPath !== 'string') return { instance, question, ...selectPath }
           try {

@@ -1,12 +1,16 @@
-# resources/neuralos — build-time engine download
+# resources/neuralos — engine download + factory scripts + manual
 
 The neuralOS engine binary and weights are downloaded into this directory
 by the release workflows (`Download neuralOS engine + weights` step) and
 bundled into the installed app at `<resources>/neuralos/` via the
-`extraResources` entry in electron-builder.yml. Nothing here is committed
-except this README, so local builds always have a valid source dir.
+`extraResources` entry in electron-builder.yml.
 
-Files placed at build time:
+**Committed here:** this README, `scripts/` (the factory pipeline the
+`neuralos_factory` tool runs: profile_data.py, discover_relationships.py,
+gen_pydantic.py, gen_needle_instance.py) and `docs/` (the bundled manual the
+`neuralos_docs` tool serves).
+
+**Placed at build time only** (downloaded, not committed):
 - `needle3.cact` — the 35 MB weights (platform-independent)
 - `engine-macos-arm64` — macOS Apple Silicon (no x64 engine is published)
 - `engine-linux-x86_64`, `engine-linux-arm64`

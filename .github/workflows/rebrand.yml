@@ -60,6 +60,9 @@ jobs:
           if [ -f src/main/ai/mcp/servers/__tests__/neuralosConnection.test.ts ]; then
             cp src/main/ai/mcp/servers/__tests__/neuralosConnection.test.ts /tmp/seed/neuralos-test/
           fi
+          if [ -f src/main/ai/mcp/servers/__tests__/neuralosGenTemplate.test.ts ]; then
+            cp src/main/ai/mcp/servers/__tests__/neuralosGenTemplate.test.ts /tmp/seed/neuralos-test/
+          fi
           mkdir -p /tmp/seed/neuralos-resources
           if [ -f resources/neuralos/README.md ]; then
             cp resources/neuralos/README.md /tmp/seed/neuralos-resources/
@@ -137,6 +140,9 @@ jobs:
           fi
           if [ -f /tmp/seed/neuralos-test/neuralosConnection.test.ts ]; then
             cp /tmp/seed/neuralos-test/neuralosConnection.test.ts src/main/ai/mcp/servers/__tests__/
+          fi
+          if [ -f /tmp/seed/neuralos-test/neuralosGenTemplate.test.ts ]; then
+            cp /tmp/seed/neuralos-test/neuralosGenTemplate.test.ts src/main/ai/mcp/servers/__tests__/
           fi
           mkdir -p resources/neuralos
           if [ -f /tmp/seed/neuralos-resources/README.md ]; then
@@ -281,6 +287,7 @@ jobs:
       - name: Run neuralOS unit tests
         if: matrix.os == 'ubuntu-latest'
         run: pnpm vitest run src/main/ai/mcp/servers/__tests__/neuralos.test.ts \
+          src/main/ai/mcp/servers/__tests__/neuralosGenTemplate.test.ts \
           src/renderer/pages/settings/ProviderSettings/utils/__tests__/providerDisplay.test.ts \
           src/renderer/assets/styles/__tests__/brandGradient.test.ts --project main
         shell: bash

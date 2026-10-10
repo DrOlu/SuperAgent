@@ -882,6 +882,26 @@ export class CherrySupportSeeder implements ISeeder {
             "publish:\n  provider: generic\n  url: https://releases.superagent.ng",
             "publish:\n  provider: github\n  owner: DrOlu\n  repo: SuperAgent",
         )
+        # Upstream keys under its generic provider (e.g. useMultipleRangeRequest)
+        # are invalid on a github provider — app-builder-lib's GithubOptions has
+        # additionalProperties: false, and every Compile job dies on schema
+        # validation. Strip anything github does not declare.
+        t = t.replace(
+            "publish:\n  provider: github\n  owner: DrOlu\n  repo: SuperAgent\n  useMultipleRangeRequest: false",
+            "publish:\n  provider: github\n  owner: DrOlu\n  repo: SuperAgent",
+        )
+        block = t[t.index("publish:") : t.index("electronDownload:")]
+        keys = [
+            line.strip().split(":", 1)[0]
+            for line in block.splitlines()[1:]
+            if line.startswith("  ") and line.strip()
+        ]
+        unexpected = [k for k in keys if k not in ("provider", "owner", "repo")]
+        if unexpected:
+            raise RuntimeError(
+                "electron-builder.yml publish carries keys invalid on a github "
+                "provider: " + ", ".join(unexpected) + " — Compile would fail"
+            )
         with open(yml, "w", encoding="utf-8") as f:
             f.write(t)
         patches.append("electron-builder.yml publish → github DrOlu/SuperAgent")

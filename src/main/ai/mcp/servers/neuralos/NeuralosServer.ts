@@ -143,15 +143,16 @@ export class NeuralosServer {
             }
             if (env.probe !== null && env.probe !== undefined) {
               // Backstop for hand-authored ask.py files that ship no gate of
-              // their own: the probe already ran (read-only bridges), but an
-              // answer the gate refuses is withheld — the caller gets the
-              // refusal, not the confident wrong answer.
+              // their own: an imperative question must never be serviced by a
+              // read-only probe, so an action_intent answer is withheld. The
+              // vocabulary rules (no_probe_matches/low_coverage) do NOT apply
+              // here — an ask.py that answered has demonstrated it understood
+              // the question; its menu is simply thinner than its fast-paths.
               const menu = await readMenu(dir)
               if (!('error' in menu)) {
                 const ranked = scoreProbes(menu, question)
-                const gateReason = askGate(question, menu, ranked[0])
-                if (gateReason !== null) {
-                  return { instance, question, refused: true, refusal_reason: gateReason }
+                if (askGate(question, menu, ranked[0]) === 'action_intent') {
+                  return { instance, question, refused: true, refusal_reason: 'action_intent' }
                 }
               }
               return { instance, question, ...env }

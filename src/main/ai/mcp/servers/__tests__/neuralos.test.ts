@@ -942,6 +942,43 @@ describe('NeuralosServer', () => {
     expect(parsed.refusal_reason).toBe('action_intent')
     expect(parsed.results).toBeUndefined()
   })
+
+  it('surfaces a gateless ask.py answer the menu vocabulary cannot describe', async () => {
+    // Regression (live, mtn-build): "which pages mention risk management"
+    // answered on 2.2.22, false-refused on 2.2.23. An ask.py that ANSWERED
+    // has demonstrated it understood the question — the vocabulary rules
+    // must not second-guess it; only imperative intent is withheld.
+    primeFs({
+      dirs: { '/instances': ['gated'] },
+      files: { '/instances/gated/needle_menu.json': MENU, '/instances/gated/ask.py': '# stub' }
+    })
+    const deps = depsWithExec(async (_cmd, args) => {
+      if (String(args[0]).endsWith('ask.py')) {
+        return {
+          stdout: JSON.stringify({
+            probe: 'search_report',
+            confidence: 0.9,
+            mode: 'retrieval',
+            refused: false,
+            results: [{ page: 19, matches: 27 }]
+          }),
+          stderr: '',
+          code: 0
+        }
+      }
+      throw new Error('unexpected exec')
+    })
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'gated', question: 'which pages mention risk governance' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.refused).toBe(false)
+    expect(parsed.probe).toBe('search_report')
+    expect(parsed.results).toEqual([{ page: 19, matches: 27 }])
+  })
 })
 
 describe('scoreProbes (ask.py retrieval)', () => {

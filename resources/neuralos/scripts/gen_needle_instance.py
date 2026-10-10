@@ -907,12 +907,14 @@ def gate_tokens(text):
     return _strip_plural(set(re.findall(r"[a-z0-9_]+", str(text).lower())) - GATE_STOP)
 
 
-def gate_probe_vocab(probe):
-    """triggers + name + enum values — what this probe can be said to know."""
+def gate_probe_vocab(probe, include_enum=True):
+    """triggers + name (+ enum values) — what this probe can be said to know."""
     v = set()
     for t in probe.get("triggers", []):
         v |= gate_tokens(t)
     v |= gate_tokens(probe["name"].replace("_", " "))
+    if not include_enum:
+        return v
     for spec in ((probe.get("parameters") or {}).get("properties") or {}).values():
         if isinstance(spec, dict):
             for v2 in spec.get("enum", []) or []:
@@ -941,9 +943,15 @@ def ask_gate(normalized, menu, winner, cages):
     Never runs a probe, never calls the model, never touches the network."""
     vocab = {p["name"]: _strip_plural(gate_probe_vocab(p)) for p in menu}
     menu_v = set().union(*vocab.values()) if vocab else set()
+    # The action carve-out weighs capability words only — enum values are
+    # data, not capabilities (a bucket named do-not-delete-... must not
+    # teach the menu the verb).
+    cap_v = set()
+    for p in menu:
+        cap_v |= _strip_plural(gate_probe_vocab(p, include_enum=False))
     winner_v = vocab.get(winner.get("name"), set())
     words = normalized.split()
-    if words and words[0] in ACTION_VERBS and words[0] not in menu_v:
+    if words and words[0] in ACTION_VERBS and words[0] not in cap_v:
         return "action_intent"
     if gate_caged_seen(winner, cages, normalized):
         return None

@@ -406,6 +406,36 @@ describe('askGate (refusal rules, mirrored from neuralOSd router._gate)', () => 
     expect(gateFor(SALES_MENU, 'delete all returned orders')).toBe('action_intent')
   })
 
+  it('refuses an action verb that appears only inside an enum value (capability ≠ data)', () => {
+    // Regression: a bucket literally named do-not-delete-… must not teach the
+    // menu the verb — enum values are data, the action carve-out weighs
+    // triggers/names/descriptions only.
+    const menu = [
+      {
+        name: 'bucket_files',
+        description: 'List files in a bucket.',
+        triggers: ['bucket files', 'list files'],
+        parameters: {
+          type: 'object',
+          properties: { bucket: { type: 'string', enum: ['do-not-delete-ssm-diagnosis', 'backups'] } },
+          required: ['bucket']
+        }
+      }
+    ]
+    const ranked = scoreProbes(menu, 'delete all buckets')
+    expect(askGate('delete all buckets', menu, ranked[0])).toBe('action_intent')
+    // the carve-out itself is intact: a verb the menu really offers still answers
+    const deleter = [
+      {
+        name: 'delete_records',
+        description: 'Remove records by id.',
+        triggers: ['delete records', 'remove record'],
+        parameters: { type: 'object', properties: {}, required: [] }
+      }
+    ]
+    expect(askGate('delete records', deleter, scoreProbes(deleter, 'delete records')[0])).toBeNull()
+  })
+
   it('refuses a dropped status filter the winner does not carry', () => {
     expect(gateFor(ITSM_MENU, 'how many work orders are blocked')).toBe('dropped_filter:blocked')
     expect(gateFor(ITSM_MENU, 'how many problems were closed last month')).toBe('dropped_filter:closed')
@@ -876,6 +906,41 @@ describe('NeuralosServer', () => {
     expect(parsed.results).toEqual([{ rows: 5 }])
     expect(parsed.refused).toBe(false)
     expect(deps.execFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('withholds a gateless ask.py answer the gate refuses', async () => {
+    // Hand-authored ask.py files may ship no gate; the TS gate is the
+    // backstop — the answer is never surfaced.
+    primeFs({
+      dirs: { '/instances': ['gated'] },
+      files: { '/instances/gated/needle_menu.json': MENU, '/instances/gated/ask.py': '# stub' }
+    })
+    const deps = depsWithExec(async (_cmd, args) => {
+      if (String(args[0]).endsWith('ask.py')) {
+        return {
+          stdout: JSON.stringify({
+            probe: 'transactions_count',
+            confidence: 0.9,
+            mode: 'retrieval',
+            refused: false,
+            results: [{ rows: 5 }]
+          }),
+          stderr: '',
+          code: 0
+        }
+      }
+      throw new Error('unexpected exec')
+    })
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'gated', question: 'delete all the transactions' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.refused).toBe(true)
+    expect(parsed.refusal_reason).toBe('action_intent')
+    expect(parsed.results).toBeUndefined()
   })
 })
 

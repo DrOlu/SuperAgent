@@ -142,6 +142,18 @@ export class NeuralosServer {
               }
             }
             if (env.probe !== null && env.probe !== undefined) {
+              // Backstop for hand-authored ask.py files that ship no gate of
+              // their own: the probe already ran (read-only bridges), but an
+              // answer the gate refuses is withheld — the caller gets the
+              // refusal, not the confident wrong answer.
+              const menu = await readMenu(dir)
+              if (!('error' in menu)) {
+                const ranked = scoreProbes(menu, question)
+                const gateReason = askGate(question, menu, ranked[0])
+                if (gateReason !== null) {
+                  return { instance, question, refused: true, refusal_reason: gateReason }
+                }
+              }
               return { instance, question, ...env }
             }
             // Nothing-produced envelope — fall through to the gated path.

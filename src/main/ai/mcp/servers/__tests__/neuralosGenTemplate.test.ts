@@ -44,7 +44,13 @@ function materialiseInstance(): string {
       name: 'count_rows',
       description: 'Count the rows in the dataset.',
       triggers: ['count rows', 'how many rows', 'row count'],
-      parameters: { type: 'object', properties: {}, required: [] }
+      parameters: {
+        type: 'object',
+        // an enum VALUE containing the action verb must not teach the menu
+        // the verb — capability ≠ data
+        properties: { dataset: { type: 'string', enum: ['do-not-delete-archive', 'ledger'] } },
+        required: []
+      }
     },
     {
       name: 'get_page',

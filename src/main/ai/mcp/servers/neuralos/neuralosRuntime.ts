@@ -585,11 +585,12 @@ function gateTokens(text: unknown): Set<string> {
   )
 }
 
-/** triggers + probe name + enum values — what this probe can be said to know. */
-function gateProbeVocab(probe: NeuralosMenuProbe): Set<string> {
+/** triggers + probe name (+ enum values) — what this probe can be said to know. */
+function gateProbeVocab(probe: NeuralosMenuProbe, includeEnums = true): Set<string> {
   let vocab = new Set<string>()
   for (const trigger of probe.triggers ?? []) vocab = vocab.union(gateTokens(trigger))
   vocab = vocab.union(gateTokens((probe.name ?? '').replace(/_/g, ' ')))
+  if (!includeEnums) return vocab
   const properties =
     ((probe.parameters as { properties?: Record<string, { enum?: unknown[] }> } | undefined)?.properties ??
       undefined) || {}
@@ -649,12 +650,20 @@ export function askGate(
   const normalized = normalizedQuestion.toLowerCase().trim()
   const vocab = new Map(menu.map((p) => [p.name, stripPlural(gateProbeVocab(p))]))
   const menuVocab = stripPlural(gateMenuVocab(menu))
+  // The action carve-out weighs CAPABILITY words only (triggers, names,
+  // descriptions). Enum values are data, not capabilities — a bucket literally
+  // named "do-not-delete-…" must not teach the menu the verb delete (router.py
+  // reuses its enum-polluted vocab here; that false negative is deliberate to
+  // fix, not port).
+  const capabilityVocab = stripPlural(
+    menu.reduce((acc, p) => acc.union(gateProbeVocab(p, false)), new Set<string>())
+  )
 
   // Imperative intent is checked first, against the whole menu, even when
   // retrieval found nothing — "delete all orders" must not degrade into a
   // generic "nothing matched".
   const first = normalized.split(/\s+/)[0] ?? ''
-  if (first && ACTION_VERBS.has(first) && !menuVocab.has(first)) return 'action_intent'
+  if (first && ACTION_VERBS.has(first) && !capabilityVocab.has(first)) return 'action_intent'
 
   const domainEmptyOfWinners = (): 'no_probe_matches' | null => {
     const questionTokens = gateTokens(normalized)

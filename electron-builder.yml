@@ -146,7 +146,7 @@ nsis:
   oneClick: false
   include: build/nsis-installer.nsh
   buildUniversalInstaller: false
-  differentialPackage: false
+  differentialPackage: true
 portable:
   artifactName: ${productName}-${version}-${arch}-portable.${ext}
   buildUniversalInstaller: false
@@ -191,6 +191,7 @@ publish:
   provider: github
   owner: DrOlu
   repo: SuperAgent
+  useMultipleRangeRequest: false
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
 beforePack: scripts/packaging/before-pack.js

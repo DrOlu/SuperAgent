@@ -452,6 +452,10 @@ jobs:
           esac
           echo "packed engine: $ENGINE"
           [ -n "$ENGINE" ] || { echo "FATAL: no engine binary inside the packed artifact"; exit 1; }
+          case "$ENGINE" in
+            /*) ;;                       # already absolute
+            *)  ENGINE="$(pwd)/$ENGINE" ;;  # the cd below would break a relative find hit
+          esac
           WEIGHTS=$(dirname "$ENGINE")/needle3.cact
           test -f "$WEIGHTS" || { echo "FATAL: needle3.cact missing beside the packed engine"; exit 1; }
           if [ "$RUNNER_OS" != "Windows" ]; then

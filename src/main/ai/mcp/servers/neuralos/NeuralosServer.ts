@@ -10,6 +10,7 @@ import {
   adminProbe,
   askGate,
   askViaAskPy,
+  auditAskRefusal,
   defaultDeps,
   engineSelect,
   executeProbe,
@@ -152,6 +153,11 @@ export class NeuralosServer {
               if (!('error' in menu)) {
                 const ranked = scoreProbes(menu, question)
                 if (askGate(question, menu, ranked[0]) === 'action_intent') {
+                  await auditAskRefusal(dir, {
+                    question,
+                    refusalReason: 'action_intent',
+                    candidatesRetrieved: [String(env.probe)]
+                  })
                   return { instance, question, refused: true, refusal_reason: 'action_intent' }
                 }
               }
@@ -168,6 +174,11 @@ export class NeuralosServer {
           // ("delete all orders") must be refused, not reported as a miss.
           const gateReason = askGate(question, menu, ranked[0])
           if (gateReason !== null) {
+            await auditAskRefusal(dir, {
+              question,
+              refusalReason: gateReason,
+              candidatesRetrieved: ranked.map((p) => p.name)
+            })
             return { instance, question, refused: true, refusal_reason: gateReason }
           }
           if (ranked.length === 0) {

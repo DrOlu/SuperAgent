@@ -756,6 +756,45 @@ export async function askViaAskPy(
   return { envelope }
 }
 
+export interface AskRefusalAudit {
+  question: string
+  refusalReason: string
+  candidatesRetrieved: string[]
+}
+
+/**
+ * Append a TS-side refusal to the instance's ask_audit.jsonl — the same
+ * record shape the generated ask.py writes, so refused questions land in
+ * one gap loop regardless of which side refused them (`via` tells them
+ * apart). Fire-and-forget: an audit failure never changes the ask outcome.
+ * ask.py's own refusals are already audited by ask.py — never call this
+ * for those.
+ */
+export async function auditAskRefusal(instanceDir: string, info: AskRefusalAudit): Promise<void> {
+  try {
+    const record = {
+      ts: Date.now() / 1000,
+      ask_id: `ts-${Math.random().toString(36).slice(2, 8)}`,
+      question: info.question,
+      normalized: info.question.toLowerCase().trim(),
+      probe: null,
+      mode: 'refused',
+      refused: true,
+      refusal_reason: info.refusalReason,
+      gate_version: GATE_VERSION,
+      error: `refused (${info.refusalReason}): the menu cannot answer this confidently, and guessing is worse`,
+      results: null,
+      candidates_retrieved: info.candidatesRetrieved,
+      via: 'superagent-ts'
+    }
+    await fs.appendFile(path.join(instanceDir, 'ask_audit.jsonl'), `${JSON.stringify(record)}\n`, 'utf-8')
+  } catch {
+    // mirror of ask.py's audit(): best-effort, never fatal
+  }
+}
+
+
+
 // ---------------------------------------------------------------------------
 // The factory: PROFILE → GRAPH → MODEL → GENERATE → (VERIFY)
 // ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ const readFileMock = vi.fn()
 const chmodMock = vi.fn(async (_p: string, _mode: number) => {})
 const mkdtempMock = vi.fn(async (_prefix: string) => '/tmp/neuralos-menu-test')
 const writeFileMock = vi.fn(async (_p: string, _data: string) => {})
+const appendFileMock = vi.fn(async (_p: string, _data: string) => {})
 const rmMock = vi.fn(async (_p: string, _opts?: unknown) => {})
 const mkdirMock = vi.fn(async (_p: string, _opts?: unknown) => {})
 vi.mock('node:fs', () => ({
@@ -26,6 +27,7 @@ vi.mock('node:fs', () => ({
     chmod: (p: string, mode: number) => chmodMock(p, mode),
     mkdtemp: (prefix: string) => mkdtempMock(prefix),
     writeFile: (p: string, data: string) => writeFileMock(p, data),
+    appendFile: (p: string, data: string) => appendFileMock(p, data),
     rm: (p: string, opts?: unknown) => rmMock(p, opts),
     mkdir: (p: string, opts?: unknown) => mkdirMock(p, opts)
   }
@@ -872,6 +874,8 @@ describe('NeuralosServer', () => {
     expect(parsed.refusal_reason).toBe('action_intent')
     // Exactly one exec: ask.py itself. No engine selection, no probe runner.
     expect(deps.execFile).toHaveBeenCalledTimes(1)
+    // ask.py audited its own refusal — the TS side must not double-write
+    expect(appendFileMock).not.toHaveBeenCalled()
   })
 
   it('returns the ask.py answer as the answering surface when it handles the question', async () => {
@@ -941,6 +945,68 @@ describe('NeuralosServer', () => {
     expect(parsed.refused).toBe(true)
     expect(parsed.refusal_reason).toBe('action_intent')
     expect(parsed.results).toBeUndefined()
+    // the withheld answer lands in the instance's gap log, marked as TS-side
+    expect(appendFileMock).toHaveBeenCalledTimes(1)
+    const [auditPath, auditLine] = appendFileMock.mock.calls[0]
+    expect(String(auditPath)).toBe('/instances/gated/ask_audit.jsonl')
+    const record = JSON.parse(String(auditLine))
+    expect(record.refused).toBe(true)
+    expect(record.refusal_reason).toBe('action_intent')
+    expect(record.gate_version).toBe(1)
+    expect(record.via).toBe('superagent-ts')
+    expect(record.candidates_retrieved).toEqual(['transactions_count'])
+  })
+
+  it('audits a TS-gate refusal on an instance without ask.py', async () => {
+    primeFs({
+      dirs: { '/instances': ['plain'] },
+      files: { '/instances/plain/needle_menu.json': MENU }
+    })
+    const deps = depsWithExec(async (_cmd, args) => {
+      if (String(args[0]).endsWith('ask.py')) return { stdout: '', stderr: '', code: 1 }
+      throw new Error('no execution expected past the gate')
+    })
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'plain', question: 'delete all the transactions' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.refused).toBe(true)
+    expect(parsed.refusal_reason).toBe('action_intent')
+    // gate refused before the engine ran anything
+    expect(deps.execFile).toHaveBeenCalledTimes(1)
+    expect(appendFileMock).toHaveBeenCalledTimes(1)
+    const [auditPath, auditLine] = appendFileMock.mock.calls[0]
+    expect(String(auditPath)).toBe('/instances/plain/ask_audit.jsonl')
+    const record = JSON.parse(String(auditLine))
+    expect(record.question).toBe('delete all the transactions')
+    expect(record.refusal_reason).toBe('action_intent')
+    expect(record.via).toBe('superagent-ts')
+  })
+
+  it('an audit failure never changes the ask outcome', async () => {
+    primeFs({
+      dirs: { '/instances': ['plain'] },
+      files: { '/instances/plain/needle_menu.json': MENU }
+    })
+    appendFileMock.mockImplementationOnce(async () => {
+      throw new Error('disk full')
+    })
+    const deps = depsWithExec(async (_cmd, args) => {
+      if (String(args[0]).endsWith('ask.py')) return { stdout: '', stderr: '', code: 1 }
+      throw new Error('no execution expected past the gate')
+    })
+    const client = await connectNeuralosClient(deps)
+    const result = await client.callTool({
+      name: 'neuralos_ask',
+      arguments: { instance: 'plain', question: 'delete all the transactions' }
+    })
+    const text = (result.content as { text?: string }[])[0]?.text ?? ''
+    const parsed = JSON.parse(text)
+    expect(parsed.refused).toBe(true)
+    expect(parsed.refusal_reason).toBe('action_intent')
   })
 
   it('surfaces a gateless ask.py answer the menu vocabulary cannot describe', async () => {

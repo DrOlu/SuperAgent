@@ -1,7 +1,11 @@
 [
   {
-    "version": "2.2.25",
+    "version": "2.2.26",
     "releaseNotes": "<!--LANG:en-->\nSuperAgent — rebranded and maintained by Hyperspace Technologies.\nBuilt from an open-source AI assistant codebase under its original license.\n\n<!--LANG:zh-CN-->\nSuperAgent — rebranded and maintained by Hyperspace Technologies.\nBuilt from an open-source AI assistant codebase under its original license.\n\n<!--LANG:END-->\n"
+  },
+  {
+    "version": "2.1.6",
+    "releaseNotes": "<!--LANG:en-->\nSuperAgent 2.1.6 - Bug Fixes and Provider Updates\n\n🐛 Bug Fixes\n- [Search] Fix searches for programming languages with hash symbols (e.g., C#, F#) not matching messages.\n- [Backup] Fix restore failing on Windows when browser storage is locked by the current session. Restore progress now stays monotonic, failed attempts are reported with retry guidance, and orphaned restore files are cleaned up.\n- [Errors] Stop misreporting client-refusal errors as \"invalid API key\" — now shows the correct permission guidance instead of sending users to regenerate working keys.\n- [Chat] Context-usage token counts now follow the selected interface language and update when it changes.\n\n<!--LANG:zh-CN-->\nSuperAgent 2.1.6 - \n\n🐛 \n- []  C#F#\n- []  Windows \n- [] \"API \" — \n- []  token \n\n💡 \n-  TI  TokenHub \n<!--LANG:END-->"
   },
   {
     "version": "2.1.5",

@@ -65,6 +65,8 @@
   "appMenu.zoom": "",
   "appMenu.zoomIn": "",
   "appMenu.zoomOut": "",
+  "backup.restore.failed": "",
+  "backup.restore.retry": "",
   "chat.conversation.new": "",
   "common.channel_available_commands": "",
   "common.channel_command_processing_error": "⚠️ ",

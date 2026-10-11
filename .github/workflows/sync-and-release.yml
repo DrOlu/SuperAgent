@@ -217,6 +217,10 @@ jobs:
         if: steps.check.outputs.do_release == 'true'
         run: python3 scripts/rebrand.py .
 
+      - name: Gate conformance exam (GATE_VERSION 1)
+        if: steps.check.outputs.do_release == 'true'
+        run: python3 resources/neuralos/scripts/run_gate_conformance_fixture.py
+
       - name: Brand sweep locales (values only)
         if: steps.check.outputs.do_release == 'true'
         run: python3 scripts/superagent-brand-sweep.py .
@@ -401,6 +405,65 @@ jobs:
           if [ "$RUNNER_OS" != "Windows" ]; then
             for f in "$found"/engine-*; do test -x "$f"; done
           fi
+
+      - name: Smoke test the PACKED neuralOS engine (execute + one real ask)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The staged tree above can look perfect while the PACKAGING step
+          # strips bits or drops files — the EACCES class shipped for weeks
+          # because nobody executed what users actually download. Extract the
+          # real artifact, run the engine, and sit one real toy ask (a
+          # --version alone cannot catch truncated weights).
+          SMOKE=$(mktemp -d)
+          cat > "$SMOKE/tools.json" <<'JSON'
+          [{"name": "ping", "description": "Reply with a ping.",
+            "triggers": ["say ping"],
+            "parameters": {"type": "object", "properties": {}, "required": []}}]
+          JSON
+          ENGINE=""
+          case "$RUNNER_OS" in
+            macOS)
+              ZIP=$(ls dist/SuperAgent-*.zip | head -1)
+              echo "smoking packed artifact: $ZIP"
+              unzip -q "$ZIP" -d "$SMOKE/unpacked"
+              ENGINE=$(find "$SMOKE/unpacked" -type f -name "engine-macos-arm64" | head -1)
+              ;;
+            Linux)
+              APPIMG=$(ls dist/*.AppImage | head -1)
+              echo "smoking packed artifact: $APPIMG"
+              chmod +x "$APPIMG"
+              ("$APPIMG" --appimage-extract >/dev/null)
+              ENGINE=$(find "$SMOKE" squashfs-root -type f -name "engine-linux-x86_64" 2>/dev/null | head -1)
+              [ -z "$ENGINE" ] && ENGINE=$(find squashfs-root -type f -name "engine-linux-x86_64" | head -1)
+              ;;
+            Windows)
+              PORTABLE=$(ls dist/*portable*.exe | head -1)
+              echo "smoking packed artifact: $PORTABLE"
+              7z x -y -o"$SMOKE/unpacked" "$PORTABLE" >/dev/null
+              ENGINE=$(find "$SMOKE/unpacked" -type f -name "engine-windows-x86_64.exe" | head -1)
+              ;;
+          esac
+          echo "packed engine: $ENGINE"
+          [ -n "$ENGINE" ] || { echo "FATAL: no engine binary inside the packed artifact"; exit 1; }
+          WEIGHTS=$(dirname "$ENGINE")/needle3.cact
+          test -f "$WEIGHTS" || { echo "FATAL: needle3.cact missing beside the packed engine"; exit 1; }
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            test -x "$ENGINE" || { echo "FATAL: packed engine lost its exec bit (the EACCES regression)"; exit 1; }
+          fi
+          cd "$(dirname "$ENGINE")"
+          set +e
+          ASK_OUT=$("$ENGINE" --model needle3.cact --tools "$SMOKE/tools.json" --prompt "say ping" 2>"$SMOKE/ask.err")
+          ASK_RC=$?
+          set -e
+          echo "ask exit=$ASK_RC output: $(echo "$ASK_OUT" | head -c 400)"
+          if [ "$ASK_RC" != "0" ] || [ -z "$ASK_OUT" ]; then
+            echo "FATAL: packed engine cannot answer a toy ask"; cat "$SMOKE/ask.err" | head -20; exit 1
+          fi
+          if ! echo "$ASK_OUT" | grep -qi "ping"; then
+            echo "FATAL: toy ask did not pick the ping tool"; exit 1
+          fi
+          echo "PACKED ENGINE SMOKE PASSED: binary executes, weights load, tool call selects."
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

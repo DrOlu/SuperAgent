@@ -161,7 +161,7 @@ export class NeuralosServer {
                   return { instance, question, refused: true, refusal_reason: 'action_intent' }
                 }
               }
-              return { instance, question, ...env }
+              return { instance, question, ...env, confidence_calibrated: false }
             }
             // Nothing-produced envelope — fall through to the gated path.
           }
@@ -190,7 +190,16 @@ export class NeuralosServer {
             const selection = await engineSelect(this.deps, engine, selectPath, question)
             if ('error' in selection) return { instance, question, ...selection }
             const result = await executeProbe(this.deps, dir, selection.pick, selection.args)
-            return { instance, question, pick: selection.pick, confidence: selection.confidence, result }
+            // raw pick confidence is NOT calibrated (see the neuralos skill's
+            // calibrate.py) — label it so consumers do not trust it as one
+            return {
+              instance,
+              question,
+              pick: selection.pick,
+              confidence: selection.confidence,
+              confidence_calibrated: false,
+              result
+            }
           } finally {
             await fs.rm(path.dirname(selectPath), { recursive: true, force: true }).catch(() => undefined)
           }

@@ -265,8 +265,25 @@ def bridge_database(profile, dsn, dsn_env):
 DSN = os.environ.get("{dsn_env}", "{dsn}")
 
 
+def _usql_bin():
+    # NEURALOS_USQL env > PATH > the usual install dirs — hosts whose app
+    # PATH lacks usql still work when the binary lives in a standard place
+    import shutil
+    env = os.environ.get("NEURALOS_USQL", "").strip()
+    if env:
+        return env
+    found = shutil.which("usql")
+    if found:
+        return found
+    for cand in ("/opt/homebrew/bin/usql", "/usr/local/bin/usql",
+                 "/usr/bin/usql", "/snap/bin/usql"):
+        if os.path.isfile(cand):
+            return cand
+    return "usql"
+
+
 def _q(sql):
-    proc = subprocess.run(["usql", DSN, "-c", "\\\\pset format csv", "-c", sql],
+    proc = subprocess.run([_usql_bin(), DSN, "-c", "\\\\pset format csv", "-c", sql],
                           capture_output=True, text=True, encoding="utf-8",
                           errors="replace", timeout=120)
     if proc.returncode != 0:
@@ -953,10 +970,14 @@ def ask_gate(normalized, menu, winner, cages):
     cap_v = set()
     for p in menu:
         cap_v |= _strip_plural(gate_probe_vocab(p, include_enum=False))
-    winner_v = vocab.get(winner.get("name"), set())
     words = normalized.split()
     if words and words[0] in ACTION_VERBS and words[0] not in cap_v:
         return "action_intent"
+    if winner is None:
+        # retrieval found nothing — the honest outcome is a refusal unless an
+        # imperative already claimed it above
+        return "no_probe_matches"
+    winner_v = vocab.get(winner.get("name"), set())
     if gate_caged_seen(winner, cages, normalized):
         return None
     for qual in QUALIFIERS:
@@ -1026,10 +1047,13 @@ def ask_one(question, k=K_DEFAULT, full=False, use_cache=True):
         mode = "retrieval"
         print("retrieved:", [t.__name__ for t in selected], file=sys.stderr)
         if not selected:
+            # the gate outranks the retrieval miss: an imperative must be
+            # refused as action_intent, not reported as a mere miss
+            miss_reason = ask_gate(normalized, menu, None, cages)
             env = {"ask_id": ask_id, "question": question, "normalized": normalized,
                    "probe": None, "menu_version": mver,
-                   "refused": True, "refusal_reason": "no_probe_matches",
-                   "refusal_detail": {"rule": "no_probe_matches",
+                   "refused": True, "refusal_reason": miss_reason,
+                   "refusal_detail": {"rule": miss_reason,
                                       "why": "no probe scored > 0"},
                    "gate_version": GATE_VERSION, "error":
                    "no probe scored > 0 for this question"}

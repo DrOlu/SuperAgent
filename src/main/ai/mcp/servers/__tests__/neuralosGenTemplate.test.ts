@@ -189,4 +189,13 @@ describe('generated ask.py — refusal gate (GATE_VERSION 1)', () => {
     expect(envelope['refused']).toBe(false)
     expect(envelope['probe']).toBe('count_rows')
   })
+
+  it('sits the gate conformance exam (gate_conformance.py fixture)', () => {
+    // The fleet exam: materialises its own gated instance from ASK_PY and
+    // asserts the full GATE_VERSION 1 contract black-box. A nonzero exit
+    // means the generated Python gate broke the shared contract.
+    const runner = path.join(SCRIPTS, 'run_gate_conformance_fixture.py')
+    expect(existsSync(runner)).toBe(true)
+    execFileSync(PY, [runner], { encoding: 'utf-8', timeout: 120_000 })
+  })
 })

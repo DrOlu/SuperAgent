@@ -335,9 +335,38 @@ def profile_log(path, sample, profile, max_lines=5000):
 
 
 # ---------------------------------------------------------------- databases
+def usql_bin():
+    """Locate the usql CLI: NEURALOS_USQL env > PATH > the usual install
+    dirs. Instances on hosts whose app PATH lacks usql (the efraud case)
+    still work when the binary lives in a standard location."""
+    import shutil
+    env = os.environ.get("NEURALOS_USQL", "").strip()
+    if env:
+        return env
+    found = shutil.which("usql")
+    if found:
+        return found
+    for cand in ("/opt/homebrew/bin/usql", "/usr/local/bin/usql",
+                 "/usr/bin/usql", "/snap/bin/usql"):
+        if os.path.isfile(cand):
+            return cand
+    return "usql"
+
+
+def _db_dialect(dsn):
+    scheme = dsn.split("://", 1)[0].lower()
+    if scheme.startswith("postgres"):
+        return "postgres"
+    return "mysql"
+
+
+def _quote_ident(dsn, name):
+    return f"`{name}`" if _db_dialect(dsn) == "mysql" else f'"{name}"'
+
+
 def _usql(dsn, sql):
     proc = subprocess.run(
-        ["usql", dsn, "-c", "\\pset format csv", "-c", sql],
+        [usql_bin(), dsn, "-c", "\\pset format csv", "-c", sql],
         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     if proc.returncode != 0:
         raise SystemExit(f"usql query failed: {(proc.stderr or proc.stdout).strip()[:300]}")
@@ -348,8 +377,14 @@ def _usql(dsn, sql):
 def profile_database(dsn, table, sample, profile, max_tables=32):
     if dsn.startswith("sqlite"):
         return profile_sqlite(dsn, table, sample, profile)
+    dialect = _db_dialect(dsn)
     if table:
         tables = [table]
+    elif dialect == "postgres":
+        tables = [r["TABLE_NAME"] for r in _usql(
+            dsn, "SELECT TABLE_NAME FROM information_schema.TABLES "
+                 "WHERE TABLE_SCHEMA NOT IN ('pg_catalog', 'information_schema') "
+                 "AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME;")]
     else:
         tables = [r["TABLE_NAME"] for r in _usql(
             dsn, "SELECT TABLE_NAME FROM information_schema.TABLES "
@@ -364,15 +399,26 @@ def profile_database(dsn, table, sample, profile, max_tables=32):
         tables = tables[:max_tables]
     profile["source"].update({"kind": "database", "tables": []})
     for t in tables:
-        cols = _usql(dsn,
-                     "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE "
-                     "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
-                     f"AND TABLE_NAME = '{t}' ORDER BY ORDINAL_POSITION;")
+        if dialect == "postgres":
+            # no COLUMN_TYPE in postgres — alias DATA_TYPE so the downstream
+            # meta reads stay shared; no ENUM declarations (sample-derived
+            # enums still apply)
+            cols = _usql(dsn,
+                         "SELECT COLUMN_NAME, DATA_TYPE, DATA_TYPE AS COLUMN_TYPE, "
+                         "IS_NULLABLE FROM information_schema.COLUMNS "
+                         "WHERE TABLE_SCHEMA NOT IN ('pg_catalog', 'information_schema') "
+                         f"AND TABLE_NAME = '{t}' ORDER BY ORDINAL_POSITION;")
+        else:
+            cols = _usql(dsn,
+                         "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE "
+                         "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                         f"AND TABLE_NAME = '{t}' ORDER BY ORDINAL_POSITION;")
         if not cols:
             continue
-        rows = _usql(dsn, f"SELECT * FROM `{t}` ORDER BY 1 DESC LIMIT {sample};")
+        q = _quote_ident(dsn, t)
+        rows = _usql(dsn, f"SELECT * FROM {q} ORDER BY 1 DESC LIMIT {sample};")
         tprofile = {"name": t, "db_row_count": None, "columns": [], "sample_records": rows}
-        counts = _usql(dsn, f"SELECT COUNT(*) AS n FROM `{t}`;")
+        counts = _usql(dsn, f"SELECT COUNT(*) AS n FROM {q};")
         if counts:
             tprofile["db_row_count"] = int(counts[0].get("n", 0) or 0)
         by_name = {c["COLUMN_NAME"]: c for c in cols}

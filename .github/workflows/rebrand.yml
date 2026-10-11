@@ -308,6 +308,11 @@ jobs:
           src/renderer/assets/styles/__tests__/brandGradient.test.ts --project main
         shell: bash
 
+      - name: Gate conformance exam (GATE_VERSION 1)
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 resources/neuralos/scripts/run_gate_conformance_fixture.py
+        shell: bash
+
       - name: Compile ${{ matrix.target }}
         env:
           NODE_OPTIONS: --max-old-space-size=8192

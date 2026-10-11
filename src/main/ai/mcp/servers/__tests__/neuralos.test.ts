@@ -677,6 +677,7 @@ describe('NeuralosServer', () => {
       question: 'count the invoices',
       pick: 'transactions_count',
       confidence: 0.9,
+      confidence_calibrated: false,
       result: { count: 42 }
     })
     // The engine saw the retrieval-filtered menu, not the instance's full menu.
@@ -909,6 +910,8 @@ describe('NeuralosServer', () => {
     expect(parsed.probe).toBe('count_records')
     expect(parsed.results).toEqual([{ rows: 5 }])
     expect(parsed.refused).toBe(false)
+    // raw pick confidence is uncalibrated — the field must say so
+    expect(parsed.confidence_calibrated).toBe(false)
     expect(deps.execFile).toHaveBeenCalledTimes(1)
   })
 

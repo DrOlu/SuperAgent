@@ -430,12 +430,14 @@ jobs:
               ENGINE=$(find "$SMOKE/unpacked" -type f -name "engine-macos-arm64" | head -1)
               ;;
             Linux)
-              APPIMG=$(ls dist/*.AppImage | head -1)
+              # the x64 AppImage: the runner is x86_64, and both linux
+              # artifacts carry both engines — arm64 cannot execute here
+              APPIMG=$(ls dist/*x64*.AppImage | head -1)
               echo "smoking packed artifact: $APPIMG"
               chmod +x "$APPIMG"
-              ("$APPIMG" --appimage-extract >/dev/null)
-              ENGINE=$(find "$SMOKE" squashfs-root -type f -name "engine-linux-x86_64" 2>/dev/null | head -1)
-              [ -z "$ENGINE" ] && ENGINE=$(find squashfs-root -type f -name "engine-linux-x86_64" | head -1)
+              APPIMG_ABS="$(pwd)/$APPIMG"
+              (cd "$SMOKE" && "$APPIMG_ABS" --appimage-extract >/dev/null)
+              ENGINE=$(find "$SMOKE/squashfs-root" -type f -name "engine-linux-x86_64" | head -1)
               ;;
             Windows)
               # the x64 artifact: both engines ship in both windows artifacts

@@ -440,13 +440,14 @@ jobs:
               ENGINE=$(find "$SMOKE/squashfs-root" -type f -name "engine-linux-x86_64" | head -1)
               ;;
             Windows)
-              # the x64 artifact: both engines ship in both windows artifacts
-              # (extraResources is arch-unfiltered), but only the x64 engine
-              # can execute on this runner
-              PORTABLE=$(ls dist/*x64-portable*.exe | head -1)
-              echo "smoking packed artifact: $PORTABLE"
-              7z x -y -o"$SMOKE/unpacked" "$PORTABLE" >/dev/null
-              ENGINE=$(find "$SMOKE/unpacked" -type f -name "engine-windows-x86_64.exe" | head -1)
+              # electron-builder's portable exe wraps the app in an inner 7z —
+              # one round of 7z x yields the launcher, not the payload. Smoke
+              # win-unpacked instead: the exact directory the installer
+              # embeds (and Windows has no exec bit, so the EACCES class is
+              # POSIX-only; here we prove presence, weights and execution).
+              ENGINE=$(find dist/win-unpacked/resources/neuralos -maxdepth 1 \
+                -type f -name "engine-windows-x86_64.exe" 2>/dev/null | head -1)
+              echo "smoking packed tree: dist/win-unpacked (engine: $ENGINE)"
               ;;
           esac
           echo "packed engine: $ENGINE"

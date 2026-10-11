@@ -438,7 +438,10 @@ jobs:
               [ -z "$ENGINE" ] && ENGINE=$(find squashfs-root -type f -name "engine-linux-x86_64" | head -1)
               ;;
             Windows)
-              PORTABLE=$(ls dist/*portable*.exe | head -1)
+              # the x64 artifact: both engines ship in both windows artifacts
+              # (extraResources is arch-unfiltered), but only the x64 engine
+              # can execute on this runner
+              PORTABLE=$(ls dist/*x64-portable*.exe | head -1)
               echo "smoking packed artifact: $PORTABLE"
               7z x -y -o"$SMOKE/unpacked" "$PORTABLE" >/dev/null
               ENGINE=$(find "$SMOKE/unpacked" -type f -name "engine-windows-x86_64.exe" | head -1)

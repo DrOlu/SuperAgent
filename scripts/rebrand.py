@@ -1290,6 +1290,19 @@ def apply_neuralos_integration():
             "                      )}",
         )],
     )
+    # 7. tsconfig.web.json — upstream includes tests/__mocks__/**/* in the
+    #    renderer typecheck project but declares no @main/* alias there, so
+    #    main-process mocks (tests/__mocks__/main) fail TS2307 and break
+    #    every build (upstream a5c3f746 ships this red). Renderer tests
+    #    never import @test-mocks/main — exclude the folder.
+    patch_file(
+        "tsconfig.web.json",
+        [(
+            '"exclude": ["packages/aiCore/src/**/__tests__/**"],',
+            '"exclude": ["packages/aiCore/src/**/__tests__/**", "tests/__mocks__/main/**"],',
+        )],
+    )
+
     patch_file(
         "src/renderer/i18n/locales/en-us.json",
         # sorted slot: settings.mcp.name < neuralos.get_api_key < newServer

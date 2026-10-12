@@ -36,6 +36,8 @@
 
 SuperAgent is a desktop client that supports multiple LLM providers, available on Windows, Mac and Linux.
 
+📱 Looking for the mobile app? Check out [SuperAgent Mobile](https://github.com/DrOlu/SuperAgent-app) for iOS and Android.
+
 👏 Join [Telegram Group](https://t.me/SuperAgentAI)[Discord](https://discord.gg/wez8HtpxqQ) | [QQ Group(575014769)](https://qm.qq.com/q/lo0D4qVZKi)
 
 ❤️ Like SuperAgent? Give it a star 🌟 or [Sponsor](docs/sponsor.md) to support the development!

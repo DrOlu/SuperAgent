@@ -1,6 +1,6 @@
 {
   "name": "SuperAgent",
-  "version": "2.2.27",
+  "version": "2.2.28",
   "private": true,
   "description": "SuperAgent — a powerful AI assistant. Rebranded by Hyperspace Technologies.",
   "homepage": "https://github.com/DrOlu/SuperAgent",
@@ -81,7 +81,7 @@
     "i18n:unused:check": "tsx scripts/i18n-check-unused.ts --fail-on-unused",
     "lint": "oxlint --deny-warnings && eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --cache",
     "lint:fix": "oxlint --fix && eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --cache",
-    "packages:build": "pnpm --filter @cherrystudio/ai-sdk-provider build && pnpm --filter @cherrystudio/ai-core build && pnpm --filter @cherrystudio/extension-table-plus build && pnpm --filter @cherrystudio/remote-protocol build && pnpm --filter @cherrystudio/remote-transport build && pnpm --filter @cherrystudio/file-preview build",
+    "packages:build": "pnpm --filter @cherrystudio/provider-registry build && pnpm --filter @cherrystudio/ai-sdk-provider build && pnpm --filter @cherrystudio/ai-core build && pnpm --filter @cherrystudio/extension-table-plus build && pnpm --filter @cherrystudio/remote-protocol build && pnpm --filter @cherrystudio/remote-transport build && pnpm --filter @cherrystudio/file-preview build",
     "packages:release": "pnpm packages:build && changeset publish",
     "postinstall": "pnpm --filter @cherrystudio/dsh-bridge build && pnpm --filter @cherrystudio/remote-protocol build && pnpm --filter @cherrystudio/remote-transport build",
     "prepare": "git config blame.ignoreRevsFile .git-blame-ignore-revs && node -e \"process.env.CI||require('child_process').execSync('prek install',{stdio:'inherit'})\"",

@@ -434,8 +434,8 @@ describe('MigrationIpcHandler', () => {
 
   describe('v1 download page', () => {
     it.each([
-      ['zh-CN', 'https://cherryai.com.cn/download/v1'],
-      ['en-US', 'https://cherryai.com/download/v1']
+      ['zh-CN', 'https://superagent.ng/download/v1'],
+      ['en-US', 'https://superagent.ng/download/v1']
     ])('opens the site matching the %s wizard language', async (language, url) => {
       await expect(invoke(MigrationIpcChannels.OpenDownloadPage, language)).resolves.toBe(true)
       expect(shell.openExternal).toHaveBeenCalledWith(url)
@@ -445,13 +445,13 @@ describe('MigrationIpcHandler', () => {
     it.each(['zh', 'zh-TW', 'ZH-HK'])('treats %s as Chinese', async (language) => {
       await invoke(MigrationIpcChannels.OpenDownloadPage, language)
 
-      expect(shell.openExternal).toHaveBeenCalledWith('https://cherryai.com.cn/download/v1')
+      expect(shell.openExternal).toHaveBeenCalledWith('https://superagent.ng/download/v1')
     })
 
     // A missing or malformed language must not strand the user on an error.
     it.each([undefined, null, 42])('falls back to the global site for %s', async (language) => {
       await expect(invoke(MigrationIpcChannels.OpenDownloadPage, language)).resolves.toBe(true)
-      expect(shell.openExternal).toHaveBeenCalledWith('https://cherryai.com/download/v1')
+      expect(shell.openExternal).toHaveBeenCalledWith('https://superagent.ng/download/v1')
     })
 
     it('rejects an untrusted sender', async () => {

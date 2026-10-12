@@ -30,7 +30,7 @@ describe('brand gradient contract (#CC1100 red)', () => {
   })
 
   it('keeps every gradient hue stop inside the #CC1100 red-orange family', () => {
-    // #CC1100 → hue 5; the family spans hue 0-16. Cherry Studio's old green
+    // #CC1100 → hue 5; the family spans hue 0-16. SuperAgent's old green
     // (hue ~150) must never reappear.
     const hues = [...css.matchAll(/hsl\((\d+) \d+% \d+% \/ [\d.]+\)/g)].map((m) => Number(m[1]))
     expect(hues.length).toBeGreaterThan(0)

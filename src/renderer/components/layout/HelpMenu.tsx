@@ -58,8 +58,8 @@ export function HelpMenu({
     const language = i18n.resolvedLanguage ?? i18n.language
     const url =
       language === 'zh-CN' || language === 'zh-TW'
-        ? 'https://docs.cherryai.com.cn/'
-        : 'https://docs.cherryai.com.cn/docs/en-us'
+        ? 'https://superagent.ng/documentation.html'
+        : 'https://superagent.ng/documentation.html'
     openSmartMiniApp({
       appId: 'superagent-guide',
       name: t('help.guide'),

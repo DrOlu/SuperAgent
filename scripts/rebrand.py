@@ -51,6 +51,24 @@ TOKEN_REPLACEMENTS = [
     # Negative lookbehind for '@' preserves @cherrystudio/* imports & names.
     (re.compile(r"(?<!@)cherrystudio"), "superagent"),
     (re.compile(r"(?<!@)CherryAssistant"), "SuperAgent"),
+    # --- cherryai.com family (NO hyphen — a different domain from
+    # cherry-ai.com above; the .cn suffix is yet another). The user guide
+    # (docs.cherryai.com.cn) points at superagent.ng/documentation.html and
+    # the bare origin (mini-app allowlist) becomes superagent.ng.
+    # cloud.cherryai.com.cn and app://cherryai.com.cn are deliberately
+    # PRESERVED — they are the Cherry Cloud API/OAuth endpoints, not
+    # websites; redirecting them would break provider auth.
+    ("docs.cherryai.com.cn/docs/en-us", "superagent.ng/documentation.html"),
+    ("docs.cherryai.com.cn", "superagent.ng/documentation.html"),
+    # the bare docs root carries a trailing slash upstream — fold it
+    ("superagent.ng/documentation.html/", "superagent.ng/documentation.html"),
+    # the cn-edition web download link (a page, not an API)
+    ("cherryai.com.cn/download", "superagent.ng/download"),
+    # Bare origin / www / download hosts — but NEVER the cloud API hosts
+    # (cloud.cherryai.com, cloud.cherryai.com.cn: CherryCloudService's
+    # PRODUCTION_API_ORIGINS) or the app:// protocol — redirecting service
+    # endpoints would break Cherry Cloud auth.
+    (re.compile(r"(?<!cloud\.)cherryai\.com(?!\.cn)"), "superagent.ng"),
 ]
 
 # CJK ranges to strip from non-JSON text source (Chinese removal).

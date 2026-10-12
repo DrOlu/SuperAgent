@@ -186,7 +186,7 @@ export const MINI_APP_BUILTIN_ID_PREFIX = 'com.superagent.miniapp.'
  *
  * Compile-time constant on purpose: a trust anchor the user can edit is not one.
  */
-export const MINI_APP_OFFICIAL_ORIGINS = ['https://cherryai.com'] as const
+export const MINI_APP_OFFICIAL_ORIGINS = ['https://superagent.ng'] as const
 
 // Defined in `miniAppQuota` (no zod/semver) so the guest preload stays small; re-exported
 // here so every existing consumer keeps its import path.

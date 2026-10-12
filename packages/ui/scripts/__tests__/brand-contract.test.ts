@@ -28,7 +28,7 @@ describe('SuperAgent brand token contract', () => {
     }
   })
 
-  it('no longer ships the CherryStudio green brand ramp (hue ~146-152)', () => {
+  it('no longer ships the SuperAgent green brand ramp (hue ~146-152)', () => {
     const greens = [...primitiveCss.matchAll(/--cs-brand-\d+: oklch\([\d.]+ [\d.]+ 1[45]\d\)/g)]
     expect(greens).toEqual([])
   })

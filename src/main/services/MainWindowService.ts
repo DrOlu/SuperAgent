@@ -517,7 +517,7 @@ export class MainWindowService extends BaseService {
     })
     if (response === 0) {
       await shell.openExternal(
-        getAppEdition() === 'cn' ? 'https://cherryai.com.cn/download' : 'https://cherryai.com/download'
+        getAppEdition() === 'cn' ? 'https://superagent.ng/download' : 'https://superagent.ng/download'
       )
     }
   }

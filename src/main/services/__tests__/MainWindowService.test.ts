@@ -360,10 +360,10 @@ describe('MainWindowService', () => {
     })
 
     it.each([
-      ['cn', 'en-US', 'https://cherryai.com.cn/download'],
-      ['cn', 'zh-CN', 'https://cherryai.com.cn/download'],
-      ['global', 'zh-CN', 'https://cherryai.com/download'],
-      ['global', 'en-US', 'https://cherryai.com/download']
+      ['cn', 'en-US', 'https://superagent.ng/download'],
+      ['cn', 'zh-CN', 'https://superagent.ng/download'],
+      ['global', 'zh-CN', 'https://superagent.ng/download'],
+      ['global', 'en-US', 'https://superagent.ng/download']
     ] as const)('opens the %s download page with %s UI only after confirmation', async (edition, language, url) => {
       vi.mocked(getAppEdition).mockReturnValue(edition)
       prefValues['app.language'] = language

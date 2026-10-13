@@ -116,7 +116,8 @@ jobs:
           cp /tmp/seed/scripts/rebrand.py scripts/rebrand.py
           cp /tmp/seed/scripts/generate_icons.sh scripts/generate_icons.sh
           cp /tmp/seed/scripts/superagent-ui-overlay.sh scripts/superagent-ui-overlay.sh
-          chmod +x scripts/generate_icons.sh scripts/superagent-ui-overlay.sh
+          cp /tmp/seed/scripts/check-packaging-closure.mjs scripts/check-packaging-closure.mjs
+          chmod +x scripts/generate_icons.sh scripts/superagent-ui-overlay.sh scripts/check-packaging-closure.mjs
           # SuperAgent UI theme files (whole-file restorations; the overlay
           # script re-applies the in-place token edits after the rebrand)
           mkdir -p src/renderer/assets/fonts/gellix src/renderer/assets/styles packages/ui/scripts/__tests__

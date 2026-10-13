@@ -467,6 +467,26 @@ def edit_package_json():
         "type": "git",
         "url": "https://github.com/DrOlu/SuperAgent.git",
     }
+    # --- runtime dependency closure (packaging correctness) ----------------
+    # `@cherrystudio/remote-protocol` is a production dependency, so electron-vite
+    # leaves it external and electron-builder copies its built dist/ into
+    # app.asar. That dist does `import * as z from "zod"` at load time, but
+    # upstream declares zod only as a devDependency (root) and a peerDependency
+    # (the package) — and electron-builder copies neither. The packaged app died
+    # at boot with:
+    #   Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'zod' imported from
+    #   .../app.asar/node_modules/@cherrystudio/remote-protocol/dist/failure.js
+    # Promote zod to a real app dependency so it is shipped and the peer is
+    # satisfied; the version follows whatever upstream pins.
+    _deps = pkg.setdefault("dependencies", {})
+    _dev_deps = pkg.get("devDependencies", {})
+    if "zod" not in _deps:
+        _deps["zod"] = _dev_deps.pop("zod", None) or "4.4.3"
+        changed_files.append("package.json: zod devDependency -> dependency")
+    elif "zod" in _dev_deps:
+        del _dev_deps["zod"]
+        changed_files.append("package.json: zod removed from devDependencies")
+
     with open(pkg_path, "w", encoding="utf-8") as f:
         json.dump(pkg, f, indent=2, ensure_ascii=False)
         f.write("\n")

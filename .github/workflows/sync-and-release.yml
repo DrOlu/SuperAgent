@@ -91,6 +91,7 @@ jobs:
           cp -a scripts/generate_icons.sh /tmp/keep/scripts/
           cp -a scripts/superagent-ui-overlay.sh /tmp/keep/scripts/
           cp -a scripts/superagent-brand-sweep.py /tmp/keep/scripts/
+          cp -a scripts/check-packaging-closure.mjs /tmp/keep/scripts/
           # SuperAgent provider preset + seeder (403 fix carriers) — saved
           # before the wipe and replanted after, since upstream owns these paths.
           mkdir -p /tmp/keep/providers
@@ -167,6 +168,8 @@ jobs:
           cp /tmp/keep/scripts/generate_icons.sh scripts/generate_icons.sh
           cp /tmp/keep/scripts/superagent-ui-overlay.sh scripts/superagent-ui-overlay.sh
           cp /tmp/keep/scripts/superagent-brand-sweep.py scripts/superagent-brand-sweep.py
+          cp /tmp/keep/scripts/check-packaging-closure.mjs scripts/check-packaging-closure.mjs
+          chmod +x scripts/check-packaging-closure.mjs
           # SuperAgent provider preset + seeder (403 fix carriers)
           mkdir -p src/shared/data/presets src/main/data/db/seeding/seeders
           [ -f /tmp/keep/providers/cherryai.ts ] && cp /tmp/keep/providers/cherryai.ts src/shared/data/presets/cherryai.ts
@@ -278,7 +281,10 @@ jobs:
       - name: Typecheck gate (never push a tree that does not compile)
         if: steps.check.outputs.do_release == 'true'
         run: |
-          pnpm install --frozen-lockfile
+          # rebrand.py promotes zod to `dependencies` (runtime packaging
+          # fix), so the manifest no longer matches upstream's lockfile;
+          # reconcile it here — the commit step carries the result.
+          pnpm install --no-frozen-lockfile
           pnpm run typecheck:node
 
       - name: Commit and push
@@ -391,6 +397,10 @@ jobs:
           RENDERER_VITE_PPIO_APP_SECRET: ${{ secrets.RENDERER_VITE_PPIO_APP_SECRET || 'placeholder' }}
         run: pnpm ${{ matrix.cmd }}
         shell: bash
+
+      - name: Verify packaged runtime dependency closure
+        shell: bash
+        run: node scripts/check-packaging-closure.mjs
 
       - name: Verify bundled neuralOS engine
         shell: bash

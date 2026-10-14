@@ -3,10 +3,6 @@
 1. Consider creating this PR as draft: https://github.com/DrOlu/SuperAgent/blob/main/CONTRIBUTING.md
 -->
 
-> ### Branch strategy
->
-> - Active development targets `main`.
-
 ### What this PR does
 
 Before this PR:

@@ -29,6 +29,7 @@ export const seeders: ISeeder[] = [
   new RetiredAgentRuntimeSeeder(),
   new BrowserCapabilityUpgradeSeeder(),
   new LegacyFileCleanupPolicySeeder(),
+  new PresetProviderSeeder(),
   new CherryAiDefaultModelSeeder(),
   new SuperAgentSeeder(),
   new CherrySupportSeeder(),
@@ -38,7 +39,6 @@ export const seeders: ISeeder[] = [
   new SidebarShortcutMigrationSeeder(),
   new PreferenceSeeder(),
   new TranslateLanguageSeeder(),
-  new PresetProviderSeeder(),
   new LocalModelSeeder(),
   new MiniAppSeeder(),
   new BuiltinMcpServerSeeder()

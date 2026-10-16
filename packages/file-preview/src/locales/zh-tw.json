@@ -12,6 +12,8 @@
   "file_preview.pdf.page_number": "",
   "file_preview.pdf.too_large.description": " PDF ",
   "file_preview.pdf.too_large.title": " PDF",
+  "file_preview.powerpoint.zip_limit.description": " PowerPoint ",
+  "file_preview.powerpoint.zip_limit.title": " PowerPoint ",
   "file_preview.too_large.action": "",
   "file_preview.too_large.description": " {{size}}  {{limit}} ",
   "file_preview.too_large.title": "",

@@ -1144,7 +1144,7 @@ def apply_neuralos_integration():
                 if os.path.exists(dst_path):
                     continue
                 os.rename(src_path, dst_path)
-                patches.append(f"renamed {rel(fn)} -> {new_fn}")
+                patches.append(f"renamed {os.path.relpath(fn, ROOT)} -> {new_fn}")
 
     def patch_file(rel, replacements):
         fp = os.path.join(ROOT, rel)

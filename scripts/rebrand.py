@@ -1120,6 +1120,32 @@ def apply_neuralos_integration():
     """
     patches = []
 
+    # 0. File NAMES must follow their contents through the token replace —
+    #    the tokens rewrite import specifiers but never file names, so a file
+    #    upstream named CherryAssistant*.ts is imported (post-replace) as
+    #    ./seeders/SuperAgent*.ts and the module cannot resolve. Rename any
+    #    file whose base name carries a rebranded token. Deliberately narrow:
+    #    exactly the tokens below, nothing else (cherryin/cherryCloud/
+    #    cherryai are preserved identities).
+    name_map = [("CherryAssistant", "SuperAgent"),
+                ("CherryStudio", "SuperAgent"),
+                ("cherry-studio", "superagent")]
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames
+                       if d not in ("node_modules", "dist", "out", ".git")]
+        for fn in filenames:
+            new_fn = fn
+            for old, new in name_map:
+                if old in new_fn:
+                    new_fn = new_fn.replace(old, new)
+            if new_fn != fn:
+                src_path = os.path.join(dirpath, fn)
+                dst_path = os.path.join(dirpath, new_fn)
+                if os.path.exists(dst_path):
+                    continue
+                os.rename(src_path, dst_path)
+                patches.append(f"renamed {rel(fn)} -> {new_fn}")
+
     def patch_file(rel, replacements):
         fp = os.path.join(ROOT, rel)
         if not os.path.exists(fp):

@@ -215,6 +215,11 @@ jobs:
           if [ -d /tmp/keep/neuralos-resources/scripts ] && [ "$(ls -A /tmp/keep/neuralos-resources/scripts 2>/dev/null)" ]; then
             cp -a /tmp/keep/neuralos-resources/scripts/. resources/neuralos/scripts/
           fi
+          # The in-app manual must ship: it was silently empty for three
+          # weeks after the 2026-09-25 rebrand sweep (neuralos_docs served
+          # only errors). Fail loudly instead of trusting the restore.
+          test -f resources/neuralos/docs/index.json \
+            || { echo "FATAL: resources/neuralos/docs/index.json missing after restore — the manual would not ship"; exit 1; }
 
       - name: Run rebrand
         if: steps.check.outputs.do_release == 'true'

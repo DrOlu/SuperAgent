@@ -42,6 +42,13 @@ TOKEN_REPLACEMENTS = [
     # owner/repo pair (DrOlu/SuperAgent) instead of "Hyperspace Technologies/...".
     ("CherryHQ/cherry-studio", "DrOlu/SuperAgent"),
     ("CherryHQ", "Hyperspace Technologies"),
+    # Dependency git URLs must keep a real owner — the blanket CherryHQ
+    # replace above turned github:CherryHQ/mlx-node (the @cherrystudio/mlx-tts
+    # git dep) into an owner with a space, which is an invalid remote and
+    # killed pnpm install. Only the product repo identity is rebranded;
+    # upstream's dependency forks stay upstream's.
+    ("github.com/Hyperspace Technologies/", "github.com/CherryHQ/"),
+    ("github:Hyperspace Technologies/", "github:CherryHQ/"),
     ("kangfenmao", "hyperspace"),
     ("cherry-studio", "superagent"),
     ("cherry-ai.com", "superagent.ng"),

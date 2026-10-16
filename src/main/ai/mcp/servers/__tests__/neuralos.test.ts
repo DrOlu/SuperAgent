@@ -619,6 +619,25 @@ describe('readDocs', () => {
     const result = (await readDocs(makeDeps({}), 'factory')) as Record<string, unknown>
     expect(String(result['error'])).toContain('neuralOS docs not found')
   })
+
+  it('the bundled manual ships complete: every indexed topic and script exists', async () => {
+    // Regression (2026-10-13): the 2026-09-25 mass-rebrand commit deleted the
+    // whole resources/neuralos/docs directory; neuralos_docs served only an
+    // error from every packaged release for three weeks. Pin the manual.
+    const fsReal = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const dir = resolve('resources/neuralos/docs')
+    const index = JSON.parse(fsReal.readFileSync(resolve(dir, 'index.json'), 'utf-8'))
+    const topics = Object.keys(index.topics)
+    expect(topics.length).toBeGreaterThanOrEqual(20)
+    expect(topics).toContain('gate')
+    for (const t of topics) {
+      expect(fsReal.existsSync(resolve(dir, index.topics[t].file))).toBe(true)
+    }
+    for (const s of index.scripts) {
+      const name = typeof s === 'string' ? s : s.name
+      expect(fsReal.existsSync(resolve('resources/neuralos/scripts', name))).toBe(true)
+    }
+  })
 })
 
 describe('NeuralosServer', () => {

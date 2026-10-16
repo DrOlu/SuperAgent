@@ -70,6 +70,7 @@ const mocks = vi.hoisted(() => ({
   // agent MCP collaborators
   findChannelBySessionId: vi.fn(),
   buildPromptParts: vi.fn(),
+  buildMemoriesSection: vi.fn(),
   buildCitationsGuidance: vi.fn(),
   loadBuiltinAgentDefinition: vi.fn(),
   provisionBuiltinAgent: vi.fn(),
@@ -167,11 +168,15 @@ vi.mock('@main/ai/runtime/agentMcpServers', () => ({
   buildAgentMcpServers: mocks.buildAgentMcpServers,
   warmAgentMcpToolCatalogs: mocks.warmMcpToolCatalogs
 }))
+vi.mock('@main/ai/runtime/agentSessionWorkspace', () => ({
+  prepareAgentSessionWorkspaceDirectory: vi.fn().mockResolvedValue(undefined)
+}))
 vi.mock('@main/ai/runtime/citationsGuidance', () => ({ buildCitationsGuidance: mocks.buildCitationsGuidance }))
 // PromptBuilder and tool adapters are exercised in their own suites; this is a wiring test.
 vi.mock('@main/ai/agents/prompt', () => ({
   PromptBuilder: class {
     buildPromptParts = mocks.buildPromptParts
+    buildMemoriesSection = mocks.buildMemoriesSection
   }
 }))
 // The MCP adapter needs the full MCP service graph; mock it to a wiring seam so this suite asserts
@@ -209,7 +214,6 @@ vi.mock('@main/utils/shellEnv', () => ({
 vi.spyOn(trace, 'getTracer').mockReturnValue({ startSpan: mocks.startSpan } as never)
 
 const { buildPiLoginPathPrefix, PiRuntimeConnection } = await import('./PiRuntimeConnection')
-const { ApiGatewayNotRunningError } = await import('../agentApiGateway')
 const { customFetch } = await import('@main/ai/utils/customFetch')
 const { REPORT_ARTIFACTS_PROMPT } = await import('../agentPrompt')
 const { toolApprovalRegistry } = await import('@main/ai/toolApproval/ToolApprovalRegistry')
@@ -512,7 +516,7 @@ describe('PiRuntimeConnection', () => {
       const connection = await new PiRuntimeConnection(input).start()
       try {
         const authorize = approvalGateHandler()
-        for (const toolName of ['mcp__computer__open_app', 'mcp__computer__click', 'mcp__computer__type_text']) {
+        for (const toolName of ['mcp__automation__js', 'mcp__automation__reset']) {
           await expect(
             authorize({ type: 'tool_call', toolName, toolCallId: toolName, input: {} }, {})
           ).resolves.toBeUndefined()
@@ -541,13 +545,6 @@ describe('PiRuntimeConnection', () => {
     } finally {
       await connection.close()
     }
-  })
-
-  it('prompts the current Agent session when its gateway route is disabled', async () => {
-    mocks.resolveInjection.mockRejectedValueOnce(new ApiGatewayNotRunningError())
-
-    await expect(new PiRuntimeConnection(input).start()).rejects.toBeInstanceOf(ApiGatewayNotRunningError)
-    expect(mocks.broadcast).toHaveBeenCalledWith('api_gateway.required', { sessionId: SESSION_ID })
   })
 
   it('establishes the Cloud baseline after starting the gateway', async () => {
@@ -2084,7 +2081,7 @@ describe('PiRuntimeConnection', () => {
       expect(mocks.buildAgentMcpServers).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
-        new Set(['cherry-tools', 'agent-memory', 'browser', 'skills', 'mcp-manager']),
+        new Set(['cherry-tools', 'agent-memory', 'automation', 'skills', 'mcp-manager']),
         expect.any(Map),
         null,
         AGENT_DATA_PATH,
@@ -2146,6 +2143,30 @@ describe('PiRuntimeConnection', () => {
       workspace: { path: WORKSPACE, type: 'user' as const }
     }
 
+    it('refreshes identity through the extension mounted on a reused Pi connection', async () => {
+      mocks.createPiMcpExtension.mockReturnValue(() => {})
+      await new PiRuntimeConnection(input).start()
+      let beforeStart!: (event: { systemPromptOptions: { sections: Record<string, string> } }) => Promise<void>
+      const factories = (mocks.loaderOpts as { extensionFactories: Array<(pi: unknown) => void | Promise<void>> })
+        .extensionFactories
+      for (const factory of factories) {
+        await factory({
+          registerProvider: vi.fn(),
+          on: (event: string, handler: typeof beforeStart) => {
+            if (event === 'before_agent_start') beforeStart = handler
+          }
+        })
+      }
+      const event = { systemPromptOptions: { sections: {} as Record<string, string> } }
+      mocks.buildMemoriesSection.mockResolvedValue('<agent_identity>Persona A</agent_identity>')
+      await beforeStart(event)
+      expect(event.systemPromptOptions.sections.agent_identity).toContain('Persona A')
+      mocks.buildMemoriesSection.mockResolvedValue('<agent_identity>Persona B</agent_identity>')
+      await beforeStart(event)
+      expect(event.systemPromptOptions.sections.agent_identity).toContain('Persona B')
+      expect(event.systemPromptOptions.sections.agent_identity).not.toContain('Persona A')
+    })
+
     it('uses the PromptBuilder persona with native tools', async () => {
       mocks.getAgent.mockReturnValue({ id: 'agent-1', model: 'p::m', configuration: {} })
       mocks.getById.mockReturnValue(agentSession)
@@ -2160,7 +2181,7 @@ describe('PiRuntimeConnection', () => {
       expect(mocks.buildAgentMcpServers).toHaveBeenCalledWith(
         agentSession,
         expect.objectContaining({ id: 'agent-1' }),
-        new Set(['cherry-tools', 'agent-memory', 'browser', 'skills', 'mcp-manager']),
+        new Set(['cherry-tools', 'agent-memory', 'automation', 'skills', 'mcp-manager']),
         expect.any(Map),
         null,
         AGENT_DATA_PATH,

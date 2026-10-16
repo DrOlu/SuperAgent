@@ -178,7 +178,7 @@ export const MINI_APP_BUILTIN_ID_PREFIX = 'com.superagent.miniapp.'
  * SINGLE-TENANT ORIGINS ONLY. An origin is scheme + host + port with no path
  * (RFC 6454), so a shared host puts every other tenant inside the trust boundary and
  * the "an update may not change its origin" rule then protects nothing — same origin,
- * different author. `https://github.com/Hyperspace Technologies/` cannot be an entry for that reason,
+ * different author. `https://github.com/CherryHQ/` cannot be an entry for that reason,
  * and separately because fetching anything downloadable from github.com redirects
  * (raw./objects.githubusercontent.com) while this design uses `redirect: 'error'`.
  * A per-org GitHub Pages subdomain would qualify; a shared host needs a signed

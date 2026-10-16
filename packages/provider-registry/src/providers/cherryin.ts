@@ -146,6 +146,7 @@ export default defineProvider({
   ],
   metadata: {
     website: {
+      billing: 'https://superagent.ng/console/topup',
       apiKey: 'https://paystack.com/buy/reactor-api-key',
       docs: 'https://superagent.ng',
       models: 'https://superagent.ng',

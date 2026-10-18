@@ -1,5 +1,7 @@
 # SuperAgent Contributor Guide
 
+English | [](CONTRIBUTING.zh.md)
+
 Welcome to the SuperAgent contributor community! We are committed to making SuperAgent a project that provides long-term value and hope to invite more developers to join us. Whether you are an experienced developer or a beginner just starting out, your contributions will help us better serve users and improve software quality.
 
 ## How to Contribute

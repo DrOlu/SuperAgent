@@ -1,6 +1,6 @@
 ---
 name: cherry-skill-marketplace
-description:  Skill Skill /  `mcp__skills__search_skills`  `mcp__skills__install_skill`  Skill  Skills UI `skill-creator`  Skill
+description: ' Skill search_skills install_skill skill-creator '
 ---
 
 # Cherry Skill Marketplace

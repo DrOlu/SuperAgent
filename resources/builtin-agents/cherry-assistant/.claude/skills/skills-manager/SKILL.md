@@ -1,6 +1,6 @@
 ---
 name: skills-manager
-description:  Claude Code Agent Skills Skill"find a skill"""" skill""create a skill"" X "" Agent "
+description: ' Agent Skill“find a skill”“”“ skill”'
 ---
 
 # Skills Manager

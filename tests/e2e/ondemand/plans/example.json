@@ -1,0 +1,9 @@
+{
+  "continueOnFailure": false,
+  "steps": [
+    { "verb": "expectText", "text": " SuperAgent" },
+    { "verb": "clickRole", "role": "button", "name": "" },
+    { "verb": "expectText", "text": "" },
+    { "verb": "screenshot", "name": "provider-setup" }
+  ]
+}

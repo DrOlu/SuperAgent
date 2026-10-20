@@ -1,6 +1,6 @@
 ---
 name: issue-reporter
-description:  GitHub IssueGitHub Bug Report  GitHub Feature Request “”“”“ bug”“ bug” GitHub  superagent-feedback 
+description: ' GitHub IssueBug Report  Feature Request  GitHub  superagent-feedback'
 ---
 
 # Issue Reporter

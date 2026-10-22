@@ -1,6 +1,6 @@
 {
   "name": "SuperAgent",
-  "version": "2.2.40",
+  "version": "2.2.41",
   "private": true,
   "description": "SuperAgent — a powerful AI assistant. Rebranded by Hyperspace Technologies.",
   "homepage": "https://github.com/DrOlu/SuperAgent",
@@ -397,7 +397,7 @@
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.5",
     "echarts": "^6.1.0",
-    "electron": "44.4.4",
+    "electron": "44.9.3",
     "electron-builder": "26.15.6",
     "electron-devtools-installer": "^3.2.0",
     "electron-reload": "^2.0.0-alpha.1",

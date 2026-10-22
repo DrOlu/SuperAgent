@@ -1,4 +1,6 @@
 /src/main/ai/ @DeJeune
+/src/main/core/ @hyperspace @DeJeune
+/src/main/data/ @hyperspace @DeJeune
 /src/main/features/fileProcessing/ @DeJeune
 /src/main/features/knowledge/ @DeJeune
 

@@ -145,6 +145,11 @@ mDNS VPN  relay
 
 relay 
 
+/
+[](./remote-agent-access.md#custom-connection-addresses-and-ports)
+ v3  v2 
+ Gateway  DNS-SD 
+
 ### 4.3 
 
 deviceIdgrantsconnectionId  legacy 

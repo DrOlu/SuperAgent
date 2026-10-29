@@ -118,6 +118,8 @@
   "dialog.data_reset.title": "",
   "dialog.diagnostic_bundle.title": "",
   "dialog.diagnostic_bundle.zip_filter": "ZIP ",
+  "dialog.external_link.message": "",
+  "dialog.external_link.open": "",
   "dialog.html_files": "HTML ",
   "dialog.migration_database_unavailable.detail": "",
   "dialog.migration_database_unavailable.message": "SuperAgent ",

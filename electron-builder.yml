@@ -160,6 +160,12 @@ mac:
     NSSpeechRecognitionUsageDescription: SuperAgent transcribes voice recordings on this device.
     NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    NSCalendarsUsageDescription: SuperAgent allows local MCP servers to read and manage your calendar events.
+    NSCalendarsFullAccessUsageDescription: SuperAgent allows local MCP servers to read and manage your calendar events.
+    NSCalendarsWriteOnlyAccessUsageDescription: SuperAgent allows local MCP servers to create calendar events.
+    NSRemindersUsageDescription: SuperAgent allows local MCP servers to read and manage your reminders.
+    NSRemindersFullAccessUsageDescription: SuperAgent allows local MCP servers to read and manage your reminders.
+    NSAppleEventsUsageDescription: SuperAgent allows local MCP servers to control other applications using AppleScript.
   target:
     - target: dmg
     - target: zip

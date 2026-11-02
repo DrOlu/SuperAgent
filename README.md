@@ -5,7 +5,7 @@
   </a>
 </h1>
 
-<p align="center">English | <a href="https://superagent.ng">Official Site</a> | <a href="https://superagent.ng/docs/en/">Documentation</a> | <a href="./docs/contrib/development.md">Development</a> | <a href="https://github.com/DrOlu/SuperAgent/issues">Feedback</a><br></p>
+<p align="center">English | <a href="https://superagent.ng">Official Site</a> | <a href="https://superagent.ng/docs/en/">Documentation</a> | <a href="./docs/dev/contrib/development.md">Development</a> | <a href="https://github.com/DrOlu/SuperAgent/issues">Feedback</a><br></p>
 
 <div align="center">
 
@@ -42,7 +42,7 @@ SuperAgent is an AI workstation for Windows, macOS, and Linux. Chat with multipl
 
 👏 Join [Telegram Group](https://t.me/SuperAgentAI)[Discord](https://discord.gg/wez8HtpxqQ) | [QQ Group(575014769)](https://qm.qq.com/q/lo0D4qVZKi)
 
-❤️ Like SuperAgent? Give it a star 🌟 or [Sponsor](docs/sponsor.md) to support the development!
+❤️ Like SuperAgent? Give it a star 🌟 or [Sponsor](docs/dev/sponsor.md) to support the development!
 
 # 🌠 Screenshots
 
@@ -128,11 +128,11 @@ Contributions of code, bug reports, documentation, translations, product ideas, 
 
 ## Getting Started
 
-1. Read the [Contributing Guide](CONTRIBUTING.md) and [Development Guide](docs/contrib/development.md).
+1. Read the [Contributing Guide](CONTRIBUTING.md) and [Development Guide](docs/dev/contrib/development.md).
 2. Fork the repository and create a focused branch from `main`.
 3. Validate your changes, sign and sign off your commits, and open a pull request targeting `main` using the repository template.
 
-See the [Branching Strategy](docs/contrib/branching-strategy.md) for branch and release conventions.
+See the [Branching Strategy](docs/dev/contrib/branching-strategy.md) for branch and release conventions.
 
 # 🏢 Enterprise Edition
 
@@ -210,4 +210,4 @@ Should you require a commercial license that provides an exemption from the AGPL
 [commercial-shield]: https://img.shields.io/badge/License-Contact-white.svg?logoColor=white&logo=telegram&color=blue
 [commercial-link]: mailto:license@superagent.ng?subject=Commercial%20License%20Inquiry
 [sponsor-shield]: https://img.shields.io/badge/Sponsor-FF6699.svg?logo=githubsponsors&logoColor=white
-[sponsor-link]: https://github.com/DrOlu/SuperAgent/blob/main/docs/sponsor.md
+[sponsor-link]: https://github.com/DrOlu/SuperAgent/blob/main/docs/dev/sponsor.md

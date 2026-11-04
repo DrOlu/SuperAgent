@@ -10,7 +10,7 @@ DeepSeek  V3 / R1
 
 ##  SuperAgent 
 
-*  ` → ` **deepseek** Provider 
+*  ` → ` **deepseek** 
 * **API **  `sk-...`
 * **API **  `https://api.deepseek.com`
 *  ****
@@ -32,7 +32,7 @@ DeepSeek  🌐
 
 DeepSeek 
 
-*  Provider  [](siliconcloud.md)  `bge-m3`  [OpenAI](openai.md)  `text-embedding-3-small`
+*  [](siliconcloud.md)  `bge-m3`  [OpenAI](openai.md)  `text-embedding-3-small`
 *  DeepSeek
 
 {% hint style="info" %}

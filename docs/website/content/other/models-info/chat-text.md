@@ -4,7 +4,7 @@
 
  K / M 1K  1,0001,024 tokens1M  100  tokens 131,072  128,000  128K
 
-> ****: 2026-10-27 14:14:54 UTC / 2026-10-27 22:14:54 CST ()
+> ****: 2026-11-03 16:01:16 UTC / 2026-11-04 00:01:16 CST ()
 
 <div data-models-table="num:2,3;sort:1;search:0,1;cap:4:,,,,">
 
@@ -278,9 +278,9 @@
 | Grok 4.1<br><code>grok-4-1</code> | xai | <span title="256,000">256K</span> | - |  | - | - |
 | Grok Beta<br><code>grok-beta</code> | xai | <span title="131,072">128K</span> | - |  | - | - |
 | Grok Code Fast 1<br><code>grok-code-fast-1</code> | xai | <span title="256,000">256K</span> | - |  | - | - |
+| MiMo V2.5 Pro<br><code>mimo-v2-5-pro</code> | xiaomi | <span title="1,050,000">1.05M</span> | <span title="131,072">128K</span> |  |  |  |
 | MiMo-V2-Flash<br><code>mimo-v2-flash</code> | xiaomi | <span title="262,144">256K</span> | <span title="65,536">64K</span> |  |  |  |
 | MiMo-V2-Pro<br><code>mimo-v2-pro</code> | xiaomi | <span title="1,048,576">1.05M</span> | <span title="131,072">128K</span> |  |  |  |
-| MiMo-V2.5-Pro<br><code>mimo-v2-5-pro</code> | xiaomi | <span title="1,050,000">1.05M</span> | <span title="131,072">128K</span> |  |  |  |
 | MiMo-V2.5-Pro-UltraSpeed<br><code>mimo-v2-5-pro-ultraspeed</code> | xiaomi | <span title="1,048,576">1.05M</span> | <span title="131,072">128K</span> |  |  |  |
 | GLM 4.5<br><code>glm-4-5</code> | zhipu | <span title="131,072">128K</span> | <span title="98,304">96K</span> |  |  |  |
 | GLM 4.5 Air<br><code>glm-4-5-air</code> | zhipu | <span title="131,072">128K</span> | <span title="98,304">96K</span> |  |  |  |

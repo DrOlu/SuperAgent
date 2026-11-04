@@ -23,6 +23,10 @@ MCP SuperAgent  MCP
 
 →MCP→MCP →
 
+ JSON  JSON `mcp-servers.json` `__proto__`  JSON 
+
+URLJSON 
+
 {% stepper %}
 {% step %}
 #### 1. 
@@ -80,7 +84,7 @@ MCP MCP
 | -------- | -------------- | ----------------- | --------- | ------------- | ------------ |
 |  |  |  |  |  |  |
 |  |  |  |  |  |  |
-|  |  |  |  |  |  |
+|  |  |  |  |  | JSON  |
 |  |  |  |  |  API |  |
 
 <a id="yong-hu-an-li--ba-xiang-mu-shu-ju-ku-jie-gei-fen-xi-agent"></a>

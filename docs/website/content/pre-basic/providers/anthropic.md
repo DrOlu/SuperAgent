@@ -9,7 +9,7 @@ Anthropic  Claude  [Cherry ](../../advanced-basic/agent.md)  Anthropic
 
 ##  SuperAgent 
 
-*  ` → ` **Anthropic** Provider 
+*  ` → ` **Anthropic** 
 *  **API **  `sk-ant-...`
 * **API **  `https://api.anthropic.com`
 *  **** `claude-opus-4``claude-sonnet-4``claude-haiku-4` 
@@ -27,7 +27,7 @@ Anthropic  Claude  [Cherry ](../../advanced-basic/agent.md)  Anthropic
 
 ## 
 
- Provider  [Cherry ](../../advanced-basic/agent.md)  Anthropic 
+ [Cherry ](../../advanced-basic/agent.md)  Anthropic 
 
 {% hint style="info" %}
 *  Anthropic API [ → ](../settings/general.md)

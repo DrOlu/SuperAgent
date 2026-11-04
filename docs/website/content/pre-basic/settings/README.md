@@ -10,7 +10,7 @@ SuperAgent  ****  ** /  /  /  / **
 
 |  |  |  |
 | --- | --- | --- |
-|  | [](../providers/) | Provider API  Key  |
+|  | [](../providers/) | API  Key  |
 |  | [](default-models.md) |  /  /  |
 |  | [](local-models.md) |  OCR  |
 | API  | [API ](../../advanced-basic/developer-tools/api-gateway.md) |  OpenAI  API |
@@ -58,7 +58,7 @@ SuperAgent  ****  ** /  /  /  / **
 |  | — |  |
 
 {% hint style="info" %}
- **** Provider /  /  ` → ` 
+ **** /  /  ` → ` 
 {% endhint %}
 
 ***

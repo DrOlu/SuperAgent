@@ -86,8 +86,11 @@ icon: message
 * **** [](chat.md#bian-ji-zhu-shou) 
 * ****
 * ****
+* **** JSON 
 
 
+
+ `assistants.json` 5 MiB
 
 
 

@@ -27,12 +27,12 @@ icon: floppy-disk
 * 
 * 
 * 
-* Provider API 
+* API 
 
 **** ****  ****
 
 {% hint style="warning" %}
- Provider API ****
+ API ****
 {% endhint %}
 
 ## 

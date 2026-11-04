@@ -2,15 +2,17 @@
 icon: list
 ---
 
-#  Provider 
+<a id="quan-bu-provider-kuai-su-can-kao"></a>
 
-SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
+# 
+
+SuperAgent  **60+ ** ****[](README.md)
 
 ## 
 
-1. ** Provider** Ctrl/⌘+F 
+1. **** Ctrl/⌘+F 
 2.  ****  API Key
-3.  SuperAgent ` → `  Provider""
+3.  SuperAgent ` → ` ""
 4. 
 
 ## 
@@ -29,7 +31,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **DeepSeek** |  | [deepseek.com](https://platform.deepseek.com/) | [→](deepseek.md) |
 | **Moonshot AI (Kimi)** |  200  | [moonshot.cn](https://platform.moonshot.cn/) | [→](moonshot.md) |
@@ -47,7 +49,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **OpenAI** | GPT  | [openai.com](https://platform.openai.com/) | [→](openai.md) |
 | **Anthropic** | Claude  | [anthropic.com](https://console.anthropic.com/) | [→](anthropic.md) |
@@ -63,7 +65,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
  key 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **CherryAI** | Cherry  | — | [→](cherryai/) |
 | **CherryIN** | Cherry OpenAI + Anthropic| [open.cherryin.cc](https://open.cherryin.cc/) | [→](cherryin-1.md) |
@@ -84,7 +86,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
 ""IM 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **Groq** | LPU  | [groq.com](https://console.groq.com/) | [→](groq.md) |
 | **Cerebras AI** |  | [cerebras.ai](https://cerebras.ai/) | — |
@@ -93,7 +95,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
 ##  + 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **Silicon ()** |  | [siliconflow.cn](https://cloud.siliconflow.cn/) | [→](siliconcloud.md) |
 | **ModelScope ()** |  | [modelscope.cn](https://modelscope.cn/) | [→](modelscope.md) |
@@ -106,7 +108,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
  / 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **Jina** | CLIP | [jina.ai](https://jina.ai/) | — |
 | **VoyageAI** |  /  | [voyageai.com](https://www.voyageai.com/) | — |
@@ -115,7 +117,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **Ollama** |  | [ollama.com](https://ollama.com/) | [→](ollama.md) |
 | **LM Studio** | GUI Apple Silicon  | [lmstudio.ai](https://lmstudio.ai/) | [→](lm-studio.md) |
@@ -124,7 +126,7 @@ SuperAgent  **60+  Provider** Provider  **** Provider [Provider ](README.md)
 
 ##  / 
 
-| Provider |  |  |  |
+|  |  |  |  |
 |---|---|---|---|
 | **Hugging Face** |  | [huggingface.co](https://huggingface.co/) | — |
 | **GitHub Copilot** |  GitHub  | [github.com/features/copilot](https://github.com/features/copilot) | [→](github-copilot.md) |

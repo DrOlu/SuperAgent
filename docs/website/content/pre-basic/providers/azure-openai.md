@@ -15,7 +15,7 @@ Azure OpenAI  Azure  OpenAI
 
 ##  SuperAgent 
 
-*  ` → ` **Azure OpenAI** Provider 
+*  ` → ` **Azure OpenAI** 
 * **API ** KEY
 * **API ** Endpoint
 * **API Version** API  `2024-08-01-preview`

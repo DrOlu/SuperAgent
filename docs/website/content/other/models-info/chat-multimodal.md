@@ -4,7 +4,7 @@
 
  K / M 1K  1,0001,024 tokens1M  100  tokens 131,072  128,000  128K
 
-> ****: 2026-10-27 14:14:54 UTC / 2026-10-27 22:14:54 CST ()
+> ****: 2026-11-03 16:01:16 UTC / 2026-11-04 00:01:16 CST ()
 
 <div data-models-table="num:2,3;sort:1;search:0,1;cap:4:,,,,,,,,;in:5:=,=,=,=">
 
@@ -142,6 +142,7 @@
 | Google Gemma 3 27B Instruct<br><code>gemma-3-27b-it</code> | google | <span title="202,752">198K</span> | <span title="8,192">8K</span> |  |  |  |
 | Google: Gemini 2.5 Pro Preview 05-06<br><code>gemini-2-5-pro-preview-05-06</code> | google | <span title="1,048,576">1.05M</span> | - |  |  |  |
 | Google: Gemini 2.5 Pro Preview 06-05<br><code>gemini-2-5-pro-preview</code> | google | <span title="1,048,576">1.05M</span> | - |  |  |  |
+| LongCat-2.5<br><code>longcat-2-5</code> | meituan | <span title="1,048,576">1.05M</span> | <span title="262,144">256K</span> |  |  |  |
 | Llama 3.2 11b Vision Instruct<br><code>llama-3-2-11b-vision-instruct</code> | meta | <span title="128,000">128K</span> | <span title="4,096">4K</span> |  |  |  |
 | Llama 4 Maverick 17b 128e Instruct<br><code>llama-4-maverick-17b-128e-instruct</code> | meta | <span title="128,000">128K</span> | <span title="4,096">4K</span> |  |  |  |
 | Llama 4 Maverick 17B 128E Instruct<br><code>llama-4-maverick-17b-128e-instruct-maas</code> | meta | <span title="524,288">512K</span> | <span title="8,192">8K</span> |  |  |  |

@@ -9,7 +9,7 @@ MiniMax  ****
 
 ##  SuperAgent 
 
-*  ` → ` **MiniMax** Provider 
+*  ` → ` **MiniMax** 
 *  API 
 * API 
 *  ****
@@ -23,7 +23,7 @@ MiniMax  ****
 
 {% hint style="info" %}
 * MiniMax 
-*  **MiniMax Global**SuperAgent Provider 
+*  **MiniMax Global**SuperAgent 
 {% endhint %}
 
 ***

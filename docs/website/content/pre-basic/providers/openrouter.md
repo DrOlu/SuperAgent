@@ -10,7 +10,7 @@ OpenRouter  **** key  200+ GPTClaudeGeminiLlamaDeepSeek  token  /
 
 ##  SuperAgent 
 
-*  ` → ` **OpenRouter** Provider 
+*  ` → ` **OpenRouter** 
 * **API **  `sk-or-...`
 * **API **  `https://openrouter.ai/api`
 *  ****OpenRouter 
@@ -30,7 +30,7 @@ OpenRouter  ID  `<vendor>/<model>`
 
 ## 
 
-* ** A/B ** SuperAgent Provider  Provider
+* ** A/B ** SuperAgent 
 * **** key  200+ 
 * **** OpenRouter  CohereReka 
 

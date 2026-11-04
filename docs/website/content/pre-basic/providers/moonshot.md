@@ -10,7 +10,7 @@ Moonshot AI  **Kimi** **** 200  /  AI
 
 ##  SuperAgent 
 
-*  ` → ` **Moonshot AI** Provider 
+*  ` → ` **Moonshot AI** 
 *  `sk-...` 
 * API  `https://api.moonshot.cn`
 *  ****

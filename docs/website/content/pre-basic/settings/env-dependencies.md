@@ -29,7 +29,7 @@ icon: terminal
 | **RTK** |  LLM token  CLI  |
 | **Lark CLI** |  CLI /  /  /  200+  |
 
- `gh`GitHub CLI`ntn`Notion CLI`pi`  CLI  Claude Code / Codex  [](../../superagent/preview/code-cli.md) 
+ `gh`GitHub CLI`ntn`Notion CLI`pi`  CLI  Claude Code / Codex  [](../../advanced-basic/developer-tools/code-cli.md) 
 
 ### 
 

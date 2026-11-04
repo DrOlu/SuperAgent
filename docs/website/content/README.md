@@ -50,7 +50,11 @@ SuperAgent
 
 ## 
 
-[](pre-basic/providers/README.md) · [](pre-basic/settings/README.md) · [](pre-basic/data-settings/README.md)
+[](pre-basic/providers/README.md) · [API ](advanced-basic/developer-tools/api-gateway.md) · [](pre-basic/settings/README.md) · [](pre-basic/data-settings/README.md)
+
+## 
+
+[](articles/README.md) · [AI ](question-contact/knowledge.md) · [](other/models-info/README.md) · [](other/model_rank/README.md)
 
 ## 
 
@@ -58,7 +62,11 @@ SuperAgent
 
 ## 
 
-[API ](advanced-basic/developer-tools/README.md) · [](contribution/code.md) · [](contribution/docs.md)
+[](advanced-basic/developer-tools/README.md) · [](contribution/code.md) · [](contribution/docs.md)
+
+## 
+
+[](contact-us/questions.md) · [](about/privacypolicy.md) · [](contact-us/questions/license.md)
 
 ***
 

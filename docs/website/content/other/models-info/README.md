@@ -2,12 +2,12 @@
 
  SuperAgent [provider-registry](https://github.com/DrOlu/SuperAgent/tree/main/packages/provider-registry) `-` 
 
-> ****: 2026-10-27 14:14:54 UTC / 2026-10-27 22:14:54 CST () `38986c5ef01254eb`
+> ****: 2026-11-03 16:01:16 UTC / 2026-11-04 00:01:16 CST () `c0e6c5b8534e2ede`
 
 ## 
 
 * [](chat-text.md)301 
-* [](chat-multimodal.md)297 
+* [](chat-multimodal.md)298 
 * [](image-generation.md)133 
 * [](video-generation.md)64 
 * [](audio.md)52 

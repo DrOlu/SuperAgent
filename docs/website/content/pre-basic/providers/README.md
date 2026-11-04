@@ -5,14 +5,14 @@ icon: cloud-plus
 
 # 
 
-SuperAgent  60+  Provider[ Provider ](quick-reference.md)
+SuperAgent  60+ [](quick-reference.md)
 
 <div data-cards>
 <div data-card>
 
 [****](quick-reference.md)
 
- Provider 
+
 
 </div>
 <div data-card>
@@ -24,9 +24,12 @@ SuperAgent  60+  Provider[ Provider ](quick-reference.md)
 </div>
 </div>
 
-### Provider 
+<a id="provider-lei-xing"></a>
+<a id="provider-"></a>
 
-SuperAgent  Provider 
+### 
+
+SuperAgent 
 
 |  |  |  |
 |---|---|---|
@@ -38,7 +41,10 @@ SuperAgent  Provider
 | **** |  HTTP  | OllamaLM StudioGPUStackOpenVINO Model Server |
 | **** |  | NewAPIOneAPIAiHubMixDMXAPI  |
 
-###  Provider 
+<a id="tian-jia-yi-ge-provider-de-tong-yong-bu-zhou"></a>
+<a id="-provider-"></a>
+
+### 
 
 {% stepper %}
 {% step %}
@@ -52,14 +58,14 @@ SuperAgent  Provider
 
 #### 
 
- Provider  Provider
+
 
 {% endstep %}
 {% step %}
 
 #### 
 
- **API ** **API ** Provider 
+ **API ** **API **
 
 {% endstep %}
 {% step %}
@@ -78,7 +84,10 @@ SuperAgent  Provider
 {% endstep %}
 {% endstepper %}
 
-### Provider 
+<a id="provider-pei-zhi-xiang-jie"></a>
+<a id="provider-"></a>
+
+### 
 
 #### /
 * [CherryAI ()](cherryai/)
@@ -118,9 +127,9 @@ SuperAgent  Provider
 * [](zi-ding-yi-fu-wu-shang.md) —  OpenAI / Anthropic / Gemini 
 
 {% hint style="info" %}
-** Provider **
+****
 
-[ Provider ](quick-reference.md)[](../settings/providers.md)[](zi-ding-yi-fu-wu-shang.md)
+[](quick-reference.md)[](../settings/providers.md)[](zi-ding-yi-fu-wu-shang.md)
 {% endhint %}
 
 ### API  API 

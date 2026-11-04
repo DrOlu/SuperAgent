@@ -9,7 +9,7 @@ Groq xAI  Grok **LPU **  Llama / Mixtral / Whisper
 
 ##  SuperAgent 
 
-*  ` → ` **Groq** Provider 
+*  ` → ` **Groq** 
 * **API **  `gsk_...`
 * **API **  `https://api.groq.com/openai/v1`
 *  ****
@@ -38,7 +38,7 @@ Groq xAI  Grok **LPU **  Llama / Mixtral / Whisper
 |  | `grok-4`  | `llama-3.x`  |
 
 {% hint style="warning" %}
-GrokxAI Groq  SuperAgent Provider 
+GrokxAI Groq  SuperAgent 
 {% endhint %}
 
 ***

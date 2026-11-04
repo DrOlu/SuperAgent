@@ -10,7 +10,7 @@ LM Studio  ** GUI**SuperAgent  LM Studio
 
 ##  SuperAgent 
 
-*  ` → ` **LM Studio** Provider 
+*  ` → ` **LM Studio** 
 * **API **  `http://localhost:1234` LM Studio 
 * **API **  LM Studio 
 *  ****SuperAgent  LM Studio 

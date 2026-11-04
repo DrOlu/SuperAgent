@@ -17,7 +17,7 @@ SuperAgent  AI  ****  [API ](../../advanced-basic/developer-tools/api-gateway.md
 | [](../../superagent/preview/app/) |  Cherry AI  | → |
 | [](knowledge-base.md) | // | → |
 | [](files.md) |  | → |
-| [](code-cli.md) |  AI  CLI  | → |
+| [](../../advanced-basic/developer-tools/code-cli.md) |  AI  CLI  | → |
 | [](notes.md) |  Markdown  | → |
 | [](quick-assistant.md) |  |  |
 | [](selection-assistant.md) |  AI |  |

@@ -2,6 +2,8 @@
 icon: compass
 ---
 
+<a id="gou-jian-zhi-shi-ku-yu-zhao-hui-ce-shi"></a>
+
 # 
 
 
@@ -40,10 +42,16 @@ icon: compass
  BM25 
 {% endhint %}
 
+<a id="xin-jian-bing-dao-ru-zi-liao"></a>
+<a id=""></a>
+
 ## 5 
 
 {% stepper %}
 {% step %}
+<a id="1-da-kai--zhi-shi-ku--xin-jian-zhi-shi-ku-"></a>
+<a id="1-"></a>
+
 ### 1. 
 
 → “ + ”
@@ -56,6 +64,9 @@ icon: compass
 {% endstep %}
 
 {% step %}
+<a id="2-xuan-ze-zi-liao-lai-yuan"></a>
+<a id="2-"></a>
+
 ### 3. 
 
 
@@ -64,6 +75,9 @@ icon: compass
 {% endstep %}
 
 {% step %}
+<a id="3-deng-dai-chu-li-wan-cheng"></a>
+<a id="3-"></a>
+
 ### 4. 
 
  Chunks
@@ -72,6 +86,9 @@ icon: compass
 {% endstep %}
 
 {% step %}
+<a id="4-zuo-zhao-hui-ce-shi"></a>
+<a id="4-"></a>
+
 ### 5. 
 
 
@@ -87,6 +104,9 @@ icon: compass
 {% endstep %}
 {% endstepper %}
 
+<a id="rag-she-zhi-zen-me-li-jie"></a>
+<a id="rag-"></a>
+
 ## 
 
 |  |  |  |  |  |  |
@@ -96,11 +116,17 @@ icon: compass
 |  | — | 35  |  |  |  |
 |  | — | Chunks |  |  |  |
 
+<a id="yong-zhen-shi-wen-ti-yan-shou-zhao-hui-jie-guo"></a>
+<a id=""></a>
+
 ## 
 
 * 
 *  Chunks 
 * 
+
+<a id="ying-yong-an-li--jian-li-nei-bu-zhi-du-wen-da-ku"></a>
+<a id=""></a>
 
 ## 
 

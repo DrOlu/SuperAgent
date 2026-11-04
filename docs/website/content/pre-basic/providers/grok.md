@@ -9,7 +9,7 @@ Grok  xAI " +  X (Twitter) "
 
 ##  SuperAgent 
 
-*  ` → ` **Grok** Provider 
+*  ` → ` **Grok** 
 * **API **  `xai-...`
 * **API **  `https://api.x.ai`
 *  **** `grok-4``grok-4-fast` 

@@ -21,7 +21,7 @@ icon: grid
 | [](../../superagent/preview/app/) |  SuperAgent  |
 | [](knowledge-base.md) |  |
 | [](files.md) |  |
-| [](code-cli.md) |  AI  CLI  |
+| [](../../advanced-basic/developer-tools/code-cli.md) |  AI  CLI  |
 | [](notes.md) |  Markdown  |
 
 ## 

@@ -348,7 +348,7 @@ session/protocolVersion journal  listener
 |  /  | Remote adapter  |  |
 |---|---|---|
 | `addListener(topicId, listener)` |  buffer replay  `onChunk` |  stream buffer boolean  |
-| `StreamListener.onChunk` |  message/part/execution  |  `UIMessageChunk`  |
+| `StreamListener.onChunk` / `onMessage` | chunk projection  |  |
 | `onDone/onPaused/onError`terminal phases |  |  durable terminalEOF  |
 | `observeTopic` + `getTopicSnapshot` |  execution  | observer  diff  |
 | runtime  `onSessionInteractionsChanged` |  |  chunk |

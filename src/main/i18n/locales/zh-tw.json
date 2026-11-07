@@ -79,6 +79,7 @@
   "common.channel_message_processing_error": "⚠️ ",
   "common.channel_new_session_created": "",
   "common.channel_no_active_session": "",
+  "common.channel_processing": "…",
   "common.channel_session_compacted": "",
   "common.channel_session_resolution_error": "⚠️ ",
   "common.channel_stopped": "",

@@ -2285,7 +2285,7 @@
   "library.import_dialog.url.button": "",
   "library.import_dialog.url.hint": " GitHub GistGitHub ",
   "library.import_dialog.url.supports": "",
-  "library.import_skill_dialog.local.drop_hint": " ZIP  ZIP",
+  "library.import_skill_dialog.local.drop_hint": " ZIP  SKILL.md ",
   "library.import_skill_dialog.local.formats": " .zip  SKILL.md ",
   "library.import_skill_dialog.subtitle": " ZIP ",
   "library.import_skill_dialog.title": "",

@@ -73,7 +73,7 @@ Chunk
 
 <summary></summary>
 
-SuperAgent  PDFDOCXDOCPPTXXLSXXLSMarkdownTXTCSVHTML  EPUB
+SuperAgent  PDFDOCXDOCPPTXXLSXXLSODTODPODSRTFMarkdownTXTCSVHTML  EPUB
 
 </details>
 

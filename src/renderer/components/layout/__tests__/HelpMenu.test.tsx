@@ -183,9 +183,9 @@ describe('HelpMenu', () => {
   })
 
   it.each([
-    ['zh-CN', 'https://superagent.ng/documentation.html'],
-    ['zh-TW', 'https://superagent.ng/documentation.html'],
-    ['en-US', 'https://superagent.ng/documentation.html']
+    ['zh-CN', 'https://cherryai.com.cn/docs'],
+    ['zh-TW', 'https://cherryai.com.cn/docs'],
+    ['en-US', 'https://superagent.ng/docs']
   ])('opens the language-specific guide in app content for %s', async (language, expectedUrl) => {
     mocks.language = language
     render(<HelpMenu onFeedbackClick={mocks.openFeedback} />)

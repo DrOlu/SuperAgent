@@ -13,7 +13,7 @@ export default openaiCompatible({
   baseUrl: 'https://api.ppinfra.com/v3/openai/',
   website: {
     apiKey: 'https://ppio.com/settings/key-management',
-    docs: 'https://docs.superagent.ng/pre-basic/providers/ppio',
+    docs: 'https://superagent.ng/docs/en/pre-basic/providers/',
     models: 'https://ppio.com/model-api/product/llm-api',
     official: 'https://ppio.com/'
   },

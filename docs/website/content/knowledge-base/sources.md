@@ -22,7 +22,7 @@ SuperAgent  Chunks
 |  |  |  |  |
 
 {% hint style="warning" %}
- PDFDOCXDOCPPTXXLSXXLSMDTXTCSVHTML  EPUB PDF  OCR
+ PDFDOCXDOCPPTXXLSXXLSODTODPODSRTFMDTXTCSVHTML  EPUB PDF  OCR
 {% endhint %}
 
 ## 

@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thank you for taking the time to ask a question!
-        Before submitting this issue, please make sure you've reviewed the [FAQ](https://docs.superagent.ng/question-contact/questions) and [Knowledge Base](https://docs.superagent.ng/question-contact/knowledge)
+        Before submitting this issue, please make sure you've reviewed the [FAQ](https://superagent.ng/docs/en/question-contact/questions/) and [Knowledge Base](https://superagent.ng/docs/en/question-contact/knowledge/)
 
   - type: checkboxes
     id: checklist

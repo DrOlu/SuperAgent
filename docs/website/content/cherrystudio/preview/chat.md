@@ -261,7 +261,7 @@ Top-P Token  **** [](chat.md#bian-ji-zhu-shou)  [](chat.md#zhu-shou-she-zhi)
 
 #### <mark style="color:blue;">**` (MaxToken)`**</mark>
 
- [Token](https://docs.superagent.ng/question-contact/knowledge#shen-me-shi-tokens) max token
+ [Token](https://cherryai.com.cn/docs/zh-cn/question-contact/knowledge/#token-yu-shang-xia-wen-chuang-kou) max token
 
 > : SuperAgent  key , MaxToken  1 
 

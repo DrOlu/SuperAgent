@@ -74,7 +74,7 @@ SuperAgent
 
 [(X)](https://x.com/SuperAgentHQ)[](https://www.xiaohongshu.com/user/profile/662b6853000000000b031d9a)[](https://weibo.com/u/7975656228)[](https://space.bilibili.com/3546657515898892)[](https://www.douyin.com/user/MS4wLjABAAAAmw9A54m5J0hHVMQY5eGrVJ-EHDoOS0hgJ6M1F9MN2Tn2V163A0xrC4_KVzfmQSxC)
 
-[QQ ](https://qm.qq.com/q/lo0D4qVZKi)[Telegram](https://t.me/SuperAgentAI)[Discord](https://discord.gg/wez8HtpxqQ)[](https://www.superagent.ng/#Community)
+[QQ ](https://qm.qq.com/q/lo0D4qVZKi)[Telegram](https://t.me/SuperAgentAI)[Discord](https://discord.gg/wez8HtpxqQ)[](https://cherryai.com.cn/#Community)
 
 ***
 

@@ -8,7 +8,7 @@ body:
     attributes:
       value: |
         Thank you for taking the time to fill out this bug report!
-        Before submitting this issue, please make sure that you have understood the [FAQ](https://docs.superagent.ng/question-contact/questions) and [Knowledge Science](https://docs.superagent.ng/question-contact/knowledge)
+        Before submitting this issue, please make sure that you have understood the [FAQ](https://superagent.ng/docs/en/question-contact/questions/) and [Knowledge Science](https://superagent.ng/docs/en/question-contact/knowledge/)
 
   - type: checkboxes
     id: checklist

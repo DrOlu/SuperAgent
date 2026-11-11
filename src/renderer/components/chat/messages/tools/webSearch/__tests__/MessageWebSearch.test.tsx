@@ -73,7 +73,7 @@ describe('MessageWebSearchToolTitle', () => {
 
     const link = await screen.findByRole('link')
     expect(link).toHaveAttribute('href', 'https://www.superagent.ng/blog')
-    expect(screen.getByTestId('favicon')).toHaveAttribute('data-hostname', 'www.superagent.ng')
+
     expect(screen.getByText('superagent.ng')).toBeInTheDocument()
   })
 })

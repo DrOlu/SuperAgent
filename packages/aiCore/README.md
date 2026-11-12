@@ -400,7 +400,7 @@ await client.streamObject({
 
 ## 📄 License
 
-MIT License -  [LICENSE](https://github.com/DrOlu/SuperAgent/blob/main/LICENSE) 
+MIT License -  [LICENSE](./LICENSE) 
 
 ---
 

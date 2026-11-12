@@ -18,6 +18,8 @@ icon: shield-halved
 |  |  |  |  |
 |  |  |  |  |
 
+ `mise` 
+
 Pi  Pi DeepSeek Harness Claude Agent
 
 → →→→

@@ -28,6 +28,14 @@ icon: globe
 * **** 🌐  ` → ` —— Exa MCP
 * **** **** 🌐
 
+{% hint style="info" %}
+**🌐**
+
+**Agent **Claude Codepipi durable**** ` → `  URL 
+
+ Agent pipi durable API  Claude Code Web  Claude Code  WebSearch / WebFetch 
+{% endhint %}
+
  🌐 
 
 * **DeepSeek**

@@ -64,7 +64,7 @@ URLJSON
 
 <figure><img src="../../../assets/3892f8eaa6ef4645921a382d.webp" alt=" MCP  QVerisBrowserPython "><figcaption><p>① API Key </p></figcaption></figure>
 
-QVeris  `QVERIS_API_KEY`
+QVeris  OAuth  `QVERIS_API_KEY` 
 
 ###  MCP 
 

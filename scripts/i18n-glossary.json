@@ -12,6 +12,7 @@
       "zh-cn": "",
       "zh-tw": "",
       "tr-tr": "sağlayıcı",
+      "pl-pl": "dostawca",
       "th-th": "ผู้ให้บริการ"
     },
     "Assistant": {
@@ -20,6 +21,7 @@
       "zh-cn": "",
       "zh-tw": "",
       "tr-tr": "asistan",
+      "pl-pl": "asystent",
       "th-th": "ผู้ช่วย"
     },
     "Agent": {
@@ -28,6 +30,7 @@
       "zh-cn": "",
       "zh-tw": "",
       "tr-tr": "ajan",
+      "pl-pl": "agent",
       "th-th": "เอเจนต์"
     },
     "Knowledge Base": {
@@ -38,6 +41,7 @@
       "zh-cn": "",
       "zh-tw": "",
       "tr-tr": "bilgi tabanı",
+      "pl-pl": "baza wiedzy",
       "th-th": "ฐานความรู้"
     },
     "Topic": {
@@ -46,6 +50,7 @@
       "zh-cn": "",
       "zh-tw": "",
       "tr-tr": "konu",
+      "pl-pl": "temat",
       "th-th": "หัวข้อ"
     }
   }

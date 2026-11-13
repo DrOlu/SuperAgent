@@ -71,6 +71,13 @@ icon: graduation-cap
 
 
 
+### 
+
+- → SuperAgent  `~/.agents/skills`
+- 
+- 
+- 
+
 ###  MCP 
 
 |  |  |  |

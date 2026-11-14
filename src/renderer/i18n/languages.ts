@@ -4,6 +4,7 @@ import { languageNativeNameMap } from '@shared/utils/languages'
 /** Display order of the app's language picker. Labels come from the shared native-name map. */
 const APP_LANGUAGE_FLAGS: ReadonlyArray<{ value: LanguageVarious; flag: string }> = [
   { value: 'en-US', flag: '🇺🇸' },
+  { value: 'cs-CZ', flag: '🇨🇿' },
   { value: 'de-DE', flag: '🇩🇪' },
   { value: 'ja-JP', flag: '🇯🇵' },
   { value: 'ru-RU', flag: '🇷🇺' },

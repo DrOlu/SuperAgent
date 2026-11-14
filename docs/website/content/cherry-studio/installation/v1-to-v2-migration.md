@@ -10,7 +10,7 @@ V1  V2V2  V1 V1  V1
 {% endhint %}
 
 {% hint style="warning" %}
-**V1.9.13 → V2** V2 
+**V1.9.13 → V2.2.2→ **2.2.2 
 {% endhint %}
 
 ## 
@@ -57,7 +57,7 @@ V1  V2V2  V1 V1  V1
 {% step %}
 ###  V2
 
- [V2 ](https://superagent.ng/download)  V2  [GitCode ](https://gitcode.com/DrOlu/SuperAgent/releases)  [GitHub ](https://github.com/DrOlu/SuperAgent/releases) V1 
+ [2.2.2 ](https://gitcode.com/DrOlu/SuperAgent/releases/tag/v2.2.2)  V1 
 {% endstep %}
 
 {% step %}
@@ -128,5 +128,5 @@ V1  V2V2  V1 V1  V1
 * [SuperAgent V2 ](https://superagent.ng/download)
 * [SuperAgent V1 ](https://superagent.ng/download/v1)
 * V2 [GitCode](https://gitcode.com/DrOlu/SuperAgent/releases) · [GitHub](https://github.com/DrOlu/SuperAgent/releases)
-* [](https://github.com/DrOlu/SuperAgent/blob/main/src/main/data/migration/v2/README.md#version-compatibility-gate)
+* [](https://github.com/DrOlu/SuperAgent/blob/v2.2.2/src/main/data/migration/v2/README.md#version-compatibility-gate)
 * [](../../question-contact/suggestions.md)

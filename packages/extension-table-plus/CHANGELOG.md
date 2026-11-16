@@ -6,6 +6,12 @@
 
 - Include the existing MIT license terms with the upstream Tiptap copyright notice and SuperAgent contributor attribution.
 
+## 3.0.15
+
+### Patch Changes
+
+- [#24590](https://github.com/DrOlu/SuperAgent/pull/24590) [`7a14371`](https://github.com/DrOlu/SuperAgent/commit/7a14371ce83304e985c22a8455c654b383ccae55) Thanks [@cherry-coding](https://github.com/apps/cherry-coding)! - Fix ESM and TypeScript import entry points for the package root and all five table subpaths to reference the generated files.
+
 ## 3.0.14
 
 ### Patch Changes

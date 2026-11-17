@@ -20,6 +20,12 @@ icon: shield-halved
 
  `mise` 
 
+ `git status` `git reset --hard` `echo 'git reset --hard'`  Git “”
+
+
+
+Git 
+
 Pi  Pi DeepSeek Harness Claude Agent
 
 → →→→

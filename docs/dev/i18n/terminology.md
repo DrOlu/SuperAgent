@@ -23,6 +23,8 @@ This table is bilingual by construction and therefore has no `.zh.md` counterpar
 |---------|----------|-------|
 | Agent |  | An autonomous coding agent with tool access and its own session, not a synonym for Assistant. |
 | Assistant |  | A user-configured chat persona (system prompt + model settings). Distinct from Agent. |
+| Context |  | Information supplied to an LLM, not a generic situational context. |
 | Knowledge Base |  | A user-built document collection queried via retrieval. |
 | Provider |  | A model vendor such as OpenAI or Anthropic, not a generic supplier or a service provider in the telecom sense. |
 | Topic |  | One conversation thread inside an assistant, comparable to a chat in other clients. |
+| Workspace |  | An agent workspace containing its working files; distinguish it from a generic work area. |

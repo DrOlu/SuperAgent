@@ -71,6 +71,7 @@
   "appMenu.zoomOut": "",
   "backup.restore.failed": "",
   "backup.restore.retry": "",
+  "chat.cherryai.sign_in_required": " SuperAgent ",
   "chat.conversation.new": "",
   "command_approval.builtin-destructive-command": " (mcp__assistant-files__move_to_trash)",
   "command_approval.configuration_error": "",

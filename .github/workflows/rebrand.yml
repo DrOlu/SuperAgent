@@ -250,7 +250,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm libevdev-dev libxtst-dev libx11-dev libxfixes-dev libwayland-dev
+          sudo apt-get install -y rpm libevdev-dev libxtst-dev libx11-dev libxfixes-dev libwayland-dev libglib2.0-dev libgdk-pixbuf-2.0-dev
 
       - name: Install Node
         uses: actions/setup-node@v4

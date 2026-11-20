@@ -246,6 +246,12 @@ jobs:
           ref: ${{ needs.rebrand.outputs.sha }}
           fetch-depth: 1
 
+      - name: Enable arm64 emulation for the external-app cross-build
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Install Linux native build deps
         if: matrix.os == 'ubuntu-latest'
         run: |

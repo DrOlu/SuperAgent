@@ -16,7 +16,10 @@ gen_pydantic.py, gen_needle_instance.py) and `docs/` (the bundled manual the
 - `engine-linux-x86_64`, `engine-linux-arm64`
 - `engine-windows-x86_64.exe`, `engine-windows-arm64.exe`
 
-Source: https://huggingface.co/Cactus-Compute/needle3 (`needle3.cact`,
-`<platform>/needle[.exe]`). Local builds: run the same curl commands the
+Source: https://huggingface.co/Cactus-Compute/needle3 pinned to revision
+`d6c7d6a2e9655505e0f8e23339356dd1705900eb` — the last revision that still
+contains the standalone `<platform>/needle[.exe]` engines (the Nov 2025 repo
+cleanup removed them from `main`; `needle3.cact` is byte-identical on both).
+The workflows carry the same pin. Local builds: run the same curl commands the
 workflows use, or the app falls back to `<NEURALOS_INSTANCES_DIR>/engine/`
 or `NEURALOS_ENGINE_BIN`/`NEURALOS_ENGINE_WEIGHTS`.

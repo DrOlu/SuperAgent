@@ -295,7 +295,7 @@ jobs:
           # app-code migration (shared-lib/koffi contract, different CLI flags)
           # and must be done in src/main/ai/mcp/servers/neuralos first. Until
           # then, keep the pinned revision; it is static and immutable.
-          BASE="https://huggingface.co/Cactus-Compute/needle3/resolve/d6c7d6a2e965"
+          BASE="https://huggingface.co/Cactus-Compute/needle3/resolve/d6c7d6a2e9655505e0f8e23339356dd1705900eb"
           curl -fsSL --retry 3 -o resources/neuralos/needle3.cact "$BASE/needle3.cact"
           case "${{ matrix.target }}" in
             mac)

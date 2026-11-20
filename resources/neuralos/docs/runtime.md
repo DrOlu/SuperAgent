@@ -24,11 +24,12 @@ no API key, no GPU and no network. It does three things:
    typed fields back; the decode grammar guarantees the output parses.
 3. **Text embeddings** — a vector for a sentence (neuralOS 3 only).
 
-The app ships the standalone engine binary + the `needle3.cact` weights in its
-`neuralos` resources directory — `neuralos_docs(topic: "index")` prints the
-exact paths for this install. The `neuralos_ask` / `neuralos_graph` /
-`neuralos_admin` tools use that engine for probe selection and run the
-instance bridges with a configured Python interpreter (`NEURALOS_PYTHON`).
+The app vendors the `neuralos` npm package (libneedle3 engine via koffi +
+the `needle3.cact` weights) into its `neuralos` resources directory —
+`neuralos_docs(topic: "index")` prints the exact paths for this install. The
+`neuralos_ask` / `neuralos_graph` / `neuralos_admin` tools use that engine
+for probe selection and run the instance bridges with a configured Python
+interpreter (`NEURALOS_PYTHON`).
 
 For the companion manual that turns raw data sources into neuralOS
 instances (profile any source → Pydantic models → generated menu, bridge and
@@ -43,7 +44,7 @@ difference between a working agent and a flaky one.
 | Your situation | Surface | Read |
 |---|---|---|
 | Python app/script; agent loop that **executes** the tools it calls | Python API — `import needle` | `python-api.md` |
-| No Python at runtime — servers, Windows services, edge devices, embedding in C | Standalone engine binary — `./needle --model needle3.cact` (the app ships it) | `engine-binary.md` |
+| No Python at runtime — servers, Windows services, edge devices, embedding in C | neuralos npm package — `npm i neuralos`, the `neuralos run` CLI (this is what the app vendors) | `runtime.md` / `engine-binary.md` |
 | **Windows hosts where PowerShell is the ONLY permitted runtime** (no Python, ever) | Engine selection + PowerShell execution loop — `needle.exe` / `neural.exe` | `windows-powershell.md` |
 | You need a typed **judgment** (guardrail, triage, classify into ≤10 classes), offline — not a tool call | laya decision model — `pip install laya` | `decision-models.md` |
 | Setting up a host (interpreter for the bridges, instances directory, smoke tests) | `bootstrap.md` |
@@ -67,7 +68,7 @@ agentic loop in-process (the Python runtime).
   `NEEDLE3_LIB_PATH` to override. (This is independent of the app-bundled
   engine — both work off the same weights format.)
 - If the machine must never touch the network, use the app-bundled engine
-  binary for selection instead.
+  (the vendored `neuralos` npm tree) for selection instead.
 - Telemetry is on by default. Disable before importing:
   `NEEDLE_TELEMETRY=0` and `DO_NOT_TRACK=1`.
 - **Multi-Python gotcha:** on machines with several Pythons (Homebrew vs
@@ -129,35 +130,37 @@ patterns in `tool-design.md`.
    selection. For reproducibility pass a fixed `system=` and
    `auto_date=False`. The standalone engine doesn't inject dates.
 
-## Standalone engine (no Python at runtime)
+## The bundled engine (npm package, no Python at runtime)
 
-The raw-C engine binary runs the same `needle3.cact` weights with no JAX, no
-Python — ideal for servers and Windows boxes. **The app ships this engine +
-weights already** (`neuralos_docs(topic: "index")` prints the paths):
+The app vendors the **`neuralos` npm package** at build time
+(`resources/neuralos/engine/node_modules/`): the libneedle3 FFI binding
+(loaded through koffi) plus the `needle3.cact` weights, driven through the
+package's own CLI. **Nothing to download for selection** —
+`neuralos_docs(topic: "index")` prints the paths:
 
 ```bash
-# macOS / Linux — the bundled engine
-<resources>/neuralos/engine-macos-arm64 --model <resources>/neuralos/needle3.cact \
-    --tools tools.json --prompt "give me revenue breakdown by country"
+# the vendored engine, one-shot call selection (--max-steps 0: selection
+# only, the app executes probes itself through the instance bridge)
+node <resources>/neuralos/engine/node_modules/neuralos/cli.js run \
+    --tools tools.json --query "give me revenue breakdown by country" --max-steps 0
 
-# to fetch a platform bundle for another machine instead:
-python <scripts>/bootstrap_engine.py            # auto-detects this platform
+# inside the packaged app the interpreter is the Electron binary itself:
+ELECTRON_RUN_AS_NODE=1 <app binary> <cli.js> run --tools t.json --query "…" --max-steps 0
 ```
 
-```powershell
-# Windows
-python <scripts>\bootstrap_engine.py --platform windows-x86_64
-.\windows-x86_64\needle.exe --model needle3.cact --tools tools.json --prompt "..."
-```
+The engine is **call-selection only** here: it emits the chosen call as a
+JSON envelope (`type`, `function_calls` with name/arguments, `reasoning`,
+`confidence`, throughput stats) and does **not** execute anything — your code
+runs the tool. Empty `function_calls` on a `type: "call"` envelope is an
+honest refusal. Install `neuralos` with npm anywhere and point
+`NEURALOS_ENGINE_DIR` at its parent directory to use your own tree instead of
+the vendored one; `<instancesRoot>/engine/` (a plain `npm i neuralos` tree)
+is the other fallback root. Platforms: darwin arm64/x64, linux x64/arm64
+(glibc), win32 x64.
 
-The binary is **call-selection only**: it emits the chosen call as JSON
-(name, arguments, reasoning, confidence, throughput stats) and does **not**
-execute anything — your code runs the tool. It is deterministic (greedy
-decode), needs ~100 MB RAM, and can also serve HTTP (`--serve`, default port
-8080: `POST /complete {"input": "..."}`, `POST /reset`). Platforms:
-macos-arm64, linux-x86_64/arm64/armv7/riscv64/mipsel,
-windows-x86_64/arm64, plus android, ios, tvos, watchos and wasm variants.
-Full details in `engine-binary.md`.
+The standalone raw-C engine binary (HF `Cactus-Compute/needle3`) remains a
+separate distribution for servers and edge boxes — see `engine-binary.md` —
+but the app no longer bundles it.
 
 ## Bundled scripts
 

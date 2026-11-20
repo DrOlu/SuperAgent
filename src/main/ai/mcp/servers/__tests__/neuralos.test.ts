@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { Client } from '@modelcontextprotocol/client'
+import { InMemoryTransport } from '@modelcontextprotocol/client'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@logger', () => ({
@@ -47,10 +47,11 @@ const { NeuralosServer, scoreProbes } = await import('../neuralos/NeuralosServer
 const {
   askGate,
   adminProbe,
-  bundledEngineCandidates,
-  bundledEngineName,
+  bundledEngineRoots,
   defaultDeps,
   defaultPythonBin,
+  engineNodeEnv,
+  enginePayload,
   engineSelect,
   executeProbe,
   graphProbe,
@@ -114,7 +115,11 @@ function makeDeps(execByKey: Record<string, { stdout: string; code?: number }>) 
 }
 
 function depsWithExec(
-  exec: (cmd: string, args: string[]) => Promise<{ stdout: string; stderr: string; code: number }>
+  exec: (
+    cmd: string,
+    args: string[],
+    env?: Record<string, string>
+  ) => Promise<{ stdout: string; stderr: string; code: number }>
 ) {
   return {
     execFile: vi.fn(exec),
@@ -175,23 +180,59 @@ describe('instanceDirFor', () => {
 })
 
 describe('engineSelect', () => {
-  const engine = { engineBin: '/engine/needle', engineWeights: '/engine/needle3.cact' }
-  const key = '/engine/needle --model /engine/needle3.cact --tools /i/needle_menu.json --prompt count invoices'
+  const engine = { nodeBin: '/node', cli: '/engine/cli.js' }
+  const key = '/node /engine/cli.js run --tools /i/needle_menu.json --query count invoices --max-steps 0'
 
-  it('parses the engine JSON into a pick with confidence', async () => {
+  it('parses the npm engine envelope into a pick with confidence', async () => {
     const deps = makeDeps({
       [key]: {
-        stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.98 })
+        stdout: JSON.stringify({
+          type: 'call',
+          function_calls: [{ name: 'transactions_count', arguments: { month: 'march' } }],
+          confidence: 0.98,
+          results: []
+        })
       }
     })
     const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'count invoices')
-    expect(result).toEqual({ pick: 'transactions_count', args: {}, confidence: 0.98 })
+    expect(result).toEqual({ pick: 'transactions_count', args: { month: 'march' }, confidence: 0.98 })
+  })
+
+  it('spawns selection-only (--max-steps 0) and passes the Electron-as-node env through', async () => {
+    let seenEnv: Record<string, string> | undefined
+    const deps = depsWithExec(async (cmd, args, env) => {
+      seenEnv = env
+      expect(cmd).toBe('/node')
+      expect(args).toEqual([
+        '/engine/cli.js',
+        'run',
+        '--tools',
+        '/i/needle_menu.json',
+        '--query',
+        'count invoices',
+        '--max-steps',
+        '0'
+      ])
+      return {
+        stdout: JSON.stringify({ type: 'call', function_calls: [{ name: 'transactions_count', arguments: {} }] }),
+        stderr: '',
+        code: 0
+      }
+    })
+    const result = await engineSelect(
+      deps,
+      { ...engine, env: { ELECTRON_RUN_AS_NODE: '1' } },
+      '/i/needle_menu.json',
+      'count invoices'
+    )
+    expect('error' in result).toBe(false)
+    expect(seenEnv).toEqual({ ELECTRON_RUN_AS_NODE: '1' })
   })
 
   it('reports a refusal (no calls) as data', async () => {
     const deps = makeDeps({
-      '/engine/needle --model /engine/needle3.cact --tools /i/needle_menu.json --prompt x': {
-        stdout: '{"function_calls":[]}'
+      '/node /engine/cli.js run --tools /i/needle_menu.json --query x --max-steps 0': {
+        stdout: JSON.stringify({ type: 'respond', text: 'I cannot help with that.', function_calls: [], results: [] })
       }
     })
     const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'x')
@@ -200,7 +241,7 @@ describe('engineSelect', () => {
 
   it('reports non-JSON engine output as data', async () => {
     const deps = makeDeps({
-      '/engine/needle --model /engine/needle3.cact --tools /i/needle_menu.json --prompt x': {
+      '/node /engine/cli.js run --tools /i/needle_menu.json --query x --max-steps 0': {
         stdout: 'garbage',
         code: 1
       }
@@ -211,16 +252,23 @@ describe('engineSelect', () => {
 
   it('reports an engine crash with empty output as data', async () => {
     const deps = makeDeps({
-      '/engine/needle --model /engine/needle3.cact --tools /i/needle_menu.json --prompt x': { stdout: '', code: 1 }
+      '/node /engine/cli.js run --tools /i/needle_menu.json --query x --max-steps 0': { stdout: '', code: 1 }
     })
     const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'x')
     expect(result).toEqual({ error: 'engine exited 1: ' })
   })
 
-  it('names the fix when the engine is not executable (EACCES)', async () => {
-    const deps = depsWithExec(async () => ({ stdout: '', stderr: '', code: 'EACCES' as unknown as number }))
-    const result = await engineSelect(deps, engine, '/i/needle_menu.json', 'x')
-    expect(result).toEqual({ error: 'engine binary is not executable — chmod +x /engine/needle' })
+  it('engineNodeEnv flags Electron hosts only', () => {
+    const versions = process.versions as { electron?: string }
+    const had = versions.electron
+    try {
+      versions.electron = '31.3.0'
+      expect(engineNodeEnv()).toEqual({ ELECTRON_RUN_AS_NODE: '1' })
+      delete versions.electron
+      expect(engineNodeEnv()).toBeUndefined()
+    } finally {
+      if (had !== undefined) versions.electron = had
+    }
   })
 })
 
@@ -273,37 +321,26 @@ describe('graphProbe', () => {
   })
 })
 
-describe('bundledEngineName', () => {
-  it('maps each supported platform/arch to its bundled binary', () => {
-    expect(bundledEngineName('darwin', 'arm64')).toBe('engine-macos-arm64')
-    expect(bundledEngineName('linux', 'x64')).toBe('engine-linux-x86_64')
-    expect(bundledEngineName('linux', 'arm64')).toBe('engine-linux-arm64')
-    expect(bundledEngineName('win32', 'x64')).toBe('engine-windows-x86_64.exe')
-    expect(bundledEngineName('win32', 'arm64')).toBe('engine-windows-arm64.exe')
+describe('enginePayload', () => {
+  it('maps each platform/arch to the npm payload the package publishes', () => {
+    expect(enginePayload('darwin', 'arm64')).toEqual({ pkg: 'neuralos-darwin-arm64', lib: 'libneedle3.dylib' })
+    expect(enginePayload('darwin', 'x64')).toEqual({ pkg: 'neuralos-darwin-x64', lib: 'libneedle3.dylib' })
+    expect(enginePayload('linux', 'x64')).toEqual({ pkg: 'neuralos-linux-x64-gnu', lib: 'libneedle3.so' })
+    expect(enginePayload('linux', 'arm64')).toEqual({ pkg: 'neuralos-linux-arm64-gnu', lib: 'libneedle3.so' })
+    expect(enginePayload('win32', 'x64')).toEqual({ pkg: 'neuralos-engine-windows-x64', lib: 'libneedle3.dll' })
   })
 
-  it('returns null for unsupported pairs (macos-x64 has no published engine)', () => {
-    expect(bundledEngineName('darwin', 'x64')).toBeNull()
+  it('returns null for pairs npm publishes no payload for (win32-arm64, exotic platforms)', () => {
+    expect(enginePayload('win32', 'arm64')).toBeNull()
+    expect(enginePayload('freebsd', 'x64')).toBeNull()
+    expect(enginePayload('darwin', 'x86')).toBeNull()
   })
 })
 
-describe('bundledEngineCandidates', () => {
-  it('offers the per-arch engine first, then the flat layout', () => {
-    expect(bundledEngineCandidates('/res', 'darwin', 'arm64')).toEqual([
-      { bin: '/res/neuralos/engine-macos-arm64', weights: '/res/neuralos/needle3.cact' },
-      { bin: '/res/neuralos/needle', weights: '/res/neuralos/needle3.cact' }
-    ])
-    expect(bundledEngineCandidates('/res', 'win32', 'x64')).toEqual([
-      { bin: '/res/neuralos/engine-windows-x86_64.exe', weights: '/res/neuralos/needle3.cact' },
-      { bin: '/res/neuralos/needle.exe', weights: '/res/neuralos/needle3.cact' }
-    ])
-  })
-
-  it('returns no candidates without a resources dir; darwin-x64 keeps only the flat fallback', () => {
-    expect(bundledEngineCandidates(undefined, 'darwin', 'arm64')).toEqual([])
-    expect(bundledEngineCandidates('/res', 'darwin', 'x64')).toEqual([
-      { bin: '/res/neuralos/needle', weights: '/res/neuralos/needle3.cact' }
-    ])
+describe('bundledEngineRoots', () => {
+  it('offers the packaged tree first, then the dev tree', () => {
+    expect(bundledEngineRoots('/res')).toEqual(['/res/neuralos/engine', resolve('resources/neuralos/engine')])
+    expect(bundledEngineRoots(undefined)).toEqual([resolve('resources/neuralos/engine')])
   })
 })
 
@@ -318,6 +355,12 @@ describe('defaultDeps env precedence', () => {
     const deps = defaultDeps({ NEURALOS_INSTANCES_DIR: '/custom/instances' })
     expect(deps.instancesRoot).toBe('/custom/instances')
     expect(deps.pythonBin).toBe(process.env.NEURALOS_PYTHON || 'python3')
+  })
+
+  it('NEURALOS_ENGINE_DIR carries the engine-tree override', () => {
+    expect(defaultDeps({ NEURALOS_ENGINE_DIR: '/opt/neuralos' }).engineDir).toBe('/opt/neuralos')
+    expect(defaultDeps({}).engineDir).toBeUndefined()
+    expect(defaultDeps({ NEURALOS_ENGINE_DIR: '  ' }).engineDir).toBeUndefined() // blank means unset
   })
 })
 
@@ -524,6 +567,14 @@ describe('defaultPythonBin', () => {
 })
 
 describe('resolveEngine', () => {
+  // The full npm-tree layout a root must carry for THIS machine's platform.
+  const payload = enginePayload(process.platform, process.arch)
+  const treeFor = (root: string): Record<string, string> => ({
+    [`${root}/node_modules/neuralos/cli.js`]: '',
+    [`${root}/node_modules/${payload?.pkg}/bin/${payload?.lib}`]: '',
+    [`${root}/node_modules/koffi/package.json`]: ''
+  })
+
   it('falls through to an honest error when nothing exists', async () => {
     accessMock.mockRejectedValue(new Error('ENOENT'))
     const deps = makeDeps({})
@@ -531,32 +582,35 @@ describe('resolveEngine', () => {
     expect('error' in result && result.error).toContain('neuralOS engine not found')
   })
 
-  it('chmods the resolved engine to 0755 (a bundled engine can ship without the exec bit)', async () => {
-    primeFs({
-      files: {
-        '/instances/engine/needle': '',
-        '/instances/engine/needle3.cact': ''
-      }
-    })
-    chmodMock.mockReset()
+  it('NEURALOS_ENGINE_DIR wins over every bundled root', async () => {
+    primeFs({ files: treeFor('/custom/engine') })
     const deps = makeDeps({})
-    const result = await resolveEngine(deps)
-    expect('engineBin' in result && result.engineBin).toBe('/instances/engine/needle')
-    expect(chmodMock).toHaveBeenCalledWith('/instances/engine/needle', 0o755)
+    const result = await resolveEngine({ ...deps, engineDir: '/custom/engine' })
+    expect('cli' in result && result.cli).toBe('/custom/engine/node_modules/neuralos/cli.js')
+    expect('nodeBin' in result && result.nodeBin).toBe(process.execPath)
   })
 
-  it('still resolves when the chmod fails (read-only install)', async () => {
-    primeFs({
-      files: {
-        '/instances/engine/needle': '',
-        '/instances/engine/needle3.cact': ''
-      }
-    })
-    chmodMock.mockReset()
-    chmodMock.mockRejectedValue(new Error('EACCES'))
+  it('resolves the instances engine dir when it holds an npm tree of the engine', async () => {
+    primeFs({ files: treeFor('/instances/engine'), accessReject: [resolve('resources/neuralos/engine')] })
     const deps = makeDeps({})
     const result = await resolveEngine(deps)
-    expect('engineBin' in result && result.engineBin).toBe('/instances/engine/needle')
+    expect('cli' in result && result.cli).toBe('/instances/engine/node_modules/neuralos/cli.js')
+  })
+
+  it('requires the platform payload — a root without it is skipped, not failed', async () => {
+    // cli.js + koffi present, but the payload package for THIS platform is
+    // missing (artifacts built for platforms npm does not cover): the root
+    // is unusable and the caller gets the honest not-found error.
+    primeFs({
+      files: {
+        '/instances/engine/node_modules/neuralos/cli.js': '',
+        '/instances/engine/node_modules/koffi/package.json': ''
+      },
+      accessReject: [resolve('resources/neuralos/engine'), `/instances/engine/node_modules/${payload?.pkg}`]
+    })
+    const deps = makeDeps({})
+    const result = await resolveEngine(deps)
+    expect('error' in result && result.error).toContain('neuralOS engine not found')
   })
 })
 
@@ -641,6 +695,16 @@ describe('readDocs', () => {
 })
 
 describe('NeuralosServer', () => {
+  // The vendored npm-tree layout resolveEngine expects under <instancesRoot>/engine.
+  const enginePayloadForHost = enginePayload(process.platform, process.arch)
+  const ENGINE_TREE_FILES: Record<string, string> = enginePayloadForHost
+    ? {
+        '/instances/engine/node_modules/neuralos/cli.js': '',
+        [`/instances/engine/node_modules/${enginePayloadForHost.pkg}/bin/${enginePayloadForHost.lib}`]: '',
+        '/instances/engine/node_modules/koffi/package.json': ''
+      }
+    : {}
+
   async function connectNeuralosClient(deps?: ConstructorParameters<typeof NeuralosServer>[0]) {
     const server = new NeuralosServer(deps)
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
@@ -666,19 +730,20 @@ describe('NeuralosServer', () => {
   it('routes neuralos_ask through ask.py retrieval, engine selection and probe execution', async () => {
     primeFs({
       dirs: { '/instances': ['cyber'] },
-      files: {
-        '/instances/cyber/needle_menu.json': MENU,
-        '/instances/engine/needle': '',
-        '/instances/engine/needle3.cact': ''
-      }
+      files: { '/instances/cyber/needle_menu.json': MENU, ...ENGINE_TREE_FILES }
     })
     let engineToolsPath = ''
     const deps = depsWithExec(async (cmd, args) => {
       if (cmd === 'python3') return { stdout: '{"count": 42}', stderr: '', code: 0 }
-      if (args.join(' ').includes('--prompt')) {
+      if (args[1] === 'run') {
         engineToolsPath = args[args.indexOf('--tools') + 1]
         return {
-          stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.9 }),
+          stdout: JSON.stringify({
+            type: 'call',
+            function_calls: [{ name: 'transactions_count', arguments: {} }],
+            confidence: 0.9,
+            results: []
+          }),
           stderr: '',
           code: 0
         }
@@ -713,11 +778,7 @@ describe('NeuralosServer', () => {
   it('answers a question that matches no probe as data, without calling the engine', async () => {
     primeFs({
       dirs: { '/instances': ['cyber'] },
-      files: {
-        '/instances/cyber/needle_menu.json': MENU,
-        '/instances/engine/needle': '',
-        '/instances/engine/needle3.cact': ''
-      },
+      files: { '/instances/cyber/needle_menu.json': MENU, ...ENGINE_TREE_FILES },
       accessReject: ['/instances/cyber/ask.py']
     })
     const deps = makeDeps({})
@@ -764,11 +825,7 @@ describe('NeuralosServer', () => {
   it('builds an instance through the factory and serves it to neuralos_ask', async () => {
     primeFs({
       dirs: { '/instances': [] },
-      files: {
-        '/instances/newinst/needle_menu.json': MENU,
-        '/instances/engine/needle': '',
-        '/instances/engine/needle3.cact': ''
-      }
+      files: { '/instances/newinst/needle_menu.json': MENU, ...ENGINE_TREE_FILES }
     })
     // access must fail for the not-yet-existing target DIRECTORY (so
     // overwrite is not required) but pass for the menu/engine files.
@@ -778,9 +835,14 @@ describe('NeuralosServer', () => {
     const deps = depsWithExec(async (cmd, args) => {
       if (cmd === 'python3' && args[0] === '-c') return { stdout: '{"count": 7}', stderr: '', code: 0 }
       if (args.some((a) => String(a).endsWith('.py'))) return { stdout: '{}', stderr: '', code: 0 }
-      if (args.join(' ').includes('--prompt')) {
+      if (args[1] === 'run') {
         return {
-          stdout: JSON.stringify({ function_calls: [{ name: 'transactions_count', arguments: {} }], confidence: 0.8 }),
+          stdout: JSON.stringify({
+            type: 'call',
+            function_calls: [{ name: 'transactions_count', arguments: {} }],
+            confidence: 0.8,
+            results: []
+          }),
           stderr: '',
           code: 0
         }

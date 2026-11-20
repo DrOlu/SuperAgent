@@ -20,8 +20,8 @@ export interface ExecResult {
 export interface NeuralosDeps {
   execFile: (cmd: string, args: string[], env?: Record<string, string>) => Promise<ExecResult>
   instancesRoot: string
-  engineBin?: string
-  engineWeights?: string
+  /** Directory holding a vendored/installed `neuralos` npm tree: <dir>/node_modules/neuralos. */
+  engineDir?: string
   pythonBin: string
   docsDir?: string
   scriptsDir?: string
@@ -59,8 +59,7 @@ export function defaultDeps(envs?: Record<string, string>): NeuralosDeps {
         )
       }),
     instancesRoot: envValue(envs, 'NEURALOS_INSTANCES_DIR') ?? path.join(homedir(), 'neuralos-instances'),
-    engineBin: envValue(envs, 'NEURALOS_ENGINE_BIN'),
-    engineWeights: envValue(envs, 'NEURALOS_ENGINE_WEIGHTS'),
+    engineDir: envValue(envs, 'NEURALOS_ENGINE_DIR'),
     pythonBin: envValue(envs, 'NEURALOS_PYTHON', defaultPythonBin(process.platform)) as string,
     docsDir: envValue(envs, 'NEURALOS_DOCS_DIR'),
     scriptsDir: envValue(envs, 'NEURALOS_SCRIPTS_DIR')
@@ -134,78 +133,104 @@ export async function readMenu(instanceDir: string): Promise<Menu | { error: str
   return { error: 'needle_menu.json is neither a probe array nor an object' }
 }
 
-export interface ResolvedEngine {
-  engineBin: string
-  engineWeights: string
+export interface EnginePayload {
+  /** npm package carrying libneedle3 + the needle3.cact weights for a platform. */
+  pkg: string
+  /** Shared-library file name inside <pkg>/bin/, dlopen'd through koffi. */
+  lib: string
 }
 
 /**
- * Name of the bundled engine binary for a platform/arch pair, matching the
- * build-time download in the release workflows (`resources/neuralos/` ->
- * `<resourcesPath>/neuralos/` via electron-builder extraResources).
- * macos-x64 has no published engine — Intel-mac installs fall through to the
- * instances-dir/env candidates.
+ * The npm engine payload for a platform/arch pair, mirroring the `neuralos`
+ * package's own loader (engine.js PLATFORM_PACKAGES). Pairs npm publishes no
+ * payload for (win32-arm64, musl Linux, exotic platforms) return null —
+ * installs fall through to the instances-dir/env candidates, and
+ * resolveEngine() says so honestly.
  */
-export function bundledEngineName(platform: NodeJS.Platform, arch: string): string | null {
-  const os = platform === 'darwin' ? 'macos' : platform === 'win32' ? 'windows' : 'linux'
-  if (os === 'macos') return arch === 'arm64' ? 'engine-macos-arm64' : null
-  if (os === 'linux') return arch === 'arm64' ? 'engine-linux-arm64' : arch === 'x64' ? 'engine-linux-x86_64' : null
-  return arch === 'arm64' ? 'engine-windows-arm64.exe' : arch === 'x64' ? 'engine-windows-x86_64.exe' : null
+export function enginePayload(platform: NodeJS.Platform, arch: string): EnginePayload | null {
+  if (platform === 'darwin') {
+    if (arch === 'arm64') return { pkg: 'neuralos-darwin-arm64', lib: 'libneedle3.dylib' }
+    if (arch === 'x64') return { pkg: 'neuralos-darwin-x64', lib: 'libneedle3.dylib' }
+    return null
+  }
+  if (platform === 'linux') {
+    if (arch === 'x64') return { pkg: 'neuralos-linux-x64-gnu', lib: 'libneedle3.so' }
+    if (arch === 'arm64') return { pkg: 'neuralos-linux-arm64-gnu', lib: 'libneedle3.so' }
+    return null
+  }
+  if (platform === 'win32') {
+    // npm blocks look-alike win32 package names (403 spam detection), so the
+    // Windows payload ships under this name instead; x64 only.
+    return arch === 'x64' ? { pkg: 'neuralos-engine-windows-x64', lib: 'libneedle3.dll' } : null
+  }
+  return null
 }
 
-export interface EngineCandidate {
-  bin: string
-  weights: string
+export interface ResolvedEngine {
+  /** Node interpreter for the vendored CLI: the Electron binary itself. */
+  nodeBin: string
+  /** The vendored `neuralos` CLI entry: <engineRoot>/node_modules/neuralos/cli.js. */
+  cli: string
+  /** Extra env the spawn needs (ELECTRON_RUN_AS_NODE under Electron). */
+  env?: Record<string, string>
 }
 
-/** Bundled-app candidates for a resources dir, per-arch first, flat layout second. */
-export function bundledEngineCandidates(
-  resources: string | undefined,
-  platform: NodeJS.Platform,
-  arch: string
-): EngineCandidate[] {
-  if (!resources) return []
-  const out: EngineCandidate[] = []
-  const bundled = bundledEngineName(platform, arch)
-  if (bundled)
-    out.push({
-      bin: path.join(resources, 'neuralos', bundled),
-      weights: path.join(resources, 'neuralos', 'needle3.cact')
-    })
-  const flat = platform === 'win32' ? 'needle.exe' : 'needle'
-  out.push({ bin: path.join(resources, 'neuralos', flat), weights: path.join(resources, 'neuralos', 'needle3.cact') })
+/** The interpreter that runs the vendored CLI — Electron-as-node in the app. */
+export function engineNodeBin(): string {
+  return process.execPath
+}
+
+/** Under Electron the CLI must run as plain Node, not as the app. */
+export function engineNodeEnv(): Record<string, string> | undefined {
+  return process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : undefined
+}
+
+/** Engine-tree roots bundled with the app, packaged tree first, dev tree second. */
+export function bundledEngineRoots(resources: string | undefined): string[] {
+  const out: string[] = []
+  if (resources) out.push(path.join(resources, 'neuralos', 'engine'))
+  out.push(path.resolve('resources', 'neuralos', 'engine')) // dev tree
   return out
 }
 
-export async function resolveEngine(deps: NeuralosDeps): Promise<ResolvedEngine | { error: string }> {
-  const candidates: { dir: string; bin: string; weights: string }[] = []
-  if (deps.engineBin && deps.engineWeights) {
-    candidates.push({ dir: '', bin: deps.engineBin, weights: deps.engineWeights })
-  }
-  const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
-  for (const c of bundledEngineCandidates(resources, process.platform, process.arch)) {
-    candidates.push({ dir: '', ...c })
-  }
-  candidates.push({
-    dir: deps.instancesRoot,
-    bin: path.join(deps.instancesRoot, 'engine', 'needle'),
-    weights: path.join(deps.instancesRoot, 'engine', 'needle3.cact')
-  })
-  for (const c of candidates) {
+/** A root is usable when the CLI, koffi and THIS platform's payload all exist. */
+async function engineRootCandidate(root: string, payload: EnginePayload): Promise<ResolvedEngine | null> {
+  const files = [
+    path.join(root, 'node_modules', 'neuralos', 'cli.js'),
+    path.join(root, 'node_modules', payload.pkg, 'bin', payload.lib),
+    path.join(root, 'node_modules', 'koffi', 'package.json')
+  ]
+  for (const file of files) {
     try {
-      await fs.access(c.bin)
-      await fs.access(c.weights)
+      await fs.access(file)
     } catch {
-      continue
+      return null
     }
-    // A bundled engine can ship without the execute bit (v2.0.58 did); heal
-    // it here instead of failing every ask with EACCES.
-    if (process.platform !== 'win32') await fs.chmod(c.bin, 0o755).catch(() => {})
-    return { engineBin: c.bin, engineWeights: c.weights }
+  }
+  return { nodeBin: engineNodeBin(), cli: files[0], env: engineNodeEnv() }
+}
+
+export async function resolveEngine(deps: NeuralosDeps): Promise<ResolvedEngine | { error: string }> {
+  const payload = enginePayload(process.platform, process.arch)
+  if (!payload) {
+    return {
+      error: `neuralOS engine: no engine payload is published for ${process.platform}/${process.arch} — install the neuralos npm package somewhere and point NEURALOS_ENGINE_DIR at its parent directory`
+    }
+  }
+  const roots: string[] = []
+  if (deps.engineDir) roots.push(deps.engineDir)
+  const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  roots.push(...bundledEngineRoots(resources))
+  // The instances engine dir keeps its convention: a plain npm tree
+  // (cd <instancesRoot>/engine && npm i neuralos) — no standalone binary.
+  roots.push(path.join(deps.instancesRoot, 'engine'))
+  for (const root of roots) {
+    const resolved = await engineRootCandidate(root, payload)
+    if (resolved) return resolved
   }
   return {
     error:
-      'neuralOS engine not found — place the engine binary and needle3.cact in <instancesRoot>/engine/ (or set NEURALOS_ENGINE_BIN / NEURALOS_ENGINE_WEIGHTS)'
+      'neuralOS engine not found — vendor the neuralos npm package into <instancesRoot>/engine/node_modules (cd <instancesRoot>/engine && npm i neuralos) or set NEURALOS_ENGINE_DIR to a directory holding node_modules/neuralos'
   }
 }
 
@@ -223,24 +248,25 @@ export async function engineSelect(
 ): Promise<EngineSelection | { error: string }> {
   let out: ExecResult
   try {
-    out = await deps.execFile(engine.engineBin, [
-      '--model',
-      engine.engineWeights,
-      '--tools',
-      menuPath,
-      '--prompt',
-      question
-    ])
+    // `--max-steps 0` keeps run() selection-only: no tool execution (the
+    // probes are executed here, through the instance bridge), no follow-up
+    // model turn — the envelope is the first completion exactly.
+    out = await deps.execFile(
+      engine.nodeBin,
+      [engine.cli, 'run', '--tools', menuPath, '--query', question, '--max-steps', '0'],
+      engine.env
+    )
   } catch (err) {
     return { error: `engine execution failed: ${String(err)}` }
   }
   if (out.code !== 0 && !out.stdout.trim()) {
-    if (String(out.code) === 'EACCES')
-      return { error: `engine binary is not executable — chmod +x ${engine.engineBin}` }
     return { error: `engine exited ${out.code}: ${out.stderr.slice(0, 200)}` }
   }
   const parsed = parseJsonObject(out.stdout)
   if (!parsed) return { error: `engine output not JSON: ${out.stdout.slice(0, 120)}` }
+  // The npm package's envelope is richer than the legacy CLI's bare
+  // {function_calls} — type:'call' with function_calls when a probe is
+  // selected, type:'respond' (a text reply, results: []) when it declines.
   const calls = (parsed as { function_calls?: { name?: string; arguments?: Record<string, unknown> }[] }).function_calls
   if (!Array.isArray(calls) || calls.length === 0 || !calls[0]?.name) {
     return { error: 'engine refused the question (no call selected)' }
@@ -451,9 +477,9 @@ export const RETRIEVAL_K = 8
 // The ask.py stop list — the 121M engine must not be queried with filler tokens.
 export const STOP_WORDS = new Set(
   (
-    'the a an of in on for to and or is are was were what which who how many show me give list all with their from by at '
-    + 'it its do does did i we you this that those these there have has had more than one not use between during along '
-    + 'per into over under about'
+    'the a an of in on for to and or is are was were what which who how many show me give list all with their from by at ' +
+    'it its do does did i we you this that those these there have has had more than one not use between during along ' +
+    'per into over under about'
   ).split(' ')
 )
 
@@ -469,13 +495,13 @@ export interface NeuralosMenuProbe {
  * probe's triggers/name/description and keep only the top-K most relevant,
  * so the 121M engine sees eight probes instead of the whole menu.
  */
-export function scoreProbes(
-  menu: NeuralosMenuProbe[],
-  question: string,
-  k = RETRIEVAL_K
-): NeuralosMenuProbe[] {
+export function scoreProbes(menu: NeuralosMenuProbe[], question: string, k = RETRIEVAL_K): NeuralosMenuProbe[] {
   const tokens = (text: unknown): string[] =>
-    (String(text).toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter((token) => !STOP_WORDS.has(token))
+    (
+      String(text)
+        .toLowerCase()
+        .match(/[a-z0-9_]+/g) ?? []
+    ).filter((token) => !STOP_WORDS.has(token))
   const questionTokens = new Set(tokens(question))
   return menu
     .map((probe) => {
@@ -537,50 +563,78 @@ export const MIN_QUESTION_COVERAGE = 0.5
 // (how, many, show, list, count…) are PRESERVED so phrase specificity survives.
 const GATE_STOP = new Set(
   (
-    'the a an of in on for to and or is are was were what which who '
-    + 'me give all with their from by at it its do does did '
-    + 'i we you this that those these there have has had more than one not '
-    + 'use between during along per into over under about'
+    'the a an of in on for to and or is are was were what which who ' +
+    'me give all with their from by at it its do does did ' +
+    'i we you this that those these there have has had more than one not ' +
+    'use between during along per into over under about'
   ).split(' ')
 )
 
 // Intent with no subject: coverage is measured over what remains after these.
 export const GENERIC_INTENT = new Set(
   (
-    'how many much show list give tell me find get what which who where when '
-    + 'top best most least first last sample example preview all any '
-    + 'are is there exist exists please number status break down '
-    + 'some few several couple'
+    'how many much show list give tell me find get what which who where when ' +
+    'top best most least first last sample example preview all any ' +
+    'are is there exist exists please number status break down ' +
+    'some few several couple'
   ).split(' ')
 )
 
 // Imperative ACTION verbs. Checked on the FIRST word only, and the verb must
 // also be unknown to every probe (a probe named play_logs still answers).
 export const ACTION_VERBS = new Set([
-  'play', 'erase', 'delete', 'remove', 'drop', 'wipe', 'purge', 'send',
-  'execute', 'restart', 'shutdown', 'kill', 'exploit', 'deploy', 'cancel'
+  'play',
+  'erase',
+  'delete',
+  'remove',
+  'drop',
+  'wipe',
+  'purge',
+  'send',
+  'execute',
+  'restart',
+  'shutdown',
+  'kill',
+  'exploit',
+  'deploy',
+  'cancel'
 ])
 
 // Status/time qualifiers: if the question carries one the winner's vocabulary
 // lacks, the answer would silently ignore it — a wrong answer that looks right.
 export const QUALIFIERS = [
-  'blocked', 'overdue', 'rejected', 'closed', 'resolved', 'pending',
-  'escalated', 'cancelled', 'archived', 'on hold', 'last week', 'last month',
-  'last year', 'this week', 'this month', 'yesterday', 'today', 'unassigned'
+  'blocked',
+  'overdue',
+  'rejected',
+  'closed',
+  'resolved',
+  'pending',
+  'escalated',
+  'cancelled',
+  'archived',
+  'on hold',
+  'last week',
+  'last month',
+  'last year',
+  'this week',
+  'this month',
+  'yesterday',
+  'today',
+  'unassigned'
 ]
 
 function stripPlural(tokens: Set<string>): Set<string> {
-  return new Set(
-    [...tokens].map((t) => (t.length > 3 && t.endsWith('s') ? t.slice(0, -1) : t))
-  )
+  return new Set([...tokens].map((t) => (t.length > 3 && t.endsWith('s') ? t.slice(0, -1) : t)))
 }
 
 function gateTokens(text: unknown): Set<string> {
   return stripPlural(
     new Set(
-      (String(text).toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter(
-        (token) => !GATE_STOP.has(token)
-      )
+      (
+        String(text)
+          .toLowerCase()
+          .match(/[a-z0-9_]+/g) ?? []
+      ).filter((token) => !GATE_STOP.has(token))
     )
   )
 }
@@ -593,7 +647,8 @@ function gateProbeVocab(probe: NeuralosMenuProbe, includeEnums = true): Set<stri
   if (!includeEnums) return vocab
   const properties =
     ((probe.parameters as { properties?: Record<string, { enum?: unknown[] }> } | undefined)?.properties ??
-      undefined) || {}
+      undefined) ||
+    {}
   for (const spec of Object.values(properties)) {
     for (const value of spec?.enum ?? []) vocab = vocab.union(gateTokens(value))
   }
@@ -655,9 +710,7 @@ export function askGate(
   // named "do-not-delete-…" must not teach the menu the verb delete (router.py
   // reuses its enum-polluted vocab here; that false negative is deliberate to
   // fix, not port).
-  const capabilityVocab = stripPlural(
-    menu.reduce((acc, p) => acc.union(gateProbeVocab(p, false)), new Set<string>())
-  )
+  const capabilityVocab = stripPlural(menu.reduce((acc, p) => acc.union(gateProbeVocab(p, false)), new Set<string>()))
 
   // Imperative intent is checked first, against the whole menu, even when
   // retrieval found nothing — "delete all orders" must not degrade into a
@@ -793,18 +846,11 @@ export async function auditAskRefusal(instanceDir: string, info: AskRefusalAudit
   }
 }
 
-
-
 // ---------------------------------------------------------------------------
 // The factory: PROFILE → GRAPH → MODEL → GENERATE → (VERIFY)
 // ---------------------------------------------------------------------------
 
-const FACTORY_SCRIPTS = [
-  'profile_data.py',
-  'discover_relationships.py',
-  'gen_pydantic.py',
-  'gen_needle_instance.py'
-]
+const FACTORY_SCRIPTS = ['profile_data.py', 'discover_relationships.py', 'gen_pydantic.py', 'gen_needle_instance.py']
 
 function scriptsCandidates(deps: NeuralosDeps): string[] {
   const out: string[] = []
@@ -866,7 +912,9 @@ export async function factoryBuild(deps: NeuralosDeps, input: FactoryInput): Pro
     const ok = out.code === 0
     steps.push({ step, ok })
     if (!ok) {
-      return { error: `${step} step failed (exit ${out.code}): ${(out.stderr || out.stdout || 'no output').slice(0, 300)}` }
+      return {
+        error: `${step} step failed (exit ${out.code}): ${(out.stderr || out.stdout || 'no output').slice(0, 300)}`
+      }
     }
     return null
   }

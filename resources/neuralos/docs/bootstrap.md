@@ -51,11 +51,13 @@ weights.
    fully offline. Only the Python package's first-use auto-download
    (`~/.cache/cactus-needle/…`) touches the network — avoid it by using the
    bundled engine (or pre-seed the cache from another box).
-- **macOS x64**: no engine binary is published for Intel Macs — the app falls
-   back to the instances-dir engine (`<instancesRoot>/engine/needle` +
-   `needle3.cact`) or an explicit `NEURALOS_ENGINE_BIN`/`NEURALOS_ENGINE_WEIGHTS`
-   override. The Python package's wheel covers Intel macOS, so the in-process
-   runtime (`pip install cactus-needle`) works there too.
+- **macOS x64**: covered — the app vendors the `neuralos-darwin-x64` npm
+  payload, so Intel Macs get the bundled engine like everyone else. On
+  platforms npm publishes no payload for (win32-arm64, musl Linux), the app
+  falls back to an engine tree under `<instancesRoot>/engine/` (`cd
+  <dir> && npm i neuralos`) or an explicit `NEURALOS_ENGINE_DIR` override
+  pointing at such a tree. The Python package's wheel covers Intel macOS, so
+  the in-process runtime (`pip install cactus-needle`) works there too.
 
 ## Multi-Python gotcha
 

@@ -107,3 +107,8 @@ YOUR_MEMORY_FILE_PATH
 .omo/
 
 /native/external-app/build/
+
+# neuralOS engine payload: vendored from the neuralos npm package at build
+# time by scripts/vendor-neuralos-engine.mjs (release workflows run it before
+# electron-builder); never committed.
+resources/neuralos/engine/

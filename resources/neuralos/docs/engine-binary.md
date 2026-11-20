@@ -1,5 +1,10 @@
 # The standalone engine binary (no Python at runtime)
 
+> **SuperAgent note (2.2.50+):** the app no longer bundles this standalone
+> binary — it vendors the `neuralos` npm package (libneedle3 + koffi +
+> weights) instead; see `runtime.md`. This document remains the reference
+> for the standalone engine distribution on servers and edge boxes.
+
 The same `needle3.cact` weights run through a raw-C engine as a single
 executable — no JAX, no Python, no interpreter. This is the surface for
 servers, Windows boxes, edge devices, and embedding tool-calling in a larger

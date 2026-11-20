@@ -849,6 +849,8 @@
 /* Shiki  */
 .shiki {
   font-family: var(--code-font-family);
+  /* Fenced blocks use Shiki token spans, not <code>; font-feature-settings would replace inherited Custom CSS features. */
+  font-variant-ligatures: none;
   /*  shiki  */
   line-height: initial;
 }

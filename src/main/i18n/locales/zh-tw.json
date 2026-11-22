@@ -196,6 +196,7 @@
   "file_processing.errors.open_mineru_unreachable": " Open MinerU",
   "file_processing.errors.pdf_page_limit_exceeded": " PDF  {{maxPages}}  PDF",
   "knowledge.source.invalid_url": " http://  https://  URL",
+  "mcp.skills.dynamic": " MCP ",
   "notification.action_required.agent": "",
   "notification.action_required.assistant": "",
   "notification.center.backup_failed": "",

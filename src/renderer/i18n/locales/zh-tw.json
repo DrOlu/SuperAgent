@@ -3978,6 +3978,7 @@
   "settings.about.diagnostics.report.failure_reasons.submission_rejected": "",
   "settings.about.diagnostics.report.feedback_id": " ID",
   "settings.about.diagnostics.report.history_save_failed": " ID ",
+  "settings.about.diagnostics.report.include_chat_history": " 24 ",
   "settings.about.diagnostics.report.open_failed": "",
   "settings.about.diagnostics.report.open_location": "",
   "settings.about.diagnostics.report.open_manual_form": "",

@@ -251,6 +251,7 @@
   "paintings.comfyui.workflow_failed": "ComfyUI ",
   "paintings.comfyui.workflow_rejected": "ComfyUI HTTP {{status}}",
   "paintings.generate_failed": "",
+  "paintings.image_download_failed": "",
   "paintings.image_mix_failed": "",
   "selection.name": "",
   "settings.mcp.oauth.callback.listen_error": " 127.0.0.1:{{port}}  OAuth {{reason}}",

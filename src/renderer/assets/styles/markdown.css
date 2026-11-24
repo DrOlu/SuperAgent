@@ -846,6 +846,12 @@
   overflow: visible;
 }
 
+.markdown .katex-display > .katex > .katex-html > .tag {
+  display: inline-block;
+  position: static;
+  margin-inline-start: 1em;
+}
+
 /* Shiki  */
 .shiki {
   font-family: var(--code-font-family);

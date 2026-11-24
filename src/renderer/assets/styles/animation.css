@@ -259,6 +259,27 @@
   will-change: background-position;
 }
 
+/*  */
+@keyframes animation-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.animation-breathe {
+  animation: animation-breathe 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animation-breathe {
+    animation: none;
+  }
+}
+
 /* Reveal  */
 @keyframes animation-reveal {
   from {

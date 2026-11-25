@@ -1,4 +1,15 @@
-import { type ComponentProps, lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type ComponentProps,
+  lazy,
+  type ReactNode,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 
 import { HtmlArtifactPopupHost } from '@renderer/components/chat/HtmlArtifactPopupContext'
 import { useChatLayoutMode } from '@renderer/components/chat/layout/ChatLayoutModeContext'
@@ -18,9 +29,9 @@ import { PartsProvider, usePartsMap } from './blocks/MessagePartsContext'
 import { MessageListInitialLoading } from './layout/MessageListLoading'
 import { MessagesContainer } from './layout/shared'
 import MessageAnchorLine from './list/MessageAnchorLine'
-import { MessageCaptureLeaseProvider, useMessageCaptureLeases } from './list/MessageCaptureLeaseContext'
 import MessageGroup from './list/MessageGroup'
 import { MessageListSearch } from './list/MessageListSearch'
+import { MessageMountLeaseProvider, useMessageMountLeases } from './list/MessageMountLeaseContext'
 import {
   MESSAGE_VIRTUAL_LIST_DEFAULT_BOTTOM_PADDING_PX,
   MESSAGE_VIRTUAL_LIST_DEFAULT_TOP_PADDING_PX,
@@ -106,6 +117,7 @@ type MessageGroupLayerProps = ComponentProps<typeof MessageGroup> & {
   railGutterPx: number
   sidePaddingPx: number
   messageEndInsetPx: number
+  messageHead?: ReactNode
 }
 
 function MessageGroupLayer({
@@ -115,6 +127,7 @@ function MessageGroupLayer({
   railGutterPx,
   sidePaddingPx,
   messageEndInsetPx,
+  messageHead,
   messages,
   partsByMessageId,
   ...messageGroupProps
@@ -131,6 +144,7 @@ function MessageGroupLayer({
           paddingLeft: sidePaddingPx + railGutterPx,
           paddingRight: sidePaddingPx + messageEndInsetPx + railGutterPx
         }}>
+        {messageHead}
         <MessageGroup key={groupKey} {...messageGroupProps} messages={messages} partsByMessageId={partsByMessageId} />
       </NarrowLayout>
     </PartsProvider>
@@ -170,7 +184,8 @@ const MessageLayer = memo(MessageGroupLayer, (previous, next) => {
     previous.registerMessageElement === next.registerMessageElement &&
     previous.isLatestAssistantGroup === next.isLatestAssistantGroup &&
     previous.directAssistantModelsByUserId === next.directAssistantModelsByUserId &&
-    previous.messageTail === next.messageTail
+    previous.messageTail === next.messageTail &&
+    previous.messageHead === next.messageHead
   )
 })
 
@@ -192,7 +207,16 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
   // message column; this component both writes it (via the resize observer
   // below) and renders from it.
   const { setForceWideLayout, railGutterPx, setRailGutterPx, sidePaddingPx, messageEndInsetPx } = useChatLayoutMode()
-  const { topic, messages, beforeList, afterMessages, messageTail, hasOlder = false, messageNavigation } = data
+  const {
+    topic,
+    messages,
+    beforeList,
+    afterMessages,
+    messageHead,
+    messageTail,
+    hasOlder = false,
+    messageNavigation
+  } = data
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const { setTimeoutTimer } = useTimer()
   const isMultiSelectMode = selection?.isMultiSelectMode ?? false
@@ -209,7 +233,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const topicImageCaptureRef = useRef<HTMLDivElement | null>(null)
   const messageElements = useRef<Map<string, HTMLElement>>(new Map())
-  const { leasedMessageIds, acquireMessageCaptureLease } = useMessageCaptureLeases()
+  const { leasedMessageIds, acquireMessageMountLease } = useMessageMountLeases()
   const isLoadingMoreRef = useRef(false)
   const [groupLayoutOverrides, setGroupLayoutOverrides] = useState<Record<string, MultiModelMessageStyle>>({})
   const [topicImageCaptureActions, setTopicImageCaptureActions] = useState<PendingTopicImageRuntimeAction[]>([])
@@ -221,7 +245,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     () => (afterMessages ? [...groupedMessages, AFTER_MESSAGES] : groupedMessages),
     [afterMessages, groupedMessages]
   )
-  const captureLeaseGroupKeys = useMemo(() => {
+  const leasedGroupKeys = useMemo(() => {
     if (leasedMessageIds.length === 0) return []
 
     const leasedIds = new Set(leasedMessageIds)
@@ -315,12 +339,12 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
 
   const getMessageElement = useCallback((id: string) => messageElements.current.get(id) ?? null, [])
 
-  const messageCaptureLeaseContextValue = useMemo(
+  const messageMountLeaseContextValue = useMemo(
     () => ({
-      acquireMessageCaptureLease,
+      acquireMessageMountLease,
       getRenderedMessageElement: getMessageElement
     }),
-    [acquireMessageCaptureLease, getMessageElement]
+    [acquireMessageMountLease, getMessageElement]
   )
 
   const scrollToBottom = useCallback(() => {
@@ -726,9 +750,9 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
   const keepMountedKeys = useMemo(() => {
     const keys = new Set<string>()
     if (shouldKeepLatestAssistantGroupMounted && latestAssistantGroupKey) keys.add(latestAssistantGroupKey)
-    for (const key of captureLeaseGroupKeys) keys.add(key)
+    for (const key of leasedGroupKeys) keys.add(key)
     return [...keys]
-  }, [captureLeaseGroupKeys, latestAssistantGroupKey, shouldKeepLatestAssistantGroupMounted])
+  }, [leasedGroupKeys, latestAssistantGroupKey, shouldKeepLatestAssistantGroupMounted])
 
   if (data.isInitialLoading && (messages.length === 0 || data.isMessagesStale)) {
     return <MessageListInitialLoading />
@@ -815,6 +839,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
                 messageTail && groupMessages.some((message) => message.id === messageTail.messageId)
                   ? messageTail
                   : undefined
+              const groupMessageHead = messageHead?.messageId === groupMessages[0]?.id ? messageHead.content : undefined
               const props: MessageGroupLayerProps = {
                 groupKey: key,
                 isLive: index >= firstLiveGroupIndex,
@@ -825,6 +850,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
                 isLatestAssistantGroup: key === latestAssistantGroupKey,
                 directAssistantModelsByUserId,
                 messageTail: groupMessageTail,
+                messageHead: groupMessageHead,
                 messages: groupMessages,
                 partsByMessageId:
                   index < firstLiveGroupIndex && streamingLayers
@@ -940,7 +966,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
 
   return (
     <HtmlArtifactPopupHost>
-      <MessageCaptureLeaseProvider value={messageCaptureLeaseContextValue}>{messageList}</MessageCaptureLeaseProvider>
+      <MessageMountLeaseProvider value={messageMountLeaseContextValue}>{messageList}</MessageMountLeaseProvider>
     </HtmlArtifactPopupHost>
   )
 }

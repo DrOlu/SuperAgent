@@ -7,6 +7,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { loggerService } from '@logger'
 
 import { CUSTOM_SQL_STATEMENTS } from './customSqls'
+import { errorChainText, healMigrationRebase } from './healMigrationRebase'
 import { repairLegacyAgentSessionTrees } from './repairLegacyAgentSessionTrees'
 import type { DbType } from './types'
 
@@ -22,6 +23,10 @@ const logger = loggerService.withContext('applyMigrations')
  */
 export function applyMigrations(db: DbType, migrationsFolder: string): void {
   repairLegacyAgentSessionTrees(db, migrationsFolder)
+  // A shipped migration edited after release (rebase) makes drizzle's
+  // watermark re-run it and die on the first already-created object. Heal
+  // the applied rows before the migrator sees them (issue #11).
+  healMigrationRebase(db, migrationsFolder)
 
   // SQLite cannot alter a table constraint in place, so drizzle-kit compiles any
   // constraint / column-type change into a table recreate (CREATE __new_x →
@@ -35,6 +40,16 @@ export function applyMigrations(db: DbType, migrationsFolder: string): void {
   db.run(sql.raw('PRAGMA foreign_keys = OFF'))
   try {
     migrate(db, { migrationsFolder })
+  } catch (error) {
+    const message = errorChainText(error)
+    if (/already exists|duplicate column name/i.test(message)) {
+      throw new Error(
+        'Migration failed on an object that already exists — a shipped migration was ' +
+          `edited upstream after release (rebase) and the self-heal did not cover it. Original error: ${message}`,
+        { cause: error }
+      )
+    }
+    throw error
   } finally {
     db.run(sql.raw(`PRAGMA foreign_keys = ${enforced ? 'ON' : 'OFF'}`))
   }

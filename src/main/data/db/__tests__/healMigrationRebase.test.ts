@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -10,6 +10,8 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { resolveMigrationsPath } from '@test-helpers/db/internal/migrationsPath'
+import { applyMigrations } from '@data/db/applyMigrations'
 import { healMigrationRebase } from '@data/db/healMigrationRebase'
 import type { DbType } from '@data/db/types'
 
@@ -223,6 +225,41 @@ describe('healMigrationRebase', () => {
       expect(tableExists('broken')).toBe(false)
       expect(journalRows()[0].hash).toBe(before[0].hash) // row untouched
     })
+  })
+
+
+  it('heals a re-dated real production migration against the full shipped chain', () => {
+    // Issue-#11 shape on the REAL chain: apply all 44 migrations as a fresh
+    // install, then simulate the upstream rebase — re-date 0042 and append an
+    // additive delta to its file. Before this fix, the next boot re-ran 0042
+    // from the top and died on the first CREATE TABLE.
+    const staged = join(tempDir, 'real-chain')
+    cpSync(resolveMigrationsPath(), staged, { recursive: true })
+    applyMigrations(db, staged)
+
+    const journalPath = join(staged, 'meta', '_journal.json')
+    const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as {
+      entries: { idx: number; when: number; tag: string }[]
+    }
+    const at = journal.entries.findIndex((entry) => entry.tag.startsWith('0042'))
+    expect(at).toBeGreaterThanOrEqual(0)
+    const tag = journal.entries[at].tag
+    const sqlPath = join(staged, `${tag}.sql`)
+    writeFileSync(
+      sqlPath,
+      `${readFileSync(sqlPath).toString()}\n--> statement-breakpoint\nCREATE TABLE heal_probe (id integer primary key);\n`
+    )
+    journal.entries[at].when += 100_000
+    writeFileSync(journalPath, JSON.stringify(journal))
+
+    healMigrationRebase(db, staged)
+
+    expect(tableExists('heal_probe')).toBe(true)
+    const row = journalRows()[at]
+    const expectedHash = createHash('sha256').update(readFileSync(join(staged, `${tag}.sql`)).toString()).digest('hex')
+    expect(row.hash).toBe(expectedHash)
+    expect(Number(row.created_at)).toBe(journal.entries[at].when)
+    expect(() => migrate(db, { migrationsFolder: staged })).not.toThrow()
   })
 
   it('skips when there are more applied rows than journal entries', () => {

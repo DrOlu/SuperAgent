@@ -1343,6 +1343,53 @@ def apply_neuralos_integration():
             "                      )}",
         )],
     )
+    # 8. DbService migration-rebase self-heal (issue #11). The module + test
+    #    are carried by the workflows' db-heal keep/restore; this wires the
+    #    upstream-owned call site — imports, the heal call before the
+    #    migrator, and a clearer crash for any rebase the heal cannot cover.
+    patch_file(
+        "src/main/data/db/applyMigrations.ts",
+        [
+            (
+                "import { repairLegacyAgentSessionTrees } from './repairLegacyAgentSessionTrees'",
+                "import { errorChainText, healMigrationRebase } from './healMigrationRebase'\n"
+                "import { repairLegacyAgentSessionTrees } from './repairLegacyAgentSessionTrees'",
+            ),
+            (
+                "  repairLegacyAgentSessionTrees(db, migrationsFolder)\n",
+                "  repairLegacyAgentSessionTrees(db, migrationsFolder)\n"
+                "  // A shipped migration edited after release (rebase) makes drizzle's\n"
+                "  // watermark re-run it and die on the first already-created object. Heal\n"
+                "  // the applied rows before the migrator sees them (issue #11).\n"
+                "  healMigrationRebase(db, migrationsFolder)\n",
+            ),
+        ],
+    )
+    _apply_migrations = os.path.join(ROOT, "src/main/data/db/applyMigrations.ts")
+    if os.path.exists(_apply_migrations):
+        with open(_apply_migrations, "r", encoding="utf-8") as f:
+            _t = f.read()
+        _old = "  try {\n    migrate(db, { migrationsFolder })\n  } finally {"
+        _new = (
+            "  try {\n    migrate(db, { migrationsFolder })\n"
+            "  } catch (error) {\n"
+            "    const message = errorChainText(error)\n"
+            "    if (/already exists|duplicate column name/i.test(message)) {\n"
+            "      throw new Error(\n"
+            "        'Migration failed on an object that already exists — a shipped migration was ' +\n"
+            "          `edited upstream after release (rebase) and the self-heal did not cover it. Original error: ${message}`,\n"
+            "        { cause: error }\n"
+            "      )\n"
+            "    }\n"
+            "    throw error\n"
+            "  } finally {"
+        )
+        if _new not in _t and _old in _t:
+            _t = _t.replace(_old, _new, 1)
+            with open(_apply_migrations, "w", encoding="utf-8") as f:
+                f.write(_t)
+            patches.append("applyMigrations.ts rebase-class crash message")
+
     # 7. tsconfig.web.json — upstream includes tests/__mocks__/**/* in the
     #    renderer typecheck project but declares no @main/* alias there, so
     #    main-process mocks (tests/__mocks__/main) fail TS2307 and break
